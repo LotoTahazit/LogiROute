@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogiRoute</title>
+
+  <!-- 🧭 App Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- 🖼️ Favicon -->
+  <link rel="icon" type="image/png" href="icons/Icon-192.png">
+
+  <!-- ✅ Google Maps API для веба -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1FqbSw4TzGRO5FwQYo3_7iDFP2ynTlpQ"></script>
+
+  <!-- 🧩 Flutter Styles -->
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
+      font-family: Arial, sans-serif;
+      direction: rtl; /* по умолчанию иврит */
+    }
+    #flutter_loader {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- 💫 Preloader (до загрузки Flutter) -->
+  <div id="flutter_loader">
+    <img src="icons/Icon-192.png" alt="LogiRoute" width="96" height="96">
+  </div>
+
+  <script>
+    var serviceWorkerVersion = null;
+    var scriptLoaded = false;
+
+    function loadMainDartJs() {
+      if (scriptLoaded) return;
+      scriptLoaded = true;
+
+      const loader = document.getElementById('flutter_loader');
+      if (loader) loader.remove();
+
+      var scriptTag = document.createElement('script');
+      scriptTag.src = 'main.dart.js';
+      scriptTag.type = 'application/javascript';
+      document.body.append(scriptTag);
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        const serviceWorkerUrl = 'flutter_service_worker.js?v=' + serviceWorkerVersion;
+        navigator.serviceWorker.register(serviceWorkerUrl)
+          .then((reg) => {
+            function waitForActivation(sw) {
+              sw.addEventListener('statechange', () => {
+                if (sw.state === 'activated') {
+                  console.log('✅ Service worker activated.');
+                  loadMainDartJs();
+                }
+              });
+            }
+
+            if (!reg.active && (reg.installing || reg.waiting)) {
+              waitForActivation(reg.installing || reg.waiting);
+            } else if (!reg.active.scriptURL.endsWith(serviceWorkerVersion)) {
+              reg.unregister().then(() => location.reload());
+            } else {
+              loadMainDartJs();
+            }
+          });
+      });
+    } else {
+      loadMainDartJs();
+    }
+  </script>
+</body>
+</html>

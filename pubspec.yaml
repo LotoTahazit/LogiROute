@@ -1,0 +1,67 @@
+name: logiroute
+description: Система управления логистикой грузоперевозок
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Firebase
+  firebase_core: ^4.1.1
+  firebase_auth: ^6.1.0
+  cloud_firestore: ^6.0.2
+  
+  # Maps & Location
+  google_maps_flutter: ^2.5.0
+  google_maps_flutter_web: ^0.5.4+2
+  geolocator: ^14.0.2
+  geocoding: ^4.0.0
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # UI
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  
+  # Utilities
+  shared_preferences: ^2.2.2
+  uuid: ^4.2.1
+  http: ^1.1.2
+  
+  # Printing
+  pdf: ^3.11.3
+  printing: ^5.12.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  
+  assets:
+    # 🧩 Просто указываем папку — Flutter автоматически подхватит все шрифты
+    - assets/fonts/
+
+  fonts:
+    - family: NotoSansHebrew
+      fonts:
+        - asset: assets/fonts/NotoSansHebrew-Regular.ttf
+        - asset: assets/fonts/NotoSansHebrew-Bold.ttf
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf
+    - family: Arial
+      fonts:
+        - asset: assets/fonts/Arial.ttf
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
