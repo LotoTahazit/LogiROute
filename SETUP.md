@@ -1,181 +1,99 @@
-# Инструкция по настройке LogiRoute
+﻿#  Инструкция по настройке API ключей LogiRoute
 
-## 1. Firebase Setup
+##  Быстрый старт
 
-### 1.1 Создать проект Firebase
-1. Перейти на https://console.firebase.google.com/
-2. Создать новый проект "LogiRoute"
-3. Включить Authentication (Email/Password)
-4. Создать базу данных Firestore
+### 1. Создайте файл .env
 
-### 1.2 Настроить Firebase для Flutter
-```bash
-# Установить Firebase CLI
-npm install -g firebase-tools
-
-# Войти в Firebase
-firebase login
-
-# Настроить FlutterFire
-dart pub global activate flutterfire_cli
-flutterfire configure
+Скопируйте файл-шаблон:
+```
+cp .env.example .env
 ```
 
-### 1.3 Структура Firestore
+Или создайте новый файл .env в корне проекта.
 
-**Коллекция: users**
-```
-{
-  uid: string,
-  email: string,
-  name: string,
-  role: 'admin' | 'dispatcher' | 'driver',
-  palletCapacity?: number
-}
-```
+### 2. Получите Google Maps API ключи
 
-**Коллекция: delivery_points**
-```
-{
-  address: string,
-  latitude: number,
-  longitude: number,
-  clientName: string,
-  openingTime?: timestamp,
-  urgency: number (1-5),
-  pallets: number,
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled',
-  arrivedAt?: timestamp,
-  completedAt?: timestamp,
-  orderInRoute: number
-}
-```
-
-**Коллекция: routes**
-```
-{
-  driverId: string,
-  driverName: string,
-  pointIds: string[],
-  createdAt: timestamp,
-  status: 'active' | 'completed',
-  currentPointId?: string
-}
-```
-
-### 1.4 Создать начальных пользователей
-
-Через Firebase Console Authentication создайте:
-
-**Админ:**
-- Email: admin@logiroute.com
-- Password: Admin123!
-
-**Диспетчеры:**
-- dispatcher1@logiroute.com
-- dispatcher2@logiroute.com
-
-**Водители:**
-- amram@logiroute.com (14 палет)
-- evgeny@logiroute.com (13 палет)
-- yuda@logiroute.com (11 палет)
-- roni@logiroute.com (9 палет)
-
-Затем в Firestore добавить документы в коллекцию users с соответствующими данными.
-
-## 2. Google Maps API
-
-### 2.1 Получить API ключи
-1. Перейти в https://console.cloud.google.com/
-2. Создать новый проект или выбрать существующий
-3. Включить APIs:
+1. Перейдите в [Google Cloud Console](https://console.cloud.google.com/)
+2. Создайте новый проект или выберите существующий
+3. Включите следующие API:
+   - Maps JavaScript API (для Web)
    - Maps SDK for Android
-   - Maps SDK for iOS
-   - Maps JavaScript API
    - Directions API
+   - Places API
    - Geocoding API
+   - Roads API
 
-4. Создать API ключи:
-   - Android API Key
-   - iOS API Key
-   - Web API Key
+4. Создайте API ключи:
+   - **Web API Key**: ограничьте по HTTP referrers (домены вашего сайта)
+   - **Android API Key**: ограничьте по SHA-1 сертификату приложения
 
-### 2.2 Настроить ключи
+### 3. Заполните файл .env
 
-**Android:** `android/app/src/main/AndroidManifest.xml`
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_ANDROID_API_KEY"/>
+```env
+GOOGLE_MAPS_WEB_KEY=ваш_web_api_ключ
+GOOGLE_MAPS_ANDROID_KEY=ваш_android_api_ключ
+OSRM_BASE_URL=https://router.project-osrm.org/route/v1/driving
 ```
 
-**Web:** `web/index.html`
-```html
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_WEB_API_KEY"></script>
-```
-
-## 3. Установка зависимостей
+### 4. Установите зависимости
 
 ```bash
 flutter pub get
 ```
 
-## 4. Запуск
+### 5. Запустите приложение
 
-### Android
 ```bash
-flutter run -d android
+flutter run
 ```
 
-### Web
-```bash
-flutter run -d chrome
-```
+##  Важная информация по безопасности
 
-## 5. Правила безопасности Firestore
+###  ДЕЛАЙТЕ:
+-  Храните API ключи в файле .env
+-  Добавьте .env в .gitignore (уже сделано)
+-  Используйте разные ключи для dev/prod окружений
+-  Ограничивайте ключи по доменам/приложениям в Google Console
+-  Регулярно ротируйте ключи
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    match /delivery_points/{pointId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dispatcher' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    match /routes/{routeId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dispatcher' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-  }
-}
-```
+###  НЕ ДЕЛАЙТЕ:
+-  Не коммитьте файл .env в Git
+-  Не храните ключи прямо в коде
+-  Не публикуйте ключи в Issues/PR
+-  Не используйте production ключи в development
 
-## 6. Тестирование
+##  Что делать, если ключи утекли?
 
-1. Войти как admin@logiroute.com
-2. Проверить переключение между ролями
-3. Войти как диспетчер
-4. Добавить точки доставки
-5. Создать маршрут для водителя
-6. Войти как водитель
-7. Проверить отображение маршрута на карте
-8. Тестировать геолокацию (приблизиться к точке)
+1. **Немедленно отзовите скомпрометированные ключи** в Google Cloud Console
+2. Создайте новые ключи
+3. Обновите файл .env
+4. Если ключи попали в Git историю:
+   ```bash
+   # Удалите файл из истории Git
+   python git-filter-repo --path .env --invert-paths --force
+   
+   # Принудительно обновите удаленный репозиторий
+   git push --force origin main
+   ```
 
-## Примечания
+##  Решение проблем
 
-- Для продакшена используйте реальные адреса в Израиле
-- Настройте правильные часовые пояса
-- Добавьте обработку ошибок сети
-- Рассмотрите добавление push-уведомлений
+### Ошибка: "GOOGLE_MAPS_WEB_KEY не найден в .env файле"
+- Проверьте, что файл .env существует в корне проекта
+- Убедитесь, что ключи прописаны без кавычек
+- Перезапустите приложение после изменения .env
 
+### Карты не загружаются
+- Проверьте правильность API ключей
+- Убедитесь, что нужные API включены в Google Console
+- Проверьте ограничения ключей (referrers, bundle ID)
+
+### Ошибка при запуске на Web
+- Убедитесь, что используется GOOGLE_MAPS_WEB_KEY
+- Проверьте, что домен добавлен в список разрешенных в Google Console
+
+##  Дополнительные ресурсы
+
+- [Google Maps Platform](https://developers.google.com/maps)
+- [Flutter Dotenv Package](https://pub.dev/packages/flutter_dotenv)
+- [Securing API Keys](https://cloud.google.com/docs/authentication/api-keys)

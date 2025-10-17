@@ -33,6 +33,7 @@ dependencies:
   shared_preferences: ^2.2.2
   uuid: ^4.2.1
   http: ^1.1.2
+  flutter_dotenv: ^5.1.0
   
   # Printing
   pdf: ^3.11.3
@@ -50,6 +51,8 @@ flutter:
   assets:
     # 🧩 Просто указываем папку — Flutter автоматически подхватит все шрифты
     - assets/fonts/
+    # 🔐 Файл с переменными окружения
+    - .env
 
   fonts:
     - family: NotoSansHebrew

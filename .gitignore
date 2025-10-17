@@ -43,3 +43,6 @@ firebase_options.dart
 google-services.json
 GoogleService-Info.plist
 
+# Environment variables (API keys, secrets)
+.env
+
