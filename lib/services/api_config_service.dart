@@ -11,8 +11,15 @@ class ApiConfigService {
     final key = dotenv.env['GOOGLE_MAPS_WEB_KEY'];
     if (key == null || key.isEmpty) {
       throw Exception(
-        '❌ GOOGLE_MAPS_WEB_KEY не найден в .env файле!\n'
-        'Создайте файл .env в корне проекта и добавьте туда ключ.',
+        '❌ Google Maps Web API key not configured.\n'
+        'Please check your environment configuration.',
+      );
+    }
+    // Валидация формата API ключа
+    if (!_isValidApiKey(key)) {
+      throw Exception(
+        '❌ Invalid Google Maps Web API key format.\n'
+        'Please verify your API key configuration.',
       );
     }
     return key;
@@ -22,8 +29,15 @@ class ApiConfigService {
     final key = dotenv.env['GOOGLE_MAPS_ANDROID_KEY'];
     if (key == null || key.isEmpty) {
       throw Exception(
-        '❌ GOOGLE_MAPS_ANDROID_KEY не найден в .env файле!\n'
-        'Создайте файл .env в корне проекта и добавьте туда ключ.',
+        '❌ Google Maps Android API key not configured.\n'
+        'Please check your environment configuration.',
+      );
+    }
+    // Валидация формата API ключа
+    if (!_isValidApiKey(key)) {
+      throw Exception(
+        '❌ Invalid Google Maps Android API key format.\n'
+        'Please verify your API key configuration.',
       );
     }
     return key;
@@ -51,5 +65,14 @@ class ApiConfigService {
   static const String googlePlacesApiUrl = 'https://maps.googleapis.com/maps/api/place/details/json';
   static const String googleDirectionsApiUrl = 'https://maps.googleapis.com/maps/api/directions/json';
   static const String googleGeocodingApiUrl = 'https://maps.googleapis.com/maps/api/geocode/json';
+  
+  /// Валидация формата API ключа Google Maps
+  /// Проверяет базовую структуру ключа без раскрытия его содержимого
+  static bool _isValidApiKey(String key) {
+    if (key.length < 20 || key.length > 100) return false;
+    // Проверяем, что ключ содержит только допустимые символы
+    final validPattern = RegExp(r'^[A-Za-z0-9_-]+$');
+    return validPattern.hasMatch(key);
+  }
 }
 

@@ -51,6 +51,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
   @override
   void dispose() {
     _locationService.stopTracking();
+    // Сбрасываем флаг при уничтожении виджета
+    _isAutoCompleting = false;
     super.dispose();
   }
 
@@ -70,15 +72,27 @@ class _DriverDashboardState extends State<DriverDashboard> {
         lat,
         lon,
         (point) async {
-          await _routeService.updatePointStatus(point.id, l10n.statusCompleted);
+          try {
+            // Дополнительная проверка, что точка все еще актуальна
+            if (mounted && _currentPoint?.id == point.id) {
+              await _routeService.updatePointStatus(point.id, l10n.statusCompleted);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.pointCompleted)),
-            );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.pointCompleted)),
+                );
+              }
+            }
+          } catch (e) {
+            debugPrint('Error completing point: $e');
+          } finally {
+            // Гарантируем сброс флага даже при ошибке
+            if (mounted) {
+              setState(() {
+                _isAutoCompleting = false;
+              });
+            }
           }
-
-          _isAutoCompleting = false;
         },
       );
     }
