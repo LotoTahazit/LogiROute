@@ -12,6 +12,9 @@ class LocationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> startTracking(String driverId, Function(double, double) onLocationUpdate) async {
+    // Защита от повторного запуска - сначала останавливаем существующий поток
+    await stopTracking();
+    
     _currentDriverId = driverId;
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -38,18 +41,27 @@ class LocationService {
         accuracy: LocationAccuracy.high,
         distanceFilter: AppConfig.locationDistanceFilter,
       ),
-    ).listen((Position position) {
-      // Обновляем позицию водителя в Firestore в реальном времени
-      _updateDriverLocation(position.latitude, position.longitude);
-      
-      // Вызываем callback для локального обновления
-      onLocationUpdate(position.latitude, position.longitude);
-    });
+    ).listen(
+      (Position position) {
+        // Обновляем позицию водителя в Firestore в реальном времени
+        _updateDriverLocation(position.latitude, position.longitude);
+        
+        // Вызываем callback для локального обновления
+        onLocationUpdate(position.latitude, position.longitude);
+      },
+      onError: (error) {
+        debugPrint('Location stream error: $error');
+        // При ошибке останавливаем отслеживание
+        stopTracking();
+      },
+    );
   }
 
   void stopTracking() {
     _positionStream?.cancel();
+    _positionStream = null; // Важно: обнуляем ссылку для предотвращения утечек
     _trackingData.clear();
+    _currentDriverId = null; // Очищаем ID водителя
   }
 
   void checkPointCompletion(
