@@ -48,6 +48,7 @@
   "errorCreatingUser": "שגיאה ביצירת המשתמש",
   "emailAlreadyInUse": "כתובת האימייל כבר בשימוש",
   "weakPassword": "הסיסמה חלשה מדי",
+  "warehouse": "מחסן",
   "invalidEmail": "כתובת אימייל לא תקינה",
   "systemManager": "מנהל מערכת",
   "ok": "אישור",

@@ -48,6 +48,7 @@
   "errorCreatingUser": "Error creating user",
   "emailAlreadyInUse": "Email address is already in use",
   "weakPassword": "Password is too weak",
+  "warehouse": "Warehouse",
   "invalidEmail": "Invalid email address",
   "systemManager": "System Manager",
   "ok": "OK",

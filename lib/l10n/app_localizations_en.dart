@@ -154,6 +154,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weakPassword => 'Password is too weak';
 
   @override
+  String get warehouse => 'Warehouse';
+
+  @override
   String get invalidEmail => 'Invalid email address';
 
   @override

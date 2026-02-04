@@ -388,6 +388,12 @@ abstract class AppLocalizations {
   /// **'Password is too weak'**
   String get weakPassword;
 
+  /// No description provided for @warehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get warehouse;
+
   /// No description provided for @invalidEmail.
   ///
   /// In en, this message translates to:

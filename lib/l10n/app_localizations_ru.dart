@@ -154,6 +154,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get weakPassword => 'Пароль слишком слабый';
 
   @override
+  String get warehouse => 'Склад';
+
+  @override
   String get invalidEmail => 'Неверный адрес электронной почты';
 
   @override

@@ -153,6 +153,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get weakPassword => 'הסיסמה חלשה מדי';
 
   @override
+  String get warehouse => 'מחסן';
+
+  @override
   String get invalidEmail => 'כתובת אימייל לא תקינה';
 
   @override

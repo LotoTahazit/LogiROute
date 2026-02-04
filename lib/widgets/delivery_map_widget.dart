@@ -116,22 +116,41 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         '🗺️ [Map] Updating markers with ${widget.points.length} points');
     final l10n = AppLocalizations.of(context);
 
-    final markers = widget.points.map((point) {
+    final markers = <Marker>{};
+
+    // 🏭 Добавляем маркер склада (ВСЕГДА первый)
+    markers.add(
+      Marker(
+        markerId: const MarkerId('warehouse'),
+        position: LatLng(AppConfig.defaultWarehouseLat, AppConfig.defaultWarehouseLng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: InfoWindow(
+          title: '🏭 ${l10n.warehouse ?? "Склад"}',
+          snippet: 'Начальная точка всех маршрутов',
+        ),
+        zIndex: 999, // Склад всегда сверху
+      ),
+    );
+
+    // Добавляем маркеры точек доставки
+    for (final point in widget.points) {
       final markerColor =
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
 
-      return Marker(
-        markerId: MarkerId(point.id),
-        position: LatLng(point.latitude, point.longitude),
-        icon: markerColor,
-        infoWindow: InfoWindow(
-          title: point.clientName,
-          snippet: _buildMarkerSnippet(point, l10n),
+      markers.add(
+        Marker(
+          markerId: MarkerId(point.id),
+          position: LatLng(point.latitude, point.longitude),
+          icon: markerColor,
+          infoWindow: InfoWindow(
+            title: point.clientName,
+            snippet: _buildMarkerSnippet(point, l10n),
+          ),
         ),
       );
-    }).toSet();
+    }
 
-    debugPrint('🗺️ [Map] Created ${markers.length} markers');
+    debugPrint('🗺️ [Map] Created ${markers.length} markers (including warehouse)');
     return markers;
   }
 
@@ -187,18 +206,26 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         final driverKey = entry.key;
         final points = entry.value;
 
-        if (points.length < 2) continue;
+        if (points.isEmpty) continue;
 
+        // Сортируем точки по orderInRoute
         points.sort(
             (a, b) => (a.orderInRoute ?? 0).compareTo(b.orderInRoute ?? 0));
 
-        final start = points.first;
+        // 🏭 ВАЖНО: Маршрут ВСЕГДА начинается со склада!
+        final warehouseLat = AppConfig.defaultWarehouseLat;
+        final warehouseLng = AppConfig.defaultWarehouseLng;
+        
+        debugPrint('🏭 [Map] Building route for driver $driverKey starting from warehouse ($warehouseLat, $warehouseLng)');
+        debugPrint('📍 [Map] Route has ${points.length} delivery points');
+
+        // Все точки доставки становятся waypoints, последняя - конечная точка
         final end = points.last;
-        final waypoints = points.sublist(1, points.length - 1);
+        final waypoints = points.sublist(0, points.length - 1);
 
         final smartRoute = await _smartNavigationService.getMultiPointRoute(
-          startLat: start.latitude,
-          startLng: start.longitude,
+          startLat: warehouseLat,
+          startLng: warehouseLng,
           waypoints: waypoints,
           endLat: end.latitude,
           endLng: end.longitude,
@@ -265,11 +292,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   }
 
   Set<Polyline> _fallbackPolyline(List<DeliveryPoint> points) {
-    final routePoints =
-        points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+    // 🏭 Маршрут начинается со склада
+    final routePoints = <LatLng>[
+      LatLng(AppConfig.defaultWarehouseLat, AppConfig.defaultWarehouseLng),
+      ...points.map((p) => LatLng(p.latitude, p.longitude)),
+    ];
 
     debugPrint(
         '🗺️ [Map] Created fallback polyline with ${routePoints.length} points (STRAIGHT LINES)');
+    debugPrint('🏭 [Map] Starting from warehouse: (${AppConfig.defaultWarehouseLat}, ${AppConfig.defaultWarehouseLng})');
     debugPrint('⚠️ [Map] This means OSRM/Google routing failed - routes will be straight lines!');
 
     return {
@@ -339,8 +370,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         GoogleMap(
           initialCameraPosition: CameraPosition(
             target: LatLng(
-              widget.points.first.latitude,
-              widget.points.first.longitude,
+              AppConfig.defaultWarehouseLat,
+              AppConfig.defaultWarehouseLng,
             ),
             zoom: 12,
           ),
