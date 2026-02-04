@@ -27,6 +27,11 @@ class SmartNavigationService {
   }) async {
     debugPrint('🧠 [SmartNavigation] Getting multi-point route with ${waypoints.length} waypoints');
     debugPrint('🔍 [SmartNavigation] Start: ($startLat, $startLng), End: ($endLat, $endLng)');
+    
+    // Логируем все waypoints
+    for (int i = 0; i < waypoints.length; i++) {
+      debugPrint('  📍 Waypoint $i: ${waypoints[i].clientName} (${waypoints[i].latitude}, ${waypoints[i].longitude})');
+    }
 
     // 🧹 Убираем дубликаты (но не теряем точки)
     final uniqueWaypoints = <Map<String, double>>[];
@@ -45,25 +50,42 @@ class SmartNavigationService {
     final shouldOptimize = useOptimization && uniqueWaypoints.length > 3;
 
     try {
-      final osrmRoute = shouldOptimize
-          ? await _osrm.getOptimizedTrip(
-              startLat: startLat,
-              startLng: startLng,
-              waypoints: uniqueWaypoints,
-              endLat: endLat,
-              endLng: endLng,
-              language: language,
-            )
-          : await _osrm.getRoute(
-              startLat: startLat,
-              startLng: startLng,
-              endLat: endLat,
-              endLng: endLng,
-              language: language,
-            );
+      OsrmRoute? osrmRoute;
+      
+      if (uniqueWaypoints.isEmpty) {
+        // Нет промежуточных точек - простой маршрут
+        osrmRoute = await _osrm.getRoute(
+          startLat: startLat,
+          startLng: startLng,
+          endLat: endLat,
+          endLng: endLng,
+          language: language,
+        );
+      } else if (shouldOptimize) {
+        // Много точек - используем trip optimization
+        osrmRoute = await _osrm.getOptimizedTrip(
+          startLat: startLat,
+          startLng: startLng,
+          waypoints: uniqueWaypoints,
+          endLat: endLat,
+          endLng: endLng,
+          language: language,
+        );
+      } else {
+        // Мало точек - используем обычный route с waypoints (БЕЗ оптимизации)
+        osrmRoute = await _osrm.getOptimizedRoute(
+          startLat: startLat,
+          startLng: startLng,
+          waypoints: uniqueWaypoints,
+          endLat: endLat,
+          endLng: endLng,
+          language: language,
+        );
+      }
 
       if (osrmRoute != null) {
-        debugPrint('✅ [SmartNavigation] OSRM route OK (${shouldOptimize ? "optimized" : "simple"}): ${osrmRoute.formattedDistance}, ${osrmRoute.formattedDuration}');
+        debugPrint('✅ [SmartNavigation] OSRM route OK (${uniqueWaypoints.isEmpty ? "simple" : shouldOptimize ? "trip-optimized" : "route-with-waypoints"}): ${osrmRoute.formattedDistance}, ${osrmRoute.formattedDuration}');
+        debugPrint('🔍 [SmartNavigation] Polyline length: ${osrmRoute.polyline.length} chars');
         debugPrint('🔍 [SmartNavigation] Polyline preview: ${osrmRoute.polyline.substring(0, math.min(50, osrmRoute.polyline.length))}...');
         
         if (osrmRoute.polyline.isEmpty) {

@@ -95,23 +95,29 @@ class OsrmNavigationService {
 
       final url = '${ApiConstants.osrmRouteUrl}/${coordinates.toString()}?${ApiConstants.osrmRouteParams}';
 
-      debugPrint(
-          '🧭 [OSRM] Requesting optimized route with ${waypoints.length} waypoints');
+      debugPrint('🧭 [OSRM] Requesting route with ${waypoints.length} waypoints');
+      debugPrint('🔍 [OSRM] URL: $url');
 
       final response = await http.get(Uri.parse(url));
+      debugPrint('📡 [OSRM] Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        debugPrint('📊 [OSRM] API response code: ${data['code']}');
 
         if (data['code'] == 'Ok' && data['routes'].isNotEmpty) {
           final route = data['routes'][0];
           final distance = route['distance'] / 1000; // км
           final duration = route['duration'] / 60; // минуты
+          final polyline = route['geometry'];
+
+          debugPrint('✅ [OSRM] Route with waypoints found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min');
+          debugPrint('📏 [OSRM] Polyline length: ${polyline.length} chars');
 
           return OsrmRoute(
             distance: distance,
             duration: duration,
-            polyline: route['geometry'],
+            polyline: polyline,
             summary: route['summary'],
             waypoints: waypoints,
           );
@@ -120,6 +126,7 @@ class OsrmNavigationService {
         }
       } else {
         debugPrint('❌ [OSRM] HTTP Error: ${response.statusCode}');
+        debugPrint('📄 [OSRM] Response body: ${response.body}');
       }
     } catch (e) {
       debugPrint('❌ [OSRM] Exception: $e');
