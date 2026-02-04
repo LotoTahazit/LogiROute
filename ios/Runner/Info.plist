@@ -53,6 +53,8 @@
 	<string>Требуется для отслеживания местоположения в фоновом режиме</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Требуется для отслеживания местоположения в фоновом режиме</string>
+	<key>GMSApiKey</key>
+	<string>AIzaSyD-mwIOMyBKfH-NH50WMnRlkhBitwZJec</string>
 </dict>
 </plist>
 

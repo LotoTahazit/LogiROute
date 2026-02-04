@@ -1,0 +1,180 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 👥 Коллекция пользователей
+    match /users/{userId} {
+      // ✅ Любой авторизованный пользователь может читать документы из коллекции users
+      allow read: if request.auth != null;
+
+      // 🔥 Создание: супер-админ и админ
+      allow create: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+          request.resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId &&
+          request.resource.data.role in ['dispatcher', 'driver']
+        )
+      );
+
+      // 🔥 Обновление: свой документ, админ своей компании или супер-админ
+      allow update: if request.auth != null && (
+        userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+          resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
+        )
+      );
+
+      // 🔥 Удаление: админ своей компании или супер-админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+          resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
+        )
+      );
+    }
+
+    // 📍 Локации водителей (GPS)
+    match /driver_locations/{driverId} {
+      allow read: if request.auth != null;
+      allow write, create, update: if request.auth != null && request.auth.uid == driverId;
+    }
+
+    // 🧭 Точки доставки
+    match /delivery_points/{pointId} {
+      // ✅ Чтение: разрешено всем авторизованным пользователям
+      allow read: if request.auth != null;
+
+      // ✅ Создание: диспетчер, админ или супер-админ
+      allow create: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin']
+      );
+
+      // ✅ Обновление: водитель может обновлять только свои точки; диспетчер, админ и супер-админ — любые
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin'] ||
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+          request.auth.uid == resource.data.driverId
+        )
+      );
+
+      // ✅ Удаление: диспетчер, админ или супер-админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin']
+      );
+    }
+
+    // 👥 Клиенты
+    match /clients/{clientId} {
+      // 📖 Чтение: все авторизованные пользователи
+      allow read: if request.auth != null;
+
+      // ✅ Создание/Обновление: суперадмин, админ или диспетчер
+      allow create, update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
+      );
+
+      // ✅ Удаление: суперадмин или админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+    }
+
+    // 🚛 Маршруты
+    match /routes/{routeId} {
+      // 📖 Чтение: все авторизованные
+      allow read: if request.auth != null;
+
+      // ✅ Запись: супер-админ, админ или диспетчер
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
+      );
+    }
+
+    // 🚛 База данных маршрутов для грузовиков
+    match /truck_routes/{routeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+    }
+
+    // ⚙️ Настройки
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+    }
+
+    // 🏢 Компании
+    match /companies/{companyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow update, delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // ⚙️ Общая конфигурация
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+    }
+
+    // 🌉 Мосты
+    match /bridges/{bridgeId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+    }
+
+    // 💾 Резервные копии
+    match /backups/{backupId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow create, update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+    }
+
+    // 📝 Логи действий
+    match /action_logs/{logId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+    }
+
+    // 🔔 Уведомления
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'] ||
+        (resource.data.userId == request.auth.uid)
+      );
+    }
+
+    // 📍 IL Addresses (кеш адресов)
+    match /il_addresses/{addressId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // 🗺️ Cached routes (кеш маршрутов)
+    match /cached_routes/{routeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}

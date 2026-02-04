@@ -1,5 +1,6 @@
 // lib/screens/dispatcher/add_point_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
@@ -10,6 +11,7 @@ import '../../models/delivery_point.dart';
 import '../../services/client_service.dart';
 import '../../services/route_service.dart';
 import '../../services/api_config_service.dart';
+import '../../services/web_geocoding_service.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -41,64 +43,68 @@ class _AddPointDialogState extends State<AddPointDialog> {
   /// Генерирует множественные варианты адреса для геокодирования (подход как в Waze)
   List<String> _generateAddressVariants(String originalAddress) {
     List<String> variants = [];
-    
+
     // 1. Как ввел пользователь (приоритет)
     variants.add(originalAddress);
-    
+
     // 2. С добавлением страны на иврите
     variants.add('$originalAddress, ישראל');
-    
+
     // 3. С добавлением страны на английском
     variants.add('$originalAddress, Israel');
-    
+
     // 4. Стандартизация формата: номер дома, улица, город (как рекомендует Waze)
     String standardizedFormat = _standardizeAddressFormat(originalAddress);
     if (standardizedFormat != originalAddress) {
       variants.add(standardizedFormat);
       variants.add('$standardizedFormat, ישראל');
     }
-    
+
     // 5. Попытка с разными городами (если не указан)
-    if (!originalAddress.contains('תל אביב') && !originalAddress.contains('Tel Aviv')) {
+    if (!originalAddress.contains('תל אביב') &&
+        !originalAddress.contains('Tel Aviv')) {
       variants.add('$originalAddress, תל אביב, ישראל');
     }
-    if (!originalAddress.contains('ירושלים') && !originalAddress.contains('Jerusalem')) {
+    if (!originalAddress.contains('ירושלים') &&
+        !originalAddress.contains('Jerusalem')) {
       variants.add('$originalAddress, ירושלים, ישראל');
     }
-    if (!originalAddress.contains('חיפה') && !originalAddress.contains('Haifa')) {
+    if (!originalAddress.contains('חיפה') &&
+        !originalAddress.contains('Haifa')) {
       variants.add('$originalAddress, חיפה, ישראל');
     }
-    
+
     // 6. Упрощенный формат (только номер и улица)
     String simplified = _simplifyAddress(originalAddress);
     if (simplified != originalAddress) {
       variants.add(simplified);
       variants.add('$simplified, תל אביב, ישראל');
     }
-    
+
     // 7. Транслитерация известных улиц (как запасной вариант)
-    List<String> transliteratedVariants = _getTransliteratedVariants(originalAddress);
+    List<String> transliteratedVariants =
+        _getTransliteratedVariants(originalAddress);
     variants.addAll(transliteratedVariants);
-    
+
     // Удаляем дубликаты и возвращаем
     return variants.toSet().toList();
   }
-  
+
   /// Стандартизирует формат адреса: номер дома, улица, город
   String _standardizeAddressFormat(String address) {
     // Ищем номер дома в начале
     RegExp houseNumberRegex = RegExp(r'^(\d+)\s*(.+)$');
     Match? match = houseNumberRegex.firstMatch(address);
-    
+
     if (match != null) {
       String number = match.group(1)!;
       String rest = match.group(2)!.trim();
       return '$number $rest';
     }
-    
+
     return address;
   }
-  
+
   /// Упрощает адрес до минимума: номер дома и улица
   String _simplifyAddress(String address) {
     // Убираем лишние слова
@@ -109,14 +115,14 @@ class _AddPointDialogState extends State<AddPointDialog> {
         .replaceAll('רח', '')
         .replaceAll('שד', '')
         .trim();
-    
+
     return simplified;
   }
-  
+
   /// Возвращает варианты с транслитерацией известных улиц
   List<String> _getTransliteratedVariants(String address) {
     List<String> variants = [];
-    
+
     // Словарь известных улиц и их транслитераций
     Map<String, String> streetTranslations = {
       'רחוב החלוצים': 'HaHalutzim Street',
@@ -128,23 +134,25 @@ class _AddPointDialogState extends State<AddPointDialog> {
       'רחוב רוטשילד': 'Rothschild Boulevard',
       'שדרות': 'Boulevard',
     };
-    
+
     for (String hebrewStreet in streetTranslations.keys) {
       if (address.contains(hebrewStreet)) {
-        String translated = address.replaceAll(hebrewStreet, streetTranslations[hebrewStreet]!);
+        String translated =
+            address.replaceAll(hebrewStreet, streetTranslations[hebrewStreet]!);
         variants.add(translated);
         variants.add('$translated, Tel Aviv, Israel');
       }
     }
-    
+
     return variants;
   }
 
   /// Геокодирование через Google Geocoding API напрямую (поддерживает иврит лучше)
   Future<Map<String, double>?> _geocodeViaGoogleAPI(String address) async {
     final String encodedAddress = Uri.encodeComponent(address);
-    final String url = '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress&key=${ApiConfigService.googleMapsApiKey}';
-    
+    final String url =
+        '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress&key=${ApiConfigService.googleMapsApiKey}';
+
     try {
       final response = await http.get(Uri.parse(url)).timeout(
         AppConfig.geocodingTimeout,
@@ -152,10 +160,10 @@ class _AddPointDialogState extends State<AddPointDialog> {
           throw Exception('Timeout');
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         if (data['status'] == 'OK' && data['results'].isNotEmpty) {
           final location = data['results'][0]['geometry']['location'];
           return {
@@ -171,7 +179,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
     } catch (e) {
       debugPrint('❌ [Google API] Error: $e');
     }
-    
+
     return null;
   }
 
@@ -217,42 +225,75 @@ class _AddPointDialogState extends State<AddPointDialog> {
       // Геокодирование адреса
       String addressToGeocode = _addressController.text.trim();
       List<String> addressVariants = []; // Вынесли в верхнюю область видимости
-      
+
       try {
         // Пробуем геокодирование с разными вариантами адреса
         debugPrint('🗺️ [Geocoding] Original address: "$addressToGeocode"');
-        
+
         // Профессиональный подход как в Waze - множественные варианты без привязки к языку
         addressVariants = _generateAddressVariants(addressToGeocode);
-        
+
         bool geocodingSuccess = false;
-        
-        // Сначала пробуем Google Geocoding API (лучше работает с ивритом)
-        for (String variant in addressVariants) {
-          debugPrint('🌐 [Google API] Trying variant: "$variant"');
-          final result = await _geocodeViaGoogleAPI(variant);
-          
-          if (result != null) {
-            latitude = result['latitude']!;
-            longitude = result['longitude']!;
-            debugPrint('✅ [Google API] Success with "$variant": ($latitude, $longitude)');
-            geocodingSuccess = true;
-            break;
+
+        // На Web используем Google Maps JavaScript API (обходит CORS)
+        if (kIsWeb) {
+          debugPrint(
+              '🌐 [Web] Using Google Maps JavaScript API (kIsWeb=true)...');
+          for (String variant in addressVariants) {
+            debugPrint('🌐 [WebJS] Trying variant: "$variant"');
+            try {
+              final result = await WebGeocodingService.geocode(variant);
+
+              if (result != null) {
+                latitude = result.latitude;
+                longitude = result.longitude;
+                debugPrint(
+                    '✅ [WebJS] Success with "$variant": ($latitude, $longitude)');
+                geocodingSuccess = true;
+                break;
+              } else {
+                debugPrint('❌ [WebJS] No result for "$variant"');
+              }
+            } catch (e) {
+              debugPrint('❌ [WebJS] Exception for "$variant": $e');
+            }
+          }
+
+          // На web НЕ используем fallback на native/REST API
+          if (!geocodingSuccess) {
+            debugPrint('❌ [Web] All WebJS geocoding attempts failed');
+          }
+        } else {
+          // На мобильных платформах пробуем Google Geocoding API
+          for (String variant in addressVariants) {
+            debugPrint('🌐 [Google API] Trying variant: "$variant"');
+            final result = await _geocodeViaGoogleAPI(variant);
+
+            if (result != null) {
+              latitude = result['latitude']!;
+              longitude = result['longitude']!;
+              debugPrint(
+                  '✅ [Google API] Success with "$variant": ($latitude, $longitude)');
+              geocodingSuccess = true;
+              break;
+            }
           }
         }
-        
-        // Если Google API не помог, пробуем нативный geocoding (запасной вариант)
-        if (!geocodingSuccess) {
-          debugPrint('⚠️ [Geocoding] Google API failed, trying native geocoding...');
+
+        // Если Google API не помог, пробуем нативный geocoding (только для мобильных платформ)
+        if (!geocodingSuccess && !kIsWeb) {
+          debugPrint(
+              '⚠️ [Geocoding] Google API failed, trying native geocoding...');
           for (String variant in addressVariants) {
             try {
               debugPrint('📱 [Native] Trying variant: "$variant"');
               final locations = await geocoding.locationFromAddress(variant);
-              
+
               if (locations.isNotEmpty) {
                 latitude = locations.first.latitude;
                 longitude = locations.first.longitude;
-                debugPrint('✅ [Native] Success with "$variant": ($latitude, $longitude)');
+                debugPrint(
+                    '✅ [Native] Success with "$variant": ($latitude, $longitude)');
                 geocodingSuccess = true;
                 break;
               }
@@ -262,23 +303,25 @@ class _AddPointDialogState extends State<AddPointDialog> {
             }
           }
         }
-        
+
         if (!geocodingSuccess) {
           throw Exception('All geocoding variants failed');
         }
-        
       } catch (e) {
         // Логируем ошибку геокодирования
-        debugPrint('❌ [Geocoding] All ${addressVariants.length} attempts failed for "$addressToGeocode": $e');
-        debugPrint('🔍 [Geocoding] Tried variants: ${addressVariants.join(", ")}');
-        
+        debugPrint(
+            '❌ [Geocoding] All ${addressVariants.length} attempts failed for "$addressToGeocode": $e');
+        debugPrint(
+            '🔍 [Geocoding] Tried variants: ${addressVariants.join(", ")}');
+
         // Показываем диалог с инструкциями
         final l10n = AppLocalizations.of(context)!;
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(l10n.addressNotFound),
-            content: Text(l10n.addressNotFoundDescription(_addressController.text)),
+            content:
+                Text(l10n.addressNotFoundDescription(_addressController.text)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -287,7 +330,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
             ],
           ),
         );
-        
+
         // Обязательно прерываем операцию - никаких fallback координат!
         setState(() => _isLoading = false);
         return;
@@ -435,7 +478,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
                 /// 🔹 Контактное лицо
                 TextFormField(
                   controller: _contactController,
-                  decoration: const InputDecoration(labelText: 'איש קשר / Contact'),
+                  decoration:
+                      const InputDecoration(labelText: 'איש קשר / Contact'),
                 ),
 
                 const SizedBox(height: 12),
@@ -443,10 +487,13 @@ class _AddPointDialogState extends State<AddPointDialog> {
                 /// 🔹 Приоритет
                 DropdownButtonFormField<String>(
                   value: _urgency,
-                  decoration: const InputDecoration(labelText: 'Priority / עדיפות'),
+                  decoration:
+                      const InputDecoration(labelText: 'Priority / עדיפות'),
                   items: [
-                    DropdownMenuItem(value: 'normal', child: Text('Normal / רגיל')),
-                    DropdownMenuItem(value: 'urgent', child: Text('Urgent / דחוף')),
+                    DropdownMenuItem(
+                        value: 'normal', child: Text('Normal / רגיל')),
+                    DropdownMenuItem(
+                        value: 'urgent', child: Text('Urgent / דחוף')),
                   ],
                   onChanged: (value) {
                     if (value != null) {

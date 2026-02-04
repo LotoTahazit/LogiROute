@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
 import '../../services/location_service.dart';
@@ -7,7 +8,6 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../widgets/delivery_map_widget.dart';
-import '../../widgets/navigation_widget.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -21,9 +21,70 @@ class _DriverDashboardState extends State<DriverDashboard> {
   final LocationService _locationService = LocationService();
   DeliveryPoint? _currentPoint;
   bool _isAutoCompleting = false;
-  bool _showNavigation = false;
   double? _currentLat;
   double? _currentLng;
+
+  /// Начать навигацию по всему маршруту
+  Future<void> _startFullRouteNavigation(List<DeliveryPoint> points) async {
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.noActivePoints),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Строим URL для Google Maps с ВСЕМИ точками
+    final origin = '${points.first.latitude},${points.first.longitude}';
+    final destination = '${points.last.latitude},${points.last.longitude}';
+
+    // Промежуточные точки (waypoints) - все точки кроме первой и последней
+    String waypoints = '';
+    if (points.length > 2) {
+      waypoints = '&waypoints=' +
+          points
+              .skip(1)
+              .take(points.length - 2)
+              .map((p) => '${p.latitude},${p.longitude}')
+              .join('|');
+    }
+
+    final url = 'https://www.google.com/maps/dir/?api=1'
+        '&origin=$origin'
+        '&destination=$destination'
+        '$waypoints'
+        '&travelmode=driving';
+
+    debugPrint('🚀 [Driver] Opening full route navigation:');
+    debugPrint('   📍 Origin: ${points.first.clientName}');
+    if (points.length > 2) {
+      debugPrint('   🔄 Waypoints: ${points.length - 2} points');
+    }
+    debugPrint('   🎯 Destination: ${points.last.clientName}');
+    debugPrint('   🌐 URL: $url');
+
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        debugPrint('✅ [Driver] Navigation opened successfully');
+      } else {
+        throw 'Could not launch navigation';
+      }
+    } catch (e) {
+      debugPrint('❌ [Driver] Error opening navigation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка открытия навигации: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   String _getStatusText(String status, AppLocalizations l10n) {
     if (status == l10n.statusAssigned) {
@@ -45,7 +106,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
   void initState() {
     super.initState();
     final authService = context.read<AuthService>();
-    _locationService.startTracking(authService.currentUser!.uid, _onLocationUpdate);
+    _locationService.startTracking(
+        authService.currentUser!.uid, _onLocationUpdate);
   }
 
   @override
@@ -59,26 +121,34 @@ class _DriverDashboardState extends State<DriverDashboard> {
       _currentLat = lat;
       _currentLng = lon;
     });
-    
+
     final l10n = AppLocalizations.of(context)!;
 
-    if (_currentPoint != null && !_isAutoCompleting) {
-      _isAutoCompleting = true;
-
+    if (_currentPoint != null) {
       _locationService.checkPointCompletion(
         _currentPoint!,
         lat,
         lon,
         (point) async {
-          await _routeService.updatePointStatus(point.id, l10n.statusCompleted);
+          if (!_isAutoCompleting) {
+            _isAutoCompleting = true;
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.pointCompleted)),
-            );
+            await _routeService.updatePointStatus(
+                point.id, l10n.statusCompleted);
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text('✅ ${l10n.pointCompleted}: ${point.clientName}'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+
+            _isAutoCompleting = false;
           }
-
-          _isAutoCompleting = false;
         },
       );
     }
@@ -96,108 +166,176 @@ class _DriverDashboardState extends State<DriverDashboard> {
           : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.driver),
           actions: [
-            IconButton(
-              icon: Icon(_showNavigation ? Icons.map : Icons.navigation),
-              onPressed: () {
-                setState(() {
-                  _showNavigation = !_showNavigation;
-                });
-              },
-              tooltip: _showNavigation ? l10n.showMap : l10n.navigation,
-            ),
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () => authService.signOut(),
             ),
           ],
         ),
-        body: StreamBuilder<List<DeliveryPoint>>(
-          stream: _routeService.getDriverPoints(authService.currentUser!.uid),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  '${l10n.error}: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              );
-            }
-
-            final points = snapshot.data ?? [];
-            if (points.isEmpty) {
-              return Center(
-                child: Text(
-                  l10n.noActivePoints,
-                  style: const TextStyle(color: Colors.black),
-                ),
-              );
-            }
-
-            _currentPoint = points.firstWhere(
-              (p) =>
-                  p.status != l10n.statusCompleted &&
-                  p.status != l10n.statusCancelled,
-              orElse: () => points.first,
-            );
-
-            return Column(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _showNavigation 
-                    ? NavigationWidget(
-                        route: points,
-                        currentLat: _currentLat,
-                        currentLng: _currentLng,
-                      )
-                    : DeliveryMapWidget(points: points),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: ListView.builder(
-                    itemCount: points.length,
-                    itemBuilder: (context, index) {
-                      final point = points[index];
-                      final isActive = _currentPoint != null &&
-                          point.id == _currentPoint!.id;
-
-                      return Card(
-                        color: isActive ? Colors.green.shade50 : null,
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                isActive ? Colors.green : Colors.grey,
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          title: Text(
-                            point.clientName,
-                            style: const TextStyle(color: Colors.black),
-                          ),
-                          subtitle: Text(
-                            point.address,
-                            style: const TextStyle(color: Colors.black),
-                          ),
-                          trailing: _buildTrailingWidget(
-                              context, point, isActive, l10n, points),
-                        ),
-                      );
-                    },
+        body: Column(
+          children: [
+            // Индикатор режима просмотра для админа
+            if (authService.userModel?.isAdmin == true &&
+                authService.viewAsRole == 'driver')
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.orange.shade300, width: 2),
                   ),
                 ),
-              ],
-            );
-          },
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility,
+                        color: Colors.orange.shade900, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${l10n.viewingAs} ${l10n.driver}',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => authService.setViewAsRole(null),
+                      icon: const Icon(Icons.admin_panel_settings, size: 18),
+                      label: Text(l10n.backToAdmin),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // Основное содержимое
+            Expanded(
+              child: StreamBuilder<List<DeliveryPoint>>(
+                stream: _routeService.getDriverPoints(
+                    authService.viewAsDriverId ?? authService.currentUser!.uid),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        '${l10n.error}: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    );
+                  }
+
+                  final points = snapshot.data ?? [];
+                  print(
+                      '🚛 [Driver] Loaded ${points.length} points for driver');
+                  for (var point in points) {
+                    print('  - ${point.clientName}: status=${point.status}');
+                  }
+
+                  if (points.isEmpty) {
+                    return Center(
+                      child: Text(
+                        l10n.noActivePoints,
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    );
+                  }
+
+                  _currentPoint = points.firstWhere(
+                    (p) =>
+                        p.status != l10n.statusCompleted &&
+                        p.status != l10n.statusCancelled,
+                    orElse: () => points.first,
+                  );
+
+                  return Column(
+                    children: [
+                      // Большая кнопка "НАЧАТЬ НАВИГАЦИЮ"
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        child: ElevatedButton.icon(
+                          onPressed: () => _startFullRouteNavigation(points),
+                          icon: const Icon(Icons.navigation, size: 32),
+                          label: Text(
+                            l10n.navigation.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Карта с маршрутом
+                      Expanded(
+                        flex: 2,
+                        child: DeliveryMapWidget(points: points),
+                      ),
+                      // Список точек
+                      Expanded(
+                        flex: 1,
+                        child: ListView.builder(
+                          itemCount: points.length,
+                          itemBuilder: (context, index) {
+                            final point = points[index];
+                            final isActive = _currentPoint != null &&
+                                point.id == _currentPoint!.id;
+
+                            return Card(
+                              color: isActive ? Colors.green.shade50 : null,
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      isActive ? Colors.green : Colors.grey,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                title: Text(
+                                  point.clientName,
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                subtitle: Text(
+                                  point.address,
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                trailing: _buildTrailingWidget(
+                                    context, point, isActive, l10n, points),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -217,8 +355,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     if (point.status == l10n.statusAssigned && isActive) {
       return ElevatedButton(
         onPressed: () async {
-          await _routeService.updatePointStatus(
-              point.id, l10n.statusCompleted);
+          await _routeService.updatePointStatus(point.id, l10n.statusCompleted);
 
           // Переход к следующей точке
           final nextPoint = allPoints.firstWhere(
@@ -241,8 +378,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
         child: Text(l10n.pointDone),
       );
@@ -251,9 +387,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return Text(
       _getStatusText(point.status, l10n),
       style: TextStyle(
-        color: point.status == l10n.statusCompleted
-            ? Colors.green
-            : Colors.black,
+        color:
+            point.status == l10n.statusCompleted ? Colors.green : Colors.black,
         fontWeight: FontWeight.bold,
       ),
     );

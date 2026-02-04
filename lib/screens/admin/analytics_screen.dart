@@ -25,13 +25,13 @@ class AnalyticsScreen extends StatelessWidget {
     final pending = points.where((p) => p.status == l10n.statusPending).length;
     final inProgress = points
         .where((p) =>
-            p.status == l10n.statusAssigned || p.status == l10n.statusInProgress)
+            p.status == l10n.statusAssigned ||
+            p.status == l10n.statusInProgress)
         .length;
     final cancelled =
         points.where((p) => p.status == l10n.statusCancelled).length;
 
-    final totalPallets =
-        points.fold<int>(0, (sum, p) => sum + (p.pallets));
+    final totalPallets = points.fold<int>(0, (sum, p) => sum + (p.pallets));
     final completedPallets = points
         .where((p) => p.status == l10n.statusCompleted)
         .fold<int>(0, (sum, p) => sum + p.pallets);
@@ -60,7 +60,9 @@ class AnalyticsScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.analytics)),
+      appBar: AppBar(
+          backgroundColor: Theme.of(context).primaryColor,
+          title: Text(l10n.analytics)),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _getAnalytics(l10n),
         builder: (context, snapshot) {
@@ -115,11 +117,13 @@ class AnalyticsScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         '${l10n.total}: ${data['totalPallets']}',
-                        style: const TextStyle(fontSize: 16, color: Colors.black),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.black),
                       ),
                       Text(
                         '${l10n.delivered}: ${data['completedPallets']}',
-                        style: const TextStyle(fontSize: 16, color: Colors.black),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.black),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
@@ -127,8 +131,8 @@ class AnalyticsScreen extends StatelessWidget {
                             ? data['completedPallets'] / data['totalPallets']
                             : 0,
                         backgroundColor: Colors.grey[300],
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            Colors.green),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(Colors.green),
                       ),
                     ],
                   ),

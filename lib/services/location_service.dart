@@ -67,21 +67,47 @@ class LocationService {
       point.longitude,
     );
 
-    if (distance <= 50) {
+    if (distance <= AppConfig.autoCompleteRadius) {
       final trackingData = _trackingData.putIfAbsent(
         point.id,
         () => _PointTrackingData(arrivedAt: DateTime.now()),
       );
 
       final duration = DateTime.now().difference(trackingData.arrivedAt);
+      final remainingSeconds = AppConfig.autoCompleteDuration.inSeconds - duration.inSeconds;
       
-      if (duration.inMinutes >= 2 && !trackingData.completed) {
+      debugPrint('🎯 [AutoComplete] Distance: ${distance.toStringAsFixed(1)}m, Time: ${duration.inSeconds}s/${AppConfig.autoCompleteDuration.inSeconds}s, Remaining: ${remainingSeconds}s');
+      
+      if (duration >= AppConfig.autoCompleteDuration && !trackingData.completed) {
         trackingData.completed = true;
+        debugPrint('✅ [AutoComplete] Point "${point.clientName}" auto-completed!');
         onComplete(point);
       }
     } else {
-      _trackingData.remove(point.id);
+      if (_trackingData.containsKey(point.id)) {
+        debugPrint('⚠️ [AutoComplete] Driver moved away from "${point.clientName}" (${distance.toStringAsFixed(1)}m), resetting timer');
+        _trackingData.remove(point.id);
+      }
     }
+  }
+  
+  /// Получает информацию о прогрессе автозакрытия точки
+  Map<String, dynamic>? getAutoCompleteProgress(String pointId) {
+    final trackingData = _trackingData[pointId];
+    if (trackingData == null) return null;
+    
+    final duration = DateTime.now().difference(trackingData.arrivedAt);
+    final totalSeconds = AppConfig.autoCompleteDuration.inSeconds;
+    final remainingSeconds = totalSeconds - duration.inSeconds;
+    final progress = (duration.inSeconds / totalSeconds).clamp(0.0, 1.0);
+    
+    return {
+      'arrivedAt': trackingData.arrivedAt,
+      'duration': duration,
+      'remainingSeconds': remainingSeconds > 0 ? remainingSeconds : 0,
+      'progress': progress,
+      'isCompleting': remainingSeconds <= 0,
+    };
   }
 
   /// Обновляет позицию водителя в Firestore в реальном времени

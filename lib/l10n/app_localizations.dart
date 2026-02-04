@@ -100,6 +100,24 @@ abstract class AppLocalizations {
     Locale('ru')
   ];
 
+  /// No description provided for @autoDistributePallets.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-distribute pallets'**
+  String get autoDistributePallets;
+
+  /// No description provided for @autoDistributeSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Pallets have been automatically assigned to drivers!'**
+  String get autoDistributeSuccess;
+
+  /// No description provided for @autoDistributeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-distribution error'**
+  String get autoDistributeError;
+
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
@@ -268,11 +286,143 @@ abstract class AppLocalizations {
   /// **'Cancelled'**
   String get cancelled;
 
+  /// No description provided for @navigate.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigate'**
+  String get navigate;
+
+  /// No description provided for @openInMaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Maps'**
+  String get openInMaps;
+
   /// No description provided for @selectDriver.
   ///
   /// In en, this message translates to:
   /// **'Select Driver'**
   String get selectDriver;
+
+  /// No description provided for @addUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Add User'**
+  String get addUser;
+
+  /// No description provided for @addNewUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New User'**
+  String get addNewUser;
+
+  /// No description provided for @fullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Name'**
+  String get fullName;
+
+  /// No description provided for @role.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get role;
+
+  /// No description provided for @palletCapacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Pallet Capacity'**
+  String get palletCapacity;
+
+  /// No description provided for @truckWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck Weight (tons)'**
+  String get truckWeight;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get error;
+
+  /// No description provided for @fillAllFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill in all required fields'**
+  String get fillAllFields;
+
+  /// No description provided for @userAddedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'User added successfully'**
+  String get userAddedSuccessfully;
+
+  /// No description provided for @errorCreatingUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Error creating user'**
+  String get errorCreatingUser;
+
+  /// No description provided for @emailAlreadyInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address is already in use'**
+  String get emailAlreadyInUse;
+
+  /// No description provided for @weakPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is too weak'**
+  String get weakPassword;
+
+  /// No description provided for @invalidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email address'**
+  String get invalidEmail;
+
+  /// No description provided for @systemManager.
+  ///
+  /// In en, this message translates to:
+  /// **'System Manager'**
+  String get systemManager;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
+  /// No description provided for @noDriversAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No drivers available'**
+  String get noDriversAvailable;
+
+  /// No description provided for @viewingAs.
+  ///
+  /// In en, this message translates to:
+  /// **'You are viewing as'**
+  String get viewingAs;
+
+  /// No description provided for @backToAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Admin'**
+  String get backToAdmin;
 
   /// No description provided for @cancelPoint.
   ///
@@ -328,12 +478,6 @@ abstract class AppLocalizations {
   /// **'Total Pallets'**
   String get totalPallets;
 
-  /// No description provided for @cancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get cancel;
-
   /// No description provided for @confirm.
   ///
   /// In en, this message translates to:
@@ -375,12 +519,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Point added'**
   String get pointAdded;
-
-  /// No description provided for @error.
-  ///
-  /// In en, this message translates to:
-  /// **'Error'**
-  String get error;
 
   /// No description provided for @required.
   ///
@@ -664,12 +802,6 @@ abstract class AppLocalizations {
   /// **'Route not found'**
   String get routeNotFound;
 
-  /// No description provided for @noDriversAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'No drivers available'**
-  String get noDriversAvailable;
-
   /// No description provided for @map.
   ///
   /// In en, this message translates to:
@@ -903,6 +1035,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Original Address'**
   String get originalAddress;
+
+  /// No description provided for @active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get active;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get forgotPassword;
+
+  /// No description provided for @passwordResetEmailSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset email sent'**
+  String get passwordResetEmailSent;
+
+  /// No description provided for @companyId.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID'**
+  String get companyId;
 }
 
 class _AppLocalizationsDelegate

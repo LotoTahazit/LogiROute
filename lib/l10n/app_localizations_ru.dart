@@ -9,6 +9,16 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
+  String get autoDistributePallets => 'Авто-распределить паллеты';
+
+  @override
+  String get autoDistributeSuccess =>
+      'Паллеты автоматически распределены по водителям!';
+
+  @override
+  String get autoDistributeError => 'Ошибка автосплита';
+
+  @override
   String get appTitle => 'LogiRoute';
 
   @override
@@ -93,7 +103,73 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancelled => 'Отменено';
 
   @override
+  String get navigate => 'Навигация';
+
+  @override
+  String get openInMaps => 'Открыть в картах';
+
+  @override
   String get selectDriver => 'Выбрать водителя';
+
+  @override
+  String get addUser => 'Добавить пользователя';
+
+  @override
+  String get addNewUser => 'Добавить нового пользователя';
+
+  @override
+  String get fullName => 'Полное имя';
+
+  @override
+  String get role => 'Роль';
+
+  @override
+  String get palletCapacity => 'Вместимость паллет';
+
+  @override
+  String get truckWeight => 'Тоннаж (тонн)';
+
+  @override
+  String get cancel => 'Отмена';
+
+  @override
+  String get add => 'Добавить';
+
+  @override
+  String get error => 'Ошибка';
+
+  @override
+  String get fillAllFields => 'Необходимо заполнить все обязательные поля';
+
+  @override
+  String get userAddedSuccessfully => 'Пользователь успешно добавлен';
+
+  @override
+  String get errorCreatingUser => 'Ошибка создания пользователя';
+
+  @override
+  String get emailAlreadyInUse => 'Адрес электронной почты уже используется';
+
+  @override
+  String get weakPassword => 'Пароль слишком слабый';
+
+  @override
+  String get invalidEmail => 'Неверный адрес электронной почты';
+
+  @override
+  String get systemManager => 'Системный администратор';
+
+  @override
+  String get ok => 'ОК';
+
+  @override
+  String get noDriversAvailable => 'Нет доступных водителей';
+
+  @override
+  String get viewingAs => 'Вы находитесь в режиме просмотра как';
+
+  @override
+  String get backToAdmin => 'Вернуться к админу';
 
   @override
   String get cancelPoint => 'Отменить точку';
@@ -123,9 +199,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get totalPallets => 'Всего паллет';
 
   @override
-  String get cancel => 'Отмена';
-
-  @override
   String get confirm => 'Подтвердить';
 
   @override
@@ -145,9 +218,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get pointAdded => 'Точка добавлена';
-
-  @override
-  String get error => 'Ошибка';
 
   @override
   String get required => 'Обязательно';
@@ -294,9 +364,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeNotFound => 'Маршрут не найден';
 
   @override
-  String get noDriversAvailable => 'Нет доступных водителей';
-
-  @override
   String get map => 'Карта';
 
   @override
@@ -418,4 +485,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get originalAddress => 'Основной адрес';
+
+  @override
+  String get active => 'Активен';
+
+  @override
+  String get forgotPassword => 'Забыли пароль?';
+
+  @override
+  String get passwordResetEmailSent => 'Письмо для сброса пароля отправлено';
+
+  @override
+  String get companyId => 'Компания';
 }

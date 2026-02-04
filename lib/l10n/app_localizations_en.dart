@@ -9,6 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get autoDistributePallets => 'Auto-distribute pallets';
+
+  @override
+  String get autoDistributeSuccess =>
+      'Pallets have been automatically assigned to drivers!';
+
+  @override
+  String get autoDistributeError => 'Auto-distribution error';
+
+  @override
   String get appTitle => 'LogiRoute';
 
   @override
@@ -93,7 +103,73 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelled => 'Cancelled';
 
   @override
+  String get navigate => 'Navigate';
+
+  @override
+  String get openInMaps => 'Open in Maps';
+
+  @override
   String get selectDriver => 'Select Driver';
+
+  @override
+  String get addUser => 'Add User';
+
+  @override
+  String get addNewUser => 'Add New User';
+
+  @override
+  String get fullName => 'Full Name';
+
+  @override
+  String get role => 'Role';
+
+  @override
+  String get palletCapacity => 'Pallet Capacity';
+
+  @override
+  String get truckWeight => 'Truck Weight (tons)';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get add => 'Add';
+
+  @override
+  String get error => 'Error';
+
+  @override
+  String get fillAllFields => 'Please fill in all required fields';
+
+  @override
+  String get userAddedSuccessfully => 'User added successfully';
+
+  @override
+  String get errorCreatingUser => 'Error creating user';
+
+  @override
+  String get emailAlreadyInUse => 'Email address is already in use';
+
+  @override
+  String get weakPassword => 'Password is too weak';
+
+  @override
+  String get invalidEmail => 'Invalid email address';
+
+  @override
+  String get systemManager => 'System Manager';
+
+  @override
+  String get ok => 'OK';
+
+  @override
+  String get noDriversAvailable => 'No drivers available';
+
+  @override
+  String get viewingAs => 'You are viewing as';
+
+  @override
+  String get backToAdmin => 'Back to Admin';
 
   @override
   String get cancelPoint => 'Cancel Point';
@@ -123,9 +199,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalPallets => 'Total Pallets';
 
   @override
-  String get cancel => 'Cancel';
-
-  @override
   String get confirm => 'Confirm';
 
   @override
@@ -145,9 +218,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pointAdded => 'Point added';
-
-  @override
-  String get error => 'Error';
 
   @override
   String get required => 'Required';
@@ -294,9 +364,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeNotFound => 'Route not found';
 
   @override
-  String get noDriversAvailable => 'No drivers available';
-
-  @override
   String get map => 'Map';
 
   @override
@@ -418,4 +485,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get originalAddress => 'Original Address';
+
+  @override
+  String get active => 'Active';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+
+  @override
+  String get passwordResetEmailSent => 'Password reset email sent';
+
+  @override
+  String get companyId => 'Company ID';
 }

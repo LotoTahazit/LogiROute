@@ -3,11 +3,17 @@ class AppConfig {
   // 🚛 Параметры грузовика и дорог
   static const double minBridgeHeight = 4.0; // Минимальная высота моста в метрах
   static const double truckHeight = 3.5; // Высота грузовика с грузом в метрах
+  static const double maxTruckWeight = 4.0; // Максимальный вес грузовика в тоннах
+  static const double minRoadWeightLimit = 4.0; // Минимальное ограничение веса дороги в тоннах
   
   // 📍 Параметры геолокации
   static const int locationDistanceFilter = 5; // Метров между обновлениями GPS
   static const Duration locationUpdateInterval = Duration(seconds: 3);
   static const Duration oldLocationThreshold = Duration(minutes: 5); // Порог устаревших данных
+  
+  // 🎯 Параметры автозакрытия точек
+  static const double autoCompleteRadius = 100.0; // Радиус автозакрытия (метры)
+  static const Duration autoCompleteDuration = Duration(minutes: 2); // Время ожидания до автозакрытия
   
   // ⏱️ Таймауты
   static const Duration geocodingTimeout = Duration(seconds: 5);

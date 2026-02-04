@@ -1,7 +1,10 @@
 // lib/widgets/navigation_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import '../services/navigation_service.dart';
+import '../services/navigation_launcher_service.dart';
+import '../services/full_route_launcher.dart';
 import '../models/delivery_point.dart';
 import '../l10n/app_localizations.dart';
 
@@ -26,9 +29,11 @@ class NavigationWidget extends StatefulWidget {
 class _NavigationWidgetState extends State<NavigationWidget> {
   final NavigationService _navigationService = NavigationService();
   NavigationRoute? _navigationRoute;
-  int _currentStepIndex = 0;
   bool _isLoading = false;
   String? _error;
+  gmaps.GoogleMapController? _mapController;
+  Set<gmaps.Marker> _markers = {};
+  Set<gmaps.Polyline> _polylines = {};
 
   @override
   void initState() {
@@ -49,7 +54,15 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   }
 
   Future<void> _loadNavigationRoute() async {
-    if (widget.route.isEmpty) return;
+    print('🧭 [Navigation] Loading FULL route with ${widget.route.length} points');
+    for (var point in widget.route) {
+      print('  - ${point.clientName}: (${point.latitude}, ${point.longitude}) status=${point.status}');
+    }
+    
+    if (widget.route.isEmpty) {
+      print('❌ [Navigation] No points in route');
+      return;
+    }
     
     setState(() {
       _isLoading = true;
@@ -57,47 +70,47 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     });
 
     try {
+      // Сразу отображаем ВСЕ точки на карте
+      _updateMap();
+      
       NavigationRoute? route;
       
+      // Строим маршрут через ВСЕ точки водителя
+      if (widget.route.length == 1) {
+        // Только одна точка - простой маршрут
+        final point = widget.route.first;
       if (widget.currentLat != null && widget.currentLng != null) {
-        // Навигация от текущей позиции до первой точки, затем между точками
-        final firstPoint = widget.route.first;
-        
-        if (widget.route.length == 1) {
-          // Только одна точка
           route = await _navigationService.getNavigationRoute(
             startLat: widget.currentLat!,
             startLng: widget.currentLng!,
-            endLat: firstPoint.latitude,
-            endLng: firstPoint.longitude,
+            endLat: point.latitude,
+            endLng: point.longitude,
           );
+          print('🧭 [Navigation] Single point route built');
+        }
         } else {
-          // Несколько точек - используем waypoints
-          final waypoints = widget.route.skip(1).toList();
+        // Несколько точек - строим маршрут через ВСЕ точки
+        final startLat = widget.currentLat ?? widget.route.first.latitude;
+        final startLng = widget.currentLng ?? widget.route.first.longitude;
           final lastPoint = widget.route.last;
+        
+        // Waypoints = все точки кроме последней
+        final waypoints = (widget.currentLat != null && widget.currentLng != null)
+            ? widget.route.toList()  // Все точки как waypoints если есть текущая позиция
+            : widget.route.skip(1).take(widget.route.length - 2).toList();  // Средние точки
+        
+        print('🧭 [Navigation] Building route: start→${waypoints.length} waypoints→end');
           
           route = await _navigationService.getMultiPointRoute(
-            startLat: widget.currentLat!,
-            startLng: widget.currentLng!,
+          startLat: startLat,
+          startLng: startLng,
             waypoints: waypoints,
             endLat: lastPoint.latitude,
             endLng: lastPoint.longitude,
           );
-        }
-      } else {
-        // Навигация между точками маршрута без учета текущей позиции
-        if (widget.route.length > 1) {
-          final waypoints = widget.route.skip(1).take(widget.route.length - 2).toList();
-          final startPoint = widget.route.first;
-          final endPoint = widget.route.last;
-          
-          route = await _navigationService.getMultiPointRoute(
-            startLat: startPoint.latitude,
-            startLng: startPoint.longitude,
-            waypoints: waypoints,
-            endLat: endPoint.latitude,
-            endLng: endPoint.longitude,
-          );
+        
+        if (route != null) {
+          print('✅ [Navigation] Full route built: ${route.distance}, ${route.duration}');
         }
       }
 
@@ -105,8 +118,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         setState(() {
           _navigationRoute = route;
           _isLoading = false;
-          _currentStepIndex = 0;
         });
+        _updateMap(); // Обновляем карту после загрузки маршрута
       }
     } catch (e) {
       if (mounted) {
@@ -118,22 +131,248 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     }
   }
 
-  void _nextStep() {
-    if (_navigationRoute != null && _currentStepIndex < _navigationRoute!.steps.length - 1) {
-      setState(() {
-        _currentStepIndex++;
-      });
+  void _onMapCreated(gmaps.GoogleMapController controller) {
+    _mapController = controller;
+    _updateMap();
+  }
+
+  void _updateMap() {
+    if (_mapController == null || _navigationRoute == null) return;
+
+    _markers.clear();
+    _polylines.clear();
+
+    // Добавляем маркеры для всех точек маршрута
+    for (int i = 0; i < widget.route.length; i++) {
+      final point = widget.route[i];
+      _markers.add(
+        gmaps.Marker(
+          markerId: gmaps.MarkerId('point_$i'),
+          position: gmaps.LatLng(point.latitude, point.longitude),
+          infoWindow: gmaps.InfoWindow(title: point.clientName),
+          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(gmaps.BitmapDescriptor.hueBlue),
+        ),
+      );
+    }
+
+    // Добавляем маркер для текущего местоположения водителя
+    if (widget.currentLat != null && widget.currentLng != null) {
+      _markers.add(
+        gmaps.Marker(
+          markerId: const gmaps.MarkerId('driver_location'),
+          position: gmaps.LatLng(widget.currentLat!, widget.currentLng!),
+          infoWindow: const gmaps.InfoWindow(title: 'Ваше местоположение'),
+          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(gmaps.BitmapDescriptor.hueGreen),
+        ),
+      );
+    }
+
+    // Создаем полилинию из точек маршрута
+    if (widget.route.isNotEmpty) {
+      final routePoints = <gmaps.LatLng>[];
       
-      // Уведомляем родительский виджет о завершении шага
-      widget.onStepCompleted?.call(_currentStepIndex);
+      // Добавляем текущее местоположение водителя как начальную точку
+      if (widget.currentLat != null && widget.currentLng != null) {
+        routePoints.add(gmaps.LatLng(widget.currentLat!, widget.currentLng!));
+      }
+      
+      // Добавляем все точки маршрута
+      for (final point in widget.route) {
+        routePoints.add(gmaps.LatLng(point.latitude, point.longitude));
+      }
+      
+      // Добавляем промежуточную точку если только 2 точки (для лучшей видимости)
+      if (routePoints.length == 2) {
+        final a = routePoints.first;
+        final b = routePoints.last;
+        final mid = gmaps.LatLng(
+          (a.latitude + b.latitude) / 2,
+          (a.longitude + b.longitude) / 2,
+        );
+        routePoints.insert(1, mid);
+        debugPrint('🧩 [Navigation] Inserted midpoint for better visibility');
+      }
+      
+      debugPrint('🧭 [Navigation] Drawing route with ${routePoints.length} points');
+      
+      if (routePoints.length > 1) {
+        _polylines = {
+          gmaps.Polyline(
+            polylineId: const gmaps.PolylineId('activeRoute'),
+            color: Colors.blue,
+            width: 6,
+            startCap: gmaps.Cap.roundCap,
+            endCap: gmaps.Cap.roundCap,
+            geodesic: true,
+            visible: true,
+            points: routePoints,
+          ),
+        };
+        
+        // Автоматический фокус камеры на весь маршрут
+        if (_mapController != null && routePoints.isNotEmpty) {
+          final bounds = _createBoundsFromPoints(routePoints);
+          _mapController!.animateCamera(
+            gmaps.CameraUpdate.newLatLngBounds(bounds, 80),
+          );
+          
+          // Дополнительный фокус на центр маршрута
+          final centerIndex = (routePoints.length / 2).floor();
+          final center = routePoints[centerIndex];
+          _mapController!.animateCamera(
+            gmaps.CameraUpdate.newLatLngZoom(center, 11.0),
+          );
+          debugPrint('🎯 [Navigation] Focused camera on route center: ${center.latitude}, ${center.longitude}');
+        }
+      }
+    } else {
+      debugPrint('⚠️ [Navigation] No polyline to draw');
+    }
+
+
+    setState(() {});
+  }
+
+  List<gmaps.LatLng> _decodePolyline(String encoded) {
+    final List<gmaps.LatLng> points = [];
+    int index = 0, len = encoded.length;
+    int lat = 0, lng = 0;
+
+    while (index < len) {
+      int b, shift = 0, result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.add(gmaps.LatLng(lat / 1E5, lng / 1E5));
+    }
+    return points;
+  }
+
+  gmaps.LatLngBounds _boundsFromLatLngList(List<gmaps.LatLng> list) {
+    double x0 = double.infinity;
+    double y0 = double.infinity;
+    double x1 = -double.infinity;
+    double y1 = -double.infinity;
+    
+    for (gmaps.LatLng latLng in list) {
+      if (latLng.latitude == null || latLng.longitude == null) continue;
+      
+      final lat = latLng.latitude!.toDouble();
+      final lng = latLng.longitude!.toDouble();
+      
+      if (lat < x0) x0 = lat;
+      if (lat > x1) x1 = lat;
+      if (lng < y0) y0 = lng;
+      if (lng > y1) y1 = lng;
+    }
+    
+    return gmaps.LatLngBounds(
+      northeast: gmaps.LatLng(x1, y1),
+      southwest: gmaps.LatLng(x0, y0),
+    );
+  }
+
+  gmaps.LatLngBounds _createBoundsFromPoints(List<gmaps.LatLng> points) {
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    return gmaps.LatLngBounds(
+      southwest: gmaps.LatLng(minLat, minLng),
+      northeast: gmaps.LatLng(maxLat, maxLng),
+    );
+  }
+
+  /// Открывает полный маршрут во внешней навигации или OSRM
+  Future<void> _openFullRouteInMaps() async {
+    try {
+      final l10n = AppLocalizations.of(context)!;
+      final launcher = FullRouteLauncher();
+      
+      await launcher.openFullRoute(widget.route);
+      
+      if (mounted) {
+        // Если маршрут короткий (≤3 точки), показываем уведомление об открытии Maps
+        if (widget.route.length <= 3) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.openInMaps),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          // Для длинных маршрутов (OSRM) показываем что маршрут построен
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Маршрут построен с ${widget.route.length} точками'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка открытия навигации: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  void _previousStep() {
-    if (_currentStepIndex > 0) {
-      setState(() {
-        _currentStepIndex--;
-      });
+  /// Открывает навигацию к конкретной точке
+  Future<void> _openNavigationToPoint(DeliveryPoint point) async {
+    try {
+      final l10n = AppLocalizations.of(context)!;
+      
+      await NavigationLauncherService.openExternalNavigation(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        destinationName: point.clientName,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.navigate} к ${point.clientName}'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка навигации: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -210,8 +449,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
       );
     }
 
-    final currentStep = _navigationRoute!.steps[_currentStepIndex];
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -266,108 +503,144 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                     ],
                   ),
                 ),
+                Row(
+                  children: [
                 Text(
-                  '${_currentStepIndex + 1}/${_navigationRoute!.steps.length}',
+                      '${widget.route.length} נקודות',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      tooltip: l10n.openInMaps,
+                      onPressed: () => _openFullRouteInMaps(),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           
-          // Текущий шаг навигации
+          // Карта навигации
+          Expanded(
+            child: gmaps.GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: gmaps.CameraPosition(
+                target: gmaps.LatLng(
+                  widget.currentLat ?? widget.route.first.latitude,
+                  widget.currentLng ?? widget.route.first.longitude,
+                ),
+                zoom: 12,
+              ),
+              markers: _markers,
+              polylines: _polylines,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              compassEnabled: true,
+              zoomControlsEnabled: true,
+            ),
+          ),
+          
+          // Список точек маршрута с кнопками навигации
           Container(
-            padding: const EdgeInsets.all(16),
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
+                // Заголовок списка
                     Container(
-                      padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.directions,
-                        color: Theme.of(context).primaryColor,
-                        size: 24,
-                      ),
+                    color: Colors.grey[100],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        currentStep.instruction,
-                        style: const TextStyle(
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.list_alt,
+                        color: Theme.of(context).primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Точки маршрута',
+                        style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                Row(
-                  children: [
-                    Icon(
-                      Icons.straighten,
-                      size: 16,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      currentStep.distance,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      currentStep.duration,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          // Кнопки управления
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _currentStepIndex > 0 ? _previousStep : null,
-                    icon: const Icon(Icons.arrow_back),
-                    label: Text(l10n.previous),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
+                
+                // Список точек
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _currentStepIndex < _navigationRoute!.steps.length - 1
-                        ? _nextStep
-                        : null,
-                    icon: const Icon(Icons.arrow_forward),
-                    label: Text(l10n.next),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: widget.route.length,
+                    itemBuilder: (context, index) {
+                      final point = widget.route[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            point.clientName,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Text(
+                            '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                              fontSize: 12,
+                        color: Colors.grey[600],
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.navigation,
+                              color: Colors.blue,
+                              size: 24,
+                            ),
+                            tooltip: l10n.navigate,
+                            onPressed: () => _openNavigationToPoint(point),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

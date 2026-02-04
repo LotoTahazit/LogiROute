@@ -10,6 +10,25 @@
     <!-- 💡 Разрешения для уведомлений (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- 🧭 Queries для работы с внешними навигационными приложениями (Android 11+) -->
+    <queries>
+        <!-- Google Maps / HTTPS -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <!-- Geo схема для карт -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <!-- Waze -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="waze" />
+        </intent>
+    </queries>
+
     <application
         android:label="LogiRoute"
         android:name="${applicationName}"

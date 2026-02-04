@@ -9,6 +9,15 @@ class AppLocalizationsHe extends AppLocalizations {
   AppLocalizationsHe([String locale = 'he']) : super(locale);
 
   @override
+  String get autoDistributePallets => 'פצל אוטומטית משטחים';
+
+  @override
+  String get autoDistributeSuccess => 'המשטחים חולקו אוטומטית לנהגים!';
+
+  @override
+  String get autoDistributeError => 'שגיאת פיצול אוטומטי';
+
+  @override
   String get appTitle => 'לוגי-ראוט';
 
   @override
@@ -93,7 +102,73 @@ class AppLocalizationsHe extends AppLocalizations {
   String get cancelled => 'בוטל';
 
   @override
+  String get navigate => 'ניווט';
+
+  @override
+  String get openInMaps => 'פתח במפות';
+
+  @override
   String get selectDriver => 'בחר נהג';
+
+  @override
+  String get addUser => 'הוסף משתמש';
+
+  @override
+  String get addNewUser => 'הוסף משתמש חדש';
+
+  @override
+  String get fullName => 'שם מלא';
+
+  @override
+  String get role => 'תפקיד';
+
+  @override
+  String get palletCapacity => 'קיבולת משטחים';
+
+  @override
+  String get truckWeight => 'טונאז\' (טון)';
+
+  @override
+  String get cancel => 'ביטול';
+
+  @override
+  String get add => 'הוסף';
+
+  @override
+  String get error => 'שגיאה';
+
+  @override
+  String get fillAllFields => 'יש למלא את כל השדות הנדרשים';
+
+  @override
+  String get userAddedSuccessfully => 'המשתמש נוסף בהצלחה';
+
+  @override
+  String get errorCreatingUser => 'שגיאה ביצירת המשתמש';
+
+  @override
+  String get emailAlreadyInUse => 'כתובת האימייל כבר בשימוש';
+
+  @override
+  String get weakPassword => 'הסיסמה חלשה מדי';
+
+  @override
+  String get invalidEmail => 'כתובת אימייל לא תקינה';
+
+  @override
+  String get systemManager => 'מנהל מערכת';
+
+  @override
+  String get ok => 'אישור';
+
+  @override
+  String get noDriversAvailable => 'אין נהגים זמינים';
+
+  @override
+  String get viewingAs => 'אתה צופה במצב של';
+
+  @override
+  String get backToAdmin => 'חזור למנהל';
 
   @override
   String get cancelPoint => 'בטל נקודה';
@@ -123,9 +198,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get totalPallets => 'סה\"כ משטחים';
 
   @override
-  String get cancel => 'בטל';
-
-  @override
   String get confirm => 'אשר';
 
   @override
@@ -145,9 +217,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get pointAdded => 'נקודה נוספה';
-
-  @override
-  String get error => 'שגיאה';
 
   @override
   String get required => 'שדה חובה';
@@ -294,9 +363,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeNotFound => 'המסלול לא נמצא';
 
   @override
-  String get noDriversAvailable => 'אין נהגים זמינים';
-
-  @override
   String get map => 'מפה';
 
   @override
@@ -418,4 +484,16 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get originalAddress => 'כתובת מקורית';
+
+  @override
+  String get active => 'פעיל';
+
+  @override
+  String get forgotPassword => 'שכחת סיסמה?';
+
+  @override
+  String get passwordResetEmailSent => 'נשלח מייל לאיפוס סיסמה';
+
+  @override
+  String get companyId => 'שם חברה';
 }

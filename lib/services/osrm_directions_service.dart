@@ -2,13 +2,11 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'api_config_service.dart';
+import '../config/api_constants.dart';
 
 /// Бесплатный сервис маршрутизации на основе OSRM (Open Source Routing Machine)
 /// Не требует API-ключа и работает через открытый REST-интерфейс.
 class OsrmDirectionsService {
-  static String get _baseUrl => ApiConfigService.osrmBaseUrl;
-
   /// Получить маршрут между двумя точками
   Future<RouteInfo?> getRoute({
     required double originLat,
@@ -18,8 +16,8 @@ class OsrmDirectionsService {
   }) async {
     try {
       final url = Uri.parse(
-        '$_baseUrl/$originLng,$originLat;$destinationLng,$destinationLat'
-        '?overview=full&geometries=polyline&annotations=duration,distance',
+        '${ApiConstants.osrmRouteUrl}/$originLng,$originLat;$destinationLng,$destinationLat'
+        '?${ApiConstants.osrmRouteParams}&${ApiConstants.osrmAnnotations}',
       );
 
       final response = await http.get(url);
@@ -81,8 +79,8 @@ class OsrmDirectionsService {
       ].join(';');
 
       final String url = optimize
-          ? 'https://router.project-osrm.org/trip/v1/driving/$coords?source=first&destination=last&roundtrip=false&overview=full&geometries=polyline'
-          : '$_baseUrl/$coords?overview=full&geometries=polyline';
+          ? '${ApiConstants.osrmTripUrl}/$coords?${ApiConstants.osrmTripParams}'
+          : '${ApiConstants.osrmRouteUrl}/$coords?${ApiConstants.osrmRouteParams}';
 
       final response = await http.get(Uri.parse(url));
       if (response.statusCode != 200) {

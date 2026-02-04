@@ -15,10 +15,10 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // 🔐 Загрузка переменных окружения из .env файла
   await dotenv.load(fileName: ".env");
-  
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const LogiRouteApp());
 }
@@ -88,9 +88,10 @@ class AuthWrapper extends StatelessWidget {
     return Consumer<AuthService>(
       builder: (context, authService, _) {
         if (authService.isLoading) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
-        
+
         if (authService.currentUser == null) {
           return const LoginScreen();
         }
@@ -100,6 +101,7 @@ class AuthWrapper extends StatelessWidget {
 
         switch (viewAs) {
           case 'admin':
+          case 'super_admin':
             return const AdminDashboard();
           case 'dispatcher':
             return const DispatcherDashboard();
@@ -112,4 +114,3 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
-
