@@ -19,9 +19,7 @@ class PolylineDecoder {
     final int len = encoded.length;
     final double factor = (precision == 6) ? 1e6 : 1e5;
 
-    if (kDebugMode) {
-      debugPrint('🔍 [PolylineDecoder] Decoding: ${encoded.length} chars, precision=$precision');
-    }
+    debugPrint('🔍 [PolylineDecoder] Decoding: ${encoded.length} chars, precision=$precision, factor=$factor');
 
     try {
       while (index < len) {
@@ -92,18 +90,14 @@ class PolylineDecoder {
           points.add(LatLng(decodedLat, decodedLng));
           
           // Логируем первые несколько точек для отладки
-          if (kDebugMode && points.length <= 3) {
+          if (points.length <= 3) {
             debugPrint('📍 [PolylineDecoder] Point ${points.length}: lat=$decodedLat, lng=$decodedLng');
           }
         } else {
-          if (kDebugMode) {
-            debugPrint('⚠️ [PolylineDecoder] Invalid point: lat=$decodedLat, lng=$decodedLng');
-          }
+          debugPrint('⚠️ [PolylineDecoder] Invalid point: lat=$decodedLat, lng=$decodedLng (raw: lat=$lat, lng=$lng)');
           // Если слишком много невалидных точек, прерываем
           if (points.isEmpty && index > 100) {
-            if (kDebugMode) {
-              debugPrint('❌ [PolylineDecoder] Too many invalid points, stopping');
-            }
+            debugPrint('❌ [PolylineDecoder] Too many invalid points, stopping');
             return [];
           }
         }
@@ -115,12 +109,10 @@ class PolylineDecoder {
       return points.isNotEmpty ? points : [];
     }
 
-    if (kDebugMode) {
-      debugPrint('✅ [PolylineDecoder] Decoded ${points.length} valid points');
-      if (points.isNotEmpty) {
-        debugPrint('📍 [PolylineDecoder] First: ${points.first}');
-        debugPrint('📍 [PolylineDecoder] Last: ${points.last}');
-      }
+    debugPrint('✅ [PolylineDecoder] Decoded ${points.length} valid points');
+    if (points.isNotEmpty) {
+      debugPrint('📍 [PolylineDecoder] First: ${points.first}');
+      debugPrint('📍 [PolylineDecoder] Last: ${points.last}');
     }
     
     return points;
@@ -128,10 +120,10 @@ class PolylineDecoder {
 
   /// Проверяет валидность декодированных точек
   static bool isValid(List<LatLng> points, {int minPoints = 2}) {
+    debugPrint('🔍 [PolylineDecoder] Validating ${points.length} points (min: $minPoints)');
+    
     if (points.length < minPoints) {
-      if (kDebugMode) {
-        debugPrint('❌ [PolylineDecoder] Too few points: ${points.length} < $minPoints');
-      }
+      debugPrint('❌ [PolylineDecoder] Too few points: ${points.length} < $minPoints');
       return false;
     }
     
@@ -143,22 +135,18 @@ class PolylineDecoder {
           p.latitude.abs() >= 85 ||
           p.longitude.abs() > 180) {
         invalidCount++;
-        if (kDebugMode && invalidCount <= 3) {
+        if (invalidCount <= 3) {
           debugPrint('❌ [PolylineDecoder] Invalid point $i: lat=${p.latitude}, lng=${p.longitude}');
         }
       }
     }
     
     if (invalidCount > 0) {
-      if (kDebugMode) {
-        debugPrint('❌ [PolylineDecoder] Found $invalidCount invalid points out of ${points.length}');
-      }
+      debugPrint('❌ [PolylineDecoder] Found $invalidCount invalid points out of ${points.length}');
       return false;
     }
     
-    if (kDebugMode) {
-      debugPrint('✅ [PolylineDecoder] All ${points.length} points are valid');
-    }
+    debugPrint('✅ [PolylineDecoder] All ${points.length} points are valid');
     return true;
   }
 
