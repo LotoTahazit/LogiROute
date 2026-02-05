@@ -125,7 +125,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         position: LatLng(AppConfig.defaultWarehouseLat, AppConfig.defaultWarehouseLng),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         infoWindow: InfoWindow(
-          title: '🏭 ${l10n.warehouse ?? "Склад"}',
+          title: '🏭 ${l10n?.warehouse ?? "Склад"}',
           snippet: 'Начальная точка всех маршрутов',
         ),
         zIndex: 999, // Склад всегда сверху
