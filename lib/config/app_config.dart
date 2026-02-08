@@ -7,7 +7,7 @@ class AppConfig {
   static const double minRoadWeightLimit = 4.0; // Минимальное ограничение веса дороги в тоннах
   
   // 📍 Параметры геолокации
-  static const int locationDistanceFilter = 5; // Метров между обновлениями GPS
+  static const int locationDistanceFilter = 30; // Метров между обновлениями GPS (оптимизировано для экономии)
   static const Duration locationUpdateInterval = Duration(seconds: 3);
   static const Duration oldLocationThreshold = Duration(minutes: 5); // Порог устаревших данных
   

@@ -1,6 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DeliveryPoint {
+  static const String statusPending = 'pending';
+  static const String statusAssigned = 'assigned';
+  static const String statusInProgress = 'in_progress';
+  static const String statusCompleted = 'completed';
+  static const String statusCancelled = 'cancelled';
+
+  static const String statusPendingHe = '\u05de\u05de\u05ea\u05d9\u05df';
+  static const String statusAssignedHe = '\u05d4\u05d5\u05e7\u05e6\u05d4';
+  static const String statusInProgressHe = '\u05d1\u05d1\u05d9\u05e6\u05d5\u05e2';
+  static const String statusCompletedHe = '\u05d4\u05d5\u05e9\u05dc\u05dd';
+  static const String statusCancelledHe = '\u05d1\u05d5\u05d8\u05dc';
+
+  static const String statusPendingRu = '\u043e\u0436\u0438\u0434\u0430\u0435\u0442';
+  static const String statusAssignedRu = '\u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d';
+  static const String statusInProgressRu = '\u0432 \u043f\u0440\u043e\u0446\u0435\u0441\u0441\u0435';
+  static const String statusCompletedRu = '\u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d';
+  static const String statusCancelledRu = '\u043e\u0442\u043c\u0435\u043d\u0451\u043d';
+
+  static const String statusCompletedRuAlt = '\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d';
+  static const String statusCancelledRuAlt = '\u043e\u0442\u043c\u0435\u043d\u0435\u043d';
+
+  static List<String> get activeRouteStatuses => [
+        statusAssigned,
+        statusInProgress,
+        statusAssignedHe,
+        statusInProgressHe,
+        statusAssignedRu,
+        statusInProgressRu,
+      ];
+
+  static List<String> get pendingStatuses => [
+        statusPending,
+        statusPendingHe,
+        statusPendingRu,
+      ];
   final String id;
   final String address;
   final double latitude;
@@ -18,6 +53,7 @@ class DeliveryPoint {
   final String? driverName;
   final int? driverCapacity;
   final String? temporaryAddress; // Временный адрес для этой доставки
+  final bool autoCompleted; // Завершено автоматически
 
   DeliveryPoint({
     required this.id,
@@ -29,7 +65,7 @@ class DeliveryPoint {
     required this.urgency,
     required this.pallets,
     required this.boxes,
-    this.status = 'pending',
+    this.status = statusPending,
     this.arrivedAt,
     this.completedAt,
     this.orderInRoute = 0,
@@ -37,6 +73,7 @@ class DeliveryPoint {
     this.driverName,
     this.driverCapacity,
     this.temporaryAddress,
+    this.autoCompleted = false,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -52,7 +89,7 @@ class DeliveryPoint {
              urgency: map['urgency'] ?? 'normal',
       pallets: map['pallets'] ?? 0,
       boxes: map['boxes'] ?? (map['pallets'] ?? 1) * 4, // Fallback для старых записей
-      status: map['status'] ?? 'pending',
+      status: normalizeStatus(map['status']),
       arrivedAt: map['arrivedAt'] != null 
           ? (map['arrivedAt'] as Timestamp).toDate() 
           : null,
@@ -64,6 +101,7 @@ class DeliveryPoint {
       driverName: map['driverName'],
       driverCapacity: map['driverCapacity'],
       temporaryAddress: map['temporaryAddress'],
+      autoCompleted: map['autoCompleted'] ?? false,
     );
   }
 
@@ -85,6 +123,7 @@ class DeliveryPoint {
       if (driverName != null) 'driverName': driverName,
       if (driverCapacity != null) 'driverCapacity': driverCapacity,
       if (temporaryAddress != null) 'temporaryAddress': temporaryAddress,
+      'autoCompleted': autoCompleted,
     };
   }
 
@@ -112,7 +151,51 @@ class DeliveryPoint {
       driverName: driverName,
       driverCapacity: driverCapacity,
       temporaryAddress: temporaryAddress,
+      autoCompleted: autoCompleted,
     );
+  }
+
+  static String normalizeStatus(dynamic rawStatus) {
+    if (rawStatus == null) return statusPending;
+
+    final String value = rawStatus.toString().trim();
+    if (value.isEmpty) return statusPending;
+
+    final String lower = value.toLowerCase();
+    switch (lower) {
+      case statusPending:
+        return statusPending;
+      case statusAssigned:
+        return statusAssigned;
+      case statusInProgress:
+        return statusInProgress;
+      case statusCompleted:
+        return statusCompleted;
+      case statusCancelled:
+        return statusCancelled;
+    }
+
+    if (value == statusPendingHe || value == statusPendingRu) {
+      return statusPending;
+    }
+    if (value == statusAssignedHe || value == statusAssignedRu) {
+      return statusAssigned;
+    }
+    if (value == statusInProgressHe || value == statusInProgressRu) {
+      return statusInProgress;
+    }
+    if (value == statusCompletedHe ||
+        value == statusCompletedRu ||
+        value == statusCompletedRuAlt) {
+      return statusCompleted;
+    }
+    if (value == statusCancelledHe ||
+        value == statusCancelledRu ||
+        value == statusCancelledRuAlt) {
+      return statusCancelled;
+    }
+
+    return value;
   }
 }
 

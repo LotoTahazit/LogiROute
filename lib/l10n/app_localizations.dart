@@ -1065,6 +1065,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Company ID'**
   String get companyId;
+
+  /// No description provided for @gpsTrackingActive.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking active'**
+  String get gpsTrackingActive;
+
+  /// No description provided for @gpsTrackingStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking stopped'**
+  String get gpsTrackingStopped;
+
+  /// No description provided for @workDayEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Work day ended'**
+  String get workDayEnded;
+
+  /// Message showing minutes until work starts
+  ///
+  /// In en, this message translates to:
+  /// **'Work starts in {minutes} minutes'**
+  String workStartsIn(int minutes);
+
+  /// Message showing minutes until work ends
+  ///
+  /// In en, this message translates to:
+  /// **'Work ends in {minutes} minutes'**
+  String workEndsIn(int minutes);
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// Edit user dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {name}'**
+  String editUser(String name);
+
+  /// Delete user confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String deleteUser(String name);
+
+  /// No description provided for @leaveEmptyToKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'leave empty to keep current'**
+  String get leaveEmptyToKeep;
+
+  /// No description provided for @userUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'User updated'**
+  String get userUpdated;
+
+  /// No description provided for @userDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'User deleted'**
+  String get userDeleted;
+
+  /// No description provided for @updateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Update error'**
+  String get updateError;
+
+  /// No description provided for @deleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete error'**
+  String get deleteError;
+
+  /// No description provided for @noPermissionToEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to edit this user'**
+  String get noPermissionToEdit;
+
+  /// No description provided for @warehouseStartPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting point for all routes'**
+  String get warehouseStartPoint;
+
+  /// No description provided for @vehicleNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Number'**
+  String get vehicleNumber;
 }
 
 class _AppLocalizationsDelegate

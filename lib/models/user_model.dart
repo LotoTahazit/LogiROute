@@ -6,6 +6,7 @@ class UserModel {
   final String? companyId;
   final int? palletCapacity;
   final double? truckWeight; // Тоннаж грузовика в тоннах
+  final String? vehicleNumber; // Номер машины (только для водителей)
 
   UserModel({
     required this.uid,
@@ -15,6 +16,7 @@ class UserModel {
     this.companyId,
     this.palletCapacity,
     this.truckWeight,
+    this.vehicleNumber,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
@@ -30,6 +32,7 @@ class UserModel {
       truckWeight: map['truckWeight'] is String
           ? double.tryParse(map['truckWeight'])
           : (map['truckWeight'] as num?)?.toDouble(),
+      vehicleNumber: map['vehicleNumber'],
     );
   }
 
@@ -41,10 +44,12 @@ class UserModel {
       if (companyId != null) 'companyId': companyId,
       if (palletCapacity != null) 'palletCapacity': palletCapacity,
       if (truckWeight != null) 'truckWeight': truckWeight,
+      if (vehicleNumber != null) 'vehicleNumber': vehicleNumber,
     };
   }
 
   bool get isAdmin => role == 'admin' || role == 'super_admin';
   bool get isDispatcher => role == 'dispatcher';
   bool get isDriver => role == 'driver';
+  bool get isSuperAdmin => role == 'super_admin';
 }

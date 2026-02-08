@@ -1,5 +1,6 @@
 import 'add_point_dialog.dart';
 import 'edit_point_dialog.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -52,10 +53,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   final RouteService _routeService = RouteService();
 
   List<UserModel> _drivers = [];
-  List<DeliveryPoint> _mapPoints = [];
   bool _isLoadingMap = false;
-  String _lastUpdatedText = '';
-  int _selectedTabIndex = 0;
+  List<DeliveryPoint> _lastNonEmptyRoutes = [];
 
   late final Stream<List<DeliveryPoint>> _pendingPointsStream;
   late final Stream<List<DeliveryPoint>> _routesStream;
@@ -65,9 +64,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     super.initState();
     _loadDrivers();
 
-    // ✅ Инициализация потоков один раз
     _pendingPointsStream = _routeService.getAllPendingPoints();
-    _routesStream = _routeService.getAllRoutes();
+    _routesStream = _routeService.getAllRoutes().map((routes) {
+      if (routes.isNotEmpty) {
+        _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
+      }
+      return routes;
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadDrivers() async {
@@ -89,26 +97,28 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Set Warehouse Location'),
+        title: const Text('Set Warehouse Location'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: latController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Latitude (Warehouse in Mishmarot)',
                 hintText: '32.48698',
               ),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: lngController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Longitude (Warehouse in Mishmarot)',
                 hintText: '34.982121',
               ),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
           ],
         ),
@@ -119,7 +129,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Save'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -163,15 +173,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       }
     }
-  }
-
-  String _getStatusText(String status, AppLocalizations l10n) {
-    if (status == l10n.statusAssigned) return l10n.assigned;
-    if (status == l10n.statusInProgress) return l10n.inProgress;
-    if (status == l10n.statusCompleted) return l10n.completed;
-    if (status == l10n.statusCancelled) return l10n.cancelled;
-    if (status == l10n.statusPending) return l10n.pending;
-    return status;
   }
 
   Future<void> _printDriverRoute(List<DeliveryPoint> routes) async {
@@ -516,8 +517,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Clear Pending Points'),
-        content: Text(
+        title: const Text('Clear Pending Points'),
+        content: const Text(
             'This will delete ONLY pending delivery points (not active routes). Continue?'),
         actions: [
           TextButton(
@@ -527,7 +528,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Clear Pending'),
+            child: const Text('Clear Pending'),
           ),
         ],
       ),
@@ -537,7 +538,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       await _routeService.clearOldTestData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               content: Text('Pending points cleared, active routes preserved')),
         );
         setState(() {}); // Обновляем UI
@@ -552,8 +553,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Clear All Data'),
-        content: Text('This will delete ALL delivery points. Are you sure?'),
+        title: const Text('Clear All Data'),
+        content:
+            const Text('This will delete ALL delivery points. Are you sure?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -562,7 +564,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Delete All'),
+            child: const Text('Delete All'),
           ),
         ],
       ),
@@ -572,60 +574,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       await _routeService.clearAllTestData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('All data cleared')),
+          const SnackBar(content: Text('All data cleared')),
         );
         setState(() {}); // Обновляем UI
       }
-    }
-  }
-
-  Future<void> _refreshMapPoints() async {
-    setState(() => _isLoadingMap = true);
-    try {
-      final snapshot = await _routeService.getAllRoutes().first;
-
-      // 🔍 Логируем что именно попадает на карту
-      print('🗺️ [Map] Loaded ${snapshot.length} route points:');
-      for (var p in snapshot) {
-        print(
-            '  - ${p.clientName}: (${p.latitude}, ${p.longitude}) status=${p.status} order=${p.orderInRoute}');
-      }
-
-      if (mounted) {
-        setState(() {
-          _mapPoints = snapshot;
-          _isLoadingMap = false;
-          _lastUpdatedText = '🕓 ${TimeOfDay.now().format(context)}';
-        });
-      }
-    } catch (e) {
-      print('❌ [Map] Error loading points: $e');
-      if (mounted) setState(() => _isLoadingMap = false);
-    }
-  }
-
-  Future<void> _showAllPointsOnMap() async {
-    setState(() => _isLoadingMap = true);
-    try {
-      final snapshot = await _routeService.getAllPointsForMapTesting().first;
-
-      // 🔍 Логируем ВСЕ точки
-      print('🗺️ [Map] Loaded ALL ${snapshot.length} points:');
-      for (var p in snapshot) {
-        print(
-            '  - ${p.clientName}: (${p.latitude}, ${p.longitude}) status=${p.status} order=${p.orderInRoute}');
-      }
-
-      if (mounted) {
-        setState(() {
-          _mapPoints = snapshot;
-          _isLoadingMap = false;
-          _lastUpdatedText = '🕓 ${TimeOfDay.now().format(context)} (ALL)';
-        });
-      }
-    } catch (e) {
-      print('❌ [Map] Error loading all points: $e');
-      if (mounted) setState(() => _isLoadingMap = false);
     }
   }
 
@@ -742,11 +694,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 ),
               TabBar(
                 onTap: (index) {
-                  setState(() => _selectedTabIndex = index);
-                  // Загружаем данные карты только при переходе на вкладку карты
-                  if (index == 2 && _mapPoints.isEmpty && !_isLoadingMap) {
-                    _refreshMapPoints();
-                  }
+                  setState(() {});
+                  // Карта теперь использует StreamBuilder и обновляется автоматически
                 },
                 tabs: [
                   Tab(text: l10n.deliveryPoints),
@@ -859,12 +808,17 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                     ),
                     StreamBuilder<List<DeliveryPoint>>(
                       stream: _routesStream,
+                      initialData: const [],
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
+                        if (snapshot.hasError) {
+                          return Center(
+                              child: Text('Error: ${snapshot.error}'));
                         }
-                        final allRoutes = snapshot.data!;
+
+                        final snapshotRoutes = snapshot.data ?? [];
+                        final allRoutes = snapshotRoutes.isNotEmpty
+                            ? snapshotRoutes
+                            : _lastNonEmptyRoutes;
                         final Map<String, List<DeliveryPoint>> routesByDriver =
                             {};
                         for (final route in allRoutes) {
@@ -888,8 +842,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 routes.fold(0, (sum, r) => sum + r.pallets);
 
                             // Определяем статус маршрута
-                            final hasAssignedPoints =
-                                routes.any((r) => r.status == 'assigned');
                             final hasInProgressPoints =
                                 routes.any((r) => r.status == 'in_progress');
                             final routeStatus = hasInProgressPoints
@@ -941,7 +893,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                         leading: CircleAvatar(
                                           backgroundColor: Colors.blue,
                                           child: Text(
-                                            '${(r.orderInRoute ?? 0) + 1}',
+                                            '${r.orderInRoute + 1}',
                                             style: const TextStyle(
                                                 color: Colors.white),
                                           ),
@@ -971,13 +923,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               ElevatedButton.icon(
-                                onPressed:
-                                    _isLoadingMap ? null : _refreshMapPoints,
-                                icon: const Icon(Icons.refresh),
-                                label: Text(l10n.refreshMap),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
                                 onPressed: _clearOldData,
                                 icon: const Icon(Icons.delete_sweep,
                                     color: Colors.orange),
@@ -996,15 +941,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               ),
                               const SizedBox(width: 8),
                               ElevatedButton.icon(
-                                onPressed: _showAllPointsOnMap,
-                                icon: const Icon(Icons.visibility,
-                                    color: Colors.purple),
-                                label: const Text('Show All'),
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple.shade100),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
                                 onPressed: _fixHebrewSearch,
                                 icon: const Icon(Icons.search,
                                     color: Colors.blue),
@@ -1012,26 +948,32 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue.shade100),
                               ),
-                              if (_lastUpdatedText.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 12),
-                                  child: Text(
-                                    _lastUpdatedText,
-                                    style: const TextStyle(
-                                        color: Colors.grey, fontSize: 13),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
                         Expanded(
-                          child: _isLoadingMap
-                              ? const Center(child: CircularProgressIndicator())
-                              : _mapPoints.isEmpty
-                                  ? Center(
-                                      child: Text(l10n.noDeliveryPoints),
-                                    )
-                                  : DeliveryMapWidget(points: _mapPoints),
+                          child: StreamBuilder<List<DeliveryPoint>>(
+                            stream: _routesStream,
+                            initialData: _lastNonEmptyRoutes,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasError) {
+                                return Center(
+                                    child: Text('Error: ${snapshot.error}'));
+                              }
+
+                              final snapshotPoints = snapshot.data ?? [];
+                              final points = snapshotPoints.isNotEmpty
+                                  ? snapshotPoints
+                                  : _lastNonEmptyRoutes;
+
+                              if (points.isEmpty) {
+                                return Center(
+                                    child: Text(l10n.noDeliveryPoints));
+                              }
+
+                              return DeliveryMapWidget(points: points);
+                            },
+                          ),
                         ),
                       ],
                     ),

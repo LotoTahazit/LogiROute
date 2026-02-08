@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
 import '../../services/location_service.dart';
+import '../../services/work_schedule_service.dart';
+import '../../services/notification_service.dart';
+import '../../services/auto_complete_service.dart';
 import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
@@ -19,10 +23,12 @@ class DriverDashboard extends StatefulWidget {
 class _DriverDashboardState extends State<DriverDashboard> {
   final RouteService _routeService = RouteService();
   final LocationService _locationService = LocationService();
+  final WorkScheduleService _scheduleService = WorkScheduleService();
+  final AutoCompleteService _autoCompleteService = AutoCompleteService();
   DeliveryPoint? _currentPoint;
   bool _isAutoCompleting = false;
-  double? _currentLat;
-  double? _currentLng;
+  bool _isTrackingActive = false;
+  String _scheduleStatus = '';
 
   /// Начать навигацию по всему маршруту
   Future<void> _startFullRouteNavigation(List<DeliveryPoint> points) async {
@@ -43,12 +49,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // Промежуточные точки (waypoints) - все точки кроме первой и последней
     String waypoints = '';
     if (points.length > 2) {
-      waypoints = '&waypoints=' +
-          points
-              .skip(1)
-              .take(points.length - 2)
-              .map((p) => '${p.latitude},${p.longitude}')
-              .join('|');
+      waypoints =
+          '&waypoints=${points.skip(1).take(points.length - 2).map((p) => '${p.latitude},${p.longitude}').join('|')}';
     }
 
     final url = 'https://www.google.com/maps/dir/?api=1'
@@ -87,15 +89,16 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   String _getStatusText(String status, AppLocalizations l10n) {
-    if (status == l10n.statusAssigned) {
+    final normalized = DeliveryPoint.normalizeStatus(status);
+    if (normalized == DeliveryPoint.statusAssigned) {
       return l10n.assigned;
-    } else if (status == l10n.statusInProgress) {
+    } else if (normalized == DeliveryPoint.statusInProgress) {
       return l10n.inProgress;
-    } else if (status == l10n.statusCompleted) {
+    } else if (normalized == DeliveryPoint.statusCompleted) {
       return l10n.completed;
-    } else if (status == l10n.statusCancelled) {
+    } else if (normalized == DeliveryPoint.statusCancelled) {
       return l10n.cancelled;
-    } else if (status == l10n.statusPending) {
+    } else if (normalized == DeliveryPoint.statusPending) {
       return l10n.pending;
     } else {
       return status;
@@ -105,23 +108,66 @@ class _DriverDashboardState extends State<DriverDashboard> {
   @override
   void initState() {
     super.initState();
+
+    // Инициализируем уведомления и планируем ежедневное напоминание
+    _initializeNotifications();
+
+    // Запускаем мониторинг расписания
+    _scheduleService.startScheduleMonitoring(
+      onStartTracking: _startTracking,
+      onStopTracking: _stopTracking,
+    );
+
+    // Обновляем статус расписания каждую минуту
+    Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {
+          final status = _scheduleService.getScheduleStatus();
+          _scheduleStatus = status['statusMessage'];
+        });
+      }
+    });
+  }
+
+  Future<void> _initializeNotifications() async {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+    await notificationService.scheduleDailyWorkReminder();
+    debugPrint('✅ [Driver] Notifications initialized and scheduled');
+  }
+
+  void _startTracking() {
     final authService = context.read<AuthService>();
     _locationService.startTracking(
-        authService.currentUser!.uid, _onLocationUpdate);
+      authService.currentUser!.uid,
+      _onLocationUpdate,
+    );
+    _autoCompleteService
+        .startMonitoring(); // Запускаем автоматическое завершение на мобильном
+    setState(() {
+      _isTrackingActive = true;
+    });
+    debugPrint('✅ [Driver] GPS tracking started');
+  }
+
+  void _stopTracking() {
+    _locationService.stopTracking();
+    _autoCompleteService
+        .stopMonitoring(); // Останавливаем автоматическое завершение
+    setState(() {
+      _isTrackingActive = false;
+    });
+    debugPrint('🛑 [Driver] GPS tracking stopped');
   }
 
   @override
   void dispose() {
     _locationService.stopTracking();
+    _scheduleService.dispose();
     super.dispose();
   }
 
   void _onLocationUpdate(double lat, double lon) {
-    setState(() {
-      _currentLat = lat;
-      _currentLng = lon;
-    });
-
     final l10n = AppLocalizations.of(context)!;
 
     if (_currentPoint != null) {
@@ -134,7 +180,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             _isAutoCompleting = true;
 
             await _routeService.updatePointStatus(
-                point.id, l10n.statusCompleted);
+                point.id, DeliveryPoint.statusCompleted);
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -209,16 +255,69 @@ class _DriverDashboardState extends State<DriverDashboard> {
                       onPressed: () => authService.setViewAsRole(null),
                       icon: const Icon(Icons.admin_panel_settings, size: 18),
                       label: Text(l10n.backToAdmin),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
                     ),
                   ],
                 ),
               ),
+            // Индикатор статуса расписания и GPS
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _isTrackingActive
+                    ? Colors.green.shade100
+                    : Colors.grey.shade200,
+                border: Border(
+                  bottom: BorderSide(
+                    color: _isTrackingActive
+                        ? Colors.green.shade300
+                        : Colors.grey.shade400,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
+                    color: _isTrackingActive
+                        ? Colors.green.shade900
+                        : Colors.grey.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isTrackingActive
+                              ? '📍 ${l10n.gpsTrackingActive}'
+                              : '⏸️ ${l10n.gpsTrackingStopped}',
+                          style: TextStyle(
+                            color: _isTrackingActive
+                                ? Colors.green.shade900
+                                : Colors.grey.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (_scheduleStatus.isNotEmpty)
+                          Text(
+                            _scheduleStatus,
+                            style: TextStyle(
+                              color: _isTrackingActive
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             // Основное содержимое
             Expanded(
               child: StreamBuilder<List<DeliveryPoint>>(
@@ -256,8 +355,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                   _currentPoint = points.firstWhere(
                     (p) =>
-                        p.status != l10n.statusCompleted &&
-                        p.status != l10n.statusCancelled,
+                        p.status != DeliveryPoint.statusCompleted &&
+                        p.status != DeliveryPoint.statusCancelled,
                     orElse: () => points.first,
                   );
 
@@ -348,18 +447,20 @@ class _DriverDashboardState extends State<DriverDashboard> {
     AppLocalizations l10n,
     List<DeliveryPoint> allPoints,
   ) {
-    if (point.status == l10n.statusCompleted) {
+    if (point.status == DeliveryPoint.statusCompleted) {
       return const Icon(Icons.check_circle, color: Colors.green, size: 32);
     }
 
-    if (point.status == l10n.statusAssigned && isActive) {
+    if (point.status == DeliveryPoint.statusAssigned && isActive) {
       return ElevatedButton(
         onPressed: () async {
-          await _routeService.updatePointStatus(point.id, l10n.statusCompleted);
+          await _routeService.updatePointStatus(
+              point.id, DeliveryPoint.statusCompleted);
 
           // Переход к следующей точке
           final nextPoint = allPoints.firstWhere(
-            (p) => p.status != l10n.statusCompleted && p.id != point.id,
+            (p) =>
+                p.status != DeliveryPoint.statusCompleted && p.id != point.id,
             orElse: () => allPoints.last,
           );
 
@@ -387,8 +488,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return Text(
       _getStatusText(point.status, l10n),
       style: TextStyle(
-        color:
-            point.status == l10n.statusCompleted ? Colors.green : Colors.black,
+        color: point.status == DeliveryPoint.statusCompleted
+            ? Colors.green
+            : Colors.black,
         fontWeight: FontWeight.bold,
       ),
     );

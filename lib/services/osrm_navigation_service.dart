@@ -15,7 +15,8 @@ class OsrmNavigationService {
   }) async {
     try {
       final coordinates = '$startLng,$startLat;$endLng,$endLat';
-      final url = '${ApiConstants.osrmRouteUrl}/$coordinates?${ApiConstants.osrmRouteParams}';
+      final url =
+          '${ApiConstants.osrmRouteUrl}/$coordinates?${ApiConstants.osrmRouteParams}';
 
       debugPrint('🧭 [OSRM] Requesting route: $url');
 
@@ -32,15 +33,18 @@ class OsrmNavigationService {
           final duration = route['duration'] / 60; // минуты
           final polyline = route['geometry'];
 
-          debugPrint('✅ [OSRM] Route found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min');
+          debugPrint(
+              '✅ [OSRM] Route found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min');
           debugPrint('📏 [OSRM] Polyline length: ${polyline.length} chars');
           debugPrint('🔍 [OSRM] Polyline type: ${polyline.runtimeType}');
-          debugPrint('🔍 [OSRM] Polyline preview (first 100 chars): ${polyline.toString().substring(0, polyline.length > 100 ? 100 : polyline.length)}');
-          
+          debugPrint(
+              '🔍 [OSRM] Polyline preview (first 100 chars): ${polyline.toString().substring(0, polyline.length > 100 ? 100 : polyline.length)}');
+
           // Проверяем первые символы polyline
           if (polyline.length > 0) {
             final firstChar = polyline.codeUnitAt(0);
-            debugPrint('🔍 [OSRM] First char code: $firstChar (char: "${polyline[0]}")');
+            debugPrint(
+                '🔍 [OSRM] First char code: $firstChar (char: "${polyline[0]}")');
           }
 
           return OsrmRoute(
@@ -93,9 +97,11 @@ class OsrmNavigationService {
 
       coordinates.write(';$endLng,$endLat');
 
-      final url = '${ApiConstants.osrmRouteUrl}/${coordinates.toString()}?${ApiConstants.osrmRouteParams}';
+      final url =
+          '${ApiConstants.osrmRouteUrl}/${coordinates.toString()}?${ApiConstants.osrmRouteParams}';
 
-      debugPrint('🧭 [OSRM] Requesting route with ${waypoints.length} waypoints');
+      debugPrint(
+          '🧭 [OSRM] Requesting route with ${waypoints.length} waypoints');
       debugPrint('🔍 [OSRM] URL: $url');
 
       final response = await http.get(Uri.parse(url));
@@ -111,7 +117,8 @@ class OsrmNavigationService {
           final duration = route['duration'] / 60; // минуты
           final polyline = route['geometry'];
 
-          debugPrint('✅ [OSRM] Route with waypoints found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min');
+          debugPrint(
+              '✅ [OSRM] Route with waypoints found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min');
           debugPrint('📏 [OSRM] Polyline length: ${polyline.length} chars');
 
           return OsrmRoute(
@@ -166,7 +173,8 @@ class OsrmNavigationService {
       coordinates.write(';$endLng,$endLat');
 
       // Используем trip endpoint для оптимизации порядка
-      final tripUrl = '${ApiConstants.osrmTripUrl}/${coordinates.toString()}?${ApiConstants.osrmTripParams}';
+      final tripUrl =
+          '${ApiConstants.osrmTripUrl}/${coordinates.toString()}?${ApiConstants.osrmTripParams}';
 
       debugPrint(
           '🧭 [OSRM] Requesting optimized trip with ${waypoints.length} waypoints');
@@ -238,7 +246,7 @@ class OsrmRoute {
     } else {
       final hours = (duration / 60).floor();
       final minutes = (duration % 60).round();
-      return '${hours}ч ${minutes}м';
+      return '$hoursч $minutesм';
     }
   }
 }

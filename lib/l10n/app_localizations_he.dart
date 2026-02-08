@@ -42,7 +42,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get driver => 'נהג';
 
   @override
-  String get viewAs => 'הצג כ־';
+  String get viewAs => 'הצג כ';
 
   @override
   String get dashboard => 'לוח בקרה';
@@ -78,7 +78,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get boxes => 'קרטונים';
 
   @override
-  String get boxesPerPallet => 'קרטונים למשטח (16–48)';
+  String get boxesPerPallet => 'קרטונים למשטח (16-48)';
 
   @override
   String get openingTime => 'שעת פתיחה';
@@ -237,7 +237,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get markComplete => 'סמן כהושלם';
 
   @override
-  String get mapViewRequiresApi => 'תצוגת מפה – דורשת מפתח Google Maps API';
+  String get mapViewRequiresApi => 'תצוגת מפה דורשת מפתח Google Maps API';
 
   @override
   String get unknownDriver => 'נהג לא ידוע';
@@ -311,7 +311,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String driverChangedTo(Object name) {
-    return 'הנהג שונה ל־$name';
+    return 'הנהג שונה ל $name';
   }
 
   @override
@@ -403,7 +403,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String addressNotFoundDescription(String address) {
-    return 'לא ניתן למצוא קואורדינטות עבור הכתובת:\n\"$address\"\n\nהמערכת ניסתה הרבה אפשרויות אבל הגיאוקודינג נכשל.\n\nנסה:\n• בדוק את איות הכתובת\n• השתמש בכתובת מלאה עם עיר\n• ודא שהכתובת קיימת במפות\n• פנה למנהל לעזרה';
+    return 'לא ניתן למצוא קואורדינטות עבור הכתובת:\n\"$address\"\n\nהמערכת ניסתה הרבה אפשרויות אבל הגיאוקודינג נכשל.\n\nנסה:\n בדוק את איות הכתובת\n השתמש בכתובת מלאה עם עיר\n ודא שהכתובת קיימת במפות\n פנה למנהל לעזרה';
   }
 
   @override
@@ -499,4 +499,60 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get companyId => 'שם חברה';
+
+  @override
+  String get gpsTrackingActive => 'מעקב GPS פעיל';
+
+  @override
+  String get gpsTrackingStopped => 'מעקב GPS הופסק';
+
+  @override
+  String get workDayEnded => 'יום העבודה הסתיים';
+
+  @override
+  String workStartsIn(int minutes) {
+    return 'העבודה תתחיל בעוד $minutes דקות';
+  }
+
+  @override
+  String workEndsIn(int minutes) {
+    return 'העבודה תסתיים בעוד $minutes דקות';
+  }
+
+  @override
+  String get edit => 'ערוך';
+
+  @override
+  String editUser(String name) {
+    return 'ערוך $name';
+  }
+
+  @override
+  String deleteUser(String name) {
+    return 'למחוק $name?';
+  }
+
+  @override
+  String get leaveEmptyToKeep => 'השאר ריק כדי לשמור את הנוכחי';
+
+  @override
+  String get userUpdated => 'המשתמש עודכן';
+
+  @override
+  String get userDeleted => 'המשתמש נמחק';
+
+  @override
+  String get updateError => 'שגיאת עדכון';
+
+  @override
+  String get deleteError => 'שגיאת מחיקה';
+
+  @override
+  String get noPermissionToEdit => 'אין לך הרשאה לערוך משתמש זה';
+
+  @override
+  String get warehouseStartPoint => 'נקודת התחלה לכל המסלולים';
+
+  @override
+  String get vehicleNumber => 'מספר רכב';
 }

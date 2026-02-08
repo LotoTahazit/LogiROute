@@ -13,7 +13,7 @@ class NavigationWidget extends StatefulWidget {
   final double? currentLat;
   final double? currentLng;
   final Function(int)? onStepCompleted;
-  
+
   const NavigationWidget({
     super.key,
     required this.route,
@@ -32,7 +32,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   bool _isLoading = false;
   String? _error;
   gmaps.GoogleMapController? _mapController;
-  Set<gmaps.Marker> _markers = {};
+  final Set<gmaps.Marker> _markers = {};
   Set<gmaps.Polyline> _polylines = {};
 
   @override
@@ -44,7 +44,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   @override
   void didUpdateWidget(NavigationWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Перезагружаем маршрут если изменился список точек
     if (oldWidget.route.length != widget.route.length ||
         oldWidget.currentLat != widget.currentLat ||
@@ -54,16 +54,18 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   }
 
   Future<void> _loadNavigationRoute() async {
-    print('🧭 [Navigation] Loading FULL route with ${widget.route.length} points');
+    print(
+        '🧭 [Navigation] Loading FULL route with ${widget.route.length} points');
     for (var point in widget.route) {
-      print('  - ${point.clientName}: (${point.latitude}, ${point.longitude}) status=${point.status}');
+      print(
+          '  - ${point.clientName}: (${point.latitude}, ${point.longitude}) status=${point.status}');
     }
-    
+
     if (widget.route.isEmpty) {
       print('❌ [Navigation] No points in route');
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -72,14 +74,14 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     try {
       // Сразу отображаем ВСЕ точки на карте
       _updateMap();
-      
+
       NavigationRoute? route;
-      
+
       // Строим маршрут через ВСЕ точки водителя
       if (widget.route.length == 1) {
         // Только одна точка - простой маршрут
         final point = widget.route.first;
-      if (widget.currentLat != null && widget.currentLng != null) {
+        if (widget.currentLat != null && widget.currentLng != null) {
           route = await _navigationService.getNavigationRoute(
             startLat: widget.currentLat!,
             startLng: widget.currentLng!,
@@ -88,29 +90,36 @@ class _NavigationWidgetState extends State<NavigationWidget> {
           );
           print('🧭 [Navigation] Single point route built');
         }
-        } else {
+      } else {
         // Несколько точек - строим маршрут через ВСЕ точки
         final startLat = widget.currentLat ?? widget.route.first.latitude;
         final startLng = widget.currentLng ?? widget.route.first.longitude;
-          final lastPoint = widget.route.last;
-        
+        final lastPoint = widget.route.last;
+
         // Waypoints = все точки кроме последней
-        final waypoints = (widget.currentLat != null && widget.currentLng != null)
-            ? widget.route.toList()  // Все точки как waypoints если есть текущая позиция
-            : widget.route.skip(1).take(widget.route.length - 2).toList();  // Средние точки
-        
-        print('🧭 [Navigation] Building route: start→${waypoints.length} waypoints→end');
-          
-          route = await _navigationService.getMultiPointRoute(
+        final waypoints = (widget.currentLat != null &&
+                widget.currentLng != null)
+            ? widget.route
+                .toList() // Все точки как waypoints если есть текущая позиция
+            : widget.route
+                .skip(1)
+                .take(widget.route.length - 2)
+                .toList(); // Средние точки
+
+        print(
+            '🧭 [Navigation] Building route: start→${waypoints.length} waypoints→end');
+
+        route = await _navigationService.getMultiPointRoute(
           startLat: startLat,
           startLng: startLng,
-            waypoints: waypoints,
-            endLat: lastPoint.latitude,
-            endLng: lastPoint.longitude,
-          );
-        
+          waypoints: waypoints,
+          endLat: lastPoint.latitude,
+          endLng: lastPoint.longitude,
+        );
+
         if (route != null) {
-          print('✅ [Navigation] Full route built: ${route.distance}, ${route.duration}');
+          print(
+              '✅ [Navigation] Full route built: ${route.distance}, ${route.duration}');
         }
       }
 
@@ -150,7 +159,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
           markerId: gmaps.MarkerId('point_$i'),
           position: gmaps.LatLng(point.latitude, point.longitude),
           infoWindow: gmaps.InfoWindow(title: point.clientName),
-          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(gmaps.BitmapDescriptor.hueBlue),
+          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(
+              gmaps.BitmapDescriptor.hueBlue),
         ),
       );
     }
@@ -162,7 +172,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
           markerId: const gmaps.MarkerId('driver_location'),
           position: gmaps.LatLng(widget.currentLat!, widget.currentLng!),
           infoWindow: const gmaps.InfoWindow(title: 'Ваше местоположение'),
-          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(gmaps.BitmapDescriptor.hueGreen),
+          icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(
+              gmaps.BitmapDescriptor.hueGreen),
         ),
       );
     }
@@ -170,17 +181,17 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     // Создаем полилинию из точек маршрута
     if (widget.route.isNotEmpty) {
       final routePoints = <gmaps.LatLng>[];
-      
+
       // Добавляем текущее местоположение водителя как начальную точку
       if (widget.currentLat != null && widget.currentLng != null) {
         routePoints.add(gmaps.LatLng(widget.currentLat!, widget.currentLng!));
       }
-      
+
       // Добавляем все точки маршрута
       for (final point in widget.route) {
         routePoints.add(gmaps.LatLng(point.latitude, point.longitude));
       }
-      
+
       // Добавляем промежуточную точку если только 2 точки (для лучшей видимости)
       if (routePoints.length == 2) {
         final a = routePoints.first;
@@ -192,9 +203,10 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         routePoints.insert(1, mid);
         debugPrint('🧩 [Navigation] Inserted midpoint for better visibility');
       }
-      
-      debugPrint('🧭 [Navigation] Drawing route with ${routePoints.length} points');
-      
+
+      debugPrint(
+          '🧭 [Navigation] Drawing route with ${routePoints.length} points');
+
       if (routePoints.length > 1) {
         _polylines = {
           gmaps.Polyline(
@@ -208,27 +220,27 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             points: routePoints,
           ),
         };
-        
+
         // Автоматический фокус камеры на весь маршрут
         if (_mapController != null && routePoints.isNotEmpty) {
           final bounds = _createBoundsFromPoints(routePoints);
           _mapController!.animateCamera(
             gmaps.CameraUpdate.newLatLngBounds(bounds, 80),
           );
-          
+
           // Дополнительный фокус на центр маршрута
           final centerIndex = (routePoints.length / 2).floor();
           final center = routePoints[centerIndex];
           _mapController!.animateCamera(
             gmaps.CameraUpdate.newLatLngZoom(center, 11.0),
           );
-          debugPrint('🎯 [Navigation] Focused camera on route center: ${center.latitude}, ${center.longitude}');
+          debugPrint(
+              '🎯 [Navigation] Focused camera on route center: ${center.latitude}, ${center.longitude}');
         }
       }
     } else {
       debugPrint('⚠️ [Navigation] No polyline to draw');
     }
-
 
     setState(() {});
   }
@@ -268,19 +280,19 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     double y0 = double.infinity;
     double x1 = -double.infinity;
     double y1 = -double.infinity;
-    
+
     for (gmaps.LatLng latLng in list) {
-      if (latLng.latitude == null || latLng.longitude == null) continue;
-      
-      final lat = latLng.latitude!.toDouble();
-      final lng = latLng.longitude!.toDouble();
-      
+      if (latLng.longitude == null) continue;
+
+      final lat = latLng.latitude.toDouble();
+      final lng = latLng.longitude.toDouble();
+
       if (lat < x0) x0 = lat;
       if (lat > x1) x1 = lat;
       if (lng < y0) y0 = lng;
       if (lng > y1) y1 = lng;
     }
-    
+
     return gmaps.LatLngBounds(
       northeast: gmaps.LatLng(x1, y1),
       southwest: gmaps.LatLng(x0, y0),
@@ -311,9 +323,9 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     try {
       final l10n = AppLocalizations.of(context)!;
       final launcher = FullRouteLauncher();
-      
+
       await launcher.openFullRoute(widget.route);
-      
+
       if (mounted) {
         // Если маршрут короткий (≤3 точки), показываем уведомление об открытии Maps
         if (widget.route.length <= 3) {
@@ -327,7 +339,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
           // Для длинных маршрутов (OSRM) показываем что маршрут построен
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Маршрут построен с ${widget.route.length} точками'),
+              content:
+                  Text('Маршрут построен с ${widget.route.length} точками'),
               backgroundColor: Colors.blue,
             ),
           );
@@ -349,13 +362,13 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   Future<void> _openNavigationToPoint(DeliveryPoint point) async {
     try {
       final l10n = AppLocalizations.of(context)!;
-      
+
       await NavigationLauncherService.openExternalNavigation(
         latitude: point.latitude,
         longitude: point.longitude,
         destinationName: point.clientName,
       );
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -401,7 +414,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               color: Colors.red,
               size: 48,
@@ -410,8 +423,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             Text(
               l10n.navigationError,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.red,
-              ),
+                    color: Colors.red,
+                  ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -434,7 +447,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(
+            const Icon(
               Icons.route,
               size: 48,
               color: Colors.grey,
@@ -475,7 +488,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             ),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.navigation,
                   color: Colors.white,
                   size: 24,
@@ -505,13 +518,13 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 ),
                 Row(
                   children: [
-                Text(
+                    Text(
                       '${widget.route.length} נקודות',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     IconButton(
@@ -528,7 +541,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
               ],
             ),
           ),
-          
+
           // Карта навигации
           Expanded(
             child: gmaps.GoogleMap(
@@ -548,7 +561,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
               zoomControlsEnabled: true,
             ),
           ),
-          
+
           // Список точек маршрута с кнопками навигации
           Container(
             height: 200,
@@ -569,9 +582,9 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             child: Column(
               children: [
                 // Заголовок списка
-                    Container(
+                Container(
                   padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
+                  decoration: BoxDecoration(
                     color: Colors.grey[100],
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(12),
@@ -597,7 +610,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                     ],
                   ),
                 ),
-                
+
                 // Список точек
                 Expanded(
                   child: ListView.builder(
@@ -624,9 +637,9 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                           ),
                           subtitle: Text(
                             '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
-                      style: TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                        color: Colors.grey[600],
+                              color: Colors.grey[600],
                             ),
                           ),
                           trailing: IconButton(

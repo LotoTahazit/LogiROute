@@ -24,8 +24,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty)
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       return;
+    }
 
     setState(() => _isLoading = true);
     final authService = context.read<AuthService>();
@@ -40,8 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
         switch (error) {
           case 'wrong-password':
           case 'user-not-found':
-            message =
-                l10n.error + ': ' + l10n.invalidEmail + ' / ' + l10n.password;
+            message = '${l10n.error}: ${l10n.invalidEmail} / ${l10n.password}';
             break;
           case 'invalid-email':
             message = l10n.invalidEmail;
@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
             message = l10n.mapViewRequiresApi;
             break;
           default:
-            message = l10n.error + ': ' + error;
+            message = '${l10n.error}: $error';
         }
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
@@ -171,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 message = l10n.mapViewRequiresApi;
                                 break;
                               default:
-                                message = l10n.error + ': ' + error;
+                                message = '${l10n.error}: $error';
                             }
                           }
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -11,7 +11,8 @@ class LocationService {
   String? _currentDriverId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<void> startTracking(String driverId, Function(double, double) onLocationUpdate) async {
+  Future<void> startTracking(
+      String driverId, Function(double, double) onLocationUpdate) async {
     _currentDriverId = driverId;
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -34,14 +35,14 @@ class LocationService {
     }
 
     _positionStream = Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
+      locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: AppConfig.locationDistanceFilter,
       ),
     ).listen((Position position) {
       // Обновляем позицию водителя в Firestore в реальном времени
       _updateDriverLocation(position.latitude, position.longitude);
-      
+
       // Вызываем callback для локального обновления
       onLocationUpdate(position.latitude, position.longitude);
     });
@@ -58,7 +59,10 @@ class LocationService {
     double currentLon,
     Function(DeliveryPoint) onComplete,
   ) {
-    if (point.status == 'completed' || point.status == 'cancelled') return;
+    if (point.status == DeliveryPoint.statusCompleted ||
+        point.status == DeliveryPoint.statusCancelled) {
+      return;
+    }
 
     final distance = Geolocator.distanceBetween(
       currentLat,
@@ -74,33 +78,38 @@ class LocationService {
       );
 
       final duration = DateTime.now().difference(trackingData.arrivedAt);
-      final remainingSeconds = AppConfig.autoCompleteDuration.inSeconds - duration.inSeconds;
-      
-      debugPrint('🎯 [AutoComplete] Distance: ${distance.toStringAsFixed(1)}m, Time: ${duration.inSeconds}s/${AppConfig.autoCompleteDuration.inSeconds}s, Remaining: ${remainingSeconds}s');
-      
-      if (duration >= AppConfig.autoCompleteDuration && !trackingData.completed) {
+      final remainingSeconds =
+          AppConfig.autoCompleteDuration.inSeconds - duration.inSeconds;
+
+      debugPrint(
+          '🎯 [AutoComplete] Distance: ${distance.toStringAsFixed(1)}m, Time: ${duration.inSeconds}s/${AppConfig.autoCompleteDuration.inSeconds}s, Remaining: ${remainingSeconds}s');
+
+      if (duration >= AppConfig.autoCompleteDuration &&
+          !trackingData.completed) {
         trackingData.completed = true;
-        debugPrint('✅ [AutoComplete] Point "${point.clientName}" auto-completed!');
+        debugPrint(
+            '✅ [AutoComplete] Point "${point.clientName}" auto-completed!');
         onComplete(point);
       }
     } else {
       if (_trackingData.containsKey(point.id)) {
-        debugPrint('⚠️ [AutoComplete] Driver moved away from "${point.clientName}" (${distance.toStringAsFixed(1)}m), resetting timer');
+        debugPrint(
+            '⚠️ [AutoComplete] Driver moved away from "${point.clientName}" (${distance.toStringAsFixed(1)}m), resetting timer');
         _trackingData.remove(point.id);
       }
     }
   }
-  
+
   /// Получает информацию о прогрессе автозакрытия точки
   Map<String, dynamic>? getAutoCompleteProgress(String pointId) {
     final trackingData = _trackingData[pointId];
     if (trackingData == null) return null;
-    
+
     final duration = DateTime.now().difference(trackingData.arrivedAt);
     final totalSeconds = AppConfig.autoCompleteDuration.inSeconds;
     final remainingSeconds = totalSeconds - duration.inSeconds;
     final progress = (duration.inSeconds / totalSeconds).clamp(0.0, 1.0);
-    
+
     return {
       'arrivedAt': trackingData.arrivedAt,
       'duration': duration,
@@ -113,17 +122,36 @@ class LocationService {
   /// Обновляет позицию водителя в Firestore в реальном времени
   Future<void> _updateDriverLocation(double latitude, double longitude) async {
     if (_currentDriverId == null) return;
-    
+
     try {
-      await _firestore.collection('driver_locations').doc(_currentDriverId).set({
+      final timestamp = FieldValue.serverTimestamp();
+
+      // Обновляем текущую позицию
+      await _firestore
+          .collection('driver_locations')
+          .doc(_currentDriverId)
+          .set({
         'latitude': latitude,
         'longitude': longitude,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': timestamp,
         'accuracy': 5.0, // Высокая точность GPS
         'speed': 0.0, // Можно добавить скорость если нужно
       }, SetOptions(merge: true));
-      
-      debugPrint('📍 [Real-time] Driver location updated: ($latitude, $longitude)');
+
+      // Сохраняем в историю для автоматического завершения точек
+      await _firestore
+          .collection('driver_locations')
+          .doc(_currentDriverId)
+          .collection('history')
+          .add({
+        'latitude': latitude,
+        'longitude': longitude,
+        'timestamp': timestamp,
+        'accuracy': 5.0,
+      });
+
+      debugPrint(
+          '📍 [Real-time] Driver location updated: ($latitude, $longitude)');
     } catch (e) {
       debugPrint('❌ [Real-time] Error updating driver location: $e');
     }
@@ -182,6 +210,5 @@ class _PointTrackingData {
   final DateTime arrivedAt;
   bool completed;
 
-  _PointTrackingData({required this.arrivedAt, this.completed = false});
+  _PointTrackingData({required this.arrivedAt}) : completed = false;
 }
-

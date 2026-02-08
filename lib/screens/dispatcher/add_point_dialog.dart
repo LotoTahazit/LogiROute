@@ -1,8 +1,6 @@
 // lib/screens/dispatcher/add_point_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -486,10 +484,10 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
                 /// 🔹 Приоритет
                 DropdownButtonFormField<String>(
-                  value: _urgency,
+                  initialValue: _urgency,
                   decoration:
                       const InputDecoration(labelText: 'Priority / עדיפות'),
-                  items: [
+                  items: const [
                     DropdownMenuItem(
                         value: 'normal', child: Text('Normal / רגיל')),
                     DropdownMenuItem(

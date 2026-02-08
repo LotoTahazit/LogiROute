@@ -21,6 +21,12 @@ dependencies:
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   
+  # Background & Notifications
+  flutter_local_notifications: ^18.0.1
+  android_alarm_manager_plus: ^4.0.3
+  firebase_messaging: ^16.1.1
+  timezone: ^0.9.2
+  
   # State Management
   provider: ^6.1.1
   
@@ -35,6 +41,7 @@ dependencies:
   http: ^1.1.2
   flutter_dotenv: ^5.1.0
   url_launcher: ^6.2.2
+  google_polyline_algorithm: ^3.1.0
   
   # Printing
   pdf: ^3.11.3

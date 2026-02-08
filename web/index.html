@@ -39,6 +39,29 @@
       justify-content: center;
       background-color: white;
     }
+    .download-link {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #2196F3;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+      z-index: 9999;
+    }
+    .download-link:hover {
+      background: #1976D2;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transform: translateY(-2px);
+    }
+    .download-link::before {
+      content: '📱 ';
+    }
   </style>
 </head>
 <body>
@@ -46,6 +69,52 @@
   <div id="flutter_loader">
     <img src="icons/Icon-192.png" alt="LogiRoute" width="96" height="96">
   </div>
+
+  <!-- 📱 Ссылка для скачивания APK (только на начальной странице) -->
+  <a href="logiroute-driver.apk" class="download-link" download id="downloadLink">
+    הורד אפליקציה לנהגים
+  </a>
+
+  <script>
+    // Локализация и управление видимостью кнопки скачивания
+    (function() {
+      const downloadLink = document.getElementById('downloadLink');
+      
+      function updateDownloadLink() {
+        // Проверяем залогинен ли пользователь
+        const isLoggedIn = localStorage.getItem('user_logged_in') === 'true';
+        
+        if (isLoggedIn) {
+          // Скрываем кнопку после логина
+          downloadLink.style.display = 'none';
+          return;
+        }
+        
+        // Показываем кнопку на экране логина
+        downloadLink.style.display = 'block';
+        
+        // Обновляем текст на основе языка
+        const flutterLocale = localStorage.getItem('app_locale') || 'he';
+        
+        if (flutterLocale === 'ru') {
+          downloadLink.textContent = 'Скачать приложение для водителей';
+        } else if (flutterLocale === 'en') {
+          downloadLink.textContent = 'Download Driver App';
+        } else {
+          downloadLink.textContent = 'הורד אפליקציה לנהגים';
+        }
+      }
+      
+      // Обновляем сразу
+      updateDownloadLink();
+      
+      // Слушаем изменения в localStorage
+      window.addEventListener('storage', updateDownloadLink);
+      
+      // Проверяем каждые 500мс (для быстрой реакции на логин)
+      setInterval(updateDownloadLink, 500);
+    })();
+  </script>
 
   <script>
     var serviceWorkerVersion = null;

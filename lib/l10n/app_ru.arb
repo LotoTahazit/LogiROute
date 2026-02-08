@@ -172,5 +172,21 @@
   "active": "Активен",
   "forgotPassword": "Забыли пароль?",
   "passwordResetEmailSent": "Письмо для сброса пароля отправлено",
-  "companyId": "Компания"
+  "companyId": "Компания",
+  "gpsTrackingActive": "GPS отслеживание активно",
+  "gpsTrackingStopped": "GPS отслеживание остановлено",
+  "workDayEnded": "Рабочий день закончен",
+  "workStartsIn": "Работа начнется через {minutes} минут",
+  "workEndsIn": "Работа закончится через {minutes} минут",
+  "edit": "Редактировать",
+  "editUser": "Редактировать {name}",
+  "deleteUser": "Удалить {name}?",
+  "leaveEmptyToKeep": "оставьте пустым, чтобы не менять",
+  "userUpdated": "Пользователь обновлен",
+  "userDeleted": "Пользователь удален",
+  "updateError": "Ошибка обновления",
+  "deleteError": "Ошибка удаления",
+  "noPermissionToEdit": "У вас нет прав для редактирования этого пользователя",
+  "warehouseStartPoint": "Начальная точка всех маршрутов",
+  "vehicleNumber": "Номер машины"
 }

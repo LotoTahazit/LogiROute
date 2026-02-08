@@ -61,31 +61,31 @@ class RouteService {
   Stream<List<DeliveryPoint>> getAllRoutes() {
     return _firestore
         .collection('delivery_points')
-        .where('status', whereIn: ['assigned', 'in_progress'])
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .snapshots()
         .map((snapshot) {
-          // Группируем точки по водителям и сортируем по orderInRoute
-          final points = snapshot.docs
-              .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
-              .toList();
+      // Группируем точки по водителям и сортируем по orderInRoute
+      final points = snapshot.docs
+          .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .toList();
 
-          // Сортируем по driverName и orderInRoute
-          points.sort((a, b) {
-            final driverCompare =
-                (a.driverName ?? '').compareTo(b.driverName ?? '');
-            if (driverCompare != 0) return driverCompare;
-            return (a.orderInRoute ?? 999).compareTo(b.orderInRoute ?? 999);
-          });
+      // Сортируем по driverName и orderInRoute
+      points.sort((a, b) {
+        final driverCompare =
+            (a.driverName ?? '').compareTo(b.driverName ?? '');
+        if (driverCompare != 0) return driverCompare;
+        return a.orderInRoute.compareTo(b.orderInRoute);
+      });
 
-          return points;
-        });
+      return points;
+    });
   }
 
   /// ✅ Поток всех ожидающих точек (для вкладки "נקודות משלוח")
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
     return _firestore
         .collection('delivery_points')
-        .where('status', isEqualTo: 'pending')
+        .where('status', whereIn: DeliveryPoint.pendingStatuses)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
@@ -96,7 +96,7 @@ class RouteService {
   Stream<List<DeliveryPoint>> getAllPointsForMap() {
     return _firestore
         .collection('delivery_points')
-        .where('status', whereIn: ['assigned', 'in_progress'])
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
@@ -113,9 +113,13 @@ class RouteService {
 
   /// ✅ Получить все маршруты как Future (для управления логикой)
   Future<List<DeliveryPoint>> getAllRouteModels() async {
-    final snapshot = await _firestore.collection('delivery_points').where(
-        'status',
-        whereIn: ['assigned', 'in_progress', 'completed']).get();
+    final snapshot = await _firestore
+        .collection('delivery_points')
+        .where('status', whereIn: [
+      DeliveryPoint.statusAssigned,
+      DeliveryPoint.statusInProgress,
+      DeliveryPoint.statusCompleted,
+    ]).get();
 
     return snapshot.docs
         .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
@@ -520,7 +524,7 @@ class RouteService {
         '📊 [RouteService] Total points in database: ${allPoints.docs.length}');
 
     for (final doc in allPoints.docs) {
-      final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data();
       print(
           '📍 [RouteService] Point: ${data['clientName']} - driverId: "${data['driverId']}" - status: "${data['status']}"');
     }
@@ -579,7 +583,7 @@ class RouteService {
     return _firestore
         .collection('delivery_points')
         .where('driverId', isEqualTo: driverId)
-        .where('status', whereIn: ['assigned', 'in_progress'])
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
@@ -603,7 +607,7 @@ class RouteService {
   /// Обновить текущую точку водителя
   Future<void> updateCurrentPoint(String pointId) async {
     await _firestore.collection('delivery_points').doc(pointId).update({
-      'status': 'in_progress',
+      'status': DeliveryPoint.statusInProgress,
     });
     print('✅ Point $pointId set to in_progress');
   }
@@ -613,7 +617,7 @@ class RouteService {
     final snapshot = await _firestore
         .collection('delivery_points')
         .where('driverId', isEqualTo: driverId)
-        .where('status', isEqualTo: 'assigned')
+        .where('status', isEqualTo: DeliveryPoint.statusAssigned)
         .get();
 
     if (snapshot.docs.isEmpty) {
@@ -624,7 +628,7 @@ class RouteService {
     // Обновляем все точки водителя на in_progress
     final batch = _firestore.batch();
     for (final doc in snapshot.docs) {
-      batch.update(doc.reference, {'status': 'in_progress'});
+      batch.update(doc.reference, {'status': DeliveryPoint.statusInProgress});
     }
 
     await batch.commit();
@@ -645,7 +649,7 @@ class RouteService {
       'driverId': driverId,
       'driverName': driverName,
       'driverCapacity': capacity,
-      'status': 'assigned',
+      'status': DeliveryPoint.statusAssigned,
       'orderInRoute': 0, // По умолчанию первая точка в маршруте
     });
     print('👤 Point $pointId assigned to $driverName');

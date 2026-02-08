@@ -20,24 +20,26 @@ class AnalyticsScreen extends StatelessWidget {
         .map((doc) => RouteModel.fromMap(doc.data(), doc.id))
         .toList();
 
-    final completed =
-        points.where((p) => p.status == l10n.statusCompleted).length;
-    final pending = points.where((p) => p.status == l10n.statusPending).length;
+    final completed = points
+      .where((p) => p.status == DeliveryPoint.statusCompleted)
+      .length;
+    final pending =
+      points.where((p) => p.status == DeliveryPoint.statusPending).length;
     final inProgress = points
-        .where((p) =>
-            p.status == l10n.statusAssigned ||
-            p.status == l10n.statusInProgress)
-        .length;
-    final cancelled =
-        points.where((p) => p.status == l10n.statusCancelled).length;
+      .where((p) =>
+        p.status == DeliveryPoint.statusAssigned ||
+        p.status == DeliveryPoint.statusInProgress)
+      .length;
+    final cancelled = points
+      .where((p) => p.status == DeliveryPoint.statusCancelled)
+      .length;
 
     final totalPallets = points.fold<int>(0, (sum, p) => sum + (p.pallets));
     final completedPallets = points
-        .where((p) => p.status == l10n.statusCompleted)
-        .fold<int>(0, (sum, p) => sum + p.pallets);
+      .where((p) => p.status == DeliveryPoint.statusCompleted)
+      .fold<int>(0, (sum, p) => sum + p.pallets);
 
-    final activeRoutes =
-        routes.where((r) => r.status == l10n.statusActive).length;
+    final activeRoutes = routes.where((r) => r.status == 'active').length;
 
     final completionRate =
         points.isEmpty ? 0.0 : (completed / points.length * 100);

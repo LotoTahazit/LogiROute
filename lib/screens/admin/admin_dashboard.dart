@@ -15,10 +15,12 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   List<UserModel> _users = [];
+  List<UserModel> _filteredUsers = [];
   bool _isLoading = true;
   String _lastUpdatedText = '';
-  String? _selectedDriverId;
   String? _selectedDriverName;
+  String? _selectedCompanyFilter; // Фильтр по компании
+  List<String> _availableCompanies = []; // Список доступных компаний
 
   @override
   void initState() {
@@ -31,11 +33,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final authService = context.read<AuthService>();
     final users = await authService.getAllUsers();
     if (!mounted) return;
+
+    final currentUser = authService.userModel;
+    if (currentUser == null) return;
+
+    // Фильтруем суперадминов (isSuperAdmin == true)
+    var filteredUsers =
+        users.where((user) => user.isSuperAdmin != true).toList();
+
+    // Если обычный админ - показываем только его компанию
+    if (!currentUser.isSuperAdmin && currentUser.companyId != null) {
+      filteredUsers = filteredUsers
+          .where((user) => user.companyId == currentUser.companyId)
+          .toList();
+    }
+
+    // Собираем уникальные компании (только для суперадмина)
+    final companies = currentUser.isSuperAdmin
+        ? (filteredUsers
+            .where((u) => u.companyId != null && u.companyId!.isNotEmpty)
+            .map((u) => u.companyId!)
+            .toSet()
+            .toList()
+          ..sort())
+        : <String>[];
+
     setState(() {
-      _users = users;
+      _users = filteredUsers;
+      _availableCompanies = companies;
+      _applyCompanyFilter();
       _isLoading = false;
       _lastUpdatedText = '🕓 ${TimeOfDay.now().format(context)}';
     });
+  }
+
+  void _applyCompanyFilter() {
+    if (_selectedCompanyFilter == null || _selectedCompanyFilter == 'all') {
+      _filteredUsers = _users;
+    } else {
+      _filteredUsers = _users
+          .where((user) => user.companyId == _selectedCompanyFilter)
+          .toList();
+    }
   }
 
   String _getLocalizedRole(String role, AppLocalizations l10n) {
@@ -51,15 +90,314 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  Future<void> _showEditUserDialog(UserModel user) async {
+    final l10n = AppLocalizations.of(context)!;
+    final authService = context.read<AuthService>();
+
+    // Проверка прав
+    final currentUser = authService.userModel;
+    if (currentUser == null) return;
+
+    if (!currentUser.isSuperAdmin && user.companyId != currentUser.companyId) {
+      _showErrorDialog(l10n.noPermissionToEdit);
+      return;
+    }
+
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    final passwordController = TextEditingController();
+    String selectedRole = user.role;
+    final palletCapacityController = TextEditingController(
+      text: user.palletCapacity?.toString() ?? '',
+    );
+    final truckWeightController = TextEditingController(
+      text: user.truckWeight?.toString() ?? '',
+    );
+    final vehicleNumberController = TextEditingController(
+      text: user.vehicleNumber ?? '',
+    );
+
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text(l10n.editUser(user.name)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.fullName,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      border: const OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    decoration: InputDecoration(
+                      labelText: '${l10n.password} (${l10n.leaveEmptyToKeep})',
+                      border: const OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: InputDecoration(
+                      labelText: l10n.role,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                          value: 'driver', child: Text(l10n.driver)),
+                      DropdownMenuItem(
+                          value: 'dispatcher', child: Text(l10n.dispatcher)),
+                      DropdownMenuItem(
+                          value: 'admin', child: Text(l10n.systemManager)),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value ?? 'driver';
+                      });
+                    },
+                  ),
+                  if (selectedRole == 'driver') ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: vehicleNumberController,
+                      decoration: InputDecoration(
+                        labelText: l10n.vehicleNumber,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: palletCapacityController,
+                      decoration: InputDecoration(
+                        labelText: l10n.palletCapacity,
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: truckWeightController,
+                      decoration: InputDecoration(
+                        labelText: l10n.truckWeight,
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final confirmDelete = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(l10n.delete),
+                      content: Text(l10n.deleteUser(user.name)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text(l10n.cancel),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style:
+                              TextButton.styleFrom(foregroundColor: Colors.red),
+                          child: Text(l10n.delete),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmDelete == true && context.mounted) {
+                    Navigator.pop(context, false);
+                    await _deleteUser(user.uid);
+                  }
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: Text(l10n.delete),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.save),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (result == true) {
+        await _updateUser(
+          user.uid,
+          nameController.text.trim(),
+          emailController.text.trim(),
+          passwordController.text.trim(),
+          selectedRole,
+          palletCapacityController.text.trim(),
+          truckWeightController.text.trim(),
+          vehicleNumberController.text.trim(),
+        );
+      }
+    } finally {
+      nameController.dispose();
+      emailController.dispose();
+      passwordController.dispose();
+      palletCapacityController.dispose();
+      truckWeightController.dispose();
+      vehicleNumberController.dispose();
+    }
+  }
+
+  Future<void> _updateUser(
+    String uid,
+    String name,
+    String email,
+    String password,
+    String role,
+    String palletCapacityStr,
+    String truckWeightStr,
+    String vehicleNumberStr,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (name.isEmpty || email.isEmpty) {
+      _showErrorDialog(l10n.fillAllFields);
+      return;
+    }
+
+    try {
+      setState(() => _isLoading = true);
+
+      final authService = context.read<AuthService>();
+
+      int? palletCapacity;
+      double? truckWeight;
+      String? vehicleNumber;
+
+      if (role == 'driver') {
+        if (palletCapacityStr.isNotEmpty) {
+          palletCapacity = int.tryParse(palletCapacityStr);
+        }
+        if (truckWeightStr.isNotEmpty) {
+          truckWeight = double.tryParse(truckWeightStr);
+        }
+        if (vehicleNumberStr.isNotEmpty) {
+          vehicleNumber = vehicleNumberStr;
+        }
+      }
+
+      final errorCode = await authService.updateUser(
+        uid: uid,
+        newEmail: email,
+        newPassword: password.isNotEmpty ? password : null,
+        newRole: role,
+        newName: name,
+        palletCapacity: palletCapacity,
+        truckWeight: truckWeight,
+        vehicleNumber: vehicleNumber,
+      );
+
+      if (errorCode == null) {
+        await _loadUsers();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.userUpdated),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        _showErrorDialog('${l10n.updateError}: $errorCode');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('${l10n.updateError}: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteUser(String uid) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    try {
+      setState(() => _isLoading = true);
+
+      final authService = context.read<AuthService>();
+      final errorCode = await authService.deleteUser(uid);
+
+      if (errorCode == null) {
+        await _loadUsers();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.userDeleted),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        _showErrorDialog('${l10n.deleteError}: $errorCode');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('${l10n.deleteError}: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _showAddUserDialog() async {
     final l10n = AppLocalizations.of(context)!;
+    final authService = context.read<AuthService>();
+    final currentUser = authService.userModel;
+    if (currentUser == null) return;
+
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     final companyIdController = TextEditingController();
+    final vehicleNumberController = TextEditingController();
     String selectedRole = 'driver';
     final palletCapacityController = TextEditingController();
     final truckWeightController = TextEditingController();
+
+    // Для обычного админа - используем его companyId
+    final bool isSuperAdmin = currentUser.isSuperAdmin;
+    if (!isSuperAdmin && currentUser.companyId != null) {
+      companyIdController.text = currentUser.companyId!;
+    }
 
     try {
       final result = await showDialog<bool>(
@@ -96,17 +434,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     obscureText: true,
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: companyIdController,
-                    decoration: InputDecoration(
-                      labelText: l10n.companyId ?? 'Company ID',
-                      border: const OutlineInputBorder(),
+                  // Поле companyId только для суперадмина
+                  if (isSuperAdmin) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: companyIdController,
+                      decoration: InputDecoration(
+                        labelText: l10n.companyId,
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: InputDecoration(
                       labelText: l10n.role,
                       border: const OutlineInputBorder(),
@@ -130,6 +471,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     },
                   ),
                   if (selectedRole == 'driver') ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: vehicleNumberController,
+                      decoration: InputDecoration(
+                        labelText: l10n.vehicleNumber,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: palletCapacityController,
@@ -175,14 +524,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
           selectedRole,
           palletCapacityController.text.trim(),
           truckWeightController.text.trim(),
+          vehicleNumberController.text.trim(),
         );
       }
     } finally {
       nameController.dispose();
       emailController.dispose();
       passwordController.dispose();
+      companyIdController.dispose();
       palletCapacityController.dispose();
       truckWeightController.dispose();
+      vehicleNumberController.dispose();
     }
   }
 
@@ -194,6 +546,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     String role,
     String palletCapacityStr,
     String truckWeightStr,
+    String vehicleNumberStr,
   ) async {
     final l10n = AppLocalizations.of(context)!;
 
@@ -211,6 +564,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       // Парсим дополнительные поля для водителей
       int? palletCapacity;
       double? truckWeight;
+      String? vehicleNumber;
 
       if (role == 'driver') {
         if (palletCapacityStr.isNotEmpty) {
@@ -218,6 +572,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         }
         if (truckWeightStr.isNotEmpty) {
           truckWeight = double.tryParse(truckWeightStr) ?? 4.0;
+        }
+        if (vehicleNumberStr.isNotEmpty) {
+          vehicleNumber = vehicleNumberStr;
         }
       }
 
@@ -230,6 +587,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         companyId: companyId,
         palletCapacity: palletCapacity,
         truckWeight: truckWeight,
+        vehicleNumber: vehicleNumber,
       );
 
       if (errorCode == null) {
@@ -410,60 +768,107 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Text(
-                          '${l10n.viewAs}:',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                        ),
-                        const SizedBox(width: 16),
-                        DropdownButton<String>(
-                          value: authService.viewAsRole ?? 'admin',
-                          items: [
-                            DropdownMenuItem(
-                                value: 'admin', child: Text(l10n.roleAdmin)),
-                            DropdownMenuItem(
-                                value: 'dispatcher',
-                                child: Text(l10n.roleDispatcher)),
-                            DropdownMenuItem(
-                                value: 'driver', child: Text(l10n.roleDriver)),
-                          ],
-                          onChanged: (value) async {
-                            if (value == null) return;
+                        Row(
+                          children: [
+                            Text(
+                              '${l10n.viewAs}:',
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.black),
+                            ),
+                            const SizedBox(width: 16),
+                            DropdownButton<String>(
+                              value: authService.viewAsRole ?? 'admin',
+                              items: [
+                                DropdownMenuItem(
+                                    value: 'admin',
+                                    child: Text(l10n.roleAdmin)),
+                                DropdownMenuItem(
+                                    value: 'dispatcher',
+                                    child: Text(l10n.roleDispatcher)),
+                                DropdownMenuItem(
+                                    value: 'driver',
+                                    child: Text(l10n.roleDriver)),
+                              ],
+                              onChanged: (value) async {
+                                if (value == null) return;
 
-                            if (value == 'driver') {
-                              final selectedDriver =
-                                  await _showDriverSelectionDialog();
-                              if (selectedDriver != null) {
-                                authService.setViewAsRole(value,
-                                    driverId: selectedDriver['id']);
-                                if (mounted) {
-                                  setState(() {
-                                    _selectedDriverId = selectedDriver['id'];
-                                    _selectedDriverName =
-                                        selectedDriver['name'];
-                                  });
+                                if (value == 'driver') {
+                                  final selectedDriver =
+                                      await _showDriverSelectionDialog();
+                                  if (selectedDriver != null) {
+                                    authService.setViewAsRole(value,
+                                        driverId: selectedDriver['id']);
+                                    if (mounted) {
+                                      setState(() {
+                                        _selectedDriverName =
+                                            selectedDriver['name'];
+                                      });
+                                    }
+                                  }
+                                } else {
+                                  authService.setViewAsRole(value);
+                                  if (mounted) {
+                                    setState(() {
+                                      _selectedDriverName = null;
+                                    });
+                                  }
                                 }
-                              }
-                            } else {
-                              authService.setViewAsRole(value);
-                              if (mounted) {
-                                setState(() {
-                                  _selectedDriverId = null;
-                                  _selectedDriverName = null;
-                                });
-                              }
-                            }
-                          },
+                              },
+                            ),
+                            const Spacer(),
+                            if (_lastUpdatedText.isNotEmpty)
+                              Text(
+                                '${l10n.lastUpdated}: $_lastUpdatedText',
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 13),
+                              ),
+                          ],
                         ),
-                        const Spacer(),
-                        if (_lastUpdatedText.isNotEmpty)
-                          Text(
-                            '${l10n.lastUpdated}: $_lastUpdatedText',
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 13),
+                        // Фильтр по компаниям (только для суперадмина)
+                        if (authService.userModel?.isSuperAdmin == true &&
+                            _availableCompanies.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Text(
+                                '${l10n.companyId}:',
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.black),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: DropdownButton<String>(
+                                  value: _selectedCompanyFilter ?? 'all',
+                                  isExpanded: true,
+                                  items: [
+                                    DropdownMenuItem(
+                                      value: 'all',
+                                      child: Text(
+                                          '${l10n.total} (${_users.length})'),
+                                    ),
+                                    ..._availableCompanies.map((company) {
+                                      final count = _users
+                                          .where((u) => u.companyId == company)
+                                          .length;
+                                      return DropdownMenuItem(
+                                        value: company,
+                                        child: Text('$company ($count)'),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedCompanyFilter = value;
+                                      _applyCompanyFilter();
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -482,18 +887,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                     ),
                   Expanded(
-                    child: _users.isEmpty
+                    child: _filteredUsers.isEmpty
                         ? Center(
                             child: Text(l10n.noUsersFound),
                           )
                         : ListView.builder(
-                            itemCount: _users.length,
+                            itemCount: _filteredUsers.length,
                             itemBuilder: (context, index) {
-                              final user = _users[index];
+                              final user = _filteredUsers[index];
                               return Card(
                                 margin: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 8),
                                 child: ListTile(
+                                  onTap: () => _showEditUserDialog(user),
                                   leading: Icon(
                                     user.role == 'driver'
                                         ? Icons.local_shipping
@@ -508,7 +914,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         fontWeight: FontWeight.w500),
                                   ),
                                   subtitle: Text(
-                                    '${user.email} • ${_getLocalizedRole(user.role, l10n)}',
+                                    '${user.email} • ${_getLocalizedRole(user.role, l10n)}${user.role == 'driver' && user.vehicleNumber != null ? ' • 🚗 ${user.vehicleNumber}' : ''}',
                                     style:
                                         const TextStyle(color: Colors.black54),
                                   ),

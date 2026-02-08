@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -6,6 +7,14 @@ import '../models/delivery_point.dart';
 import '../models/user_model.dart';
 
 class PrintService {
+  static String _formatDate(DateTime date) {
+    return DateFormat('dd.MM.yyyy').format(date);
+  }
+
+  static String _formatDateTime(DateTime date) {
+    return DateFormat('dd.MM.yyyy HH:mm').format(date);
+  }
+
   /// Определяет направление текста
   static pw.TextDirection _getTextDirection(String text) {
     final hasHebrew = RegExp(r'[\u0590-\u05FF]').hasMatch(text);
@@ -167,11 +176,27 @@ class PrintService {
                   ),
                 ],
               ),
-              _smartText(
-                'תאריך: ${DateTime.now().toLocal().toString().split(' ')[0]}',
-                fontLatin,
-                fontHebrew,
-                fontSize: 12,
+              pw.Row(
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  _smartText(
+                    'תאריך: ',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 12,
+                  ),
+                  pw.SizedBox(width: 5), // Добавляем отступ между текстом и датой
+                  pw.Directionality(
+                    textDirection: pw.TextDirection.ltr,
+                    child: pw.Text(
+                      _formatDate(DateTime.now().toLocal()),
+                      style: pw.TextStyle(
+                        font: fontLatin,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -202,10 +227,13 @@ class PrintService {
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
             _buildTableCell('מס\'', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell('שם לקוח', fontHebrewBold, fontLatin, isHeader: true),
+            _buildTableCell('שם לקוח', fontHebrewBold, fontLatin,
+                isHeader: true),
             _buildTableCell('כתובת', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell('משטחים', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell('קרטונים', fontHebrewBold, fontLatin, isHeader: true),
+            _buildTableCell('משטחים', fontHebrewBold, fontLatin,
+                isHeader: true),
+            _buildTableCell('קרטונים', fontHebrewBold, fontLatin,
+                isHeader: true),
             _buildTableCell('סטטוס', fontHebrewBold, fontLatin, isHeader: true),
           ],
         ),
@@ -216,7 +244,8 @@ class PrintService {
                 _buildTableCell(p.address, fontHebrew, fontLatin),
                 _buildTableCell('${p.pallets}', fontHebrew, fontLatin),
                 _buildTableCell('${p.boxes}', fontHebrew, fontLatin),
-                _buildTableCell(_getStatusInHebrew(p.status), fontHebrew, fontLatin),
+                _buildTableCell(
+                    _getStatusInHebrew(p.status), fontHebrew, fontLatin),
               ],
             )),
       ],
@@ -262,7 +291,8 @@ class PrintService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _smartText('סיכום', fontHebrewBold, fontLatin, fontSize: 16, bold: true),
+          _smartText('סיכום', fontHebrewBold, fontLatin,
+              fontSize: 16, bold: true),
           pw.SizedBox(height: 10),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -274,12 +304,29 @@ class PrintService {
           pw.SizedBox(height: 5),
           _smartText('מספר נקודות: ${points.length}', fontHebrew, fontLatin),
           pw.SizedBox(height: 10),
-          _smartText(
-            'נוצר ב־LogiRoute - ${DateTime.now().toLocal()}',
-            fontHebrew,
-            fontLatin,
-            fontSize: 10,
-            color: PdfColors.grey600,
+          pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              _smartText(
+                'נוצר ב־LogiRoute - ',
+                fontHebrew,
+                fontLatin,
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+              pw.SizedBox(width: 5), // Добавляем отступ между текстом и датой
+              pw.Directionality(
+                textDirection: pw.TextDirection.ltr,
+                child: pw.Text(
+                  _formatDateTime(DateTime.now().toLocal()),
+                  style: pw.TextStyle(
+                    font: fontLatin,
+                    fontSize: 10,
+                    color: PdfColors.grey600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

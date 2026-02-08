@@ -500,4 +500,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get companyId => 'Company ID';
+
+  @override
+  String get gpsTrackingActive => 'GPS tracking active';
+
+  @override
+  String get gpsTrackingStopped => 'GPS tracking stopped';
+
+  @override
+  String get workDayEnded => 'Work day ended';
+
+  @override
+  String workStartsIn(int minutes) {
+    return 'Work starts in $minutes minutes';
+  }
+
+  @override
+  String workEndsIn(int minutes) {
+    return 'Work ends in $minutes minutes';
+  }
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String editUser(String name) {
+    return 'Edit $name';
+  }
+
+  @override
+  String deleteUser(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get leaveEmptyToKeep => 'leave empty to keep current';
+
+  @override
+  String get userUpdated => 'User updated';
+
+  @override
+  String get userDeleted => 'User deleted';
+
+  @override
+  String get updateError => 'Update error';
+
+  @override
+  String get deleteError => 'Delete error';
+
+  @override
+  String get noPermissionToEdit =>
+      'You don\'t have permission to edit this user';
+
+  @override
+  String get warehouseStartPoint => 'Starting point for all routes';
+
+  @override
+  String get vehicleNumber => 'Vehicle Number';
 }

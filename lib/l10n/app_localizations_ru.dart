@@ -500,4 +500,61 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get companyId => 'Компания';
+
+  @override
+  String get gpsTrackingActive => 'GPS отслеживание активно';
+
+  @override
+  String get gpsTrackingStopped => 'GPS отслеживание остановлено';
+
+  @override
+  String get workDayEnded => 'Рабочий день закончен';
+
+  @override
+  String workStartsIn(int minutes) {
+    return 'Работа начнется через $minutes минут';
+  }
+
+  @override
+  String workEndsIn(int minutes) {
+    return 'Работа закончится через $minutes минут';
+  }
+
+  @override
+  String get edit => 'Редактировать';
+
+  @override
+  String editUser(String name) {
+    return 'Редактировать $name';
+  }
+
+  @override
+  String deleteUser(String name) {
+    return 'Удалить $name?';
+  }
+
+  @override
+  String get leaveEmptyToKeep => 'оставьте пустым, чтобы не менять';
+
+  @override
+  String get userUpdated => 'Пользователь обновлен';
+
+  @override
+  String get userDeleted => 'Пользователь удален';
+
+  @override
+  String get updateError => 'Ошибка обновления';
+
+  @override
+  String get deleteError => 'Ошибка удаления';
+
+  @override
+  String get noPermissionToEdit =>
+      'У вас нет прав для редактирования этого пользователя';
+
+  @override
+  String get warehouseStartPoint => 'Начальная точка всех маршрутов';
+
+  @override
+  String get vehicleNumber => 'Номер машины';
 }

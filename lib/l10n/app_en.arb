@@ -172,5 +172,53 @@
   "active": "Active",
   "forgotPassword": "Forgot password?",
   "passwordResetEmailSent": "Password reset email sent",
-  "companyId": "Company ID"
+  "companyId": "Company ID",
+  "gpsTrackingActive": "GPS tracking active",
+  "gpsTrackingStopped": "GPS tracking stopped",
+  "workDayEnded": "Work day ended",
+  "workStartsIn": "Work starts in {minutes} minutes",
+  "@workStartsIn": {
+    "description": "Message showing minutes until work starts",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "workEndsIn": "Work ends in {minutes} minutes",
+  "@workEndsIn": {
+    "description": "Message showing minutes until work ends",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "edit": "Edit",
+  "editUser": "Edit {name}",
+  "@editUser": {
+    "description": "Edit user dialog title",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteUser": "Delete {name}?",
+  "@deleteUser": {
+    "description": "Delete user confirmation",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveEmptyToKeep": "leave empty to keep current",
+  "userUpdated": "User updated",
+  "userDeleted": "User deleted",
+  "updateError": "Update error",
+  "deleteError": "Delete error",
+  "noPermissionToEdit": "You don't have permission to edit this user",
+  "warehouseStartPoint": "Starting point for all routes",
+  "vehicleNumber": "Vehicle Number"
 }

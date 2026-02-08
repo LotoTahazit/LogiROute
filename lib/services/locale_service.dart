@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'locale_service_stub.dart'
+    if (dart.library.html) 'locale_service_web.dart';
 
 class LocaleService extends ChangeNotifier {
   // Default language is Hebrew (he)
@@ -16,6 +18,10 @@ class LocaleService extends ChangeNotifier {
     // Default to Hebrew if no saved preference
     final languageCode = prefs.getString('language_code') ?? 'he';
     _locale = Locale(languageCode, '');
+    
+    // Сохраняем в localStorage для веба (для кнопки скачивания)
+    saveLocaleToWeb(languageCode);
+    
     notifyListeners();
   }
 
@@ -23,6 +29,10 @@ class LocaleService extends ChangeNotifier {
     _locale = Locale(languageCode, '');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', languageCode);
+    
+    // Сохраняем в localStorage для веба (для кнопки скачивания)
+    saveLocaleToWeb(languageCode);
+    
     notifyListeners();
   }
 }

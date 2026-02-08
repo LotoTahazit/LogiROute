@@ -22,7 +22,7 @@ class _EditPointDialogState extends State<EditPointDialog> {
   void initState() {
     super.initState();
     _urgency = widget.point.urgency;
-    _orderInRoute = widget.point.orderInRoute ?? 0;
+    _orderInRoute = widget.point.orderInRoute;
     _address = widget.point.address;
     _orderController.text = (_orderInRoute + 1).toString();
     _addressController.text = _address;
@@ -38,7 +38,7 @@ class _EditPointDialogState extends State<EditPointDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    
+
     return AlertDialog(
       title: Text('Edit Point: ${widget.point.clientName}'),
       content: SizedBox(
@@ -48,9 +48,9 @@ class _EditPointDialogState extends State<EditPointDialog> {
           children: [
             // Приоритет
             DropdownButtonFormField<String>(
-              value: _urgency,
+              initialValue: _urgency,
               decoration: const InputDecoration(labelText: 'Priority / עדיפות'),
-              items: [
+              items: const [
                 DropdownMenuItem(value: 'normal', child: Text('Normal / רגיל')),
                 DropdownMenuItem(value: 'urgent', child: Text('Urgent / דחוף')),
               ],
@@ -60,9 +60,9 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 }
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Временный адрес для этой доставки
             TextFormField(
               controller: _addressController,
@@ -72,16 +72,16 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 helperText: l10n.temporaryAddressHelper,
                 suffixIcon: Tooltip(
                   message: l10n.temporaryAddressTooltip,
-                  child: Icon(Icons.info_outline, color: Colors.blue),
+                  child: const Icon(Icons.info_outline, color: Colors.blue),
                 ),
               ),
               onChanged: (value) {
                 _address = value;
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Порядок в маршруте
             TextFormField(
               controller: _orderController,
@@ -97,9 +97,9 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 }
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Информация о точке
             Container(
               padding: const EdgeInsets.all(12),

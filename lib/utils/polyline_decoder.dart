@@ -1,6 +1,7 @@
 // lib/utils/polyline_decoder.dart
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_polyline_algorithm/google_polyline_algorithm.dart';
 
 /// Утилита для декодирования encoded polyline в координаты
 /// Поддерживает precision 5 (OSRM) и precision 6 (Google Maps)
@@ -12,114 +13,36 @@ class PolylineDecoder {
   /// 
   /// Возвращает список LatLng координат
   static List<LatLng> decode(String encoded, {int precision = 5}) {
-    final List<LatLng> points = [];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
-    final int len = encoded.length;
-    final double factor = (precision == 6) ? 1e6 : 1e5;
-
-    debugPrint('🔍 [PolylineDecoder] Decoding: ${encoded.length} chars, precision=$precision, factor=$factor');
+    debugPrint('🔍 [PolylineDecoder] Decoding: ${encoded.length} chars, precision=$precision');
+    debugPrint('🔍 [PolylineDecoder] First 50 chars: ${encoded.substring(0, encoded.length > 50 ? 50 : encoded.length)}');
 
     try {
-      while (index < len) {
-        // Декодируем широту
-        int shift = 0;
-        int result = 0;
-        int byte;
-        
-        do {
-          if (index >= len) {
-            if (kDebugMode) {
-              debugPrint('⚠️ [PolylineDecoder] Unexpected end while decoding latitude');
-            }
-            return points;
-          }
-          byte = encoded.codeUnitAt(index++) - 63;
-          if (byte < 0 || byte > 95) {
-            if (kDebugMode) {
-              debugPrint('⚠️ [PolylineDecoder] Invalid byte: $byte at index ${index-1}');
-            }
-            return points;
-          }
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        
-        final int deltaLat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-        lat += deltaLat;
-
-        if (index >= len) {
-          if (kDebugMode) {
-            debugPrint('⚠️ [PolylineDecoder] Unexpected end after latitude');
-          }
-          return points;
+      // Используем готовую библиотеку для декодирования
+      final List<List<num>> decoded = decodePolyline(encoded, accuracyExponent: precision);
+      
+      final List<LatLng> points = decoded.map((point) {
+        return LatLng(point[0].toDouble(), point[1].toDouble());
+      }).toList();
+      
+      debugPrint('✅ [PolylineDecoder] Decoded ${points.length} points');
+      if (points.isNotEmpty) {
+        debugPrint('📍 [PolylineDecoder] First: ${points.first}');
+        if (points.length > 1) {
+          debugPrint('📍 [PolylineDecoder] Second: ${points[1]}');
         }
-
-        // Декодируем долготу
-        shift = 0;
-        result = 0;
-        
-        do {
-          if (index >= len) {
-            if (kDebugMode) {
-              debugPrint('⚠️ [PolylineDecoder] Unexpected end while decoding longitude');
-            }
-            return points;
-          }
-          byte = encoded.codeUnitAt(index++) - 63;
-          if (byte < 0 || byte > 95) {
-            if (kDebugMode) {
-              debugPrint('⚠️ [PolylineDecoder] Invalid byte: $byte at index ${index-1}');
-            }
-            return points;
-          }
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        
-        final int deltaLng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-        lng += deltaLng;
-
-        final double decodedLat = lat / factor;
-        final double decodedLng = lng / factor;
-        
-        // Проверяем валидность координат
-        if (decodedLat.abs() < 85 && decodedLng.abs() <= 180 && 
-            !decodedLat.isNaN && !decodedLng.isNaN) {
-          points.add(LatLng(decodedLat, decodedLng));
-          
-          // Логируем первые несколько точек для отладки
-          if (points.length <= 3) {
-            debugPrint('📍 [PolylineDecoder] Point ${points.length}: lat=$decodedLat, lng=$decodedLng');
-          }
-        } else {
-          debugPrint('⚠️ [PolylineDecoder] Invalid point: lat=$decodedLat, lng=$decodedLng (raw: lat=$lat, lng=$lng)');
-          // Если слишком много невалидных точек, прерываем
-          if (points.isEmpty && index > 100) {
-            debugPrint('❌ [PolylineDecoder] Too many invalid points, stopping');
-            return [];
-          }
-        }
+        debugPrint('📍 [PolylineDecoder] Last: ${points.last}');
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ [PolylineDecoder] Error: $e');
-      }
-      return points.isNotEmpty ? points : [];
+      
+      return points;
+    } catch (e, stackTrace) {
+      debugPrint('❌ [PolylineDecoder] Error: $e');
+      debugPrint('❌ [PolylineDecoder] Stack: $stackTrace');
+      return [];
     }
-
-    debugPrint('✅ [PolylineDecoder] Decoded ${points.length} valid points');
-    if (points.isNotEmpty) {
-      debugPrint('📍 [PolylineDecoder] First: ${points.first}');
-      debugPrint('📍 [PolylineDecoder] Last: ${points.last}');
-    }
-    
-    return points;
   }
 
   /// Проверяет валидность декодированных точек
-  static bool isValid(List<LatLng> points, {int minPoints = 2}) {
+  static bool isValid(List<LatLng> points, {int minPoints = 10}) {
     debugPrint('🔍 [PolylineDecoder] Validating ${points.length} points (min: $minPoints)');
     
     if (points.length < minPoints) {
@@ -127,26 +50,14 @@ class PolylineDecoder {
       return false;
     }
     
-    int invalidCount = 0;
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
-      if (p.latitude.isNaN ||
-          p.longitude.isNaN ||
-          p.latitude.abs() >= 85 ||
-          p.longitude.abs() > 180) {
-        invalidCount++;
-        if (invalidCount <= 3) {
-          debugPrint('❌ [PolylineDecoder] Invalid point $i: lat=${p.latitude}, lng=${p.longitude}');
-        }
-      }
-    }
-    
-    if (invalidCount > 0) {
-      debugPrint('❌ [PolylineDecoder] Found $invalidCount invalid points out of ${points.length}');
+    // Проверяем только первые и последние точки на NaN
+    if (points.first.latitude.isNaN || points.first.longitude.isNaN ||
+        points.last.latitude.isNaN || points.last.longitude.isNaN) {
+      debugPrint('❌ [PolylineDecoder] First or last point is NaN');
       return false;
     }
     
-    debugPrint('✅ [PolylineDecoder] All ${points.length} points are valid');
+    debugPrint('✅ [PolylineDecoder] Polyline is valid: ${points.length} points');
     return true;
   }
 
