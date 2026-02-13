@@ -1,0 +1,210 @@
+// ДОБАВИТЬ ЭТИ МЕТОДЫ ПОСЛЕ _exportReport() И ПЕРЕД @override Widget build
+
+  void _showBoxTypesManager() async {
+    final boxTypes = await _boxTypeService.getAllBoxTypes();
+    if (!mounted) return;
+    
+    boxTypes.sort((a, b) {
+      final typeCompare = (a['type'] as String).compareTo(b['type'] as String);
+      if (typeCompare != 0) return typeCompare;
+      final numA = int.tryParse(a['number'] as String);
+      final numB = int.tryParse(b['number'] as String);
+      if (numA != null && numB != null) return numA.compareTo(numB);
+      return (a['number'] as String).compareTo(b['number'] as String);
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ניהול מאגר סוגים'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 500,
+          child: boxTypes.isEmpty
+              ? const Center(child: Text('אין סוגים במאגר'))
+              : ListView.builder(
+                  itemCount: boxTypes.length,
+                  itemBuilder: (context, index) {
+                    final boxType = boxTypes[index];
+                    final type = boxType['type'] as String;
+                    final number = boxType['number'] as String;
+                    final volumeMl = boxType['volumeMl'] as int;
+                    final id = boxType['id'] as String;
+                    return Card(
+                      child: ListTile(
+                        title: Text('$type $number'),
+                        subtitle: Text('$volumeMl מל'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showEditBoxTypeDialog(id, type, number, volumeMl);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showDeleteBoxTypeConfirmation(id, type, number);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('סגור'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditBoxTypeDialog(String id, String oldType, String oldNumber, int oldVolumeMl) {
+    final typeController = TextEditingController(text: oldType);
+    final numberController = TextEditingController(text: oldNumber);
+    final volumeController = TextEditingController(text: oldVolumeMl.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ערוך סוג'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: typeController,
+              decoration: const InputDecoration(
+                labelText: 'סוג (בביע, מכסה, כוס)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: numberController,
+              decoration: const InputDecoration(
+                labelText: 'מספר (100, 200, וכו\')',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: volumeController,
+              decoration: const InputDecoration(
+                labelText: 'נפח (מל)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ביטול'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (typeController.text.trim().isEmpty ||
+                  numberController.text.trim().isEmpty ||
+                  volumeController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('נא למלא את כל השדות'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              try {
+                await _boxTypeService.deleteBoxType(id);
+                await _boxTypeService.addBoxType(
+                  type: typeController.text.trim(),
+                  number: numberController.text.trim(),
+                  volumeMl: int.parse(volumeController.text),
+                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('סוג עודכן בהצלחה!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('שגיאה: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('שמור'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteBoxTypeConfirmation(String id, String type, String number) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחק סוג'),
+        content: Text('האם למחוק $type $number מהמאגר?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ביטול'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _boxTypeService.deleteBoxType(id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('סוג נמחק בהצלחה!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('שגיאה: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('מחק'),
+          ),
+        ],
+      ),
+    );
+  }
+
+// ДОБАВИТЬ В AppBar actions ПЕРЕД фильтром:
+          IconButton(
+            icon: const Icon(Icons.library_books),
+            tooltip: 'ניהול מאגר סוגים',
+            onPressed: _showBoxTypesManager,
+          ),

@@ -85,6 +85,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return l10n.roleDispatcher;
       case 'driver':
         return l10n.roleDriver;
+      case 'warehouse_keeper':
+        return 'מחסנאי / Warehouse Keeper';
       default:
         return role;
     }
@@ -154,7 +156,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: InputDecoration(
                       labelText: l10n.role,
                       border: const OutlineInputBorder(),
@@ -164,6 +166,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           value: 'driver', child: Text(l10n.driver)),
                       DropdownMenuItem(
                           value: 'dispatcher', child: Text(l10n.dispatcher)),
+                      const DropdownMenuItem(
+                          value: 'warehouse_keeper',
+                          child: Text('מחסנאי / Warehouse Keeper')),
                       DropdownMenuItem(
                           value: 'admin', child: Text(l10n.systemManager)),
                     ],
@@ -458,6 +463,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       DropdownMenuItem(
                         value: 'dispatcher',
                         child: Text(l10n.dispatcher),
+                      ),
+                      const DropdownMenuItem(
+                        value: 'warehouse_keeper',
+                        child: Text('מחסנאי / Warehouse Keeper'),
                       ),
                       DropdownMenuItem(
                         value: 'admin',
@@ -787,6 +796,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 DropdownMenuItem(
                                     value: 'dispatcher',
                                     child: Text(l10n.roleDispatcher)),
+                                const DropdownMenuItem(
+                                    value: 'warehouse_keeper',
+                                    child: Text('מחסנאי / Warehouse')),
                                 DropdownMenuItem(
                                     value: 'driver',
                                     child: Text(l10n.roleDriver)),
@@ -905,7 +917,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         ? Icons.local_shipping
                                         : user.role == 'dispatcher'
                                             ? Icons.assignment
-                                            : Icons.admin_panel_settings,
+                                            : user.role == 'warehouse_keeper'
+                                                ? Icons.inventory_2
+                                                : Icons.admin_panel_settings,
                                     color: Colors.blue,
                                   ),
                                   title: Text(

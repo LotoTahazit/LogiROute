@@ -1,1 +1,45 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore_indexes.json"},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]},"flutter":{"platforms":{"android":{"default":{"projectId":"logiroute-app","appId":"1:375119625021:android:5da3ed489201b45b3f6354","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"logiroute-app","configurations":{"android":"1:375119625021:android:5da3ed489201b45b3f6354","ios":"1:375119625021:ios:7d2b2b5b1e8656d43f6354","web":"1:375119625021:web:250eccc94710e0d83f6354"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore_indexes.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "logiroute-app",
+          "appId": "1:375119625021:android:5da3ed489201b45b3f6354",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "logiroute-app",
+          "configurations": {
+            "android": "1:375119625021:android:5da3ed489201b45b3f6354",
+            "ios": "1:375119625021:ios:7d2b2b5b1e8656d43f6354",
+            "web": "1:375119625021:web:250eccc94710e0d83f6354"
+          }
+        }
+      }
+    }
+  }
+}

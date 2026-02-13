@@ -557,4 +557,107 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get vehicleNumber => 'Номер машины';
+
+  @override
+  String get biometricLoginTitle => 'Включить вход по отпечатку?';
+
+  @override
+  String get biometricLoginMessage =>
+      'Вы сможете входить в приложение используя отпечаток пальца вместо пароля.';
+
+  @override
+  String get biometricLoginYes => 'Да, включить';
+
+  @override
+  String get biometricLoginNo => 'Нет';
+
+  @override
+  String get biometricLoginEnabled => '✅ Вход по отпечатку включён';
+
+  @override
+  String get biometricLoginCancelled => 'Аутентификация отменена';
+
+  @override
+  String get biometricLoginError => 'Ошибка биометрии';
+
+  @override
+  String get biometricLoginButton => 'Войти с отпечатком';
+
+  @override
+  String get biometricLoginButtonFace => 'Войти с Face ID';
+
+  @override
+  String get biometricLoginOr => 'или';
+
+  @override
+  String get biometricAuthReason => 'Войдите с помощью отпечатка пальца';
+
+  @override
+  String get viewModeWarehouse => 'Режим просмотра: Кладовщик';
+
+  @override
+  String get returnToAdmin => 'Вернуться';
+
+  @override
+  String get manageBoxTypes => 'Управление справочником типов';
+
+  @override
+  String get boxTypesManager => 'Управление справочником типов';
+
+  @override
+  String get noBoxTypesInCatalog => 'Нет типов в справочнике';
+
+  @override
+  String get editBoxType => 'Редактировать тип';
+
+  @override
+  String get deleteBoxType => 'Удалить тип';
+
+  @override
+  String deleteBoxTypeConfirm(Object number, Object type) {
+    return 'Удалить $type $number из справочника?';
+  }
+
+  @override
+  String get boxTypeUpdated => 'Тип успешно обновлен!';
+
+  @override
+  String get boxTypeDeleted => 'Тип успешно удален!';
+
+  @override
+  String get addNewBoxType => 'Добавить новый тип в справочник';
+
+  @override
+  String get newBoxTypeAdded => 'Новый тип успешно добавлен на склад!';
+
+  @override
+  String get typeLabel => 'Тип (бутылка, крышка, стакан)';
+
+  @override
+  String get numberLabel => 'Номер (100, 200, и т.д.)';
+
+  @override
+  String get volumeMlLabel => 'Объем в мл (необязательно)';
+
+  @override
+  String get quantityLabel => 'Количество (единиц)';
+
+  @override
+  String get quantityPerPalletLabel => 'Количество на паллете';
+
+  @override
+  String get diameterLabel => 'Диаметр (необязательно)';
+
+  @override
+  String get piecesPerBoxLabel =>
+      'Упаковка - количество в коробке (необязательно)';
+
+  @override
+  String get additionalInfoLabel => 'Дополнительная информация (необязательно)';
+
+  @override
+  String get requiredField => 'Обязательно';
+
+  @override
+  String get close => 'Закрыть';
 }

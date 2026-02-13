@@ -13,7 +13,7 @@ service cloud.firestore {
         (
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
           request.resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId &&
-          request.resource.data.role in ['dispatcher', 'driver']
+          request.resource.data.role in ['dispatcher', 'driver', 'warehouse_keeper']
         )
       );
 
@@ -175,6 +175,38 @@ service cloud.firestore {
     match /cached_routes/{routeId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
+    }
+
+    // 📦 Типы коробок (справочник)
+    match /box_types/{boxTypeId} {
+      // ✅ Чтение: все авторизованные пользователи
+      allow read: if request.auth != null;
+
+      // ✅ Создание/Обновление: диспетчер, кладовщик, админ или супер-админ
+      allow create, update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
+      );
+
+      // ✅ Удаление: админ или супер-админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+    }
+
+    // 📦 Инвентарь (склад)
+    match /inventory/{inventoryId} {
+      // ✅ Чтение: все авторизованные пользователи
+      allow read: if request.auth != null;
+
+      // ✅ Создание/Обновление: кладовщик, диспетчер, админ или супер-админ
+      allow create, update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
+      );
+
+      // ✅ Удаление: кладовщик, админ или супер-админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'warehouse_keeper']
+      );
     }
   }
 }

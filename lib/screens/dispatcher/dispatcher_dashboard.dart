@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/user_model.dart';
 import '../../widgets/delivery_map_widget.dart';
+import '../warehouse/warehouse_dashboard.dart';
 
 class DispatcherDashboard extends StatefulWidget {
   const DispatcherDashboard({super.key});
@@ -537,11 +538,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     if (confirmed == true) {
       await _routeService.clearOldTestData();
       if (mounted) {
+        setState(() {
+          _lastNonEmptyRoutes = []; // Очищаем кэш маршрутов
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Pending points cleared, active routes preserved')),
         );
-        setState(() {}); // Обновляем UI
       }
     }
   }
@@ -573,10 +576,12 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     if (confirmed == true) {
       await _routeService.clearAllTestData();
       if (mounted) {
+        setState(() {
+          _lastNonEmptyRoutes = []; // Очищаем кэш маршрутов
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('All data cleared')),
         );
-        setState(() {}); // Обновляем UI
       }
     }
   }
@@ -634,6 +639,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.dispatcher),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.inventory_2),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WarehouseDashboard(),
+                  ),
+                );
+              },
+              tooltip: 'מלאי',
+            ),
             IconButton(
               icon: const Icon(Icons.location_on),
               onPressed: _setWarehouseLocation,

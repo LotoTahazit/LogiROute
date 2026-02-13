@@ -11,6 +11,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/dispatcher/dispatcher_dashboard.dart';
 import 'screens/driver/driver_dashboard.dart';
+import 'screens/warehouse/warehouse_dashboard.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -54,6 +55,7 @@ class LogiRouteApp extends StatelessWidget {
             ],
             theme: ThemeData(
               primarySwatch: Colors.blue,
+              fontFamily: 'NotoSansHebrew', // Шрифт по умолчанию для иврита
               textTheme: const TextTheme(
                 bodyLarge: TextStyle(color: Colors.black),
                 bodyMedium: TextStyle(color: Colors.black),
@@ -107,6 +109,8 @@ class AuthWrapper extends StatelessWidget {
             return const DispatcherDashboard();
           case 'driver':
             return const DriverDashboard();
+          case 'warehouse_keeper':
+            return const WarehouseDashboard();
           default:
             return const LoginScreen();
         }

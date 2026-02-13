@@ -31,9 +31,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   Timer? _debounceTimer;
   bool _isLoadingRoute = false;
   String? _lastRouteSignature; // Кеш для предотвращения лишних запросов
-  Map<String, Map<String, dynamic>> _driverLocations =
+  final Map<String, Map<String, dynamic>> _driverLocations =
       {}; // Текущие позиции водителей
-  Map<String, String> _driverETAs = {}; // ETA для каждого водителя
+  final Map<String, String> _driverETAs = {}; // ETA для каждого водителя
 
   // Генерация цвета для водителя
   Color _getDriverColor(String driverKey, int index) {
@@ -154,7 +154,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           title: '🏭 ${l10n?.warehouse ?? "Склад"}',
           snippet: l10n?.warehouseStartPoint ?? 'Starting point for all routes',
         ),
-        zIndex: 999, // Склад всегда сверху
+        zIndexInt: 999, // Склад всегда сверху
       ),
     );
 
@@ -318,7 +318,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
               : warehouseLng;
 
           debugPrint(
-              '🏭 [Map] Building active route for driver $driverKey from (${startLat}, ${startLng})');
+              '🏭 [Map] Building active route for driver $driverKey from ($startLat, $startLng)');
           debugPrint('📍 [Map] Route has ${activePoints.length} active points');
 
           final end = activePoints.last;

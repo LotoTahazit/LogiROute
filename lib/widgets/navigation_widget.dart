@@ -1,6 +1,5 @@
 // lib/widgets/navigation_widget.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import '../services/navigation_service.dart';
 import '../services/navigation_launcher_service.dart';
@@ -282,8 +281,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     double y1 = -double.infinity;
 
     for (gmaps.LatLng latLng in list) {
-      if (latLng.longitude == null) continue;
-
       final lat = latLng.latitude.toDouble();
       final lng = latLng.longitude.toDouble();
 

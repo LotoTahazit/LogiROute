@@ -1161,6 +1161,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Vehicle Number'**
   String get vehicleNumber;
+
+  /// No description provided for @biometricLoginTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Fingerprint Login?'**
+  String get biometricLoginTitle;
+
+  /// No description provided for @biometricLoginMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You will be able to log in using your fingerprint instead of a password.'**
+  String get biometricLoginMessage;
+
+  /// No description provided for @biometricLoginYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, enable'**
+  String get biometricLoginYes;
+
+  /// No description provided for @biometricLoginNo.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get biometricLoginNo;
+
+  /// No description provided for @biometricLoginEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Fingerprint login enabled'**
+  String get biometricLoginEnabled;
+
+  /// No description provided for @biometricLoginCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication cancelled'**
+  String get biometricLoginCancelled;
+
+  /// No description provided for @biometricLoginError.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric error'**
+  String get biometricLoginError;
+
+  /// No description provided for @biometricLoginButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Login with fingerprint'**
+  String get biometricLoginButton;
+
+  /// No description provided for @biometricLoginButtonFace.
+  ///
+  /// In en, this message translates to:
+  /// **'Login with Face ID'**
+  String get biometricLoginButtonFace;
+
+  /// No description provided for @biometricLoginOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get biometricLoginOr;
+
+  /// No description provided for @biometricAuthReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in using your fingerprint'**
+  String get biometricAuthReason;
+
+  /// No description provided for @viewModeWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'View Mode: Warehouse Keeper'**
+  String get viewModeWarehouse;
+
+  /// No description provided for @returnToAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Return'**
+  String get returnToAdmin;
+
+  /// No description provided for @manageBoxTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Box Types Catalog'**
+  String get manageBoxTypes;
+
+  /// No description provided for @boxTypesManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Box Types Catalog'**
+  String get boxTypesManager;
+
+  /// No description provided for @noBoxTypesInCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'No types in catalog'**
+  String get noBoxTypesInCatalog;
+
+  /// No description provided for @editBoxType.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Type'**
+  String get editBoxType;
+
+  /// No description provided for @deleteBoxType.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Type'**
+  String get deleteBoxType;
+
+  /// No description provided for @deleteBoxTypeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {type} {number} from catalog?'**
+  String deleteBoxTypeConfirm(Object number, Object type);
+
+  /// No description provided for @boxTypeUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Type updated successfully!'**
+  String get boxTypeUpdated;
+
+  /// No description provided for @boxTypeDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Type deleted successfully!'**
+  String get boxTypeDeleted;
+
+  /// No description provided for @addNewBoxType.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Type to Catalog'**
+  String get addNewBoxType;
+
+  /// No description provided for @newBoxTypeAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'New type added to inventory successfully!'**
+  String get newBoxTypeAdded;
+
+  /// No description provided for @typeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type (bottle, cap, cup)'**
+  String get typeLabel;
+
+  /// No description provided for @numberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Number (100, 200, etc.)'**
+  String get numberLabel;
+
+  /// No description provided for @volumeMlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume in ml (optional)'**
+  String get volumeMlLabel;
+
+  /// No description provided for @quantityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity (units)'**
+  String get quantityLabel;
+
+  /// No description provided for @quantityPerPalletLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity per pallet'**
+  String get quantityPerPalletLabel;
+
+  /// No description provided for @diameterLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Diameter (optional)'**
+  String get diameterLabel;
+
+  /// No description provided for @piecesPerBoxLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Packed - quantity per box (optional)'**
+  String get piecesPerBoxLabel;
+
+  /// No description provided for @additionalInfoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional information (optional)'**
+  String get additionalInfoLabel;
+
+  /// No description provided for @requiredField.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get requiredField;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
 }
 
 class _AppLocalizationsDelegate

@@ -185,7 +185,8 @@ class PrintService {
                     fontLatin,
                     fontSize: 12,
                   ),
-                  pw.SizedBox(width: 5), // Добавляем отступ между текстом и датой
+                  pw.SizedBox(
+                      width: 5), // Добавляем отступ между текстом и датой
                   pw.Directionality(
                     textDirection: pw.TextDirection.ltr,
                     child: pw.Text(
@@ -234,20 +235,30 @@ class PrintService {
                 isHeader: true),
             _buildTableCell('קרטונים', fontHebrewBold, fontLatin,
                 isHeader: true),
+            _buildTableCell('קופסאות', fontHebrewBold, fontLatin,
+                isHeader: true),
             _buildTableCell('סטטוס', fontHebrewBold, fontLatin, isHeader: true),
           ],
         ),
-        ...points.map((p) => pw.TableRow(
-              children: [
-                _buildTableCell('${p.orderInRoute}', fontHebrew, fontLatin),
-                _buildTableCell(p.clientName, fontHebrew, fontLatin),
-                _buildTableCell(p.address, fontHebrew, fontLatin),
-                _buildTableCell('${p.pallets}', fontHebrew, fontLatin),
-                _buildTableCell('${p.boxes}', fontHebrew, fontLatin),
-                _buildTableCell(
-                    _getStatusInHebrew(p.status), fontHebrew, fontLatin),
-              ],
-            )),
+        ...points.map((p) {
+          // Форматируем типы коробок для отображения
+          final boxTypesText = p.boxTypes != null && p.boxTypes!.isNotEmpty
+              ? p.boxTypes!.map((box) => box.toShortString()).join('\n')
+              : '-';
+
+          return pw.TableRow(
+            children: [
+              _buildTableCell('${p.orderInRoute}', fontHebrew, fontLatin),
+              _buildTableCell(p.clientName, fontHebrew, fontLatin),
+              _buildTableCell(p.address, fontHebrew, fontLatin),
+              _buildTableCell('${p.pallets}', fontHebrew, fontLatin),
+              _buildTableCell('${p.boxes}', fontHebrew, fontLatin),
+              _buildTableCell(boxTypesText, fontHebrew, fontLatin),
+              _buildTableCell(
+                  _getStatusInHebrew(p.status), fontHebrew, fontLatin),
+            ],
+          );
+        }),
       ],
     );
   }

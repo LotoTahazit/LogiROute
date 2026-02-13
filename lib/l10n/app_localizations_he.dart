@@ -555,4 +555,106 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get vehicleNumber => 'מספר רכב';
+
+  @override
+  String get biometricLoginTitle => 'להפעיל כניסה עם טביעת אצבע?';
+
+  @override
+  String get biometricLoginMessage =>
+      'תוכל להיכנס לאפליקציה באמצעות טביעת אצבע במקום סיסמה.';
+
+  @override
+  String get biometricLoginYes => 'כן, הפעל';
+
+  @override
+  String get biometricLoginNo => 'לא';
+
+  @override
+  String get biometricLoginEnabled => '✅ כניסה עם טביעת אצבע הופעלה';
+
+  @override
+  String get biometricLoginCancelled => 'האימות בוטל';
+
+  @override
+  String get biometricLoginError => 'שגיאת ביומטריה';
+
+  @override
+  String get biometricLoginButton => 'היכנס עם טביעת אצבע';
+
+  @override
+  String get biometricLoginButtonFace => 'היכנס עם Face ID';
+
+  @override
+  String get biometricLoginOr => 'או';
+
+  @override
+  String get biometricAuthReason => 'היכנס באמצעות טביעת אצבע';
+
+  @override
+  String get viewModeWarehouse => 'מצב תצוגה: מחסנאי';
+
+  @override
+  String get returnToAdmin => 'חזור';
+
+  @override
+  String get manageBoxTypes => 'ניהול מאגר סוגים';
+
+  @override
+  String get boxTypesManager => 'ניהול מאגר סוגים';
+
+  @override
+  String get noBoxTypesInCatalog => 'אין סוגים במאגר';
+
+  @override
+  String get editBoxType => 'ערוך סוג';
+
+  @override
+  String get deleteBoxType => 'מחק סוג';
+
+  @override
+  String deleteBoxTypeConfirm(Object number, Object type) {
+    return 'האם למחוק $type $number מהמאגר?';
+  }
+
+  @override
+  String get boxTypeUpdated => 'סוג עודכן בהצלחה!';
+
+  @override
+  String get boxTypeDeleted => 'סוג נמחק בהצלחה!';
+
+  @override
+  String get addNewBoxType => 'הוסף סוג חדש למאגר';
+
+  @override
+  String get newBoxTypeAdded => 'סוג חדש נוסף למלאי בהצלחה!';
+
+  @override
+  String get typeLabel => 'סוג (בביע, מכסה, כוס)';
+
+  @override
+  String get numberLabel => 'מספר (100, 200, וכו\')';
+
+  @override
+  String get volumeMlLabel => 'נפח במ\"ל (אופציונלי)';
+
+  @override
+  String get quantityLabel => 'כמות (יחידות)';
+
+  @override
+  String get quantityPerPalletLabel => 'כמות במשטח';
+
+  @override
+  String get diameterLabel => 'קוטר (אופציונלי)';
+
+  @override
+  String get piecesPerBoxLabel => 'ארוז - כמות בקרטון (אופציונלי)';
+
+  @override
+  String get additionalInfoLabel => 'מידע נוסף (אופציונלי)';
+
+  @override
+  String get requiredField => 'חובה';
+
+  @override
+  String get close => 'סגור';
 }

@@ -1,0 +1,166 @@
+void _showAddNewBoxTypeDialog() {
+  final typeController = TextEditingController();
+  final numberController = TextEditingController();
+  final volumeController = TextEditingController();
+  final quantityPerPalletController = TextEditingController(text: '1');
+  final diameterController = TextEditingController();
+  final piecesPerBoxController = TextEditingController();
+  final additionalInfoController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('הוסף סוג חדש למאגר'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Тип
+              TextField(
+                controller: typeController,
+                decoration: const InputDecoration(
+                  labelText: 'סוג (בביע, מכסה, כוס) *',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) => setDialogState(() {}),
+              ),
+              const SizedBox(height: 16),
+
+              // Номер
+              TextField(
+                controller: numberController,
+                decoration: const InputDecoration(
+                  labelText: 'מספר (100, 200, וכו\') *',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) => setDialogState(() {}),
+              ),
+              const SizedBox(height: 16),
+
+              // Объем в мл (необязательное)
+              TextField(
+                controller: volumeController,
+                decoration: const InputDecoration(
+                  labelText: 'נפח במ"ל (אופציונלי)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) => setDialogState(() {}),
+              ),
+              const SizedBox(height: 16),
+
+              // Количество на миштахе (обязательное)
+              TextField(
+                controller: quantityPerPalletController,
+                decoration: const InputDecoration(
+                  labelText: 'כמות במשטח *',
+                  hintText: 'חובה',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) => setDialogState(() {}),
+              ),
+              const SizedBox(height: 16),
+
+              // Диаметр (необязательное)
+              TextField(
+                controller: diameterController,
+                decoration: const InputDecoration(
+                  labelText: 'קוטר (אופציונלי)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Количество в коробке (необязательное)
+              TextField(
+                controller: piecesPerBoxController,
+                decoration: const InputDecoration(
+                  labelText: 'ארוז - כמות בקרטון (אופציונלי)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+
+              // Дополнительные данные (необязательное)
+              TextField(
+                controller: additionalInfoController,
+                decoration: const InputDecoration(
+                  labelText: 'מידע נוסף (אופציונלי)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ביטול'),
+          ),
+          ElevatedButton(
+            onPressed: typeController.text.trim().isNotEmpty &&
+                    numberController.text.trim().isNotEmpty &&
+                    quantityPerPalletController.text.trim().isNotEmpty &&
+                    int.tryParse(quantityPerPalletController.text) != null &&
+                    int.parse(quantityPerPalletController.text) > 0
+                ? () async {
+                    final volumeMl = volumeController.text.trim().isEmpty
+                        ? null
+                        : int.tryParse(volumeController.text);
+                    final quantityPerPallet = quantityPerPalletController.text.trim().isEmpty
+                        ? null
+                        : int.tryParse(quantityPerPalletController.text);
+                    final piecesPerBox = piecesPerBoxController.text.trim().isEmpty
+                        ? null
+                        : int.tryParse(piecesPerBoxController.text);
+
+                    try {
+                      await _boxTypeService.addBoxType(
+                        type: typeController.text.trim(),
+                        number: numberController.text.trim(),
+                        volumeMl: volumeMl,
+                        quantityPerPallet: quantityPerPallet,
+                        diameter: diameterController.text.trim().isEmpty
+                            ? null
+                            : diameterController.text.trim(),
+                        piecesPerBox: piecesPerBox,
+                        additionalInfo: additionalInfoController.text.trim().isEmpty
+                            ? null
+                            : additionalInfoController.text.trim(),
+                      );
+
+                      await Future.delayed(const Duration(milliseconds: 300));
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('סוג חדש נוסף למאגר בהצלחה!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('שגיאה: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                : null,
+            child: const Text('שמור'),
+          ),
+        ],
+      ),
+    ),
+  );
+}

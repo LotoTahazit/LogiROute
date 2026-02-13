@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'box_type.dart';
 
 class DeliveryPoint {
   static const String statusPending = 'pending';
@@ -9,18 +10,26 @@ class DeliveryPoint {
 
   static const String statusPendingHe = '\u05de\u05de\u05ea\u05d9\u05df';
   static const String statusAssignedHe = '\u05d4\u05d5\u05e7\u05e6\u05d4';
-  static const String statusInProgressHe = '\u05d1\u05d1\u05d9\u05e6\u05d5\u05e2';
+  static const String statusInProgressHe =
+      '\u05d1\u05d1\u05d9\u05e6\u05d5\u05e2';
   static const String statusCompletedHe = '\u05d4\u05d5\u05e9\u05dc\u05dd';
   static const String statusCancelledHe = '\u05d1\u05d5\u05d8\u05dc';
 
-  static const String statusPendingRu = '\u043e\u0436\u0438\u0434\u0430\u0435\u0442';
-  static const String statusAssignedRu = '\u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d';
-  static const String statusInProgressRu = '\u0432 \u043f\u0440\u043e\u0446\u0435\u0441\u0441\u0435';
-  static const String statusCompletedRu = '\u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d';
-  static const String statusCancelledRu = '\u043e\u0442\u043c\u0435\u043d\u0451\u043d';
+  static const String statusPendingRu =
+      '\u043e\u0436\u0438\u0434\u0430\u0435\u0442';
+  static const String statusAssignedRu =
+      '\u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d';
+  static const String statusInProgressRu =
+      '\u0432 \u043f\u0440\u043e\u0446\u0435\u0441\u0441\u0435';
+  static const String statusCompletedRu =
+      '\u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d';
+  static const String statusCancelledRu =
+      '\u043e\u0442\u043c\u0435\u043d\u0451\u043d';
 
-  static const String statusCompletedRuAlt = '\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d';
-  static const String statusCancelledRuAlt = '\u043e\u0442\u043c\u0435\u043d\u0435\u043d';
+  static const String statusCompletedRuAlt =
+      '\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d';
+  static const String statusCancelledRuAlt =
+      '\u043e\u0442\u043c\u0435\u043d\u0435\u043d';
 
   static List<String> get activeRouteStatuses => [
         statusAssigned,
@@ -54,6 +63,7 @@ class DeliveryPoint {
   final int? driverCapacity;
   final String? temporaryAddress; // Временный адрес для этой доставки
   final bool autoCompleted; // Завершено автоматически
+  final List<BoxType>? boxTypes; // Типы коробок в заказе
 
   DeliveryPoint({
     required this.id,
@@ -74,6 +84,7 @@ class DeliveryPoint {
     this.driverCapacity,
     this.temporaryAddress,
     this.autoCompleted = false,
+    this.boxTypes,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -83,18 +94,19 @@ class DeliveryPoint {
       latitude: (map['latitude'] ?? 0).toDouble(),
       longitude: (map['longitude'] ?? 0).toDouble(),
       clientName: map['clientName'] ?? '',
-      openingTime: map['openingTime'] != null 
-          ? (map['openingTime'] as Timestamp).toDate() 
+      openingTime: map['openingTime'] != null
+          ? (map['openingTime'] as Timestamp).toDate()
           : null,
-             urgency: map['urgency'] ?? 'normal',
+      urgency: map['urgency'] ?? 'normal',
       pallets: map['pallets'] ?? 0,
-      boxes: map['boxes'] ?? (map['pallets'] ?? 1) * 4, // Fallback для старых записей
+      boxes: map['boxes'] ??
+          (map['pallets'] ?? 1) * 4, // Fallback для старых записей
       status: normalizeStatus(map['status']),
-      arrivedAt: map['arrivedAt'] != null 
-          ? (map['arrivedAt'] as Timestamp).toDate() 
+      arrivedAt: map['arrivedAt'] != null
+          ? (map['arrivedAt'] as Timestamp).toDate()
           : null,
-      completedAt: map['completedAt'] != null 
-          ? (map['completedAt'] as Timestamp).toDate() 
+      completedAt: map['completedAt'] != null
+          ? (map['completedAt'] as Timestamp).toDate()
           : null,
       orderInRoute: map['orderInRoute'] ?? 0,
       driverId: map['driverId'],
@@ -102,6 +114,11 @@ class DeliveryPoint {
       driverCapacity: map['driverCapacity'],
       temporaryAddress: map['temporaryAddress'],
       autoCompleted: map['autoCompleted'] ?? false,
+      boxTypes: map['boxTypes'] != null
+          ? (map['boxTypes'] as List)
+              .map((item) => BoxType.fromMap(item as Map<String, dynamic>))
+              .toList()
+          : null,
     );
   }
 
@@ -124,6 +141,8 @@ class DeliveryPoint {
       if (driverCapacity != null) 'driverCapacity': driverCapacity,
       if (temporaryAddress != null) 'temporaryAddress': temporaryAddress,
       'autoCompleted': autoCompleted,
+      if (boxTypes != null)
+        'boxTypes': boxTypes!.map((box) => box.toMap()).toList(),
     };
   }
 
@@ -152,6 +171,7 @@ class DeliveryPoint {
       driverCapacity: driverCapacity,
       temporaryAddress: temporaryAddress,
       autoCompleted: autoCompleted,
+      boxTypes: boxTypes,
     );
   }
 
@@ -198,4 +218,3 @@ class DeliveryPoint {
     return value;
   }
 }
-

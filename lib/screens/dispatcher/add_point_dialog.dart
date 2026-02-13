@@ -6,12 +6,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../models/client_model.dart';
 import '../../models/delivery_point.dart';
+import '../../models/box_type.dart';
 import '../../services/client_service.dart';
 import '../../services/route_service.dart';
 import '../../services/api_config_service.dart';
 import '../../services/web_geocoding_service.dart';
+import '../../services/inventory_service.dart';
+import '../../services/auth_service.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/box_type_selector.dart';
 
 class AddPointDialog extends StatefulWidget {
   const AddPointDialog({super.key});
@@ -37,6 +41,61 @@ class _AddPointDialogState extends State<AddPointDialog> {
   bool _isLoading = false;
   List<ClientModel> _searchResults = [];
   String _urgency = 'normal';
+  List<BoxType> _selectedBoxTypes = []; // Выбранные типы коробок
+
+  @override
+  void initState() {
+    super.initState();
+    _updateCalculatedFields();
+  }
+
+  /// Автоматически рассчитывает количество картонов и миштахов
+  Future<void> _updateCalculatedFields() async {
+    if (_selectedBoxTypes.isEmpty) {
+      _palletsController.text = '0';
+      _boxesController.text = '0';
+      return;
+    }
+
+    try {
+      final inventoryService = InventoryService();
+      final inventory = await inventoryService.getInventory();
+
+      int totalPallets = 0;
+      int totalBoxes = 0;
+
+      for (final boxType in _selectedBoxTypes) {
+        // Находим товар в инвентаре
+        final inventoryItem = inventory.firstWhere(
+          (item) => item.type == boxType.type && item.number == boxType.number,
+          orElse: () => throw Exception(
+              'Товар ${boxType.type} ${boxType.number} не найден в инвентаре'),
+        );
+
+        final quantity = boxType.quantity;
+
+        // Рассчитываем количество миштахов
+        if (inventoryItem.quantityPerPallet > 0) {
+          totalPallets += (quantity / inventoryItem.quantityPerPallet).ceil();
+        }
+
+        // Рассчитываем количество картонов
+        if (inventoryItem.piecesPerBox != null &&
+            inventoryItem.piecesPerBox! > 0) {
+          totalBoxes += (quantity / inventoryItem.piecesPerBox!).ceil();
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _palletsController.text = totalPallets.toString();
+          _boxesController.text = totalBoxes.toString();
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [Calculation] Error calculating fields: $e');
+    }
+  }
 
   /// Генерирует множественные варианты адреса для геокодирования (подход как в Waze)
   List<String> _generateAddressVariants(String originalAddress) {
@@ -352,6 +411,52 @@ class _AddPointDialogState extends State<AddPointDialog> {
         await _clientService.addClient(client);
       }
 
+      // Проверяем доступность товара на складе
+      if (_selectedBoxTypes.isNotEmpty) {
+        final inventoryService = InventoryService();
+        final availability =
+            await inventoryService.checkAvailability(_selectedBoxTypes);
+
+        if (!availability['available']) {
+          final insufficient = availability['insufficient'] as List<String>;
+
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('אין מספיק מלאי'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'לא ניתן ליצור הזמנה - אין מספיק מלאי:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...insufficient.map((item) => Text('• $item')),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'אנא פנה למחסנאי לעדכון המלאי.',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('הבנתי'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          setState(() => _isLoading = false);
+          return; // Блокируем создание заказа
+        }
+      }
+
       final point = DeliveryPoint(
         id: '',
         clientName: client.name,
@@ -365,9 +470,21 @@ class _AddPointDialogState extends State<AddPointDialog> {
         driverId: null,
         driverName: null,
         driverCapacity: null,
+        boxTypes: _selectedBoxTypes.isNotEmpty ? _selectedBoxTypes : null,
       );
 
       await _routeService.addDeliveryPoint(point);
+
+      // Списываем товар со склада
+      if (_selectedBoxTypes.isNotEmpty) {
+        final inventoryService = InventoryService();
+        final authService = AuthService();
+        final user = authService.userModel;
+        await inventoryService.deductStock(
+          _selectedBoxTypes,
+          user?.name ?? 'Unknown',
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context);
@@ -385,158 +502,242 @@ class _AddPointDialogState extends State<AddPointDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return AlertDialog(
-      title: Text(l10n.addPoint),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                /// 🔹 Номер клиента
-                TextFormField(
-                  controller: _numberController,
-                  decoration: InputDecoration(
-                    labelText: l10n.clientNumberLabel,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () => _searchClients(_numberController.text),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: Theme.of(context).textTheme.apply(
+          fontFamily: 'NotoSansHebrew',
+          fontFamilyFallback: const [
+            'Noto Sans Hebrew',
+            'NotoSansHebrew',
+            'Arial'
+          ],
+        ),
+      ),
+      child: AlertDialog(
+        title: Text(l10n.addPoint),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  /// 🔹 Номер клиента
+                  TextFormField(
+                    controller: _numberController,
+                    decoration: InputDecoration(
+                      labelText: l10n.clientNumberLabel,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () => _searchClients(_numberController.text),
+                      ),
                     ),
-                  ),
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return l10n.clientNumberRequired;
-                    }
-                    if (value.length != 6) {
-                      return l10n.clientNumberLength;
-                    }
-                    return null;
-                  },
-                  onChanged: (val) {
-                    if (val.length >= 2) _searchClients(val);
-                  },
-                ),
-
-                if (_searchResults.isNotEmpty)
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 150),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final client = _searchResults[index];
-                        return ListTile(
-                          title: Text(
-                            client.name,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            '${client.clientNumber} • ${client.address}',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                          onTap: () {
-                            _fillClientData(client);
-                            setState(() => _searchResults.clear());
-                          },
-                        );
-                      },
-                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return l10n.clientNumberRequired;
+                      }
+                      if (value.length != 6) {
+                        return l10n.clientNumberLength;
+                      }
+                      return null;
+                    },
+                    onChanged: (val) {
+                      if (val.length >= 2) _searchClients(val);
+                    },
                   ),
 
-                /// 🔹 Имя клиента
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: l10n.clientName),
-                  validator: (value) =>
-                      value == null || value.isEmpty ? l10n.required : null,
-                  onChanged: (val) {
-                    if (val.length >= 2) _searchClients(val);
-                  },
-                ),
+                  if (_searchResults.isNotEmpty)
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _searchResults.length,
+                        itemBuilder: (context, index) {
+                          final client = _searchResults[index];
+                          return ListTile(
+                            title: Text(
+                              client.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              '${client.clientNumber} • ${client.address}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            onTap: () {
+                              _fillClientData(client);
+                              setState(() => _searchResults.clear());
+                            },
+                          );
+                        },
+                      ),
+                    ),
 
-                /// 🔹 Адрес
-                TextFormField(
-                  controller: _addressController,
-                  decoration: InputDecoration(labelText: l10n.address),
-                  validator: (value) =>
-                      value == null || value.isEmpty ? l10n.required : null,
-                ),
+                  /// 🔹 Имя клиента
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(labelText: l10n.clientName),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? l10n.required : null,
+                    onChanged: (val) {
+                      if (val.length >= 2) _searchClients(val);
+                    },
+                  ),
 
-                /// 🔹 Телефон
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'טלפון / Phone'),
-                ),
+                  /// 🔹 Адрес
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: InputDecoration(labelText: l10n.address),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? l10n.required : null,
+                  ),
 
-                /// 🔹 Контактное лицо
-                TextFormField(
-                  controller: _contactController,
-                  decoration:
-                      const InputDecoration(labelText: 'איש קשר / Contact'),
-                ),
+                  /// 🔹 Телефон
+                  TextFormField(
+                    controller: _phoneController,
+                    decoration:
+                        const InputDecoration(labelText: 'טלפון / Phone'),
+                  ),
 
-                const SizedBox(height: 12),
+                  /// 🔹 Контактное лицо
+                  TextFormField(
+                    controller: _contactController,
+                    decoration:
+                        const InputDecoration(labelText: 'איש קשר / Contact'),
+                  ),
 
-                /// 🔹 Приоритет
-                DropdownButtonFormField<String>(
-                  initialValue: _urgency,
-                  decoration:
-                      const InputDecoration(labelText: 'Priority / עדיפות'),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'normal', child: Text('Normal / רגיל')),
-                    DropdownMenuItem(
-                        value: 'urgent', child: Text('Urgent / דחוף')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _urgency = value);
-                    }
-                  },
-                ),
+                  const SizedBox(height: 12),
 
-                const SizedBox(height: 12),
+                  /// 🔹 Приоритет
+                  DropdownButtonFormField<String>(
+                    initialValue: _urgency,
+                    decoration:
+                        const InputDecoration(labelText: 'Priority / עדיפות'),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'normal', child: Text('Normal / רגיל')),
+                      DropdownMenuItem(
+                          value: 'urgent', child: Text('Urgent / דחוף')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _urgency = value);
+                      }
+                    },
+                  ),
 
-                /// 🔹 Паллеты
-                TextFormField(
-                  controller: _palletsController,
-                  decoration: InputDecoration(labelText: l10n.pallets),
-                  keyboardType: TextInputType.number,
-                ),
+                  const SizedBox(height: 12),
 
-                /// 🔹 Коробки
-                TextFormField(
-                  controller: _boxesController,
-                  decoration: InputDecoration(labelText: l10n.boxes),
-                  keyboardType: TextInputType.number,
-                ),
-              ],
+                  /// 🔹 Паллеты (автоматически рассчитываются, можно изменить)
+                  TextFormField(
+                    controller: _palletsController,
+                    style: const TextStyle(
+                      fontFamily: 'NotoSansHebrew',
+                      fontFamilyFallback: [
+                        'Noto Sans Hebrew',
+                        'NotoSansHebrew',
+                        'Arial'
+                      ],
+                    ),
+                    decoration: InputDecoration(
+                      labelText: '${l10n.pallets} (מחושב אוטומטית)',
+                      labelStyle: const TextStyle(
+                        fontFamily: 'NotoSansHebrew',
+                        fontFamilyFallback: [
+                          'Noto Sans Hebrew',
+                          'NotoSansHebrew',
+                          'Arial'
+                        ],
+                      ),
+                      helperText: 'ניתן לערוך',
+                      helperStyle: const TextStyle(
+                        fontFamily: 'NotoSansHebrew',
+                        fontFamilyFallback: [
+                          'Noto Sans Hebrew',
+                          'NotoSansHebrew',
+                          'Arial'
+                        ],
+                      ),
+                      suffixIcon: const Icon(Icons.calculate_outlined,
+                          size: 20, color: Colors.blue),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+
+                  /// 🔹 Коробки (автоматически рассчитываются, можно изменить)
+                  TextFormField(
+                    controller: _boxesController,
+                    style: const TextStyle(
+                      fontFamily: 'NotoSansHebrew',
+                      fontFamilyFallback: [
+                        'Noto Sans Hebrew',
+                        'NotoSansHebrew',
+                        'Arial'
+                      ],
+                    ),
+                    decoration: InputDecoration(
+                      labelText: '${l10n.boxes} (מחושב אוטומטית)',
+                      labelStyle: const TextStyle(
+                        fontFamily: 'NotoSansHebrew',
+                        fontFamilyFallback: [
+                          'Noto Sans Hebrew',
+                          'NotoSansHebrew',
+                          'Arial'
+                        ],
+                      ),
+                      helperText: 'ניתן לערוך',
+                      helperStyle: const TextStyle(
+                        fontFamily: 'NotoSansHebrew',
+                        fontFamilyFallback: [
+                          'Noto Sans Hebrew',
+                          'NotoSansHebrew',
+                          'Arial'
+                        ],
+                      ),
+                      suffixIcon: const Icon(Icons.calculate_outlined,
+                          size: 20, color: Colors.blue),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  /// 🔹 Типы коробок
+                  BoxTypeSelector(
+                    selectedBoxTypes: _selectedBoxTypes,
+                    onChanged: (boxTypes) {
+                      setState(() {
+                        _selectedBoxTypes = boxTypes;
+                      });
+                      _updateCalculatedFields(); // Автоматический пересчет
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _savePoint,
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save),
+            label: Text(l10n.save),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
-        ),
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : _savePoint,
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save),
-          label: Text(l10n.save),
-        ),
-      ],
     );
   }
 }

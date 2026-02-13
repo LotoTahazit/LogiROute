@@ -557,4 +557,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vehicleNumber => 'Vehicle Number';
+
+  @override
+  String get biometricLoginTitle => 'Enable Fingerprint Login?';
+
+  @override
+  String get biometricLoginMessage =>
+      'You will be able to log in using your fingerprint instead of a password.';
+
+  @override
+  String get biometricLoginYes => 'Yes, enable';
+
+  @override
+  String get biometricLoginNo => 'No';
+
+  @override
+  String get biometricLoginEnabled => '✅ Fingerprint login enabled';
+
+  @override
+  String get biometricLoginCancelled => 'Authentication cancelled';
+
+  @override
+  String get biometricLoginError => 'Biometric error';
+
+  @override
+  String get biometricLoginButton => 'Login with fingerprint';
+
+  @override
+  String get biometricLoginButtonFace => 'Login with Face ID';
+
+  @override
+  String get biometricLoginOr => 'or';
+
+  @override
+  String get biometricAuthReason => 'Log in using your fingerprint';
+
+  @override
+  String get viewModeWarehouse => 'View Mode: Warehouse Keeper';
+
+  @override
+  String get returnToAdmin => 'Return';
+
+  @override
+  String get manageBoxTypes => 'Manage Box Types Catalog';
+
+  @override
+  String get boxTypesManager => 'Manage Box Types Catalog';
+
+  @override
+  String get noBoxTypesInCatalog => 'No types in catalog';
+
+  @override
+  String get editBoxType => 'Edit Type';
+
+  @override
+  String get deleteBoxType => 'Delete Type';
+
+  @override
+  String deleteBoxTypeConfirm(Object number, Object type) {
+    return 'Delete $type $number from catalog?';
+  }
+
+  @override
+  String get boxTypeUpdated => 'Type updated successfully!';
+
+  @override
+  String get boxTypeDeleted => 'Type deleted successfully!';
+
+  @override
+  String get addNewBoxType => 'Add New Type to Catalog';
+
+  @override
+  String get newBoxTypeAdded => 'New type added to inventory successfully!';
+
+  @override
+  String get typeLabel => 'Type (bottle, cap, cup)';
+
+  @override
+  String get numberLabel => 'Number (100, 200, etc.)';
+
+  @override
+  String get volumeMlLabel => 'Volume in ml (optional)';
+
+  @override
+  String get quantityLabel => 'Quantity (units)';
+
+  @override
+  String get quantityPerPalletLabel => 'Quantity per pallet';
+
+  @override
+  String get diameterLabel => 'Diameter (optional)';
+
+  @override
+  String get piecesPerBoxLabel => 'Packed - quantity per box (optional)';
+
+  @override
+  String get additionalInfoLabel => 'Additional information (optional)';
+
+  @override
+  String get requiredField => 'Required';
+
+  @override
+  String get close => 'Close';
 }
