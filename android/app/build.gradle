@@ -58,18 +58,34 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            // Debug keystore - используется при flutter run
+            if (keystorePropertiesFile.exists() && keystoreProperties['debugStoreFile']) {
+                storeFile file(keystoreProperties['debugStoreFile'])
+                storePassword keystoreProperties['debugStorePassword']
+                keyAlias keystoreProperties['debugKeyAlias']
+                keyPassword keystoreProperties['debugKeyPassword']
+            } else {
+                // Fallback на стандартный debug keystore
+                storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
         }
 
         release {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
+            // Release keystore - используется при flutter build apk --release
+            if (keystorePropertiesFile.exists() && keystoreProperties['releaseStoreFile']) {
+                keyAlias keystoreProperties['releaseKeyAlias']
+                keyPassword keystoreProperties['releaseKeyPassword']
+                storeFile file(keystoreProperties['releaseStoreFile'])
+                storePassword keystoreProperties['releaseStorePassword']
+            } else {
+                // Fallback на debug keystore если release не настроен
+                storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
             }
         }
     }
