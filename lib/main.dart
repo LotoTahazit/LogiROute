@@ -26,7 +26,8 @@ void main() async {
   // 🔒 Активация Firebase App Check для защиты от злоупотребления API
   await FirebaseAppCheck.instance.activate(
     // Web: reCAPTCHA v3
-    webProvider: ReCaptchaV3Provider('6LcYourSiteKeyHere'),
+    webProvider:
+        ReCaptchaV3Provider('6Lci2bwqAAAAAHLnGRKaFpoX-J7Jg-Z7PrRjrMEg'),
     // Android: Play Integrity API (требует настройки в Firebase Console)
     androidProvider: AndroidProvider.playIntegrity,
     // iOS: DeviceCheck или App Attest
