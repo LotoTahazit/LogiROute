@@ -244,58 +244,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     setState(() {});
   }
 
-  List<gmaps.LatLng> _decodePolyline(String encoded) {
-    final List<gmaps.LatLng> points = [];
-    int index = 0, len = encoded.length;
-    int lat = 0, lng = 0;
-
-    while (index < len) {
-      int b, shift = 0, result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      points.add(gmaps.LatLng(lat / 1E5, lng / 1E5));
-    }
-    return points;
-  }
-
-  gmaps.LatLngBounds _boundsFromLatLngList(List<gmaps.LatLng> list) {
-    double x0 = double.infinity;
-    double y0 = double.infinity;
-    double x1 = -double.infinity;
-    double y1 = -double.infinity;
-
-    for (gmaps.LatLng latLng in list) {
-      final lat = latLng.latitude.toDouble();
-      final lng = latLng.longitude.toDouble();
-
-      if (lat < x0) x0 = lat;
-      if (lat > x1) x1 = lat;
-      if (lng < y0) y0 = lng;
-      if (lng > y1) y1 = lng;
-    }
-
-    return gmaps.LatLngBounds(
-      northeast: gmaps.LatLng(x1, y1),
-      southwest: gmaps.LatLng(x0, y0),
-    );
-  }
-
   gmaps.LatLngBounds _createBoundsFromPoints(List<gmaps.LatLng> points) {
     double minLat = points.first.latitude;
     double maxLat = points.first.latitude;

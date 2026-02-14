@@ -49,3 +49,18 @@ GoogleService-Info.plist
 
 # Java heap dumps (large files)
 **/*.hprof
+
+# Temporary and broken files
+temp_*.txt
+fix_*.dart
+methods_to_insert.dart
+
+# Duplicate APK files (keep only in build/app/outputs/flutter-apk/)
+web/**/*.apk
+build/web/**/*.apk
+
+# Android build artifacts
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/key.properties

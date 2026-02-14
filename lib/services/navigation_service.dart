@@ -211,65 +211,6 @@ class NavigationService {
     return degrees * (math.pi / 180);
   }
 
-  /// Создает детальные навигационные шаги между двумя точками
-  List<NavigationStep> _createDetailedSteps(double startLat, double startLng,
-      double endLat, double endLng, String destination) {
-    final steps = <NavigationStep>[];
-    final distance = _calculateDistance(startLat, startLng, endLat, endLng);
-    final duration =
-        (distance / 50000 * 3600).round(); // ИСПРАВЛЕНО: 50 км/ч = 50000 м/ч
-
-    // Определяем направление движения
-    final bearing = _calculateBearing(startLat, startLng, endLat, endLng);
-    final direction = _getDirectionFromBearing(bearing);
-
-    // Создаем несколько шагов для более реалистичной навигации
-    if (distance > 1000) {
-      // Если расстояние больше 1км
-      // Шаг 1: Начало движения
-      steps.add(NavigationStep(
-        instruction: 'התחל נסיעה לכיוון $direction',
-        distance: '500м',
-        duration: '1м',
-        startLocation: LatLng(startLat, startLng),
-        endLocation: LatLng(startLat + (endLat - startLat) * 0.1,
-            startLng + (endLng - startLng) * 0.1),
-      ));
-
-      // Шаг 2: Продолжение движения
-      steps.add(NavigationStep(
-        instruction: 'המשך ישר לכיוון $destination',
-        distance: _formatDistance((distance * 0.7).round()),
-        duration: _formatDuration((duration * 0.7).round()),
-        startLocation: LatLng(startLat + (endLat - startLat) * 0.1,
-            startLng + (endLng - startLng) * 0.1),
-        endLocation: LatLng(startLat + (endLat - startLat) * 0.8,
-            startLng + (endLng - startLng) * 0.8),
-      ));
-
-      // Шаг 3: Приближение к цели
-      steps.add(NavigationStep(
-        instruction: 'הגע ל$destination',
-        distance: _formatDistance((distance * 0.2).round()),
-        duration: _formatDuration((duration * 0.2).round()),
-        startLocation: LatLng(startLat + (endLat - startLat) * 0.8,
-            startLng + (endLng - startLng) * 0.8),
-        endLocation: LatLng(endLat, endLng),
-      ));
-    } else {
-      // Короткое расстояние - один шаг
-      steps.add(NavigationStep(
-        instruction: 'נסיעה ל$destination',
-        distance: _formatDistance(distance.round()),
-        duration: _formatDuration(duration),
-        startLocation: LatLng(startLat, startLng),
-        endLocation: LatLng(endLat, endLng),
-      ));
-    }
-
-    return steps;
-  }
-
   /// Вычисляет азимут между двумя точками
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
     final dLon = _toRadians(lon2 - lon1);

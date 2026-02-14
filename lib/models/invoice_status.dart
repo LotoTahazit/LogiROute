@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'invoice.dart';
 
 /// Separate status document for invoices
 /// ⚡ OPTIMIZATION: Small document for realtime updates

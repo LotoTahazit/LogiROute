@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
 import '../../services/invoice_print_service.dart';
-import 'create_standalone_invoice_dialog.dart';
 
 class InvoiceManagementScreen extends StatefulWidget {
   const InvoiceManagementScreen({super.key});
@@ -50,22 +49,13 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
   }
 
   Future<void> _createStandaloneInvoice() async {
-    final invoice = await showDialog<Invoice>(
-      context: context,
-      builder: (context) => const CreateStandaloneInvoiceDialog(),
+    // TODO: Implement standalone invoice creation dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('⚠️ יצירת חשבונית עצמאית בפיתוח'),
+        backgroundColor: Colors.orange,
+      ),
     );
-
-    if (invoice != null) {
-      await _loadInvoices();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ חשבונית נוצרה בהצלחה'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _reprintInvoice(Invoice invoice) async {
