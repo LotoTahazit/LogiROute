@@ -52,8 +52,11 @@ GoogleService-Info.plist
 
 # Temporary and broken files
 temp_*.txt
+temp_*.dart
 fix_*.dart
 methods_to_insert.dart
+correct_*.txt
+VERSION_INFO.txt
 
 # Duplicate APK files (keep only in build/app/outputs/flutter-apk/)
 web/**/*.apk
@@ -64,3 +67,5 @@ android/.gradle/
 android/.kotlin/
 android/local.properties
 android/key.properties
+android/build/
+android/app/build/
