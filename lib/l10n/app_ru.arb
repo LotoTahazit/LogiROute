@@ -98,6 +98,7 @@
   "cancelRouteTitle": "Отменить маршрут?",
   "cancelRouteDescription": "Все точки будут возвращены в статус 'Ожидает'. Продолжить?",
   "routeCancelled": "Маршрут отменён, точки возвращены в ожидание",
+  "routePointsReordered": "Порядок точек и ETA обновлены",
   "selectNewDriver": "Выберите нового водителя",
   "noAvailableDrivers": "Нет доступных водителей",
   "driverChangedTo": "Водитель изменён на {name}",

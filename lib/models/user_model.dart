@@ -50,7 +50,10 @@ class UserModel {
 
   bool get isAdmin => role == 'admin' || role == 'super_admin';
   bool get isDispatcher => role == 'dispatcher';
-  bool get isDriver => role == 'driver';
+  bool get isDriver =>
+      role == 'driver' ||
+      role == 'נהג' || // Иврит
+      role == 'водитель'; // Русский
   bool get isWarehouseKeeper => role == 'warehouse_keeper';
   bool get isSuperAdmin => role == 'super_admin';
 }

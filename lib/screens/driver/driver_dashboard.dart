@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
-import '../../services/location_service.dart';
+import '../../services/optimized_location_service.dart';
 import '../../services/work_schedule_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/auto_complete_service.dart';
@@ -22,7 +22,7 @@ class DriverDashboard extends StatefulWidget {
 
 class _DriverDashboardState extends State<DriverDashboard> {
   final RouteService _routeService = RouteService();
-  final LocationService _locationService = LocationService();
+  final OptimizedLocationService _locationService = OptimizedLocationService();
   final WorkScheduleService _scheduleService = WorkScheduleService();
   final AutoCompleteService _autoCompleteService = AutoCompleteService();
   DeliveryPoint? _currentPoint;

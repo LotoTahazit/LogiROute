@@ -688,6 +688,12 @@ abstract class AppLocalizations {
   /// **'Route cancelled, points returned to pending'**
   String get routeCancelled;
 
+  /// No description provided for @routePointsReordered.
+  ///
+  /// In en, this message translates to:
+  /// **'Route order and ETA updated'**
+  String get routePointsReordered;
+
   /// No description provided for @selectNewDriver.
   ///
   /// In en, this message translates to:

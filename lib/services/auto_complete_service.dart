@@ -4,14 +4,14 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/delivery_point.dart';
-import 'location_service.dart';
+import 'optimized_location_service.dart';
 
 /// Сервис автоматического завершения точек доставки
 /// Если водитель находится в радиусе 100м от точки и неподвижен 10 минут,
 /// точка автоматически помечается как выполненная
 class AutoCompleteService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final LocationService _locationService = LocationService();
+  final OptimizedLocationService _locationService = OptimizedLocationService();
 
   Timer? _checkTimer;
   Timer? _cleanupTimer;

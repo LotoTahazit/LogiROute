@@ -69,7 +69,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
         final inventoryItem = inventory.firstWhere(
           (item) => item.type == boxType.type && item.number == boxType.number,
           orElse: () => throw Exception(
-              'Товар ${boxType.type} ${boxType.number} не найден в инвентаре'),
+            'Товар ${boxType.type} ${boxType.number} не найден в инвентаре',
+          ),
         );
 
         final quantity = boxType.quantity;
@@ -79,14 +80,19 @@ class _AddPointDialogState extends State<AddPointDialog> {
           totalPallets += (quantity / inventoryItem.quantityPerPallet).ceil();
         }
 
-        // Рассчитываем количество картонов
-        if (inventoryItem.piecesPerBox != null &&
-            inventoryItem.piecesPerBox! > 0) {
-          totalBoxes += (quantity / inventoryItem.piecesPerBox!).ceil();
-        }
+        // Картоним = общее количество единиц товара (1 единица = 1 картон)
+        totalBoxes += quantity;
+
+        debugPrint(
+          '🔍 [Calculation] Item: ${boxType.type} ${boxType.number}, quantity: $quantity',
+        );
+        debugPrint('✅ [Calculation] Added $quantity boxes (units) to total');
       }
 
       if (mounted) {
+        debugPrint(
+          '📊 [Calculation] Final totalBoxes: $totalBoxes, totalPallets: $totalPallets',
+        );
         setState(() {
           _palletsController.text = totalPallets.toString();
           _boxesController.text = totalBoxes.toString();
@@ -139,8 +145,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
     }
 
     // 7. Транслитерация известных улиц (как запасной вариант)
-    List<String> transliteratedVariants =
-        _getTransliteratedVariants(originalAddress);
+    List<String> transliteratedVariants = _getTransliteratedVariants(
+      originalAddress,
+    );
     variants.addAll(transliteratedVariants);
 
     // Удаляем дубликаты и возвращаем
@@ -194,8 +201,10 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
     for (String hebrewStreet in streetTranslations.keys) {
       if (address.contains(hebrewStreet)) {
-        String translated =
-            address.replaceAll(hebrewStreet, streetTranslations[hebrewStreet]!);
+        String translated = address.replaceAll(
+          hebrewStreet,
+          streetTranslations[hebrewStreet]!,
+        );
         variants.add(translated);
         variants.add('$translated, Tel Aviv, Israel');
       }
@@ -223,10 +232,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
         if (data['status'] == 'OK' && data['results'].isNotEmpty) {
           final location = data['results'][0]['geometry']['location'];
-          return {
-            'latitude': location['lat'],
-            'longitude': location['lng'],
-          };
+          return {'latitude': location['lat'], 'longitude': location['lng']};
         } else {
           debugPrint('❌ [Google API] Status: ${data['status']}');
         }
@@ -295,7 +301,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
         // На Web используем Google Maps JavaScript API (обходит CORS)
         if (kIsWeb) {
           debugPrint(
-              '🌐 [Web] Using Google Maps JavaScript API (kIsWeb=true)...');
+            '🌐 [Web] Using Google Maps JavaScript API (kIsWeb=true)...',
+          );
           for (String variant in addressVariants) {
             debugPrint('🌐 [WebJS] Trying variant: "$variant"');
             try {
@@ -305,7 +312,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
                 latitude = result.latitude;
                 longitude = result.longitude;
                 debugPrint(
-                    '✅ [WebJS] Success with "$variant": ($latitude, $longitude)');
+                  '✅ [WebJS] Success with "$variant": ($latitude, $longitude)',
+                );
                 geocodingSuccess = true;
                 break;
               } else {
@@ -330,7 +338,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
               latitude = result['latitude']!;
               longitude = result['longitude']!;
               debugPrint(
-                  '✅ [Google API] Success with "$variant": ($latitude, $longitude)');
+                '✅ [Google API] Success with "$variant": ($latitude, $longitude)',
+              );
               geocodingSuccess = true;
               break;
             }
@@ -340,7 +349,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
         // Если Google API не помог, пробуем нативный geocoding (только для мобильных платформ)
         if (!geocodingSuccess && !kIsWeb) {
           debugPrint(
-              '⚠️ [Geocoding] Google API failed, trying native geocoding...');
+            '⚠️ [Geocoding] Google API failed, trying native geocoding...',
+          );
           for (String variant in addressVariants) {
             try {
               debugPrint('📱 [Native] Trying variant: "$variant"');
@@ -350,7 +360,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
                 latitude = locations.first.latitude;
                 longitude = locations.first.longitude;
                 debugPrint(
-                    '✅ [Native] Success with "$variant": ($latitude, $longitude)');
+                  '✅ [Native] Success with "$variant": ($latitude, $longitude)',
+                );
                 geocodingSuccess = true;
                 break;
               }
@@ -367,9 +378,11 @@ class _AddPointDialogState extends State<AddPointDialog> {
       } catch (e) {
         // Логируем ошибку геокодирования
         debugPrint(
-            '❌ [Geocoding] All ${addressVariants.length} attempts failed for "$addressToGeocode": $e');
+          '❌ [Geocoding] All ${addressVariants.length} attempts failed for "$addressToGeocode": $e',
+        );
         debugPrint(
-            '🔍 [Geocoding] Tried variants: ${addressVariants.join(", ")}');
+          '🔍 [Geocoding] Tried variants: ${addressVariants.join(", ")}',
+        );
 
         // Показываем диалог с инструкциями
         final l10n = AppLocalizations.of(context)!;
@@ -377,8 +390,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(l10n.addressNotFound),
-            content:
-                Text(l10n.addressNotFoundDescription(_addressController.text)),
+            content: Text(
+              l10n.addressNotFoundDescription(_addressController.text),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -414,8 +428,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
       // Проверяем доступность товара на складе
       if (_selectedBoxTypes.isNotEmpty) {
         final inventoryService = InventoryService();
-        final availability =
-            await inventoryService.checkAvailability(_selectedBoxTypes);
+        final availability = await inventoryService.checkAvailability(
+          _selectedBoxTypes,
+        );
 
         if (!availability['available']) {
           final insufficient = availability['insufficient'] as List<String>;
@@ -471,6 +486,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
         driverName: null,
         driverCapacity: null,
         boxTypes: _selectedBoxTypes.isNotEmpty ? _selectedBoxTypes : null,
+        eta: null,
       );
 
       await _routeService.addDeliveryPoint(point);
@@ -489,9 +505,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
       if (mounted) {
         Navigator.pop(context);
         final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ ${l10n.pointAdded}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('✅ ${l10n.pointAdded}')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -509,7 +525,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
           fontFamilyFallback: const [
             'Noto Sans Hebrew',
             'NotoSansHebrew',
-            'Arial'
+            'Arial',
           ],
         ),
       ),
@@ -598,15 +614,17 @@ class _AddPointDialogState extends State<AddPointDialog> {
                   /// 🔹 Телефон
                   TextFormField(
                     controller: _phoneController,
-                    decoration:
-                        const InputDecoration(labelText: 'טלפון / Phone'),
+                    decoration: const InputDecoration(
+                      labelText: 'טלפון / Phone',
+                    ),
                   ),
 
                   /// 🔹 Контактное лицо
                   TextFormField(
                     controller: _contactController,
-                    decoration:
-                        const InputDecoration(labelText: 'איש קשר / Contact'),
+                    decoration: const InputDecoration(
+                      labelText: 'איש קשר / Contact',
+                    ),
                   ),
 
                   const SizedBox(height: 12),
@@ -614,13 +632,18 @@ class _AddPointDialogState extends State<AddPointDialog> {
                   /// 🔹 Приоритет
                   DropdownButtonFormField<String>(
                     initialValue: _urgency,
-                    decoration:
-                        const InputDecoration(labelText: 'Priority / עדיפות'),
+                    decoration: const InputDecoration(
+                      labelText: 'Priority / עדיפות',
+                    ),
                     items: const [
                       DropdownMenuItem(
-                          value: 'normal', child: Text('Normal / רגיל')),
+                        value: 'normal',
+                        child: Text('Normal / רגיל'),
+                      ),
                       DropdownMenuItem(
-                          value: 'urgent', child: Text('Urgent / דחוף')),
+                        value: 'urgent',
+                        child: Text('Urgent / דחוף'),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -639,7 +662,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       fontFamilyFallback: [
                         'Noto Sans Hebrew',
                         'NotoSansHebrew',
-                        'Arial'
+                        'Arial',
                       ],
                     ),
                     decoration: InputDecoration(
@@ -649,7 +672,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         fontFamilyFallback: [
                           'Noto Sans Hebrew',
                           'NotoSansHebrew',
-                          'Arial'
+                          'Arial',
                         ],
                       ),
                       helperText: 'ניתן לערוך',
@@ -658,11 +681,14 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         fontFamilyFallback: [
                           'Noto Sans Hebrew',
                           'NotoSansHebrew',
-                          'Arial'
+                          'Arial',
                         ],
                       ),
-                      suffixIcon: const Icon(Icons.calculate_outlined,
-                          size: 20, color: Colors.blue),
+                      suffixIcon: const Icon(
+                        Icons.calculate_outlined,
+                        size: 20,
+                        color: Colors.blue,
+                      ),
                     ),
                     keyboardType: TextInputType.number,
                   ),
@@ -675,7 +701,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       fontFamilyFallback: [
                         'Noto Sans Hebrew',
                         'NotoSansHebrew',
-                        'Arial'
+                        'Arial',
                       ],
                     ),
                     decoration: InputDecoration(
@@ -685,7 +711,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         fontFamilyFallback: [
                           'Noto Sans Hebrew',
                           'NotoSansHebrew',
-                          'Arial'
+                          'Arial',
                         ],
                       ),
                       helperText: 'ניתן לערוך',
@@ -694,11 +720,14 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         fontFamilyFallback: [
                           'Noto Sans Hebrew',
                           'NotoSansHebrew',
-                          'Arial'
+                          'Arial',
                         ],
                       ),
-                      suffixIcon: const Icon(Icons.calculate_outlined,
-                          size: 20, color: Colors.blue),
+                      suffixIcon: const Icon(
+                        Icons.calculate_outlined,
+                        size: 20,
+                        color: Colors.blue,
+                      ),
                     ),
                     keyboardType: TextInputType.number,
                   ),

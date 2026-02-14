@@ -3,12 +3,14 @@ class BoxType {
   final String number; // "100", "250", "500"
   final int volumeMl; // автоматически определяется по номеру
   final int quantity; // количество единиц
+  final double? price; // цена за единицу (опционально)
 
   BoxType({
     required this.type,
     required this.number,
     required this.volumeMl,
     required this.quantity,
+    this.price,
   });
 
   // Справочник: номер -> объём в мл (больше не используется, данные из Firebase)
@@ -48,9 +50,10 @@ class BoxType {
     return '$type $number ($volumeMl מל) x $quantity יח\'';
   }
 
-  // Краткое представление
+  // Краткое представление для печати (с правильным RTL форматированием)
   String toShortString() {
-    return '$type $number x$quantity';
+    // Формат: כוס 218 x 120 (с пробелами для правильного RTL отображения)
+    return '$type $number x $quantity';
   }
 
   @override

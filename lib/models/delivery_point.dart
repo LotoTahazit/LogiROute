@@ -64,6 +64,7 @@ class DeliveryPoint {
   final String? temporaryAddress; // Временный адрес для этой доставки
   final bool autoCompleted; // Завершено автоматически
   final List<BoxType>? boxTypes; // Типы коробок в заказе
+  final String? eta; // Расчётное время прибытия (ETA)
 
   DeliveryPoint({
     required this.id,
@@ -85,6 +86,7 @@ class DeliveryPoint {
     this.temporaryAddress,
     this.autoCompleted = false,
     this.boxTypes,
+    this.eta,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -119,6 +121,7 @@ class DeliveryPoint {
               .map((item) => BoxType.fromMap(item as Map<String, dynamic>))
               .toList()
           : null,
+      eta: map['eta'],
     );
   }
 
@@ -143,6 +146,7 @@ class DeliveryPoint {
       'autoCompleted': autoCompleted,
       if (boxTypes != null)
         'boxTypes': boxTypes!.map((box) => box.toMap()).toList(),
+      if (eta != null) 'eta': eta,
     };
   }
 
@@ -151,6 +155,7 @@ class DeliveryPoint {
     DateTime? arrivedAt,
     DateTime? completedAt,
     int? orderInRoute,
+    String? eta,
   }) {
     return DeliveryPoint(
       id: id,
@@ -172,6 +177,7 @@ class DeliveryPoint {
       temporaryAddress: temporaryAddress,
       autoCompleted: autoCompleted,
       boxTypes: boxTypes,
+      eta: eta ?? this.eta,
     );
   }
 

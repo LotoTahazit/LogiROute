@@ -1,6 +1,9 @@
 import 'add_point_dialog.dart';
 import 'edit_point_dialog.dart';
+import 'create_invoice_dialog.dart';
+import 'price_management_screen.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,9 +12,11 @@ import '../../services/route_service.dart';
 import '../../services/client_service.dart';
 import '../../services/locale_service.dart';
 import '../../services/print_service.dart';
+import '../../services/invoice_print_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/user_model.dart';
+import '../../models/invoice.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../warehouse/warehouse_dashboard.dart';
 
@@ -26,18 +31,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Future<void> _autoDistributePallets() async {
     final l10n = AppLocalizations.of(context)!;
     if (_drivers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noDriversAvailable)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noDriversAvailable)));
       return;
     }
     setState(() => _isLoadingMap = true);
     try {
       await _routeService.autoDistributePalletsToDrivers(_drivers);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.autoDistributeSuccess)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.autoDistributeSuccess)));
         setState(() {});
       }
     } catch (e) {
@@ -67,9 +72,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
     _pendingPointsStream = _routeService.getAllPendingPoints();
     _routesStream = _routeService.getAllRoutes().map((routes) {
-      if (routes.isNotEmpty) {
-        _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
-      }
+      // Всегда обновляем кеш, даже если пустой
+      _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
       return routes;
     });
   }
@@ -108,8 +112,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 labelText: 'Latitude (Warehouse in Mishmarot)',
                 hintText: '32.48698',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -118,8 +123,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 labelText: 'Longitude (Warehouse in Mishmarot)',
                 hintText: '34.982121',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
           ],
         ),
@@ -157,8 +163,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text('Warehouse location saved: ($latitude, $longitude)'),
+              content: Text(
+                'Warehouse location saved: ($latitude, $longitude)',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -205,10 +212,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.printError),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(l10n.printError), backgroundColor: Colors.red),
         );
       }
     }
@@ -217,8 +221,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Future<void> _createRoute(List<DeliveryPoint> points) async {
     final l10n = AppLocalizations.of(context)!;
     if (points.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.noPointsForRoute)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noPointsForRoute)));
       return;
     }
 
@@ -230,15 +235,19 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: _drivers
-                .map((d) => ListTile(
-                      title: Text(d.name,
-                          style: const TextStyle(color: Colors.black)),
-                      subtitle: Text(
-                        '${d.palletCapacity} ${l10n.pallets}',
-                        style: const TextStyle(color: Colors.black),
-                      ),
-                      onTap: () => Navigator.pop(context, d),
-                    ))
+                .map(
+                  (d) => ListTile(
+                    title: Text(
+                      d.name,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    subtitle: Text(
+                      '${d.palletCapacity} ${l10n.pallets}',
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    onTap: () => Navigator.pop(context, d),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -254,8 +263,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         useDispatcherLocation: true, // Диспетчер использует позицию склада
       );
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.routeCreated)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.routeCreated)));
         setState(() {}); // Обновляем UI
       }
     }
@@ -275,8 +285,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
             child: Text(l10n.cancelRoute),
           ),
         ],
@@ -287,25 +298,27 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       print('🛑 [Dispatcher] Cancelling route for driverId: $driverId');
       await _routeService.cancelRoute(driverId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.routeCancelled)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.routeCancelled)));
         setState(() {}); // Обновляем UI
       }
     }
   }
 
   Future<void> _changeDriver(
-      String currentDriverId, String currentDriverName) async {
+    String currentDriverId,
+    String currentDriverName,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final authService = context.read<AuthService>();
     final allUsers = await authService.getAllUsers();
     final drivers = allUsers.where((u) => u.isDriver).toList();
 
     if (drivers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noDriversAvailable)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noDriversAvailable)));
       return;
     }
 
@@ -318,15 +331,19 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             mainAxisSize: MainAxisSize.min,
             children: drivers
                 .where((d) => d.uid != currentDriverId)
-                .map((driver) => ListTile(
-                      title: Text(driver.name,
-                          style: const TextStyle(color: Colors.black)),
-                      subtitle: Text(
-                        '${driver.palletCapacity} ${l10n.pallets}',
-                        style: const TextStyle(color: Colors.black),
-                      ),
-                      onTap: () => Navigator.pop(context, driver),
-                    ))
+                .map(
+                  (driver) => ListTile(
+                    title: Text(
+                      driver.name,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    subtitle: Text(
+                      '${driver.palletCapacity} ${l10n.pallets}',
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    onTap: () => Navigator.pop(context, driver),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -351,6 +368,43 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           SnackBar(content: Text(l10n.driverChangedTo(newDriver.name))),
         );
         setState(() {}); // Обновляем UI
+      }
+    }
+  }
+
+  /// Создать חשבונית для точки доставки
+  Future<void> _createInvoiceForPoint(DeliveryPoint point) async {
+    // Находим водителя для этой точки
+    final driver = _drivers.firstWhere(
+      (d) => d.uid == point.driverId,
+      orElse: () => UserModel(
+        uid: point.driverId ?? '',
+        email: '',
+        name: point.driverName ?? 'Unknown',
+        role: 'driver',
+        vehicleNumber: '',
+      ),
+    );
+
+    final invoice = await showDialog<Invoice>(
+      context: context,
+      builder: (context) => CreateInvoiceDialog(point: point, driver: driver),
+    );
+
+    if (invoice != null && mounted) {
+      // Печатаем חשבונית (всегда מקור при первой печати)
+      try {
+        await InvoicePrintService.printInvoice(
+          invoice,
+          copyType: InvoiceCopyType.original,
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ שגיאה בהדפסה: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -389,9 +443,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${l10n.error}: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
         }
       }
     }
@@ -437,9 +491,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -453,9 +507,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final drivers = allUsers.where((u) => u.isDriver).toList();
 
     if (drivers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noDriversAvailable)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noDriversAvailable)));
       return;
     }
 
@@ -467,12 +521,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: drivers
-                .map((driver) => ListTile(
-                      title: Text(driver.name),
-                      subtitle:
-                          Text('${driver.palletCapacity} ${l10n.pallets}'),
-                      onTap: () => Navigator.pop(context, driver),
-                    ))
+                .map(
+                  (driver) => ListTile(
+                    title: Text(driver.name),
+                    subtitle: Text('${driver.palletCapacity} ${l10n.pallets}'),
+                    onTap: () => Navigator.pop(context, driver),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -496,16 +551,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(
-                    '${l10n.pointAssigned}: ${point.clientName} → ${selectedDriver.name}')),
+              content: Text(
+                '${l10n.pointAssigned}: ${point.clientName} → ${selectedDriver.name}',
+              ),
+            ),
           );
           setState(() {}); // Обновляем UI
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${l10n.error}: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
         }
       }
     }
@@ -520,7 +577,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       builder: (context) => AlertDialog(
         title: const Text('Clear Pending Points'),
         content: const Text(
-            'This will delete ONLY pending delivery points (not active routes). Continue?'),
+          'This will delete ONLY pending delivery points (not active routes). Continue?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -543,7 +601,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Pending points cleared, active routes preserved')),
+            content: Text('Pending points cleared, active routes preserved'),
+          ),
         );
       }
     }
@@ -557,8 +616,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear All Data'),
-        content:
-            const Text('This will delete ALL delivery points. Are you sure?'),
+        content: const Text(
+          'This will delete ALL delivery points. Are you sure?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -579,9 +639,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         setState(() {
           _lastNonEmptyRoutes = []; // Очищаем кэш маршрутов
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All data cleared')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('All data cleared')));
       }
     }
   }
@@ -605,7 +665,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor),
+              backgroundColor: Theme.of(context).primaryColor,
+            ),
             child: Text(l10n.fixHebrewSearch),
           ),
         ],
@@ -616,12 +677,175 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       final clientService = ClientService();
       await clientService.fixHebrewSearchIndex();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ ${l10n.hebrewSearchFixed}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('✅ ${l10n.hebrewSearchFixed}')));
         setState(() {}); // Обновляем UI
       }
     }
+  }
+
+  Future<void> _recalculateRouteNumbers() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Fix Route Numbers'),
+        content: const Text(
+          'This will recalculate route numbers for all drivers (1, 2, 3...). Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Fix Numbers'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _routeService.recalculateAllRouteNumbers();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Route numbers fixed!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          setState(() {}); // Обновляем UI
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Изменить порядок точек в маршруте (drag & drop)
+  Future<void> _reorderRoutePoints(
+      List<DeliveryPoint> routes, int oldIndex, int newIndex) async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      // Корректируем newIndex если перетаскиваем вниз
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+
+      // Создаем новый список с измененным порядком
+      final reorderedRoutes = List<DeliveryPoint>.from(routes);
+      final item = reorderedRoutes.removeAt(oldIndex);
+      reorderedRoutes.insert(newIndex, item);
+
+      // Рассчитываем ETA для каждой точки заново
+      double cumulativeTimeMinutes = 0;
+      const double avgSpeedKmh = 50.0; // Средняя скорость 50 км/ч
+      const double stopTimeMinutes = 10.0; // Время остановки 10 минут
+
+      // Обновляем orderInRoute и ETA для всех точек в базе данных
+      for (int i = 0; i < reorderedRoutes.length; i++) {
+        final point = reorderedRoutes[i];
+
+        // Рассчитываем расстояние от предыдущей точки
+        double distanceKm = 0;
+        if (i == 0) {
+          // Первая точка - расстояние от склада (Mishmarot)
+          distanceKm = _calculateDistance(
+            32.48698,
+            34.982121,
+            point.latitude,
+            point.longitude,
+          );
+        } else {
+          // Расстояние от предыдущей точки
+          final prevPoint = reorderedRoutes[i - 1];
+          distanceKm = _calculateDistance(
+            prevPoint.latitude,
+            prevPoint.longitude,
+            point.latitude,
+            point.longitude,
+          );
+        }
+
+        // Время в пути (минуты) = расстояние / скорость * 60
+        final travelTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
+        cumulativeTimeMinutes += travelTimeMinutes + stopTimeMinutes;
+
+        // Форматируем ETA в формате "X ч Y мин"
+        String eta;
+        if (cumulativeTimeMinutes < 60) {
+          eta = '${cumulativeTimeMinutes.round()} мин';
+        } else {
+          final hours = cumulativeTimeMinutes ~/ 60; // Целые часы
+          final minutes = (cumulativeTimeMinutes % 60).round(); // Остаток минут
+          if (minutes > 0) {
+            eta = '$hours ч $minutes мин';
+          } else {
+            eta = '$hours ч';
+          }
+        }
+
+        await FirebaseFirestore.instance
+            .collection('delivery_points')
+            .doc(point.id)
+            .update({
+          'orderInRoute': i, // Нумерация с 0 (в UI будет +1)
+          'eta': eta, // Обновляем ETA
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${l10n.routePointsReordered}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        setState(() {}); // Обновляем UI
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Ошибка: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Вспомогательная функция для расчета расстояния (Haversine formula)
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // км
+    final dLat = _degreesToRadians(lat2 - lat1);
+    final dLon = _degreesToRadians(lon2 - lon1);
+
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(lat1)) *
+            math.cos(_degreesToRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degreesToRadians(double degrees) {
+    return degrees * math.pi / 180;
   }
 
   @override
@@ -639,6 +863,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.dispatcher),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.attach_money),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PriceManagementScreen(),
+                  ),
+                );
+              },
+              tooltip: 'ניהול מחירים',
+            ),
             IconButton(
               icon: const Icon(Icons.inventory_2),
               onPressed: () {
@@ -672,8 +908,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                   authService.viewAsRole == 'dispatcher')
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade100,
                     border: Border(
@@ -682,8 +920,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.visibility,
-                          color: Colors.blue.shade900, size: 20),
+                      Icon(
+                        Icons.visibility,
+                        color: Colors.blue.shade900,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -703,7 +944,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ],
@@ -728,7 +971,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(
-                              child: CircularProgressIndicator());
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         final points = snapshot.data!;
                         return Column(
@@ -771,33 +1015,42 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                         final point = points[index];
                                         return Card(
                                           margin: const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 8),
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
                                           child: ListTile(
                                             title: Text(point.clientName),
-                                            subtitle:
-                                                Text(_getDisplayAddress(point)),
+                                            subtitle: Text(
+                                              _getDisplayAddress(point),
+                                            ),
                                             trailing: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Text(
                                                   '${point.pallets} ${l10n.pallets}',
                                                   style: const TextStyle(
-                                                      color: Colors.black),
+                                                    color: Colors.black,
+                                                  ),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 // Кнопка удаления точки
                                                 IconButton(
-                                                  icon: const Icon(Icons.delete,
-                                                      color: Colors.red),
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                    color: Colors.red,
+                                                  ),
                                                   tooltip: l10n.delete,
                                                   onPressed: () => _deletePoint(
-                                                      point.id,
-                                                      point.clientName),
+                                                    point.id,
+                                                    point.clientName,
+                                                  ),
                                                 ),
                                                 // Кнопка редактирования
                                                 IconButton(
-                                                  icon: const Icon(Icons.edit,
-                                                      color: Colors.orange),
+                                                  icon: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.orange,
+                                                  ),
                                                   tooltip: 'Edit Point',
                                                   onPressed: () =>
                                                       _editPoint(point),
@@ -805,12 +1058,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                                 // Кнопка назначения водителя
                                                 IconButton(
                                                   icon: const Icon(
-                                                      Icons.person_add,
-                                                      color: Colors.blue),
+                                                    Icons.person_add,
+                                                    color: Colors.blue,
+                                                  ),
                                                   tooltip: l10n.assignDriver,
                                                   onPressed: () =>
                                                       _assignDriverToPoint(
-                                                          point),
+                                                    point,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -829,7 +1084,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
                           return Center(
-                              child: Text('Error: ${snapshot.error}'));
+                            child: Text('Error: ${snapshot.error}'),
+                          );
                         }
 
                         final snapshotRoutes = snapshot.data ?? [];
@@ -855,12 +1111,15 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             final routes = entry.value;
                             final driverName =
                                 routes.first.driverName ?? l10n.unknownDriver;
-                            final totalPallets =
-                                routes.fold(0, (sum, r) => sum + r.pallets);
+                            final totalPallets = routes.fold(
+                              0,
+                              (sum, r) => sum + r.pallets,
+                            );
 
                             // Определяем статус маршрута
-                            final hasInProgressPoints =
-                                routes.any((r) => r.status == 'in_progress');
+                            final hasInProgressPoints = routes.any(
+                              (r) => r.status == 'in_progress',
+                            );
                             final routeStatus = hasInProgressPoints
                                 ? 'in_progress'
                                 : 'assigned';
@@ -878,11 +1137,15 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                         : Colors.orange,
                                   ),
                                 ),
-                                title: Text(driverName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                title: Text(
+                                  driverName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 subtitle: Text(
-                                    '${routes.length} ${l10n.points} • $totalPallets ${l10n.pallets} • ${routeStatus == 'in_progress' ? l10n.active : l10n.assigned}'),
+                                  '${routes.length} ${l10n.points} • $totalPallets ${l10n.pallets} • ${routeStatus == 'in_progress' ? l10n.active : l10n.assigned}',
+                                ),
                                 children: [
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
@@ -906,25 +1169,78 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                       ),
                                     ],
                                   ),
-                                  ...routes.map((r) => ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Colors.blue,
-                                          child: Text(
-                                            '${r.orderInRoute + 1}',
-                                            style: const TextStyle(
-                                                color: Colors.white),
+                                  ReorderableListView(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    onReorder: (oldIndex, newIndex) async {
+                                      // Обновляем порядок точек
+                                      await _reorderRoutePoints(
+                                          routes, oldIndex, newIndex);
+                                    },
+                                    children: routes
+                                        .map(
+                                          (r) => ListTile(
+                                            key: ValueKey(r.id),
+                                            leading: CircleAvatar(
+                                              backgroundColor: Colors.blue,
+                                              child: Text(
+                                                '${r.orderInRoute + 1}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                            title: Text(r.clientName),
+                                            subtitle: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${r.pallets} ${l10n.pallets} • ${_getDisplayAddress(r)}',
+                                                ),
+                                                if (r.eta != null &&
+                                                    r.eta!.isNotEmpty)
+                                                  Text(
+                                                    'ETA: ${r.eta}',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // Кнопка создания חשבונית
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.receipt,
+                                                    color: Colors.green,
+                                                  ),
+                                                  tooltip: 'צור חשבונית',
+                                                  onPressed: () =>
+                                                      _createInvoiceForPoint(r),
+                                                ),
+                                                // Кнопка редактирования
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.orange,
+                                                  ),
+                                                  tooltip: 'Edit Point',
+                                                  onPressed: () =>
+                                                      _editPoint(r),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        title: Text(r.clientName),
-                                        subtitle: Text(
-                                            '${r.pallets} ${l10n.pallets} • ${_getDisplayAddress(r)}'),
-                                        trailing: IconButton(
-                                          icon: const Icon(Icons.edit,
-                                              color: Colors.orange),
-                                          tooltip: 'Edit Point',
-                                          onPressed: () => _editPoint(r),
-                                        ),
-                                      )),
+                                        )
+                                        .toList(),
+                                  ),
                                 ],
                               ),
                             );
@@ -941,29 +1257,50 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: _clearOldData,
-                                icon: const Icon(Icons.delete_sweep,
-                                    color: Colors.orange),
+                                icon: const Icon(
+                                  Icons.delete_sweep,
+                                  color: Colors.orange,
+                                ),
                                 label: const Text('Clear Pending'),
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange.shade100),
+                                  backgroundColor: Colors.orange.shade100,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: _clearAllData,
-                                icon: const Icon(Icons.delete_forever,
-                                    color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete_forever,
+                                  color: Colors.red,
+                                ),
                                 label: const Text('Clear ALL'),
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red.shade100),
+                                  backgroundColor: Colors.red.shade100,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: _fixHebrewSearch,
-                                icon: const Icon(Icons.search,
-                                    color: Colors.blue),
+                                icon: const Icon(
+                                  Icons.search,
+                                  color: Colors.blue,
+                                ),
                                 label: Text(l10n.fixHebrewSearch),
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade100),
+                                  backgroundColor: Colors.blue.shade100,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: _recalculateRouteNumbers,
+                                icon: const Icon(
+                                  Icons.format_list_numbered,
+                                  color: Colors.green,
+                                ),
+                                label: const Text('Fix Numbers'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade100,
+                                ),
                               ),
                             ],
                           ),
@@ -975,7 +1312,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             builder: (context, snapshot) {
                               if (snapshot.hasError) {
                                 return Center(
-                                    child: Text('Error: ${snapshot.error}'));
+                                  child: Text('Error: ${snapshot.error}'),
+                                );
                               }
 
                               final snapshotPoints = snapshot.data ?? [];
@@ -985,7 +1323,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
                               if (points.isEmpty) {
                                 return Center(
-                                    child: Text(l10n.noDeliveryPoints));
+                                  child: Text(l10n.noDeliveryPoints),
+                                );
                               }
 
                               return DeliveryMapWidget(points: points);

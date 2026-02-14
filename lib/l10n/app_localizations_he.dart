@@ -304,6 +304,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeCancelled => 'המסלול בוטל, הנקודות הוחזרו לממתין';
 
   @override
+  String get routePointsReordered => 'סדר הנקודות וה-ETA עודכנו';
+
+  @override
   String get selectNewDriver => 'בחר נהג חדש';
 
   @override

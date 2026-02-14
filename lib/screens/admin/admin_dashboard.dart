@@ -5,6 +5,7 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/user_model.dart';
 import 'analytics_screen.dart';
+import 'migration_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -34,18 +35,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final users = await authService.getAllUsers();
     if (!mounted) return;
 
+    print('🔍 [Admin] Total users loaded: ${users.length}');
+    for (final user in users) {
+      print(
+          '  - ${user.name} (${user.email}): role=${user.role}, companyId=${user.companyId}, isDriver=${user.isDriver}');
+    }
+
     final currentUser = authService.userModel;
     if (currentUser == null) return;
 
-    // Фильтруем суперадминов (isSuperAdmin == true)
-    var filteredUsers =
-        users.where((user) => user.isSuperAdmin != true).toList();
+    print(
+        '🔍 [Admin] Current user: ${currentUser.name}, isSuperAdmin=${currentUser.isSuperAdmin}, companyId=${currentUser.companyId}');
+
+    // Фильтруем суперадминов ТОЛЬКО если текущий пользователь НЕ суперадмин
+    var filteredUsers = currentUser.isSuperAdmin
+        ? users // Суперадмин видит всех
+        : users
+            .where((user) => user.isSuperAdmin != true)
+            .toList(); // Обычный админ не видит суперадминов
+
+    print('🔍 [Admin] After filtering super admins: ${filteredUsers.length}');
 
     // Если обычный админ - показываем только его компанию
     if (!currentUser.isSuperAdmin && currentUser.companyId != null) {
       filteredUsers = filteredUsers
           .where((user) => user.companyId == currentUser.companyId)
           .toList();
+      print('🔍 [Admin] After filtering by company: ${filteredUsers.length}');
     }
 
     // Собираем уникальные компании (только для суперадмина)
@@ -659,8 +675,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<Map<String, String>?> _showDriverSelectionDialog() async {
     final l10n = AppLocalizations.of(context)!;
 
-    // Получаем список водителей
-    final drivers = _users.where((user) => user.role == 'driver').toList();
+    // Получаем список водителей (проверяем isDriver вместо role)
+    final drivers = _users.where((user) => user.isDriver).toList();
 
     if (drivers.isEmpty) {
       _showErrorDialog(l10n.noDriversAvailable);
@@ -748,6 +764,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: 'Data Migration',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MigrationScreen()),
                 );
               },
             ),

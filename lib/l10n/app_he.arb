@@ -99,6 +99,7 @@
   "cancelRouteTitle": "לבטל את המסלול?",
   "cancelRouteDescription": "כל הנקודות יחזרו למצב 'ממתין'. להמשיך?",
   "routeCancelled": "המסלול בוטל, הנקודות הוחזרו לממתין",
+  "routePointsReordered": "סדר הנקודות וה-ETA עודכנו",
   "selectNewDriver": "בחר נהג חדש",
   "noAvailableDrivers": "אין נהגים זמינים",
   "driverChangedTo": "הנהג שונה ל {name}",

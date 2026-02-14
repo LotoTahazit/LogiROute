@@ -305,6 +305,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeCancelled => 'Маршрут отменён, точки возвращены в ожидание';
 
   @override
+  String get routePointsReordered => 'Порядок точек и ETA обновлены';
+
+  @override
   String get selectNewDriver => 'Выберите нового водителя';
 
   @override

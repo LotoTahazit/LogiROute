@@ -41,15 +41,80 @@ class RouteService {
         used += pointsToAssign[pointIndex].pallets;
         pointIndex++;
       }
+
+      // Получаем текущее количество точек у водителя
+      final existingPoints = await _firestore
+          .collection('delivery_points')
+          .where('driverId', isEqualTo: driver.uid)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
+
+      final startOrder = existingPoints.docs.length;
+
+      // Рассчитываем ETA для каждой точки
+      double cumulativeTimeMinutes = 0;
+      const double avgSpeedKmh = 50.0; // Средняя скорость 50 км/ч
+      const double stopTimeMinutes = 10.0; // Время остановки 10 минут
+
       // Назначаем найденные точки этому водителю
       for (int i = 0; i < assigned.length; i++) {
         final point = assigned[i];
+
+        // Рассчитываем расстояние от предыдущей точки
+        double distanceKm = 0;
+        if (i == 0 && existingPoints.docs.isEmpty) {
+          // Первая точка - расстояние от склада (Mishmarot)
+          distanceKm = _calculateDistance(
+            32.48698,
+            34.982121,
+            point.latitude,
+            point.longitude,
+          );
+        } else if (i == 0 && existingPoints.docs.isNotEmpty) {
+          // Первая новая точка - расстояние от последней существующей точки
+          final lastExisting = existingPoints.docs.last.data();
+          distanceKm = _calculateDistance(
+            (lastExisting['latitude'] ?? 0).toDouble(),
+            (lastExisting['longitude'] ?? 0).toDouble(),
+            point.latitude,
+            point.longitude,
+          );
+        } else {
+          // Расстояние от предыдущей точки в списке
+          final prevPoint = assigned[i - 1];
+          distanceKm = _calculateDistance(
+            prevPoint.latitude,
+            prevPoint.longitude,
+            point.latitude,
+            point.longitude,
+          );
+        }
+
+        // Время в пути (минуты) = расстояние / скорость * 60
+        final travelTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
+        cumulativeTimeMinutes += travelTimeMinutes + stopTimeMinutes;
+
+        // Форматируем ETA в формате "X ч Y мин"
+        String eta;
+        if (cumulativeTimeMinutes < 60) {
+          eta = '${cumulativeTimeMinutes.round()} мин';
+        } else {
+          final hours = cumulativeTimeMinutes ~/ 60; // Целые часы
+          final minutes = (cumulativeTimeMinutes % 60).round(); // Остаток минут
+          if (minutes > 0) {
+            eta = '$hours ч $minutes мин';
+          } else {
+            eta = '$hours ч';
+          }
+        }
+
         await _firestore.collection('delivery_points').doc(point.id).update({
           'driverId': driver.uid,
           'driverName': driver.name,
           'driverCapacity': driver.palletCapacity,
-          'orderInRoute': i,
+          'orderInRoute': startOrder + i, // Нумерация с 0 (в UI будет +1)
           'status': 'assigned',
+          'eta': eta,
         });
       }
     }
@@ -58,15 +123,22 @@ class RouteService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// ✅ Поток всех активных маршрутов (для вкладки "מסלולים")
+  /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllRoutes() {
-    return _firestore
+    Query query = _firestore
         .collection('delivery_points')
-        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
-        .snapshots()
-        .map((snapshot) {
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses);
+
+    // Limit to prevent excessive reads
+    query = query.limit(200);
+
+    return query.snapshots().map((snapshot) {
+      print('📊 [RouteService] Loaded ${snapshot.docs.length} active routes');
+
       // Группируем точки по водителям и сортируем по orderInRoute
       final points = snapshot.docs
-          .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .map((doc) =>
+              DeliveryPoint.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
 
       // Сортируем по driverName и orderInRoute
@@ -82,33 +154,54 @@ class RouteService {
   }
 
   /// ✅ Поток всех ожидающих точек (для вкладки "נקודות משלוח")
+  /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
     return _firestore
         .collection('delivery_points')
         .where('status', whereIn: DeliveryPoint.pendingStatuses)
+        .limit(100) // Limit pending points
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+      print('📊 [RouteService] Loaded ${snapshot.docs.length} pending points');
+      return snapshot.docs
+          .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .toList();
+    });
   }
 
   /// ✅ Для карты — получить только активные маршруты
+  /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllPointsForMap() {
     return _firestore
         .collection('delivery_points')
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .limit(200)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+      print('📊 [RouteService] Loaded ${snapshot.docs.length} points for map');
+      return snapshot.docs
+          .map((doc) =>
+              DeliveryPoint.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+    });
   }
 
   /// 🗺️ Получить ВСЕ точки для карты (включая pending) - для тестирования
+  /// ⚠️ WARNING: Expensive query - use only for testing!
   Stream<List<DeliveryPoint>> getAllPointsForMapTesting() {
-    return _firestore.collection('delivery_points').snapshots().map(
-        (snapshot) => snapshot.docs
-            .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
-            .toList());
+    print(
+        '⚠️ [RouteService] Using expensive query - getAllPointsForMapTesting');
+    return _firestore
+        .collection('delivery_points')
+        .limit(500) // Add limit even for testing
+        .snapshots()
+        .map((snapshot) {
+      print(
+          '📊 [RouteService] Loaded ${snapshot.docs.length} points (testing mode)');
+      return snapshot.docs
+          .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .toList();
+    });
   }
 
   /// ✅ Получить все маршруты как Future (для управления логикой)
@@ -906,19 +999,84 @@ class RouteService {
   /// 🚚 Назначает точки водителю (вынесенный метод)
   Future<void> _assignPointsToDriver(String driverId, String driverName,
       int driverCapacity, List<DeliveryPoint> points) async {
+    // Сначала получаем все существующие точки водителя
+    final existingPoints = await _firestore
+        .collection('delivery_points')
+        .where('driverId', isEqualTo: driverId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+
+    final startOrder = existingPoints.docs.length;
+    print(
+        '📊 [RouteService] Driver already has $startOrder points, starting from ${startOrder + 1}');
+
+    // Рассчитываем ETA для каждой точки
+    double cumulativeTimeMinutes = 0;
+    const double avgSpeedKmh = 50.0; // Средняя скорость 50 км/ч
+    const double stopTimeMinutes = 10.0; // Время остановки 10 минут
+
     for (int i = 0; i < points.length; i++) {
       final point = points[i];
+
+      // Рассчитываем расстояние от предыдущей точки
+      double distanceKm = 0;
+      if (i == 0 && existingPoints.docs.isEmpty) {
+        // Первая точка - расстояние от склада (Mishmarot)
+        distanceKm = _calculateDistance(
+          32.48698,
+          34.982121,
+          point.latitude,
+          point.longitude,
+        );
+      } else if (i == 0 && existingPoints.docs.isNotEmpty) {
+        // Первая новая точка - расстояние от последней существующей точки
+        final lastExisting = existingPoints.docs.last.data();
+        distanceKm = _calculateDistance(
+          (lastExisting['latitude'] ?? 0).toDouble(),
+          (lastExisting['longitude'] ?? 0).toDouble(),
+          point.latitude,
+          point.longitude,
+        );
+      } else {
+        // Расстояние от предыдущей точки в списке
+        final prevPoint = points[i - 1];
+        distanceKm = _calculateDistance(
+          prevPoint.latitude,
+          prevPoint.longitude,
+          point.latitude,
+          point.longitude,
+        );
+      }
+
+      // Время в пути (минуты) = расстояние / скорость * 60
+      final travelTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
+      cumulativeTimeMinutes += travelTimeMinutes + stopTimeMinutes;
+
+      // Форматируем ETA в формате "X ч Y мин"
+      String eta;
+      if (cumulativeTimeMinutes < 60) {
+        eta = '${cumulativeTimeMinutes.round()} мин';
+      } else {
+        final hours = cumulativeTimeMinutes ~/ 60; // Целые часы
+        final minutes = (cumulativeTimeMinutes % 60).round(); // Остаток минут
+        if (minutes > 0) {
+          eta = '$hours ч $minutes мин';
+        } else {
+          eta = '$hours ч';
+        }
+      }
 
       try {
         await _firestore.collection('delivery_points').doc(point.id).update({
           'driverId': driverId,
           'driverName': driverName,
           'driverCapacity': driverCapacity,
-          'orderInRoute': i,
+          'orderInRoute': startOrder + i, // Нумерация с 0 (в UI будет +1)
           'status': 'assigned',
+          'eta': eta,
         });
         print(
-            '✅ [RouteService] Point ${point.clientName} assigned to $driverName (order: ${i + 1})');
+            '✅ [RouteService] Point ${point.clientName} assigned to $driverName (order: ${startOrder + i}, ETA: $eta)');
       } catch (e) {
         print('❌ [RouteService] Error assigning point ${point.clientName}: $e');
       }
@@ -942,6 +1100,56 @@ class RouteService {
     } catch (e) {
       print('❌ [RouteService] Error cancelling point $pointId: $e');
       throw Exception('Failed to cancel point: $e');
+    }
+  }
+
+  /// 🔢 Пересчитать нумерацию точек для всех водителей
+  Future<void> recalculateAllRouteNumbers() async {
+    try {
+      print('🔢 [RouteService] Recalculating route numbers for all drivers...');
+
+      // Получаем все активные точки
+      final snapshot = await _firestore
+          .collection('delivery_points')
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
+
+      // Группируем по водителям
+      final Map<String, List<QueryDocumentSnapshot>> pointsByDriver = {};
+      for (final doc in snapshot.docs) {
+        final driverId = doc.data()['driverId'] as String?;
+        if (driverId != null) {
+          pointsByDriver.putIfAbsent(driverId, () => []).add(doc);
+        }
+      }
+
+      // Пересчитываем нумерацию для каждого водителя
+      for (final entry in pointsByDriver.entries) {
+        final points = entry.value;
+
+        // Сортируем по текущему orderInRoute
+        points.sort((a, b) {
+          final dataA = a.data() as Map<String, dynamic>?;
+          final dataB = b.data() as Map<String, dynamic>?;
+          final orderA = (dataA?['orderInRoute'] ?? 0) as int;
+          final orderB = (dataB?['orderInRoute'] ?? 0) as int;
+          return orderA.compareTo(orderB);
+        });
+
+        // Обновляем нумерацию начиная с 0 (в UI будет +1)
+        for (int i = 0; i < points.length; i++) {
+          await points[i].reference.update({'orderInRoute': i});
+        }
+
+        print(
+            '✅ [RouteService] Recalculated ${points.length} points for driver ${entry.key}');
+      }
+
+      print(
+          '✅ [RouteService] Route numbers recalculated for ${pointsByDriver.length} drivers');
+    } catch (e) {
+      print('❌ [RouteService] Error recalculating route numbers: $e');
+      rethrow;
     }
   }
 }

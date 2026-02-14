@@ -40,16 +40,18 @@ class PrintService {
 
       void flush() {
         if (buffer.isEmpty) return;
-        spans.add(pw.TextSpan(
-          text: buffer.toString(),
-          style: pw.TextStyle(
-            font: currentIsHebrew ? mainFont : latinFont,
-            fontFallback: [mainFont, latinFont],
-            fontSize: fontSize,
-            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            color: color,
+        spans.add(
+          pw.TextSpan(
+            text: buffer.toString(),
+            style: pw.TextStyle(
+              font: currentIsHebrew ? mainFont : latinFont,
+              fontFallback: [mainFont, latinFont],
+              fontSize: fontSize,
+              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: color,
+            ),
           ),
-        ));
+        );
         buffer.clear();
       }
 
@@ -93,10 +95,12 @@ class PrintService {
       ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
 
     // Подключаем шрифты
-    final fontHebrewData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Regular.ttf');
-    final fontHebrewBoldData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Bold.ttf');
+    final fontHebrewData = await rootBundle.load(
+      'assets/fonts/NotoSansHebrew-Regular.ttf',
+    );
+    final fontHebrewBoldData = await rootBundle.load(
+      'assets/fonts/NotoSansHebrew-Bold.ttf',
+    );
     final fontLatinData = await rootBundle.load('assets/fonts/Arial.ttf');
 
     final fontHebrew = pw.Font.ttf(fontHebrewData);
@@ -163,11 +167,7 @@ class PrintService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  _smartText(
-                    'נהג: ${driver.name}',
-                    fontHebrewBold,
-                    fontLatin,
-                  ),
+                  _smartText('נהג: ${driver.name}', fontHebrewBold, fontLatin),
                   _smartText(
                     'קיבולת משאית: ${driver.palletCapacity ?? 0} משטחים',
                     fontHebrew,
@@ -179,22 +179,15 @@ class PrintService {
               pw.Row(
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  _smartText(
-                    'תאריך: ',
-                    fontHebrew,
-                    fontLatin,
-                    fontSize: 12,
-                  ),
+                  _smartText('תאריך: ', fontHebrew, fontLatin, fontSize: 12),
                   pw.SizedBox(
-                      width: 5), // Добавляем отступ между текстом и датой
+                    width: 5,
+                  ), // Добавляем отступ между текстом и датой
                   pw.Directionality(
                     textDirection: pw.TextDirection.ltr,
                     child: pw.Text(
                       _formatDate(DateTime.now().toLocal()),
-                      style: pw.TextStyle(
-                        font: fontLatin,
-                        fontSize: 12,
-                      ),
+                      style: pw.TextStyle(font: fontLatin, fontSize: 12),
                     ),
                   ),
                 ],
@@ -228,22 +221,38 @@ class PrintService {
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
             _buildTableCell('מס\'', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell('שם לקוח', fontHebrewBold, fontLatin,
-                isHeader: true),
+            _buildTableCell(
+              'שם לקוח',
+              fontHebrewBold,
+              fontLatin,
+              isHeader: true,
+            ),
             _buildTableCell('כתובת', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell('משטחים', fontHebrewBold, fontLatin,
-                isHeader: true),
-            _buildTableCell('קרטונים', fontHebrewBold, fontLatin,
-                isHeader: true),
-            _buildTableCell('קופסאות', fontHebrewBold, fontLatin,
-                isHeader: true),
+            _buildTableCell(
+              'משטחים',
+              fontHebrewBold,
+              fontLatin,
+              isHeader: true,
+            ),
+            _buildTableCell(
+              'קרטונים',
+              fontHebrewBold,
+              fontLatin,
+              isHeader: true,
+            ),
+            _buildTableCell(
+              'פריט',
+              fontHebrewBold,
+              fontLatin,
+              isHeader: true,
+            ),
             _buildTableCell('סטטוס', fontHebrewBold, fontLatin, isHeader: true),
           ],
         ),
         ...points.map((p) {
-          // Форматируем типы коробок для отображения
+          // Форматируем типы коробок для отображения - только названия
           final boxTypesText = p.boxTypes != null && p.boxTypes!.isNotEmpty
-              ? p.boxTypes!.map((box) => box.toShortString()).join('\n')
+              ? p.boxTypes!.map((box) => '${box.type} ${box.number}').join('\n')
               : '-';
 
           return pw.TableRow(
@@ -255,7 +264,10 @@ class PrintService {
               _buildTableCell('${p.boxes}', fontHebrew, fontLatin),
               _buildTableCell(boxTypesText, fontHebrew, fontLatin),
               _buildTableCell(
-                  _getStatusInHebrew(p.status), fontHebrew, fontLatin),
+                _getStatusInHebrew(p.status),
+                fontHebrew,
+                fontLatin,
+              ),
             ],
           );
         }),
@@ -302,8 +314,13 @@ class PrintService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _smartText('סיכום', fontHebrewBold, fontLatin,
-              fontSize: 16, bold: true),
+          _smartText(
+            'סיכום',
+            fontHebrewBold,
+            fontLatin,
+            fontSize: 16,
+            bold: true,
+          ),
           pw.SizedBox(height: 10),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

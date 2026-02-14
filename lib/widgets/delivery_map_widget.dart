@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/delivery_point.dart';
 import '../l10n/app_localizations.dart';
-import '../services/location_service.dart';
+import '../services/optimized_location_service.dart';
 import '../services/smart_navigation_service.dart';
 import '../config/app_config.dart';
 import '../utils/polyline_decoder.dart';
@@ -23,7 +23,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
 
-  final LocationService _locationService = LocationService();
+  final OptimizedLocationService _locationService = OptimizedLocationService();
   final SmartNavigationService _smartNavigationService =
       SmartNavigationService();
 
@@ -160,8 +160,26 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Добавляем маркеры точек доставки
     for (final point in widget.points) {
-      final markerColor =
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      // Определяем цвет маркера в зависимости от статуса
+      BitmapDescriptor markerColor;
+      if (point.status == DeliveryPoint.statusCompleted ||
+          point.status == DeliveryPoint.statusCancelled) {
+        // Серый для завершенных/отмененных
+        markerColor =
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+      } else {
+        // Цвет водителя для активных точек
+        final driverKey = point.driverId ?? 'unknown';
+        final driverIndex = widget.points
+            .where((p) => p.driverId != null)
+            .map((p) => p.driverId)
+            .toSet()
+            .toList()
+            .indexOf(driverKey);
+        final driverColor = _getDriverColor(driverKey, driverIndex);
+        final hue = HSVColor.fromColor(driverColor).hue;
+        markerColor = BitmapDescriptor.defaultMarkerWithHue(hue);
+      }
 
       markers.add(
         Marker(
@@ -172,6 +190,10 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             title: point.clientName,
             snippet: _buildMarkerSnippet(point, l10n),
           ),
+          alpha: (point.status == DeliveryPoint.statusCompleted ||
+                  point.status == DeliveryPoint.statusCancelled)
+              ? 0.5
+              : 1.0, // Полупрозрачные для завершенных
         ),
       );
     }
@@ -496,6 +518,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           polylines: _polylines,
           myLocationEnabled: true,
           myLocationButtonEnabled: true,
+          zoomControlsEnabled: true,
+          scrollGesturesEnabled: true,
+          zoomGesturesEnabled: true,
           onMapCreated: (controller) {
             _controller = controller;
             Future.delayed(const Duration(milliseconds: 800), () {
@@ -552,17 +577,35 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       // Получаем ETA для водителя
       final eta = _driverETAs[driverId] ?? '';
 
+      // Находим цвет водителя из его маршрута
+      final driverPoint = widget.points.firstWhere(
+        (p) => p.driverId == driverId,
+        orElse: () => widget.points.first,
+      );
+      final driverKey = driverPoint.driverId ?? driverId;
+      final driverIndex = widget.points
+          .where((p) => p.driverId != null)
+          .map((p) => p.driverId)
+          .toSet()
+          .toList()
+          .indexOf(driverKey);
+      final driverColor = _getDriverColor(driverKey, driverIndex);
+
+      // Конвертируем Color в BitmapDescriptor hue (0-360)
+      final hue = HSVColor.fromColor(driverColor).hue;
+
       driverMarkers.add(
         Marker(
           markerId: MarkerId('driver_$driverId'),
           position: LatLng(latitude, longitude),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: BitmapDescriptor.defaultMarkerWithHue(hue),
           infoWindow: InfoWindow(
-            title: '🚛 Водитель',
+            title: '🚛 ${driverPoint.driverName ?? "Водитель"}',
             snippet: eta.isNotEmpty
                 ? 'ETA: $eta'
                 : 'ID: ${driverId.substring(0, 8)}...',
           ),
+          zIndexInt: 100, // Водитель всегда сверху
         ),
       );
     }
@@ -613,6 +656,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             status: '',
             urgency: 'normal',
             boxes: 0,
+            eta: null,
           ),
         ),
       );

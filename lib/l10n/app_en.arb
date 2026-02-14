@@ -98,6 +98,7 @@
   "cancelRouteTitle": "Cancel route?",
   "cancelRouteDescription": "All points will return to 'pending'. Continue?",
   "routeCancelled": "Route cancelled, points returned to pending",
+  "routePointsReordered": "Route order and ETA updated",
   "selectNewDriver": "Select a new driver",
   "noAvailableDrivers": "No available drivers",
   "driverChangedTo": "Driver changed to {name}",

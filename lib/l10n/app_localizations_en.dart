@@ -305,6 +305,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeCancelled => 'Route cancelled, points returned to pending';
 
   @override
+  String get routePointsReordered => 'Route order and ETA updated';
+
+  @override
   String get selectNewDriver => 'Select a new driver';
 
   @override

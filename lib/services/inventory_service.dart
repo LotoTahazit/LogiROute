@@ -107,8 +107,15 @@ class InventoryService {
   }
 
   /// Получить товары в реальном времени
-  Stream<List<InventoryItem>> getInventoryStream() {
-    return _firestore.collection('inventory').snapshots().map((snapshot) {
+  /// ⚡ OPTIMIZED: Added limit to prevent excessive reads
+  Stream<List<InventoryItem>> getInventoryStream({int limit = 200}) {
+    print('📊 [Inventory] Starting stream with limit: $limit');
+    return _firestore
+        .collection('inventory')
+        .limit(limit) // ✅ Limit to prevent reading entire collection
+        .snapshots()
+        .map((snapshot) {
+      print('📊 [Inventory] Stream update: ${snapshot.docs.length} items');
       return snapshot.docs
           .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
           .toList();
