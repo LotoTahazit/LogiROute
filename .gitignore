@@ -46,3 +46,6 @@ GoogleService-Info.plist
 # Environment variables (API keys, secrets)
 .env
 
+
+# Java heap dumps (large files)
+**/*.hprof
