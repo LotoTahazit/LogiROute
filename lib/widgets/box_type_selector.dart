@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/box_type.dart';
 import '../services/box_type_service.dart';
+import '../services/auth_service.dart';
 
 class BoxTypeSelector extends StatefulWidget {
   final List<BoxType> selectedBoxTypes;
@@ -17,7 +19,7 @@ class BoxTypeSelector extends StatefulWidget {
 }
 
 class _BoxTypeSelectorState extends State<BoxTypeSelector> {
-  final BoxTypeService _boxTypeService = BoxTypeService();
+  late final BoxTypeService _boxTypeService;
   List<String> _availableTypes = [];
   Map<String, List<Map<String, dynamic>>> _numbersByType = {};
   bool _isLoading = true;
@@ -25,6 +27,9 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    _boxTypeService = BoxTypeService(companyId: companyId);
     _loadBoxTypes();
   }
 
@@ -63,10 +68,37 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
       return;
     }
 
+    String? selectedProductCode;
     String? selectedType;
     String? selectedNumber;
     int? volumeMl;
     final quantityController = TextEditingController(text: '1');
+
+    // Получаем все productCode и типы для автокомплита
+    final allProductCodes = <String>[];
+    final allSearchOptions = <String>[]; // Комбинированный список для поиска
+    final productCodeMap = <String, Map<String, dynamic>>{};
+    final typeToItemsMap =
+        <String, List<Map<String, dynamic>>>{}; // סוג -> список товаров
+
+    for (final type in _availableTypes) {
+      // Добавляем сам тип в поиск
+      if (!allSearchOptions.contains(type)) {
+        allSearchOptions.add(type);
+      }
+
+      typeToItemsMap[type] = [];
+
+      for (final item in _numbersByType[type] ?? []) {
+        final code = item['productCode'] as String? ?? '';
+        if (code.isNotEmpty) {
+          allProductCodes.add(code);
+          allSearchOptions.add(code); // Добавляем מק"ט в общий поиск
+          productCodeMap[code] = item;
+          typeToItemsMap[type]!.add(item);
+        }
+      }
+    }
 
     showDialog(
       context: context,
@@ -77,57 +109,138 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Выбор типа
-                DropdownButtonFormField<String>(
-                  initialValue: selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'סוג',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _availableTypes.map((type) {
-                    return DropdownMenuItem(value: type, child: Text(type));
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedType = value;
-                      selectedNumber = null; // Сбрасываем номер
-                      volumeMl = null;
+                // Поиск по מק"ט или סוג
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return const Iterable<String>.empty();
+                    }
+                    return allSearchOptions.where((option) {
+                      return option
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase());
                     });
+                  },
+                  onSelected: (String selected) {
+                    setState(() {
+                      // Проверяем, это מק"ט или סוג
+                      if (productCodeMap.containsKey(selected)) {
+                        // Это מק"ט - заполняем все поля
+                        final item = productCodeMap[selected];
+                        selectedProductCode = selected;
+                        selectedType = item?['type'] as String?;
+                        selectedNumber = item?['number'] as String?;
+                        volumeMl = item?['volumeMl'] as int? ?? 0;
+                      } else if (_availableTypes.contains(selected)) {
+                        // Это סוג - показываем только тип, ждем выбора מספר
+                        selectedType = selected;
+                        selectedProductCode = null;
+                        selectedNumber = null;
+                        volumeMl = null;
+                      }
+                    });
+                  },
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: const InputDecoration(
+                        labelText: 'חפש לפי מק"ט או סוג',
+                        border: OutlineInputBorder(),
+                        hintText: 'הקלד מק"ט או סוג (בביע, מכסה, כוס)',
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          // Проверяем, что введено
+                          if (productCodeMap.containsKey(value)) {
+                            // Это מק"ט
+                            final item = productCodeMap[value];
+                            selectedProductCode = value;
+                            selectedType = item?['type'] as String?;
+                            selectedNumber = item?['number'] as String?;
+                            volumeMl = item?['volumeMl'] as int? ?? 0;
+                          } else if (_availableTypes.contains(value)) {
+                            // Это סוג
+                            selectedType = value;
+                            selectedProductCode = null;
+                            selectedNumber = null;
+                            volumeMl = null;
+                          } else {
+                            // Ручной ввод - сбрасываем
+                            selectedProductCode =
+                                value.isNotEmpty ? value : null;
+                            selectedType = null;
+                            selectedNumber = null;
+                            volumeMl = null;
+                          }
+                        });
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Выбор номера (зависит от типа)
-                if (selectedType != null)
+                // סוג - показывается после выбора
+                TextField(
+                  controller: TextEditingController(text: selectedType ?? ''),
+                  decoration: const InputDecoration(
+                    labelText: 'סוג',
+                    border: OutlineInputBorder(),
+                  ),
+                  readOnly: true,
+                  enabled: false,
+                ),
+                const SizedBox(height: 16),
+
+                // מספר - выбор из списка если выбран только סוג
+                if (selectedType != null && selectedProductCode == null)
                   DropdownButtonFormField<String>(
-                    key: ValueKey(
-                        selectedType), // Добавляем key для пересоздания виджета
-                    initialValue: selectedNumber,
+                    value: selectedNumber,
                     decoration: const InputDecoration(
                       labelText: 'מספר',
                       border: OutlineInputBorder(),
                     ),
-                    items: (_numbersByType[selectedType] ?? []).map((item) {
+                    items: (typeToItemsMap[selectedType] ?? []).map((item) {
                       final number = item['number'] as String;
-                      final ml = item['volumeMl'] as int;
+                      final code = item['productCode'] as String? ?? '';
+                      final ml = item['volumeMl'] as int?;
                       return DropdownMenuItem(
                         value: number,
-                        child: Text('$number ($mlמל)'),
+                        child: Text(
+                          ml != null
+                              ? '$number ($mlמל) - $code'
+                              : '$number - $code',
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setState(() {
                         selectedNumber = value;
-                        // Находим volumeMl для выбранного номера
-                        final item = _numbersByType[selectedType]!
-                            .firstWhere((item) => item['number'] == value);
-                        volumeMl = item['volumeMl'] as int;
+                        // Находим полную информацию
+                        final item = typeToItemsMap[selectedType]!.firstWhere(
+                          (item) => item['number'] == value,
+                        );
+                        selectedProductCode = item['productCode'] as String?;
+                        volumeMl = item['volumeMl'] as int? ?? 0;
                       });
                     },
+                  )
+                else
+                  // מספר - только для отображения если выбран מק"ט
+                  TextField(
+                    controller:
+                        TextEditingController(text: selectedNumber ?? ''),
+                    decoration: const InputDecoration(
+                      labelText: 'מספר',
+                      border: OutlineInputBorder(),
+                    ),
+                    readOnly: true,
+                    enabled: false,
                   ),
                 const SizedBox(height: 16),
 
-                // Количество
+                // כמות
                 TextField(
                   controller: quantityController,
                   decoration: const InputDecoration(
@@ -136,7 +249,6 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (value) {
-                    // Обновляем состояние при изменении количества
                     setState(() {});
                   },
                 ),
@@ -161,20 +273,27 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
               child: const Text('ביטול'),
             ),
             ElevatedButton(
-              onPressed: selectedType != null &&
+              onPressed: selectedProductCode != null &&
+                      selectedProductCode!.isNotEmpty &&
+                      selectedType != null &&
                       selectedNumber != null &&
-                      volumeMl != null &&
                       quantityController.text.isNotEmpty &&
                       int.tryParse(quantityController.text) != null &&
                       int.parse(quantityController.text) > 0
                   ? () {
                       final quantity =
                           int.tryParse(quantityController.text) ?? 1;
+
+                      final authService = context.read<AuthService>();
+                      final companyId = authService.userModel?.companyId ?? '';
+
                       final newBoxType = BoxType(
+                        productCode: selectedProductCode!,
                         type: selectedType!,
                         number: selectedNumber!,
-                        volumeMl: volumeMl!,
+                        volumeMl: volumeMl ?? 0,
                         quantity: quantity,
+                        companyId: companyId,
                       );
 
                       final updatedList =
@@ -193,6 +312,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   }
 
   void _showAddNewBoxTypeToDatabase({bool isFirstTime = false}) {
+    final productCodeController = TextEditingController();
     final typeController = TextEditingController();
     final numberController = TextEditingController();
     final volumeController = TextEditingController();
@@ -214,6 +334,16 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
                   style: TextStyle(color: Colors.blue),
                 ),
               ),
+            // מק"ט - ПЕРВОЕ ПОЛЕ
+            TextField(
+              controller: productCodeController,
+              decoration: const InputDecoration(
+                labelText: 'מק"ט',
+                border: OutlineInputBorder(),
+                hintText: 'לדוגמה: BB100, CUP250',
+              ),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: typeController,
               decoration: const InputDecoration(
@@ -249,11 +379,13 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
             ),
           ElevatedButton(
             onPressed: () async {
-              if (typeController.text.isNotEmpty &&
+              if (productCodeController.text.isNotEmpty &&
+                  typeController.text.isNotEmpty &&
                   numberController.text.isNotEmpty &&
                   volumeController.text.isNotEmpty) {
                 try {
                   await _boxTypeService.addBoxType(
+                    productCode: productCodeController.text.trim(),
                     type: typeController.text.trim(),
                     number: numberController.text.trim(),
                     volumeMl: int.parse(volumeController.text),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../services/box_type_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Диалог добавления нового типа в справочник и в инвентарь
 ///
@@ -31,8 +34,9 @@ class AddBoxTypeDialog extends StatefulWidget {
 }
 
 class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
-  final BoxTypeService _boxTypeService = BoxTypeService();
+  late final BoxTypeService _boxTypeService;
 
+  final _productCodeController = TextEditingController(); // מק"ט - НОВОЕ ПОЛЕ
   final _typeController = TextEditingController();
   final _numberController = TextEditingController();
   final _volumeController = TextEditingController();
@@ -42,7 +46,16 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   final _additionalInfoController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    _boxTypeService = BoxTypeService(companyId: companyId);
+  }
+
+  @override
   void dispose() {
+    _productCodeController.dispose(); // מק"ט
     _typeController.dispose();
     _numberController.dispose();
     _volumeController.dispose();
@@ -54,7 +67,8 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   }
 
   bool get _canSave {
-    return _typeController.text.trim().isNotEmpty &&
+    return _productCodeController.text.trim().isNotEmpty && // מק"ט обязательное
+        _typeController.text.trim().isNotEmpty &&
         _numberController.text.trim().isNotEmpty &&
         _quantityPerPalletController.text.trim().isNotEmpty &&
         int.tryParse(_quantityPerPalletController.text) != null &&
@@ -62,6 +76,7 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
     final volumeMl = _volumeController.text.trim().isEmpty
         ? null
         : int.tryParse(_volumeController.text);
@@ -70,28 +85,28 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
     final piecesPerBox = int.tryParse(_piecesPerBoxController.text);
 
     try {
-      // Добавляем в box_types только если указан volumeMl
-      if (volumeMl != null) {
-        await _boxTypeService.addBoxType(
-          type: _typeController.text.trim(),
-          number: _numberController.text.trim(),
-          volumeMl: volumeMl,
-          quantityPerPallet: quantityPerPallet,
-          diameter: _diameterController.text.trim().isEmpty
-              ? null
-              : _diameterController.text.trim(),
-          piecesPerBox: piecesPerBox,
-          additionalInfo: _additionalInfoController.text.trim().isEmpty
-              ? null
-              : _additionalInfoController.text.trim(),
-        );
-      }
+      // Добавляем в справочник box_types
+      await _boxTypeService.addBoxType(
+        productCode:
+            _productCodeController.text.trim(), // מק"ט - ПЕРВЫЙ ПАРАМЕТР
+        type: _typeController.text.trim(),
+        number: _numberController.text.trim(),
+        volumeMl: volumeMl,
+        quantityPerPallet: quantityPerPallet,
+        diameter: _diameterController.text.trim().isEmpty
+            ? null
+            : _diameterController.text.trim(),
+        piecesPerBox: piecesPerBox,
+        additionalInfo: _additionalInfoController.text.trim().isEmpty
+            ? null
+            : _additionalInfoController.text.trim(),
+      );
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('סוג חדש נוסף למאגר בהצלחה!'),
+          SnackBar(
+            content: Text(l10n.newBoxTypeAdded),
             backgroundColor: Colors.green,
           ),
         );
@@ -100,7 +115,7 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('שגיאה: $e'),
+            content: Text('${l10n.error}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -110,18 +125,32 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return AlertDialog(
-      title: const Text('הוסף סוג חדש למאגר'),
+      title: Text(l10n.addNewBoxType),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // מק"ט - ПЕРВОЕ ПОЛЕ
+            TextField(
+              controller: _productCodeController,
+              decoration: InputDecoration(
+                labelText: l10n.productCodeLabel,
+                border: const OutlineInputBorder(),
+                helperText: l10n.productCodeHelper,
+              ),
+              onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+
             // Тип
             TextField(
               controller: _typeController,
-              decoration: const InputDecoration(
-                labelText: 'סוג (בביע, מכסה, כוס) *',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.typeLabel,
+                border: const OutlineInputBorder(),
               ),
               onChanged: (value) => setState(() {}),
             ),
@@ -130,9 +159,9 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Номер
             TextField(
               controller: _numberController,
-              decoration: const InputDecoration(
-                labelText: 'מספר (100, 200, וכו\') *',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.numberLabel,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => setState(() {}),
@@ -142,9 +171,9 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Объем в мл (необязательное)
             TextField(
               controller: _volumeController,
-              decoration: const InputDecoration(
-                labelText: 'נפח במ"ל (אופציונלי)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.volumeMlLabel,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => setState(() {}),
@@ -154,10 +183,10 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Количество на миштахе - обязательное
             TextField(
               controller: _quantityPerPalletController,
-              decoration: const InputDecoration(
-                labelText: 'כמות במשטח *',
-                hintText: 'חובה',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.quantityPerPalletLabel,
+                hintText: l10n.requiredField,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => setState(() {}),
@@ -167,9 +196,9 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Диаметр (необязательное)
             TextField(
               controller: _diameterController,
-              decoration: const InputDecoration(
-                labelText: 'קוטר (אופציונלי)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.diameterLabel,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -177,9 +206,9 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Количество в коробке (необязательное)
             TextField(
               controller: _piecesPerBoxController,
-              decoration: const InputDecoration(
-                labelText: 'ארוז - כמות בקרטון (אופציונלי)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.piecesPerBoxLabel,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -188,9 +217,9 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             // Дополнительные данные (необязательное)
             TextField(
               controller: _additionalInfoController,
-              decoration: const InputDecoration(
-                labelText: 'מידע נוסף (אופציונלי)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.additionalInfoLabel,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -200,11 +229,11 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           onPressed: _canSave ? _save : null,
-          child: const Text('שמור'),
+          child: Text(l10n.save),
         ),
       ],
     );

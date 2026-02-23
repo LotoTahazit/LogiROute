@@ -59,19 +59,25 @@ class BoxTypeService {
     required String productCode, // מק"ט - ПЕРВЫЙ ПАРАМЕТР
     required String type,
     required String number,
-    required String companyId, // ID компании - ОБЯЗАТЕЛЬНЫЙ
+    String?
+        companyId, // ID компании - опционально, берётся из конструктора если не указан
     int? volumeMl,
     int? quantityPerPallet,
     String? diameter,
     int? piecesPerBox,
     String? additionalInfo,
   }) async {
+    final targetCompanyId = companyId ?? this.companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      throw Exception('companyId is required for addBoxType');
+    }
+
     try {
       // Проверяем, не существует ли уже такой מק"ט в этой компании
       final existing = await _firestore
           .collection('box_types')
           .where('productCode', isEqualTo: productCode)
-          .where('companyId', isEqualTo: companyId)
+          .where('companyId', isEqualTo: targetCompanyId)
           .get();
 
       if (existing.docs.isEmpty) {
@@ -79,7 +85,7 @@ class BoxTypeService {
           'productCode': productCode, // מק"ט - ПЕРВОЕ ПОЛЕ
           'type': type,
           'number': number,
-          'companyId': companyId, // ID компании
+          'companyId': targetCompanyId, // ID компании
           'createdAt': FieldValue.serverTimestamp(),
         };
 
@@ -94,10 +100,10 @@ class BoxTypeService {
 
         await _firestore.collection('box_types').add(data);
         print(
-            '✅ Added box type: מק"ט $productCode ($type $number) for company $companyId');
+            '✅ Added box type: מק"ט $productCode ($type $number) for company $targetCompanyId');
       } else {
         print(
-            'ℹ️ Box type already exists: מק"ט $productCode for company $companyId');
+            'ℹ️ Box type already exists: מק"ט $productCode for company $targetCompanyId');
       }
     } catch (e) {
       print('❌ Error adding box type: $e');
@@ -146,14 +152,20 @@ class BoxTypeService {
 
   // Получить доступные номера для конкретного типа и компании
   Future<List<Map<String, dynamic>>> getNumbersForType(
-    String type,
-    String companyId,
-  ) async {
+    String type, [
+    String? overrideCompanyId,
+  ]) async {
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      print('⚠️ Warning: companyId is null or empty in getNumbersForType');
+      return [];
+    }
+
     try {
       final snapshot = await _firestore
           .collection('box_types')
           .where('type', isEqualTo: type)
-          .where('companyId', isEqualTo: companyId)
+          .where('companyId', isEqualTo: targetCompanyId)
           .orderBy('number')
           .get();
 
@@ -169,7 +181,7 @@ class BoxTypeService {
         final snapshot = await _firestore
             .collection('box_types')
             .where('type', isEqualTo: type)
-            .where('companyId', isEqualTo: companyId)
+            .where('companyId', isEqualTo: targetCompanyId)
             .get();
 
         final results = snapshot.docs.map((doc) {
@@ -193,11 +205,17 @@ class BoxTypeService {
   }
 
   // Получить уникальные типы (בביע, מכסה, כוס) для компании
-  Future<List<String>> getUniqueTypes(String companyId) async {
+  Future<List<String>> getUniqueTypes([String? overrideCompanyId]) async {
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      print('⚠️ Warning: companyId is null or empty in getUniqueTypes');
+      return ['בביע', 'מכסה', 'כוס']; // Fallback
+    }
+
     try {
       final snapshot = await _firestore
           .collection('box_types')
-          .where('companyId', isEqualTo: companyId)
+          .where('companyId', isEqualTo: targetCompanyId)
           .get();
       final types = snapshot.docs
           .map((doc) => doc.data()['type'] as String)

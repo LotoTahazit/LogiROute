@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/price.dart';
 import '../../services/price_service.dart';
 import '../../services/box_type_service.dart';
@@ -13,7 +14,7 @@ class PriceManagementScreen extends StatefulWidget {
 
 class _PriceManagementScreenState extends State<PriceManagementScreen> {
   final PriceService _priceService = PriceService();
-  final BoxTypeService _boxTypeService = BoxTypeService();
+  late final BoxTypeService _boxTypeService;
   final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _allBoxTypes = [];
@@ -25,6 +26,9 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    _boxTypeService = BoxTypeService(companyId: companyId);
     _loadData();
   }
 
