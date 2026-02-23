@@ -4,8 +4,13 @@ import '../../services/auth_service.dart';
 import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/user_model.dart';
+import '../warehouse/warehouse_dashboard.dart';
+import '../shared/inventory_report_screen.dart';
 import 'analytics_screen.dart';
 import 'migration_screen.dart';
+import 'archive_management_screen.dart';
+import 'inventory_counts_list_screen.dart';
+import 'company_settings_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -38,14 +43,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
     print('🔍 [Admin] Total users loaded: ${users.length}');
     for (final user in users) {
       print(
-          '  - ${user.name} (${user.email}): role=${user.role}, companyId=${user.companyId}, isDriver=${user.isDriver}');
+        '  - ${user.name} (${user.email}): role=${user.role}, companyId=${user.companyId}, isDriver=${user.isDriver}',
+      );
     }
 
     final currentUser = authService.userModel;
     if (currentUser == null) return;
 
     print(
-        '🔍 [Admin] Current user: ${currentUser.name}, isSuperAdmin=${currentUser.isSuperAdmin}, companyId=${currentUser.companyId}');
+      '🔍 [Admin] Current user: ${currentUser.name}, isSuperAdmin=${currentUser.isSuperAdmin}, companyId=${currentUser.companyId}',
+    );
 
     // Фильтруем суперадминов ТОЛЬКО если текущий пользователь НЕ суперадмин
     var filteredUsers = currentUser.isSuperAdmin
@@ -179,14 +186,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     items: [
                       DropdownMenuItem(
-                          value: 'driver', child: Text(l10n.driver)),
+                        value: 'driver',
+                        child: Text(l10n.driver),
+                      ),
                       DropdownMenuItem(
-                          value: 'dispatcher', child: Text(l10n.dispatcher)),
+                        value: 'dispatcher',
+                        child: Text(l10n.dispatcher),
+                      ),
                       const DropdownMenuItem(
-                          value: 'warehouse_keeper',
-                          child: Text('מחסנאי / Warehouse Keeper')),
+                        value: 'warehouse_keeper',
+                        child: Text('מחסנאי / Warehouse Keeper'),
+                      ),
                       DropdownMenuItem(
-                          value: 'admin', child: Text(l10n.systemManager)),
+                        value: 'admin',
+                        child: Text(l10n.systemManager),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -244,8 +258,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          style:
-                              TextButton.styleFrom(foregroundColor: Colors.red),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
                           child: Text(l10n.delete),
                         ),
                       ],
@@ -475,7 +490,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     items: [
                       DropdownMenuItem(
-                          value: 'driver', child: Text(l10n.driver)),
+                        value: 'driver',
+                        child: Text(l10n.driver),
+                      ),
                       DropdownMenuItem(
                         value: 'dispatcher',
                         child: Text(l10n.dispatcher),
@@ -708,7 +725,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Text('${l10n.palletCapacity}: ${driver.palletCapacity}'),
                     if (driver.truckWeight != null)
                       Text(
-                          '${l10n.truckWeight}: ${driver.truckWeight!.toStringAsFixed(1)}ט'),
+                        '${l10n.truckWeight}: ${driver.truckWeight!.toStringAsFixed(1)}ט',
+                      ),
                   ],
                 ),
                 onTap: () {
@@ -768,6 +786,64 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
             ),
             IconButton(
+              icon: const Icon(Icons.inventory_2),
+              tooltip: l10n.warehouseInventory,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WarehouseDashboard()),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.assessment),
+              tooltip: l10n.inventoryChangesReport,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const InventoryReportScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.fact_check),
+              tooltip: l10n.inventoryCountReportsTooltip,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const InventoryCountsListScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.business),
+              tooltip: l10n.companySettings,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CompanySettingsScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.archive),
+              tooltip: l10n.archiveManagement,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ArchiveManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.sync),
               tooltip: 'Data Migration',
               onPressed: () {
@@ -802,7 +878,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Column(
                       children: [
                         Row(
@@ -810,24 +888,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Text(
                               '${l10n.viewAs}:',
                               style: const TextStyle(
-                                  fontSize: 16, color: Colors.black),
+                                fontSize: 16,
+                                color: Colors.black,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             DropdownButton<String>(
                               value: authService.viewAsRole ?? 'admin',
                               items: [
                                 DropdownMenuItem(
-                                    value: 'admin',
-                                    child: Text(l10n.roleAdmin)),
+                                  value: 'admin',
+                                  child: Text(l10n.roleAdmin),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'dispatcher',
-                                    child: Text(l10n.roleDispatcher)),
+                                  value: 'dispatcher',
+                                  child: Text(l10n.roleDispatcher),
+                                ),
                                 const DropdownMenuItem(
-                                    value: 'warehouse_keeper',
-                                    child: Text('מחסנאי / Warehouse')),
+                                  value: 'warehouse_keeper',
+                                  child: Text('מחסנאי / Warehouse'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'driver',
-                                    child: Text(l10n.roleDriver)),
+                                  value: 'driver',
+                                  child: Text(l10n.roleDriver),
+                                ),
                               ],
                               onChanged: (value) async {
                                 if (value == null) return;
@@ -836,8 +920,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   final selectedDriver =
                                       await _showDriverSelectionDialog();
                                   if (selectedDriver != null) {
-                                    authService.setViewAsRole(value,
-                                        driverId: selectedDriver['id']);
+                                    authService.setViewAsRole(
+                                      value,
+                                      driverId: selectedDriver['id'],
+                                    );
                                     if (mounted) {
                                       setState(() {
                                         _selectedDriverName =
@@ -860,7 +946,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               Text(
                                 '${l10n.lastUpdated}: $_lastUpdatedText',
                                 style: const TextStyle(
-                                    color: Colors.grey, fontSize: 13),
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
                               ),
                           ],
                         ),
@@ -873,7 +961,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               Text(
                                 '${l10n.companyId}:',
                                 style: const TextStyle(
-                                    fontSize: 16, color: Colors.black),
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -884,7 +974,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     DropdownMenuItem(
                                       value: 'all',
                                       child: Text(
-                                          '${l10n.total} (${_users.length})'),
+                                        '${l10n.total} (${_users.length})',
+                                      ),
                                     ),
                                     ..._availableCompanies.map((company) {
                                       final count = _users
@@ -914,28 +1005,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       (_selectedDriverName ?? '').isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           '${l10n.driver}: ${_selectedDriverName ?? ''}',
                           style: const TextStyle(
-                              color: Colors.black54, fontSize: 13),
+                            color: Colors.black54,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
                   Expanded(
                     child: _filteredUsers.isEmpty
-                        ? Center(
-                            child: Text(l10n.noUsersFound),
-                          )
+                        ? Center(child: Text(l10n.noUsersFound))
                         : ListView.builder(
                             itemCount: _filteredUsers.length,
                             itemBuilder: (context, index) {
                               final user = _filteredUsers[index];
                               return Card(
                                 margin: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
                                 child: ListTile(
                                   onTap: () => _showEditUserDialog(user),
                                   leading: Icon(
@@ -951,12 +1046,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   title: Text(
                                     user.name,
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w500),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                   subtitle: Text(
                                     '${user.email} • ${_getLocalizedRole(user.role, l10n)}${user.role == 'driver' && user.vehicleNumber != null ? ' • 🚗 ${user.vehicleNumber}' : ''}',
-                                    style:
-                                        const TextStyle(color: Colors.black54),
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                    ),
                                   ),
                                   trailing: user.role == 'driver'
                                       ? Column(

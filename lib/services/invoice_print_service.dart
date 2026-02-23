@@ -3,6 +3,8 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/invoice.dart';
+import '../models/company_settings.dart';
+import '../services/company_settings_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InvoicePrintService {
@@ -97,6 +99,13 @@ class InvoicePrintService {
     Invoice invoice, {
     InvoiceCopyType? copyType,
   }) async {
+    // Загружаем настройки компании
+    final companySettings = await CompanySettingsService().getSettings();
+    if (companySettings == null) {
+      throw Exception(
+          'Настройки компании не найдены. Настройте их в админ-панели.');
+    }
+
     // Определяем тип копии
     InvoiceCopyType actualCopyType;
     if (copyType != null) {
@@ -135,6 +144,7 @@ class InvoicePrintService {
               fontHebrewBold,
               fontLatin,
               actualCopyType,
+              companySettings,
             ),
             pw.SizedBox(height: 10),
             _buildInvoiceTitle(
@@ -151,7 +161,8 @@ class InvoicePrintService {
             pw.SizedBox(height: 15),
             _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
             pw.Spacer(),
-            _buildFooter(fontHebrew, fontHebrewBold, fontLatin),
+            _buildFooter(
+                fontHebrew, fontHebrewBold, fontLatin, companySettings),
           ],
         ),
       ),
@@ -196,6 +207,7 @@ class InvoicePrintService {
     pw.Font fontHebrewBold,
     pw.Font fontLatin,
     InvoiceCopyType copyType,
+    CompanySettings settings,
   ) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -206,7 +218,7 @@ class InvoicePrintService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              'Y.C PLAST L.T.D',
+              settings.nameEnglish,
               style: pw.TextStyle(
                 font: fontLatin,
                 fontSize: 16,
@@ -215,27 +227,29 @@ class InvoicePrintService {
             ),
             pw.SizedBox(height: 4),
             pw.Text(
-              'P.O.B 1057',
+              'P.O.B ${settings.poBox}',
               style: pw.TextStyle(font: fontLatin, fontSize: 10),
             ),
             pw.Text(
-              'PARDESS HANA Z.C. 37100',
+              settings.addressEnglish,
               style: pw.TextStyle(font: fontLatin, fontSize: 10),
             ),
             pw.Text(
-              'TEL. 972-4-6288547/9  FAX. 972-4-6288579',
+              'TEL. ${settings.phone}  FAX. ${settings.fax}',
               style: pw.TextStyle(font: fontLatin, fontSize: 9),
             ),
             pw.SizedBox(height: 2),
             _smartText(
-              'www.ycplast.co.il אתר',
+              'אתר ${settings.website}',
               fontHebrew,
               fontLatin,
               fontSize: 9,
             ),
-            pw.Text(
-              'ח.פ 513322760',
-              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+            _smartText(
+              'ח.פ ${settings.taxId}',
+              fontHebrew,
+              fontLatin,
+              fontSize: 9,
             ),
           ],
         ),
@@ -246,7 +260,7 @@ class InvoicePrintService {
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             _smartText(
-              'י.כ. פלסט בע״מ',
+              settings.nameHebrew,
               fontHebrewBold,
               fontLatin,
               fontSize: 18,
@@ -254,20 +268,22 @@ class InvoicePrintService {
             ),
             pw.SizedBox(height: 4),
             _smartText(
-              'ת.ד. 1057',
+              'ת.ד. ${settings.poBox}',
               fontHebrew,
               fontLatin,
               fontSize: 10,
             ),
             _smartText(
-              'פרדס חנה מיקוד 37100',
+              settings.addressHebrew,
               fontHebrew,
               fontLatin,
               fontSize: 10,
             ),
-            pw.Text(
-              'טל: 04-6288579 פקס: 04-6288547/9',
-              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+            _smartText(
+              'טל: ${settings.phone} פקס: ${settings.fax}',
+              fontHebrew,
+              fontLatin,
+              fontSize: 9,
             ),
           ],
         ),
@@ -794,7 +810,11 @@ class InvoicePrintService {
     pw.Font fontHebrew,
     pw.Font fontHebrewBold,
     pw.Font fontLatin,
+    CompanySettings settings,
   ) {
+    // Разбиваем текст футера на строки
+    final footerLines = settings.invoiceFooterText.split('\n');
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
@@ -804,43 +824,18 @@ class InvoicePrintService {
           padding: const pw.EdgeInsets.all(10),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              _smartText(
-                'חובה להחזיר משטחים-לקוח שלא יחזיר יחוייב בגינם',
-                fontHebrewBold,
-                fontLatin,
-                fontSize: 10,
-                bold: true,
-              ),
-              pw.SizedBox(height: 3),
-              _smartText(
-                '*הסחורה עד לפרעון התשלום בבעלות י.כ.פלסט בע״מ',
-                fontHebrew,
-                fontLatin,
-                fontSize: 9,
-              ),
-              pw.SizedBox(height: 3),
-              _smartText(
-                'הסמכות הבלעדית נשוא ח-ו זו, נתון לבית המשפט בחדרה',
-                fontHebrew,
-                fontLatin,
-                fontSize: 9,
-              ),
-              pw.SizedBox(height: 3),
-              _smartText(
-                'ערעורים והשגות יתקבלו 15 יום מיום קבלת הח-ו',
-                fontHebrew,
-                fontLatin,
-                fontSize: 9,
-              ),
-              pw.SizedBox(height: 3),
-              _smartText(
-                'אם הקונה היינו חברה בע״מ - בעלי החברה ערבים אישית לתשלום.',
-                fontHebrew,
-                fontLatin,
-                fontSize: 9,
-              ),
-            ],
+            children: footerLines.map((line) {
+              return pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 3),
+                child: _smartText(
+                  line,
+                  line == footerLines.first ? fontHebrewBold : fontHebrew,
+                  fontLatin,
+                  fontSize: line == footerLines.first ? 10 : 9,
+                  bold: line == footerLines.first,
+                ),
+              );
+            }).toList(),
           ),
         ),
         pw.SizedBox(height: 10),
@@ -878,12 +873,12 @@ class InvoicePrintService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              // יבגני
+              // Водитель
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   _smartText(
-                    'יבגני',
+                    settings.driverName,
                     fontHebrewBold,
                     fontLatin,
                     fontSize: 11,
@@ -891,7 +886,7 @@ class InvoicePrintService {
                   ),
                   pw.SizedBox(height: 3),
                   _smartText(
-                    '892-94-902',
+                    settings.driverPhone,
                     fontLatin,
                     fontHebrew,
                     fontSize: 11,
@@ -924,7 +919,7 @@ class InvoicePrintService {
                   ),
                   pw.SizedBox(height: 3),
                   _smartText(
-                    '7:00',
+                    settings.departureTime,
                     fontLatin,
                     fontHebrew,
                     fontSize: 12,
