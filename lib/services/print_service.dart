@@ -199,79 +199,183 @@ class PrintService {
     );
   }
 
-  /// Таблица маршрута
+  /// Таблица маршрута - блоки по клиентам
   static pw.Widget _buildRouteTable(
     List<DeliveryPoint> points,
     pw.Font fontHebrew,
     pw.Font fontHebrewBold,
     pw.Font fontLatin,
   ) {
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black),
-      columnWidths: {
-        0: const pw.FixedColumnWidth(40),
-        1: const pw.FlexColumnWidth(2),
-        2: const pw.FlexColumnWidth(3),
-        3: const pw.FixedColumnWidth(60),
-        4: const pw.FixedColumnWidth(60),
-        5: const pw.FixedColumnWidth(80),
-      },
-      children: [
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            _buildTableCell('מס\'', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell(
-              'שם לקוח',
-              fontHebrewBold,
-              fontLatin,
-              isHeader: true,
-            ),
-            _buildTableCell('כתובת', fontHebrewBold, fontLatin, isHeader: true),
-            _buildTableCell(
-              'משטחים',
-              fontHebrewBold,
-              fontLatin,
-              isHeader: true,
-            ),
-            _buildTableCell(
-              'קרטונים',
-              fontHebrewBold,
-              fontLatin,
-              isHeader: true,
-            ),
-            _buildTableCell(
-              'פריט',
-              fontHebrewBold,
-              fontLatin,
-              isHeader: true,
-            ),
-            _buildTableCell('סטטוס', fontHebrewBold, fontLatin, isHeader: true),
-          ],
-        ),
-        ...points.map((p) {
-          // Форматируем типы коробок для отображения - только названия
-          final boxTypesText = p.boxTypes != null && p.boxTypes!.isNotEmpty
-              ? p.boxTypes!.map((box) => '${box.type} ${box.number}').join('\n')
-              : '-';
+    return pw.Column(
+      children: points.asMap().entries.map((entry) {
+        final index = entry.key;
+        final point = entry.value;
+        final orderNumber = index + 1; // Порядковый номер (1, 2, 3...)
 
-          return pw.TableRow(
+        return pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 15),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 2),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: [
-              _buildTableCell('${p.orderInRoute}', fontHebrew, fontLatin),
-              _buildTableCell(p.clientName, fontHebrew, fontLatin),
-              _buildTableCell(p.address, fontHebrew, fontLatin),
-              _buildTableCell('${p.pallets}', fontHebrew, fontLatin),
-              _buildTableCell('${p.boxes}', fontHebrew, fontLatin),
-              _buildTableCell(boxTypesText, fontHebrew, fontLatin),
-              _buildTableCell(
-                _getStatusInHebrew(p.status),
-                fontHebrew,
-                fontLatin,
+              // Заголовок клиента
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  border: pw.Border(
+                    bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                  ),
+                ),
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Порядковый номер - большой и заметный
+                    pw.Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue700,
+                        shape: pw.BoxShape.circle,
+                      ),
+                      child: pw.Center(
+                        child: pw.Text(
+                          '$orderNumber',
+                          style: pw.TextStyle(
+                            font:
+                                fontLatin, // Используем латинский шрифт для цифр
+                            fontSize: 20,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(width: 12),
+                    // Информация о клиенте
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          // Номер клиента (6 цифр)
+                          _smartText(
+                            point.clientNumber ?? '000000',
+                            fontHebrewBold,
+                            fontLatin,
+                            fontSize: 14,
+                            bold: true,
+                          ),
+                          pw.SizedBox(height: 4),
+                          // Имя клиента
+                          _smartText(
+                            'לקוח: ${point.clientName}',
+                            fontHebrewBold,
+                            fontLatin,
+                            fontSize: 11,
+                            bold: true,
+                          ),
+                          pw.SizedBox(height: 4),
+                          // Адрес
+                          _smartText(
+                            'עד: ${point.address}',
+                            fontHebrew,
+                            fontLatin,
+                            fontSize: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Таблица товаров
+              if (point.boxTypes != null && point.boxTypes!.isNotEmpty)
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(1), // כמות (слева)
+                    1: const pw.FlexColumnWidth(3), // תאור פריט (центр)
+                    2: const pw.FlexColumnWidth(1), // מק"ט (справа)
+                  },
+                  children: [
+                    // Заголовок таблицы
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey300,
+                      ),
+                      children: [
+                        _buildTableCell(
+                          'כמות',
+                          fontHebrewBold,
+                          fontLatin,
+                          isHeader: true,
+                        ),
+                        _buildTableCell(
+                          'תאור פריט',
+                          fontHebrewBold,
+                          fontLatin,
+                          isHeader: true,
+                        ),
+                        _buildTableCell(
+                          'מק"ט',
+                          fontHebrewBold,
+                          fontLatin,
+                          isHeader: true,
+                        ),
+                      ],
+                    ),
+                    // Строки товаров
+                    ...point.boxTypes!.map((box) {
+                      return pw.TableRow(
+                        children: [
+                          _buildTableCell(
+                            '${box.quantity}', // כמות слева
+                            fontLatin,
+                            fontHebrew,
+                          ),
+                          _buildTableCell(
+                            '${box.type} ${box.number}', // תאור פריט центр
+                            fontHebrew,
+                            fontLatin,
+                          ),
+                          _buildTableCell(
+                            box.productCode, // מק"ט справа
+                            fontLatin,
+                            fontHebrew,
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              // Итого для клиента - слева
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border(
+                    top: pw.BorderSide(color: PdfColors.black),
+                  ),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.start, // Слева
+                  children: [
+                    _smartText(
+                      'סה"כ ללקוח: ${point.boxes} יח\'',
+                      fontHebrewBold,
+                      fontLatin,
+                      fontSize: 11,
+                      bold: true,
+                    ),
+                  ],
+                ),
               ),
             ],
-          );
-        }),
-      ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -322,15 +426,35 @@ class PrintService {
             bold: true,
           ),
           pw.SizedBox(height: 10),
+          // Главная строка - общее количество коробок
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.blue100,
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                _smartText(
+                  'סה"כ קופסאות במסלול: $totalBoxes יח\'',
+                  fontHebrewBold,
+                  fontLatin,
+                  fontSize: 14,
+                  bold: true,
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 10),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               _smartText('סך הכל משטחים: $totalPallets', fontHebrew, fontLatin),
-              _smartText('סך הכל קרטונים: $totalBoxes', fontHebrew, fontLatin),
+              _smartText(
+                  'מספר נקודות: ${points.length}', fontHebrew, fontLatin),
             ],
           ),
-          pw.SizedBox(height: 5),
-          _smartText('מספר נקודות: ${points.length}', fontHebrew, fontLatin),
           pw.SizedBox(height: 10),
           pw.Row(
             mainAxisSize: pw.MainAxisSize.min,
@@ -359,22 +483,5 @@ class PrintService {
         ],
       ),
     );
-  }
-
-  static String _getStatusInHebrew(String status) {
-    switch (status) {
-      case 'assigned':
-        return 'הוקצה';
-      case 'in_progress':
-        return 'בביצוע';
-      case 'completed':
-        return 'הושלם';
-      case 'cancelled':
-        return 'בוטל';
-      case 'pending':
-        return 'ממתין';
-      default:
-        return status;
-    }
   }
 }

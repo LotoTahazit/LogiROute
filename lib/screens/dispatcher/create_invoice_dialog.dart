@@ -73,6 +73,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
         items.add(
           InvoiceItem(
+            productCode:
+                boxType.productCode, // Используем настоящий מק"ט из boxType
             type: boxType.type,
             number: boxType.number,
             quantity: boxType.quantity,
@@ -100,6 +102,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   void _updateItemPrice(int index, double newPrice) {
     setState(() {
       _items[index] = InvoiceItem(
+        productCode: _items[index].productCode, // Сохраняем מק"ט
         type: _items[index].type,
         number: _items[index].number,
         quantity: _items[index].quantity,
@@ -135,11 +138,12 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         id: '',
         sequentialNumber: 0, // Will be set by service
         clientName: widget.point.clientName,
-        clientNumber: '', // DeliveryPoint doesn't have clientNumber
+        clientNumber: widget.point.clientNumber ?? '', // Берем из DeliveryPoint
         address: widget.point.address,
         driverName: widget.driver.name,
         truckNumber: widget.driver.vehicleNumber ?? '',
         deliveryDate: _deliveryDate,
+        paymentDueDate: null, // TODO: Добавить поле для ввода
         departureTime: departureTime,
         items: _items,
         discount: double.tryParse(_discountController.text) ?? 0.0,

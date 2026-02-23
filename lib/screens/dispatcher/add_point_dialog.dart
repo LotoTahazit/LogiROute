@@ -69,7 +69,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
         final inventoryItem = inventory.firstWhere(
           (item) => item.type == boxType.type && item.number == boxType.number,
           orElse: () => throw Exception(
-            'Товар ${boxType.type} ${boxType.number} не найден в инвентаре',
+            'ITEM_NOT_FOUND:${boxType.type}:${boxType.number}',
           ),
         );
 
@@ -103,6 +103,47 @@ class _AddPointDialogState extends State<AddPointDialog> {
     }
   }
 
+  /// Заменяет полные названия улиц на сокращения (как в Google Maps)
+  String _applyStreetAbbreviations(String address) {
+    String result = address;
+
+    // 1. Известные сокращения (самые частые)
+    final knownAbbreviations = {
+      'בעל שם טוב': 'בעלש"ט',
+      'הבעל שם טוב': 'הבעלש"ט',
+      'בן גוריון': 'בן גוריון',
+      'דוד המלך': 'דוד המלך',
+    };
+
+    for (final entry in knownAbbreviations.entries) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
+
+    // 2. Автоматические сокращения по правилам иврита
+    // Паттерн: "слово1 слово2 слово3" → "слово1 первая_буква2"первая_буква3"
+    // Например: "רבי עקיבא" → "רבי ע", "משה רבנו" → "משה ר"
+
+    // Ищем паттерны типа "רבי X", "משה X", "אליהו X" и т.д.
+    final patterns = [
+      RegExp(r'רבי\s+(\S)(\S+)'), // רבי עקיבא → רבי ע
+      RegExp(r'משה\s+(\S)(\S+)'), // משה רבנו → משה ר
+      RegExp(r'אליהו\s+(\S)(\S+)'), // אליהו הנביא → אליהו ה
+      RegExp(r'דוד\s+(\S)(\S+)'), // דוד המלך → דוד ה
+      RegExp(r'שלמה\s+(\S)(\S+)'), // שלמה המלך → שלמה ה
+      RegExp(r'יהודה\s+(\S)(\S+)'), // יהודה הלוי → יהודה ה
+    ];
+
+    for (final pattern in patterns) {
+      result = result.replaceAllMapped(pattern, (match) {
+        final prefix = match.group(0)!.split(' ')[0]; // רבי, משה и т.д.
+        final firstLetter = match.group(1)!; // Первая буква второго слова
+        return '$prefix $firstLetter'; // רבי ע
+      });
+    }
+
+    return result;
+  }
+
   /// Генерирует множественные варианты адреса для геокодирования (подход как в Waze)
   List<String> _generateAddressVariants(String originalAddress) {
     List<String> variants = [];
@@ -110,23 +151,59 @@ class _AddPointDialogState extends State<AddPointDialog> {
     // 1. Как ввел пользователь (приоритет)
     variants.add(originalAddress);
 
-    // 2. С добавлением страны на иврите
+    // 2. С сокращениями улиц (как в Google Maps)
+    String abbreviated = _applyStreetAbbreviations(originalAddress);
+    if (abbreviated != originalAddress) {
+      variants.add(abbreviated);
+    }
+
+    // 3. С добавлением страны на иврите
     variants.add('$originalAddress, ישראל');
+    if (abbreviated != originalAddress) {
+      variants.add('$abbreviated, ישראל');
+    }
 
-    // 3. С добавлением страны на английском
+    // 4. С добавлением страны на английском
     variants.add('$originalAddress, Israel');
+    if (abbreviated != originalAddress) {
+      variants.add('$abbreviated, Israel');
+    }
 
-    // 4. Стандартизация формата: номер дома, улица, город (как рекомендует Waze)
+    // 5. Стандартизация формата: номер дома, улица, город (как рекомендует Waze)
     String standardizedFormat = _standardizeAddressFormat(originalAddress);
     if (standardizedFormat != originalAddress) {
       variants.add(standardizedFormat);
       variants.add('$standardizedFormat, ישראל');
+
+      // Со стандартизацией + сокращения
+      String standardizedAbbreviated =
+          _applyStreetAbbreviations(standardizedFormat);
+      if (standardizedAbbreviated != standardizedFormat) {
+        variants.add(standardizedAbbreviated);
+        variants.add('$standardizedAbbreviated, ישראל');
+      }
     }
 
-    // 5. Попытка с разными городами (если не указан)
+    // 6. Попытка с разными городами (если не указан)
+    // ✅ Холон первым (приоритет для Y.C. Plast)
+    if (!originalAddress.contains('חולון') &&
+        !originalAddress.contains('Holon')) {
+      variants.add('$originalAddress, חולון, ישראל');
+      if (abbreviated != originalAddress) {
+        variants.add('$abbreviated, חולון, ישראל');
+      }
+    }
+    if (!originalAddress.contains('ראשון לציון') &&
+        !originalAddress.contains('Rishon')) {
+      variants.add('$originalAddress, ראשון לציון, ישראל');
+    }
     if (!originalAddress.contains('תל אביב') &&
         !originalAddress.contains('Tel Aviv')) {
       variants.add('$originalAddress, תל אביב, ישראל');
+    }
+    if (!originalAddress.contains('פתח תקווה') &&
+        !originalAddress.contains('Petah Tikva')) {
+      variants.add('$originalAddress, פתח תקווה, ישראל');
     }
     if (!originalAddress.contains('ירושלים') &&
         !originalAddress.contains('Jerusalem')) {
@@ -136,19 +213,57 @@ class _AddPointDialogState extends State<AddPointDialog> {
         !originalAddress.contains('Haifa')) {
       variants.add('$originalAddress, חיפה, ישראל');
     }
+    if (!originalAddress.contains('באר שבע') &&
+        !originalAddress.contains('Beer Sheva')) {
+      variants.add('$originalAddress, באר שבע, ישראל');
+    }
 
-    // 6. Упрощенный формат (только номер и улица)
+    // 7. Упрощенный формат (только номер и улица)
     String simplified = _simplifyAddress(originalAddress);
     if (simplified != originalAddress) {
       variants.add(simplified);
       variants.add('$simplified, תל אביב, ישראל');
+
+      // Упрощенный + сокращения
+      String simplifiedAbbreviated = _applyStreetAbbreviations(simplified);
+      if (simplifiedAbbreviated != simplified) {
+        variants.add(simplifiedAbbreviated);
+        variants.add('$simplifiedAbbreviated, תל אביב, ישראל');
+      }
     }
 
-    // 7. Транслитерация известных улиц (как запасной вариант)
+    // 7.5. Убираем префиксы "רחוב", "שדרות" и пробуем снова
+    String withoutPrefix = originalAddress
+        .replaceAll('רחוב ', '')
+        .replaceAll('רח\' ', '')
+        .replaceAll('שדרות ', '')
+        .replaceAll('שד\' ', '')
+        .trim();
+
+    if (withoutPrefix != originalAddress) {
+      variants.add(withoutPrefix);
+      variants.add('$withoutPrefix, ישראל');
+
+      // С сокращениями без префикса
+      String withoutPrefixAbbr = _applyStreetAbbreviations(withoutPrefix);
+      if (withoutPrefixAbbr != withoutPrefix) {
+        variants.add(withoutPrefixAbbr);
+        variants.add('$withoutPrefixAbbr, ישראל');
+      }
+    }
+
+    // 8. Транслитерация известных улиц (как запасной вариант)
     List<String> transliteratedVariants = _getTransliteratedVariants(
       originalAddress,
     );
     variants.addAll(transliteratedVariants);
+
+    debugPrint(
+        '🔍 [Address Variants] Generated ${variants.length} variants for "$originalAddress"');
+    if (abbreviated != originalAddress) {
+      debugPrint(
+          '✂️ [Abbreviation] Applied: "$originalAddress" → "$abbreviated"');
+    }
 
     // Удаляем дубликаты и возвращаем
     return variants.toSet().toList();
@@ -231,7 +346,40 @@ class _AddPointDialogState extends State<AddPointDialog> {
         final data = json.decode(response.body);
 
         if (data['status'] == 'OK' && data['results'].isNotEmpty) {
-          final location = data['results'][0]['geometry']['location'];
+          final result = data['results'][0];
+          final location = result['geometry']['location'];
+          final formattedAddress = result['formatted_address'] as String;
+
+          // ✅ ПРОВЕРКА: Логируем полный адрес от Google
+          debugPrint('🗺️ [Google API] Input: "$address"');
+          debugPrint('🗺️ [Google API] Result: "$formattedAddress"');
+          debugPrint(
+              '🗺️ [Google API] Coords: (${location['lat']}, ${location['lng']})');
+
+          // ✅ ПРОВЕРКА: Если в запросе был конкретный город, проверяем что результат содержит этот город
+          final cityChecks = {
+            'חולון': ['חולון', 'Holon'],
+            'Holon': ['חולון', 'Holon'],
+            'ראשון לציון': ['ראשון לציון', 'Rishon'],
+            'Rishon': ['ראשון לציון', 'Rishon'],
+            'תל אביב': ['תל אביב', 'Tel Aviv'],
+            'Tel Aviv': ['תל אביב', 'Tel Aviv'],
+            'פתח תקווה': ['פתח תקווה', 'Petah Tikva'],
+            'Petah Tikva': ['פתח תקווה', 'Petah Tikva'],
+          };
+
+          for (final entry in cityChecks.entries) {
+            if (address.contains(entry.key)) {
+              final cityFound =
+                  entry.value.any((city) => formattedAddress.contains(city));
+              if (!cityFound) {
+                debugPrint(
+                    '⚠️ [Google API] WARNING: Requested ${entry.key} but got: $formattedAddress');
+                return null; // Пропускаем неправильный результат
+              }
+            }
+          }
+
           return {'latitude': location['lat'], 'longitude': location['lng']};
         } else {
           debugPrint('❌ [Google API] Status: ${data['status']}');
@@ -269,12 +417,14 @@ class _AddPointDialogState extends State<AddPointDialog> {
   }
 
   void _fillClientData(ClientModel client) {
-    _selectedClient = client;
-    _numberController.text = client.clientNumber;
-    _nameController.text = client.name;
-    _addressController.text = client.address;
-    _phoneController.text = client.phone ?? '';
-    _contactController.text = client.contactPerson ?? '';
+    setState(() {
+      _selectedClient = client;
+      _numberController.text = client.clientNumber;
+      _nameController.text = client.name;
+      _addressController.text = client.address;
+      _phoneController.text = client.phone ?? '';
+      _contactController.text = client.contactPerson ?? '';
+    });
   }
 
   Future<void> _savePoint() async {
@@ -434,33 +584,65 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
         if (!availability['available']) {
           final insufficient = availability['insufficient'] as List<String>;
+          final l10n = AppLocalizations.of(context)!;
 
           if (mounted) {
             await showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('אין מספיק מלאי'),
+                title: Text(l10n.insufficientStock),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'לא ניתן ליצור הזמנה - אין מספיק מלאי:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.cannotCreateOrderInsufficientStock,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    ...insufficient.map((item) => Text('• $item')),
+                    ...insufficient.map((item) {
+                      // Проверяем, является ли это кодом ошибки
+                      if (item.startsWith('Exception: ITEM_NOT_FOUND:')) {
+                        final parts = item
+                            .replaceFirst('Exception: ITEM_NOT_FOUND:', '')
+                            .split(':');
+                        if (parts.length == 2) {
+                          return Text(
+                              '• ${l10n.itemNotFoundInInventory}: ${parts[0]} ${parts[1]}');
+                        }
+                      } else if (item
+                          .startsWith('Exception: PRODUCT_CODE_NOT_FOUND:')) {
+                        final code = item.replaceFirst(
+                            'Exception: PRODUCT_CODE_NOT_FOUND:', '');
+                        return Text('• ${l10n.productCodeNotFound}: $code');
+                      }
+
+                      // Парсим данные: type|number|productCode|available|requested
+                      final parts = item.split('|');
+                      if (parts.length == 5) {
+                        final type = parts[0];
+                        final number = parts[1];
+                        final productCode = parts[2];
+                        final available = parts[3];
+                        final requested = parts[4];
+
+                        // Форматируем с локализацией
+                        return Text(
+                            '• $type $number (${l10n.productCode}: $productCode): ${l10n.available} $available, ${l10n.requested} $requested');
+                      }
+                      return Text('• $item');
+                    }),
                     const SizedBox(height: 16),
-                    const Text(
-                      'אנא פנה למחסנאי לעדכון המלאי.',
-                      style: TextStyle(color: Colors.red),
+                    Text(
+                      l10n.pleaseContactWarehouseKeeper,
+                      style: const TextStyle(color: Colors.red),
                     ),
                   ],
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('הבנתי'),
+                    child: Text(l10n.understood),
                   ),
                 ],
               ),
@@ -475,6 +657,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
       final point = DeliveryPoint(
         id: '',
         clientName: client.name,
+        clientNumber: client.clientNumber,
         address: client.address,
         latitude: latitude,
         longitude: longitude,

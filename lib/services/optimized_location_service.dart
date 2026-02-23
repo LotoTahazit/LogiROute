@@ -34,6 +34,7 @@ class OptimizedLocationService {
 
   Future<void> startTracking(
     String driverId,
+    String driverName,
     Function(double, double) onLocationUpdate,
   ) async {
     _currentDriverId = driverId;
@@ -56,6 +57,17 @@ class OptimizedLocationService {
     if (permission == LocationPermission.deniedForever) {
       debugPrint('⚠️ [Location] Location permission denied forever');
       return;
+    }
+
+    // ✅ ВАЖНО: Сохраняем имя водителя при старте трекинга
+    try {
+      await _firestore.collection('driver_locations').doc(driverId).set({
+        'driverName': driverName,
+        'timestamp': Timestamp.now(),
+      }, SetOptions(merge: true));
+      debugPrint('✅ [Location] Driver name saved: $driverName');
+    } catch (e) {
+      debugPrint('❌ [Location] Error saving driver name: $e');
     }
 
     // Start GPS stream
@@ -158,6 +170,7 @@ class OptimizedLocationService {
         'accuracy': position.accuracy,
         'speed': position.speed,
         'heading': position.heading,
+        // driverName уже сохранено при startTracking, не перезаписываем
       }, SetOptions(merge: true));
 
       debugPrint('✅ [Location] Saved to Firestore');
@@ -300,10 +313,15 @@ class OptimizedLocationService {
         .collection('driver_locations')
         .snapshots()
         .map((snapshot) {
+      debugPrint(
+          '📍 [Location Stream] Got ${snapshot.docs.length} driver locations');
       return snapshot.docs.map((doc) {
         final data = doc.data();
+        debugPrint(
+            '📍 [Location Stream] Driver ${doc.id}: lat=${data['latitude']}, lng=${data['longitude']}');
         return {
           'driverId': doc.id,
+          'driverName': data['driverName'] ?? 'Водитель',
           'latitude': data['latitude'],
           'longitude': data['longitude'],
           'timestamp': data['timestamp'],
@@ -355,6 +373,5 @@ class _PointTrackingData {
 
   _PointTrackingData({
     required this.arrivedAt,
-    this.completed = false,
-  });
+  }) : completed = false;
 }

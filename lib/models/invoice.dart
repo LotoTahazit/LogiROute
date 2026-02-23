@@ -49,12 +49,15 @@ class InvoiceAuditEntry {
 }
 
 class InvoiceItem {
+  final String
+      productCode; // מק"ט - артикул товара (ОБЯЗАТЕЛЬНОЕ) - ПЕРВОЕ ПОЛЕ
   final String type; // "בביע", "מכסה", "כוס"
   final String number; // "100", "200", etc.
   final int quantity; // Количество единиц
   final double pricePerUnit; // Цена за единицу (до НДС)
 
   InvoiceItem({
+    required this.productCode, // מק"ט - ОБЯЗАТЕЛЬНОЕ поле - ПЕРВЫЙ ПАРАМЕТР
     required this.type,
     required this.number,
     required this.quantity,
@@ -65,6 +68,7 @@ class InvoiceItem {
 
   Map<String, dynamic> toMap() {
     return {
+      'productCode': productCode, // מק"ט - ПЕРВОЕ ПОЛЕ в Map
       'type': type,
       'number': number,
       'quantity': quantity,
@@ -74,6 +78,7 @@ class InvoiceItem {
 
   factory InvoiceItem.fromMap(Map<String, dynamic> map) {
     return InvoiceItem(
+      productCode: map['productCode'] ?? '', // מק"ט - ОБЯЗАТЕЛЬНОЕ поле
       type: map['type'] ?? '',
       number: map['number'] ?? '',
       quantity: map['quantity'] ?? 0,
@@ -93,6 +98,8 @@ class Invoice {
   final String driverName;
   final String truckNumber;
   final DateTime deliveryDate; // Дата доставки (по умолчанию завтра)
+  final DateTime?
+      paymentDueDate; // תשלום עד - дата оплаты (если null - используется deliveryDate)
   final DateTime departureTime; // Время выезда (всегда 7:00)
   final List<InvoiceItem> items;
   final double discount; // Скидка в שקלים (не процент!)
@@ -115,6 +122,7 @@ class Invoice {
     required this.driverName,
     required this.truckNumber,
     required this.deliveryDate,
+    this.paymentDueDate, // Опциональное поле
     required this.departureTime,
     required this.items,
     this.discount = 0.0,
@@ -170,6 +178,8 @@ class Invoice {
       'driverName': driverName,
       'truckNumber': truckNumber,
       'deliveryDate': Timestamp.fromDate(deliveryDate),
+      if (paymentDueDate != null)
+        'paymentDueDate': Timestamp.fromDate(paymentDueDate!),
       'departureTime': Timestamp.fromDate(departureTime),
       'items': items.map((item) => item.toMap()).toList(),
       'discount': discount,
@@ -197,6 +207,9 @@ class Invoice {
       deliveryDate: map['deliveryDate'] != null
           ? (map['deliveryDate'] as Timestamp).toDate()
           : DateTime.now(),
+      paymentDueDate: map['paymentDueDate'] != null
+          ? (map['paymentDueDate'] as Timestamp).toDate()
+          : null,
       departureTime: map['departureTime'] != null
           ? (map['departureTime'] as Timestamp).toDate()
           : DateTime.now(),

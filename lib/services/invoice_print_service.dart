@@ -1,5 +1,4 @@
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -7,12 +6,90 @@ import '../models/invoice.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InvoicePrintService {
-  static String _formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy').format(date);
+  /// Извлекает город из адреса (текст после последней запятой)
+  static String _extractCity(String address) {
+    // Адрес обычно в формате: "улица номер, город"
+    // Например: "בעל שם טוב 22, בת ים" или "רחוב הרצל 5, תל אביב"
+    final parts = address.split(',');
+    if (parts.length > 1) {
+      // Берем все после последней запятой и убираем лишние пробелы
+      return parts.last.trim();
+    }
+    // Если нет запятой, возвращаем пустую строку
+    return '';
   }
 
-  static String _formatTime(DateTime time) {
-    return DateFormat('HH:mm').format(time);
+  /// Определяет направление текста
+  static pw.TextDirection _getTextDirection(String text) {
+    final hasHebrew = RegExp(r'[\u0590-\u05FF]').hasMatch(text);
+    return hasHebrew ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+  }
+
+  /// Умный текст, корректно отображающий цифры и английский внутри иврита
+  static pw.Widget _smartText(
+    String text,
+    pw.Font mainFont,
+    pw.Font latinFont, {
+    double fontSize = 12,
+    bool bold = false,
+    PdfColor color = PdfColors.black,
+    pw.TextAlign? textAlign,
+  }) {
+    final hasHebrew = RegExp(r'[\u0590-\u05FF]').hasMatch(text);
+    final hasLatinOrDigits = RegExp(r'[A-Za-z0-9]').hasMatch(text);
+
+    if (hasHebrew && hasLatinOrDigits) {
+      final spans = <pw.InlineSpan>[];
+      final buffer = StringBuffer();
+      bool currentIsHebrew = RegExp(r'[\u0590-\u05FF]').hasMatch(text[0]);
+
+      void flush() {
+        if (buffer.isEmpty) return;
+        spans.add(
+          pw.TextSpan(
+            text: buffer.toString(),
+            style: pw.TextStyle(
+              font: currentIsHebrew ? mainFont : latinFont,
+              fontFallback: [mainFont, latinFont],
+              fontSize: fontSize,
+              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: color,
+            ),
+          ),
+        );
+        buffer.clear();
+      }
+
+      for (final rune in text.runes) {
+        final ch = String.fromCharCode(rune);
+        final isHeb = RegExp(r'[\u0590-\u05FF]').hasMatch(ch);
+        if (isHeb != currentIsHebrew) {
+          flush();
+          currentIsHebrew = isHeb;
+        }
+        buffer.write(ch);
+      }
+      flush();
+
+      return pw.RichText(
+        text: pw.TextSpan(children: spans),
+        textDirection: pw.TextDirection.rtl,
+        textAlign: textAlign ?? pw.TextAlign.right,
+      );
+    }
+
+    return pw.Text(
+      text,
+      style: pw.TextStyle(
+        font: mainFont,
+        fontFallback: [latinFont],
+        fontSize: fontSize,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        color: color,
+      ),
+      textDirection: _getTextDirection(text),
+      textAlign: textAlign,
+    );
   }
 
   /// Печать חשבונית
@@ -59,14 +136,22 @@ class InvoicePrintService {
               fontLatin,
               actualCopyType,
             ),
-            pw.SizedBox(height: 30),
+            pw.SizedBox(height: 10),
+            _buildInvoiceTitle(
+              invoice,
+              fontHebrew,
+              fontHebrewBold,
+              fontLatin,
+              actualCopyType,
+            ),
+            pw.SizedBox(height: 10),
             _buildClientInfo(invoice, fontHebrew, fontHebrewBold, fontLatin),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 15),
             _buildItemsTable(invoice, fontHebrew, fontHebrewBold, fontLatin),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 15),
             _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
             pw.Spacer(),
-            _buildSignature(fontHebrew, fontHebrewBold, fontLatin),
+            _buildFooter(fontHebrew, fontHebrewBold, fontLatin),
           ],
         ),
       ),
@@ -83,7 +168,8 @@ class InvoicePrintService {
       await _updatePrintCounters(invoice.id, actualCopyType);
     } else {
       print(
-          '⚠️ [InvoicePrint] Cannot update print counters: invoice ID is empty');
+        '⚠️ [InvoicePrint] Cannot update print counters: invoice ID is empty',
+      );
     }
   }
 
@@ -99,14 +185,98 @@ class InvoicePrintService {
         copyType == InvoiceCopyType.replacesOriginal) {
       await docRef.update({'originalPrinted': true});
     } else {
-      await docRef.update({
-        'copiesPrinted': FieldValue.increment(1),
-      });
+      await docRef.update({'copiesPrinted': FieldValue.increment(1)});
     }
   }
 
-  /// Заголовок
+  /// Заголовок - точная копия формата с фото
   static pw.Widget _buildHeader(
+    Invoice invoice,
+    pw.Font fontHebrew,
+    pw.Font fontHebrewBold,
+    pw.Font fontLatin,
+    InvoiceCopyType copyType,
+  ) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Левая часть - название компании на английском
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Y.C PLAST L.T.D',
+              style: pw.TextStyle(
+                font: fontLatin,
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              'P.O.B 1057',
+              style: pw.TextStyle(font: fontLatin, fontSize: 10),
+            ),
+            pw.Text(
+              'PARDESS HANA Z.C. 37100',
+              style: pw.TextStyle(font: fontLatin, fontSize: 10),
+            ),
+            pw.Text(
+              'TEL. 972-4-6288547/9  FAX. 972-4-6288579',
+              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+            ),
+            pw.SizedBox(height: 2),
+            _smartText(
+              'www.ycplast.co.il אתר',
+              fontHebrew,
+              fontLatin,
+              fontSize: 9,
+            ),
+            pw.Text(
+              'ח.פ 513322760',
+              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+            ),
+          ],
+        ),
+        // Центр - логотип (пропускаем как сказано)
+        pw.SizedBox(width: 100),
+        // Правая часть - название на иврите
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            _smartText(
+              'י.כ. פלסט בע״מ',
+              fontHebrewBold,
+              fontLatin,
+              fontSize: 18,
+              bold: true,
+            ),
+            pw.SizedBox(height: 4),
+            _smartText(
+              'ת.ד. 1057',
+              fontHebrew,
+              fontLatin,
+              fontSize: 10,
+            ),
+            _smartText(
+              'פרדס חנה מיקוד 37100',
+              fontHebrew,
+              fontLatin,
+              fontSize: 10,
+            ),
+            pw.Text(
+              'טל: 04-6288579 פקס: 04-6288547/9',
+              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Заголовок счёта с автоматическим определением типа копии
+  static pw.Widget _buildInvoiceTitle(
     Invoice invoice,
     pw.Font fontHebrew,
     pw.Font fontHebrewBold,
@@ -127,105 +297,122 @@ class InvoicePrintService {
         break;
     }
 
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(20),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 2),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+    // Форматируем дату как на фото: 24/02/2026
+    final dateStr =
+        '${invoice.createdAt.day.toString().padLeft(2, '0')}/${invoice.createdAt.month.toString().padLeft(2, '0')}/${invoice.createdAt.year}';
+    final timeStr =
+        '${invoice.createdAt.hour.toString().padLeft(2, '0')}:${invoice.createdAt.minute.toString().padLeft(2, '0')}:${invoice.createdAt.second.toString().padLeft(2, '0')}';
+
+    return pw.Column(
+      children: [
+        // Верхняя строка - тип копии, תאריך, שעה (БЕЗ מובייל)
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                'Y.C PLAST',
-                style: pw.TextStyle(
-                  font: fontLatin,
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                'י.כ פלסט בע"מ',
-                style: pw.TextStyle(
-                  font: fontHebrewBold,
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-                textDirection: pw.TextDirection.rtl,
-              ),
-              pw.SizedBox(height: 15),
-              pw.Row(
+              // Тип копии (מקור/עותק/נעימן למקור) - КРУПНЕЕ (БЕЗ ЦИФР ПОД НИМ)
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    'חשבונית',
-                    style: pw.TextStyle(
-                      font: fontHebrewBold,
-                      fontSize: 28,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                    textDirection: pw.TextDirection.rtl,
+                  _smartText(
+                    copyTypeText,
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 14,
+                    bold: true,
                   ),
-                  pw.SizedBox(width: 10),
+                ],
+              ),
+              // תאריך ושעה
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _smartText(
+                    'תאריך',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 9,
+                  ),
                   pw.Text(
-                    '($copyTypeText)',
-                    style: pw.TextStyle(
-                      font: fontHebrewBold,
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                      color: copyType == InvoiceCopyType.replacesOriginal
-                          ? PdfColors.red
-                          : PdfColors.black,
-                    ),
-                    textDirection: pw.TextDirection.rtl,
+                    dateStr,
+                    style: pw.TextStyle(font: fontLatin, fontSize: 9),
+                  ),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _smartText(
+                    'שעה',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 9,
+                  ),
+                  pw.Text(
+                    timeStr,
+                    style: pw.TextStyle(font: fontLatin, fontSize: 9),
                   ),
                 ],
               ),
             ],
           ),
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+        ),
+        // חשבונית מס + номер (номер ПОСЛЕ текста)
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 8),
+          alignment: pw.Alignment.center,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.center,
             children: [
               pw.Text(
-                'שירות לקוחות',
-                style: pw.TextStyle(font: fontHebrew, fontSize: 12),
-                textDirection: pw.TextDirection.rtl,
-              ),
-              pw.SizedBox(height: 4),
-              pw.Directionality(
-                textDirection: pw.TextDirection.ltr,
-                child: pw.Text(
-                  '04-6288547',
-                  style: pw.TextStyle(
-                    font: fontLatin,
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                invoice.sequentialNumber.toString(),
+                style: pw.TextStyle(
+                  font: fontLatin,
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 15),
-              pw.Text(
-                'תאריך:',
-                style: pw.TextStyle(font: fontHebrew, fontSize: 12),
-                textDirection: pw.TextDirection.rtl,
-              ),
-              pw.Directionality(
-                textDirection: pw.TextDirection.ltr,
-                child: pw.Text(
-                  _formatDate(invoice.createdAt),
-                  style: pw.TextStyle(font: fontLatin, fontSize: 14),
-                ),
+              pw.SizedBox(width: 5),
+              _smartText(
+                'חשבונית מס',
+                fontHebrewBold,
+                fontLatin,
+                fontSize: 20,
+                bold: true,
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        // Дата оплаты (תשלום עד) - используем paymentDueDate или deliveryDate
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 1),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
+            children: [
+              pw.Text(
+                '${(invoice.paymentDueDate ?? invoice.deliveryDate).day.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).month.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).year}',
+                style: pw.TextStyle(font: fontLatin, fontSize: 12),
+              ),
+              pw.SizedBox(width: 10),
+              _smartText(
+                'תשלום עד',
+                fontHebrewBold,
+                fontLatin,
+                fontSize: 12,
+                bold: true,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  /// Информация о клиенте и доставке
+  /// Информация о клиенте - точная копия с фото
   static pw.Widget _buildClientInfo(
     Invoice invoice,
     pw.Font fontHebrew,
@@ -233,134 +420,94 @@ class InvoicePrintService {
     pw.Font fontLatin,
   ) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(15),
+      padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
-        color: PdfColors.grey100,
-        border: pw.Border.all(color: PdfColors.grey400),
+        border: pw.Border.all(color: PdfColors.black, width: 1.5),
       ),
-      child: pw.Column(
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _buildInfoRow(
-            'לקוח:',
-            invoice.clientName,
-            fontHebrew,
-            fontHebrewBold,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 5),
-          _buildInfoRow(
-            'מספר לקוח:',
-            invoice.clientNumber,
-            fontHebrew,
-            fontHebrewBold,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 5),
-          _buildInfoRow(
-            'כתובת:',
-            invoice.address,
-            fontHebrew,
-            fontHebrewBold,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 10),
-          pw.Divider(color: PdfColors.grey400),
-          pw.SizedBox(height: 10),
-          _buildInfoRow(
-            'נהג:',
-            invoice.driverName,
-            fontHebrew,
-            fontHebrewBold,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 5),
-          _buildInfoRow(
-            'משאית:',
-            invoice.truckNumber,
-            fontHebrew,
-            fontHebrewBold,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 5),
-          pw.Row(
+          // Левая часть - номер клиента (БОЛЬШОЙ) и город
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
               pw.Text(
-                'תאריך אספקה: ',
+                invoice.clientNumber,
                 style: pw.TextStyle(
-                  font: fontHebrewBold,
-                  fontSize: 12,
+                  font: fontLatin,
+                  fontSize: 14, // Уменьшено с 24 до 14
                   fontWeight: pw.FontWeight.bold,
                 ),
-                textDirection: pw.TextDirection.rtl,
               ),
-              pw.Directionality(
-                textDirection: pw.TextDirection.ltr,
-                child: pw.Text(
-                  _formatDate(invoice.deliveryDate),
-                  style: pw.TextStyle(font: fontLatin, fontSize: 12),
-                ),
+              pw.SizedBox(height: 5),
+              _smartText(
+                _extractCity(invoice.address),
+                fontHebrewBold,
+                fontLatin,
+                fontSize: 12, // Увеличено с 11 до 12
+                bold: true,
               ),
             ],
           ),
-          pw.SizedBox(height: 5),
-          pw.Row(
-            children: [
-              pw.Text(
-                'שעת יציאה: ',
-                style: pw.TextStyle(
-                  font: fontHebrewBold,
+          // Правая часть - основная информация
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                // לקוח
+                _smartText(
+                  'לקוח',
+                  fontHebrewBold,
+                  fontLatin,
                   fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
+                  bold: true,
                 ),
-                textDirection: pw.TextDirection.rtl,
-              ),
-              pw.Directionality(
-                textDirection: pw.TextDirection.ltr,
-                child: pw.Text(
-                  _formatTime(invoice.departureTime),
-                  style: pw.TextStyle(font: fontLatin, fontSize: 12),
+                pw.SizedBox(height: 3),
+                // Имя клиента
+                _smartText(
+                  invoice.clientName,
+                  fontHebrewBold,
+                  fontLatin,
+                  fontSize: 11,
+                  bold: true,
                 ),
-              ),
-            ],
+                pw.SizedBox(height: 3),
+                // Адрес
+                _smartText(
+                  invoice.address,
+                  fontHebrew,
+                  fontLatin,
+                  fontSize: 10,
+                ),
+                pw.SizedBox(height: 3),
+                // ת.ד
+                _smartText(
+                  'ת.ד',
+                  fontHebrew,
+                  fontLatin,
+                  fontSize: 10,
+                ),
+                pw.SizedBox(height: 3),
+                // טלפון פקס - НА ИВРИТЕ, НО СЛЕВА НАПРАВО (LTR)
+                pw.Directionality(
+                  textDirection: pw.TextDirection.ltr,
+                  child: _smartText(
+                    'טלפון 02-5631092 פקס',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  static pw.Widget _buildInfoRow(
-    String label,
-    String value,
-    pw.Font fontHebrew,
-    pw.Font fontHebrewBold,
-    pw.Font fontLatin,
-  ) {
-    return pw.Row(
-      children: [
-        pw.Text(
-          '$label ',
-          style: pw.TextStyle(
-            font: fontHebrewBold,
-            fontSize: 12,
-            fontWeight: pw.FontWeight.bold,
-          ),
-          textDirection: pw.TextDirection.rtl,
-        ),
-        pw.Text(
-          value,
-          style: pw.TextStyle(
-            font: fontHebrew,
-            fontFallback: [fontLatin],
-            fontSize: 12,
-          ),
-          textDirection: pw.TextDirection.rtl,
-        ),
-      ],
-    );
-  }
-
-  /// Таблица товаров
+  /// Таблица товаров - точная копия формата с фото
   static pw.Widget _buildItemsTable(
     Invoice invoice,
     pw.Font fontHebrew,
@@ -368,22 +515,30 @@ class InvoicePrintService {
     pw.Font fontLatin,
   ) {
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black),
+      border: pw.TableBorder.all(color: PdfColors.black, width: 1),
       columnWidths: {
-        0: const pw.FlexColumnWidth(3),
-        1: const pw.FlexColumnWidth(1),
-        2: const pw.FlexColumnWidth(1.5),
-        3: const pw.FlexColumnWidth(1.5),
+        0: const pw.FlexColumnWidth(1.5), // מחיר
+        1: const pw.FlexColumnWidth(1), // % הנחה
+        2: const pw.FlexColumnWidth(1.5), // לקרטון
+        3: const pw.FlexColumnWidth(1.5), // סה"כ יחידות
+        4: const pw.FlexColumnWidth(1.5), // כמות בקרטון
+        5: const pw.FlexColumnWidth(1.5), // כמות קרטונים
+        6: const pw.FlexColumnWidth(3), // תאור פריט
+        7: const pw.FlexColumnWidth(1.5), // מס' פריט
       },
       children: [
         // Заголовок
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
-            _buildTableHeader('פריט', fontHebrewBold),
-            _buildTableHeader('קרטונים', fontHebrewBold),
-            _buildTableHeader('מחיר ליח\'', fontHebrewBold),
-            _buildTableHeader('סה"כ', fontHebrewBold),
+            _buildTableHeader('מחיר', fontHebrewBold, fontLatin),
+            _buildTableHeader('% הנחה', fontHebrewBold, fontLatin),
+            _buildTableHeader('לקרטון', fontHebrewBold, fontLatin),
+            _buildTableHeader('סה״כ\nיחידות', fontHebrewBold, fontLatin),
+            _buildTableHeader('כמות\nבקרטון', fontHebrewBold, fontLatin),
+            _buildTableHeader('כמות\nקרטונים', fontHebrewBold, fontLatin),
+            _buildTableHeader('תאור פריט', fontHebrewBold, fontLatin),
+            _buildTableHeader('מס\' פריט', fontHebrewBold, fontLatin),
           ],
         ),
         // Строки товаров
@@ -391,9 +546,22 @@ class InvoicePrintService {
           return pw.TableRow(
             children: [
               _buildTableCell(
-                '${item.type} ${item.number}',
-                fontHebrew,
+                item.totalBeforeVAT.toStringAsFixed(2),
                 fontLatin,
+                fontHebrew,
+                align: pw.Alignment.centerRight,
+              ),
+              _buildTableCell(
+                '${invoice.discount.toStringAsFixed(0)}%',
+                fontLatin,
+                fontHebrew,
+                align: pw.Alignment.center,
+              ),
+              _buildTableCell(
+                item.pricePerUnit.toStringAsFixed(2),
+                fontLatin,
+                fontHebrew,
+                align: pw.Alignment.centerRight,
               ),
               _buildTableCell(
                 '${item.quantity}',
@@ -402,16 +570,28 @@ class InvoicePrintService {
                 align: pw.Alignment.center,
               ),
               _buildTableCell(
-                '₪${item.pricePerUnit.toStringAsFixed(2)}',
+                '1500',
                 fontLatin,
                 fontHebrew,
+                align: pw.Alignment.center,
+              ),
+              _buildTableCell(
+                '30.00',
+                fontLatin,
+                fontHebrew,
+                align: pw.Alignment.center,
+              ),
+              _buildTableCell(
+                '${item.type} ${item.number}',
+                fontHebrew,
+                fontLatin,
                 align: pw.Alignment.centerRight,
               ),
               _buildTableCell(
-                '₪${item.totalBeforeVAT.toStringAsFixed(2)}',
+                item.productCode,
                 fontLatin,
                 fontHebrew,
-                align: pw.Alignment.centerRight,
+                align: pw.Alignment.center,
               ),
             ],
           );
@@ -420,18 +600,17 @@ class InvoicePrintService {
     );
   }
 
-  static pw.Widget _buildTableHeader(String text, pw.Font font) {
+  static pw.Widget _buildTableHeader(
+      String text, pw.Font mainFont, pw.Font fallbackFont) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
       alignment: pw.Alignment.center,
-      child: pw.Text(
+      child: _smartText(
         text,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 12,
-          fontWeight: pw.FontWeight.bold,
-        ),
-        textDirection: pw.TextDirection.rtl,
+        mainFont,
+        fallbackFont,
+        fontSize: 12,
+        bold: true,
       ),
     );
   }
@@ -445,148 +624,318 @@ class InvoicePrintService {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
       alignment: align,
-      child: pw.Text(
+      child: _smartText(
         text,
-        style: pw.TextStyle(
-          font: mainFont,
-          fontFallback: [fallbackFont],
-          fontSize: 11,
-        ),
-        textDirection: pw.TextDirection.rtl,
+        mainFont,
+        fallbackFont,
+        fontSize: 11,
       ),
     );
   }
 
-  /// Итоги
+  /// Итоги - точная копия с фото
   static pw.Widget _buildTotals(
     Invoice invoice,
     pw.Font fontHebrew,
     pw.Font fontHebrewBold,
     pw.Font fontLatin,
   ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(15),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 1),
-      ),
-      child: pw.Column(
-        children: [
-          // Скидка (только если есть)
-          if (invoice.discount > 0) ...[
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'הנחה ${invoice.discount.toStringAsFixed(0)}%:',
-                  style: pw.TextStyle(font: fontHebrew, fontSize: 14),
-                  textDirection: pw.TextDirection.rtl,
-                ),
-                pw.Text(
-                  '-₪${invoice.discountAmount.toStringAsFixed(2)}',
-                  style: pw.TextStyle(font: fontLatin, fontSize: 14),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 8),
-          ],
-          // Сумма до НДС
-          _buildTotalRow(
-            'סה"כ לפני מע"מ:',
-            '₪${invoice.subtotalBeforeVAT.toStringAsFixed(2)}',
-            fontHebrew,
-            fontLatin,
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Левая часть - итоги
+        pw.Container(
+          width: 200,
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 1),
           ),
-          pw.SizedBox(height: 8),
-          // НДС
-          _buildTotalRow(
-            'מע"מ (18%):',
-            '₪${invoice.vatAmount.toStringAsFixed(2)}',
-            fontHebrew,
-            fontLatin,
-          ),
-          pw.SizedBox(height: 8),
-          pw.Divider(thickness: 2),
-          pw.SizedBox(height: 8),
-          // Итого
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: [
-              pw.Text(
-                'סה"כ לתשלום:',
-                style: pw.TextStyle(
-                  font: fontHebrewBold,
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-                textDirection: pw.TextDirection.rtl,
+              // סה"כ ב מע"מ
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    invoice.subtotalBeforeVAT.toStringAsFixed(2),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                  ),
+                  _smartText(
+                    'סה״כ',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 11,
+                  ),
+                ],
               ),
-              pw.Text(
-                '₪${invoice.totalWithVAT.toStringAsFixed(2)}',
-                style: pw.TextStyle(
-                  font: fontLatin,
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+              pw.SizedBox(height: 5),
+              // הנחה
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '0.00',
+                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                  ),
+                  pw.Row(
+                    children: [
+                      pw.Text(
+                        '0.0%',
+                        style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                      ),
+                      pw.SizedBox(width: 3),
+                      _smartText(
+                        'הנחה',
+                        fontHebrew,
+                        fontLatin,
+                        fontSize: 11,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              // חיוב/זיכוי/תוספות
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '0.00',
+                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                  ),
+                  _smartText(
+                    'חיוב/זיכוי/תוספות',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 10,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              // סה"כ לפני מע"מ
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    invoice.subtotalBeforeVAT.toStringAsFixed(2),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                  ),
+                  _smartText(
+                    'סה״כ לפני מע״מ',
+                    fontHebrew,
+                    fontLatin,
+                    fontSize: 11,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              // מע"מ 18%
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    invoice.vatAmount.toStringAsFixed(2),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                  ),
+                  pw.Row(
+                    children: [
+                      pw.Text(
+                        '18%',
+                        style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                      ),
+                      pw.SizedBox(width: 3),
+                      _smartText(
+                        'מע״מ',
+                        fontHebrew,
+                        fontLatin,
+                        fontSize: 11,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              pw.Divider(color: PdfColors.black, thickness: 1),
+              pw.SizedBox(height: 5),
+              // סה"כ לתשלום
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    invoice.totalWithVAT.toStringAsFixed(2),
+                    style: pw.TextStyle(
+                      font: fontLatin,
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  _smartText(
+                    'סה״כ לתשלום',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 14,
+                    bold: true,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildTotalRow(
-    String label,
-    String value,
-    pw.Font fontHebrew,
-    pw.Font fontLatin,
-  ) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(
-          label,
-          style: pw.TextStyle(font: fontHebrew, fontSize: 14),
-          textDirection: pw.TextDirection.rtl,
         ),
-        pw.Text(value, style: pw.TextStyle(font: fontLatin, fontSize: 14)),
+        // Правая часть - пустое место
+        pw.SizedBox(width: 200),
       ],
     );
   }
 
-  /// Подпись
-  static pw.Widget _buildSignature(
+  /// Подпись и условия внизу - точная копия с фото
+  static pw.Widget _buildFooter(
     pw.Font fontHebrew,
     pw.Font fontHebrewBold,
     pw.Font fontLatin,
   ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(15),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'חתימת הלקוח:',
-            style: pw.TextStyle(
-              font: fontHebrewBold,
-              fontSize: 12,
-              fontWeight: pw.FontWeight.bold,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
+      children: [
+        // Условия оплаты
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.all(10),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              _smartText(
+                'חובה להחזיר משטחים-לקוח שלא יחזיר יחוייב בגינם',
+                fontHebrewBold,
+                fontLatin,
+                fontSize: 10,
+                bold: true,
+              ),
+              pw.SizedBox(height: 3),
+              _smartText(
+                '*הסחורה עד לפרעון התשלום בבעלות י.כ.פלסט בע״מ',
+                fontHebrew,
+                fontLatin,
+                fontSize: 9,
+              ),
+              pw.SizedBox(height: 3),
+              _smartText(
+                'הסמכות הבלעדית נשוא ח-ו זו, נתון לבית המשפט בחדרה',
+                fontHebrew,
+                fontLatin,
+                fontSize: 9,
+              ),
+              pw.SizedBox(height: 3),
+              _smartText(
+                'ערעורים והשגות יתקבלו 15 יום מיום קבלת הח-ו',
+                fontHebrew,
+                fontLatin,
+                fontSize: 9,
+              ),
+              pw.SizedBox(height: 3),
+              _smartText(
+                'אם הקונה היינו חברה בע״מ - בעלי החברה ערבים אישית לתשלום.',
+                fontHebrew,
+                fontLatin,
+                fontSize: 9,
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        // חתימה (Signature field)
+        pw.Container(
+          width: 200,
+          padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 1),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              _smartText(
+                'חתימה',
+                fontHebrewBold,
+                fontLatin,
+                fontSize: 11,
+                bold: true,
+              ),
+              pw.SizedBox(height: 30), // Space for signature
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        // יבגני section
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(vertical: 10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border(
+              top: pw.BorderSide(color: PdfColors.black, width: 1),
             ),
-            textDirection: pw.TextDirection.rtl,
           ),
-          pw.SizedBox(height: 30),
-          pw.Container(height: 1, width: 200, color: PdfColors.black),
-          pw.SizedBox(height: 5),
-          pw.Text(
-            'תאריך: _______________',
-            style: pw.TextStyle(font: fontHebrew, fontSize: 10),
-            textDirection: pw.TextDirection.rtl,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              // יבגני
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  _smartText(
+                    'יבגני',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 11,
+                    bold: true,
+                  ),
+                  pw.SizedBox(height: 3),
+                  _smartText(
+                    '892-94-902',
+                    fontLatin,
+                    fontHebrew,
+                    fontSize: 11,
+                  ),
+                ],
+              ),
+              // מס' רכב
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  _smartText(
+                    'מס\' רכב:',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 11,
+                    bold: true,
+                  ),
+                ],
+              ),
+              // שעת יציאה
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  _smartText(
+                    'שעת יציאה :',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 11,
+                    bold: true,
+                  ),
+                  pw.SizedBox(height: 3),
+                  _smartText(
+                    '7:00',
+                    fontLatin,
+                    fontHebrew,
+                    fontSize: 12,
+                    bold: true,
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

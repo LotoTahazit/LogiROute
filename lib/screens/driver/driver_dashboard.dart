@@ -138,8 +138,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   void _startTracking() {
     final authService = context.read<AuthService>();
+    final driverName = authService.userModel?.name ?? 'Водитель';
     _locationService.startTracking(
       authService.currentUser!.uid,
+      driverName,
       _onLocationUpdate,
     );
     _autoCompleteService
@@ -147,7 +149,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     setState(() {
       _isTrackingActive = true;
     });
-    debugPrint('✅ [Driver] GPS tracking started');
+    debugPrint('✅ [Driver] GPS tracking started for $driverName');
   }
 
   void _stopTracking() {

@@ -17,13 +17,41 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
   final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _allBoxTypes = [];
+  List<Map<String, dynamic>> _filteredBoxTypes = [];
   Map<String, Price> _prices = {}; // key: type_number
   bool _isLoading = true;
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterBoxTypes(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredBoxTypes = _allBoxTypes;
+      } else {
+        _filteredBoxTypes = _allBoxTypes.where((boxType) {
+          final productCode =
+              (boxType['productCode'] as String? ?? '').toLowerCase();
+          final type = (boxType['type'] as String? ?? '').toLowerCase();
+          final number = (boxType['number'] as String? ?? '').toLowerCase();
+          final searchLower = query.toLowerCase();
+
+          return productCode.contains(searchLower) ||
+              type.contains(searchLower) ||
+              number.contains(searchLower);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -42,6 +70,7 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
 
       setState(() {
         _allBoxTypes = boxTypes;
+        _filteredBoxTypes = boxTypes;
         _prices = pricesMap;
         _isLoading = false;
       });
@@ -150,69 +179,121 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _allBoxTypes.isEmpty
-              ? const Center(
-                  child: Text(
-                    'אין סוגי קופסאות במאגר',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+          : Column(
+              children: [
+                // Поле поиска
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'חיפוש',
+                      hintText: 'חיפוש לפי מק"ט, סוג או מספר',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _filterBoxTypes('');
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: _filterBoxTypes,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _allBoxTypes.length,
-                  itemBuilder: (context, index) {
-                    final boxType = _allBoxTypes[index];
-                    final type = boxType['type'] as String;
-                    final number = boxType['number'] as String;
-                    final volumeMl = boxType['volumeMl'] as int?;
-                    final id = Price.generateId(type, number);
-                    final price = _prices[id];
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.inventory_2,
-                          color: Colors.blue,
-                          size: 32,
-                        ),
-                        title: Text(
-                          '$type $number${volumeMl != null ? " ($volumeMl מל)" : ""}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                ),
+                // Список товаров
+                Expanded(
+                  child: _filteredBoxTypes.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'לא נמצאו תוצאות',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
-                        ),
-                        subtitle: price != null
-                            ? Text(
-                                'מחיר: ₪${price.priceBeforeVAT.toStringAsFixed(2)} (לפני מע"מ)',
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.w500,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _filteredBoxTypes.length,
+                          itemBuilder: (context, index) {
+                            final boxType = _filteredBoxTypes[index];
+                            final productCode =
+                                boxType['productCode'] as String? ?? '';
+                            final type = boxType['type'] as String;
+                            final number = boxType['number'] as String;
+                            final volumeMl = boxType['volumeMl'] as int?;
+                            final id = Price.generateId(type, number);
+                            final price = _prices[id];
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.inventory_2,
+                                  color: Colors.blue,
+                                  size: 32,
                                 ),
-                              )
-                            : const Text(
-                                'לא הוגדר מחיר',
-                                style: TextStyle(
-                                  color: Colors.orange,
-                                  fontStyle: FontStyle.italic,
+                                title: Text(
+                                  '$type $number${volumeMl != null ? " ($volumeMl מל)" : ""}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (productCode.isNotEmpty)
+                                      Text(
+                                        'מק"ט: $productCode',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 4),
+                                    price != null
+                                        ? Text(
+                                            'מחיר: ₪${price.priceBeforeVAT.toStringAsFixed(2)} (לפני מע"מ)',
+                                            style: const TextStyle(
+                                              color: Colors.green,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'לא הוגדר מחיר',
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    price != null
+                                        ? Icons.edit
+                                        : Icons.add_circle,
+                                    color: price != null
+                                        ? Colors.blue
+                                        : Colors.green,
+                                  ),
+                                  onPressed: () => _showEditPriceDialog(
+                                    type,
+                                    number,
+                                    price?.priceBeforeVAT,
+                                  ),
                                 ),
                               ),
-                        trailing: IconButton(
-                          icon: Icon(
-                            price != null ? Icons.edit : Icons.add_circle,
-                            color: price != null ? Colors.blue : Colors.green,
-                          ),
-                          onPressed: () => _showEditPriceDialog(
-                            type,
-                            number,
-                            price?.priceBeforeVAT,
-                          ),
+                            );
+                          },
                         ),
-                      ),
-                    );
-                  },
                 ),
+              ],
+            ),
     );
   }
 }
