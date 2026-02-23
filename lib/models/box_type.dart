@@ -1,16 +1,20 @@
 class BoxType {
+  final String productCode; // מק"ט - ПЕРВОЕ ПОЛЕ
   final String type; // "בביע", "מכסה", "כוס"
   final String number; // "100", "250", "500"
   final int volumeMl; // автоматически определяется по номеру
   final int quantity; // количество единиц
   final double? price; // цена за единицу (опционально)
+  final String companyId; // ID компании
 
   BoxType({
+    required this.productCode, // מק"ט - ОБЯЗАТЕЛЬНОЕ поле
     required this.type,
     required this.number,
     required this.volumeMl,
     required this.quantity,
     this.price,
+    required this.companyId, // ОБЯЗАТЕЛЬНОЕ поле
   });
 
   // Справочник: номер -> объём в мл (больше не используется, данные из Firebase)
@@ -28,26 +32,30 @@ class BoxType {
   // Конвертация в Map для Firestore
   Map<String, dynamic> toMap() {
     return {
+      'productCode': productCode, // מק"ט - ПЕРВОЕ ПОЛЕ
       'type': type,
       'number': number,
       'volumeMl': volumeMl,
       'quantity': quantity,
+      'companyId': companyId, // ID компании
     };
   }
 
   // Создание из Map (Firestore)
   factory BoxType.fromMap(Map<String, dynamic> map) {
     return BoxType(
+      productCode: map['productCode'] ?? '', // מק"ט
       type: map['type'] ?? '',
       number: map['number'] ?? '',
       volumeMl: map['volumeMl'] ?? 0,
       quantity: map['quantity'] ?? 0,
+      companyId: map['companyId'] ?? '', // ID компании
     );
   }
 
   // Текстовое представление для отображения
   String toDisplayString() {
-    return '$type $number ($volumeMl מל) x $quantity יח\'';
+    return 'מק"ט: $productCode | $type $number ($volumeMl מל) x $quantity יח\'';
   }
 
   // Краткое представление для печати (с правильным RTL форматированием)
