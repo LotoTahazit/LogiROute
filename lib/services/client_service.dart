@@ -88,6 +88,11 @@ class ClientService {
 
   /// Добавить нового клиента
   Future<void> addClient(ClientModel client) async {
+    // Проверяем, что companyId не пустой
+    if (client.companyId.isEmpty) {
+      throw Exception('companyId is required for adding client');
+    }
+
     await _firestore.collection('clients').add({
       ...client.toMap(),
       'nameLowercase': _normalizeForSearch(client.name),
@@ -96,6 +101,11 @@ class ClientService {
 
   /// Обновить существующего клиента
   Future<void> updateClient(String clientId, ClientModel client) async {
+    // Проверяем, что companyId не пустой
+    if (client.companyId.isEmpty) {
+      throw Exception('companyId is required for updating client');
+    }
+
     await _firestore.collection('clients').doc(clientId).update({
       ...client.toMap(),
       'nameLowercase': _normalizeForSearch(client.name),
