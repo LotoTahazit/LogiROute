@@ -7,6 +7,7 @@ class ClientModel {
   final double longitude;
   final String? phone;
   final String? contactPerson;
+  final String companyId; // ID компании
 
   ClientModel({
     required this.id,
@@ -17,6 +18,7 @@ class ClientModel {
     required this.longitude,
     this.phone,
     this.contactPerson,
+    required this.companyId,
   });
 
   factory ClientModel.fromMap(Map<String, dynamic> map, String id) {
@@ -29,6 +31,7 @@ class ClientModel {
       longitude: map['longitude']?.toDouble() ?? 0.0,
       phone: map['phone'],
       contactPerson: map['contactPerson'],
+      companyId: map['companyId'] ?? '',
     );
   }
 
@@ -41,6 +44,7 @@ class ClientModel {
       'longitude': longitude,
       if (phone != null) 'phone': phone,
       if (contactPerson != null) 'contactPerson': contactPerson,
+      'companyId': companyId,
     };
   }
 }

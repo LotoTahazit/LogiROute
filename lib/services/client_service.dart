@@ -5,12 +5,24 @@ import '../models/client_model.dart';
 
 class ClientService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String? companyId;
+
+  ClientService({this.companyId});
 
   /// Получить всех клиентов, отсортированных по имени
-  Future<List<ClientModel>> getAllClients() async {
+  Future<List<ClientModel>> getAllClients([String? overrideCompanyId]) async {
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      print('⚠️ Warning: companyId is null or empty in getAllClients');
+      return [];
+    }
+
     try {
-      final snapshot =
-          await _firestore.collection('clients').orderBy('name').get();
+      final snapshot = await _firestore
+          .collection('clients')
+          .where('companyId', isEqualTo: targetCompanyId)
+          .orderBy('name')
+          .get();
       return snapshot.docs
           .map((doc) => ClientModel.fromMap(doc.data(), doc.id))
           .toList();
@@ -20,14 +32,22 @@ class ClientService {
   }
 
   /// Поиск клиентов по имени или номеру
-  Future<List<ClientModel>> searchClients(String query) async {
+  Future<List<ClientModel>> searchClients(String query,
+      [String? overrideCompanyId]) async {
     if (query.isEmpty) return [];
+
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      print('⚠️ Warning: companyId is null or empty in searchClients');
+      return [];
+    }
 
     try {
       // Поиск по номеру клиента (если только цифры)
       if (RegExp(r'^\d+$').hasMatch(query)) {
         final snapshot = await _firestore
             .collection('clients')
+            .where('companyId', isEqualTo: targetCompanyId)
             .where('clientNumber', isGreaterThanOrEqualTo: query)
             .where('clientNumber', isLessThan: '$query\uf8ff')
             .limit(10)
@@ -42,6 +62,7 @@ class ClientService {
       final searchQuery = _normalizeForSearch(query);
       final snapshot = await _firestore
           .collection('clients')
+          .where('companyId', isEqualTo: targetCompanyId)
           .where('nameLowercase', isGreaterThanOrEqualTo: searchQuery)
           .where('nameLowercase', isLessThan: '$searchQuery\uf8ff')
           .limit(10)
@@ -71,6 +92,57 @@ class ClientService {
       ...client.toMap(),
       'nameLowercase': _normalizeForSearch(client.name),
     });
+  }
+
+  /// Обновить существующего клиента
+  Future<void> updateClient(String clientId, ClientModel client) async {
+    await _firestore.collection('clients').doc(clientId).update({
+      ...client.toMap(),
+      'nameLowercase': _normalizeForSearch(client.name),
+    });
+  }
+
+  /// Получить клиента по ID
+  Future<ClientModel?> getClientById(String clientId) async {
+    try {
+      final doc = await _firestore.collection('clients').doc(clientId).get();
+      if (doc.exists) {
+        return ClientModel.fromMap(doc.data()!, doc.id);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Найти клиента по имени и номеру
+  Future<ClientModel?> findClientByNameAndNumber(
+      String name, String clientNumber,
+      [String? overrideCompanyId]) async {
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      print(
+          '⚠️ Warning: companyId is null or empty in findClientByNameAndNumber');
+      return null;
+    }
+
+    try {
+      final snapshot = await _firestore
+          .collection('clients')
+          .where('companyId', isEqualTo: targetCompanyId)
+          .where('name', isEqualTo: name)
+          .where('clientNumber', isEqualTo: clientNumber)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return ClientModel.fromMap(
+            snapshot.docs.first.data(), snapshot.docs.first.id);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Очистить всех клиентов
@@ -110,9 +182,18 @@ class ClientService {
   }
 
   /// Создать тестовых клиентов (однократно)
-  Future<void> createTestClients() async {
-    // Проверяем, есть ли клиенты
-    final existing = await _firestore.collection('clients').limit(1).get();
+  Future<void> createTestClients([String? overrideCompanyId]) async {
+    final targetCompanyId = overrideCompanyId ?? companyId;
+    if (targetCompanyId == null || targetCompanyId.isEmpty) {
+      throw Exception('companyId is required for createTestClients');
+    }
+
+    // Проверяем, есть ли клиенты для этой компании
+    final existing = await _firestore
+        .collection('clients')
+        .where('companyId', isEqualTo: targetCompanyId)
+        .limit(1)
+        .get();
     if (existing.docs.isNotEmpty) return;
 
     final testAddresses = [
@@ -182,6 +263,7 @@ class ClientService {
           longitude: location.longitude,
           phone: data['phone']!,
           contactPerson: data['contact']!,
+          companyId: targetCompanyId,
         );
 
         await addClient(client);
@@ -193,5 +275,11 @@ class ClientService {
             '⚠️ [TestData] Skipping client "${data['name']}" - geocoding required');
       }
     }
+  }
+
+  /// Удалить клиента
+  Future<void> deleteClient(String clientId) async {
+    await _firestore.collection('clients').doc(clientId).delete();
+    debugPrint('✅ [ClientService] Deleted client: $clientId');
   }
 }

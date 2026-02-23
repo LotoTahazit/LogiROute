@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
-import 'services/client_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/dispatcher/dispatcher_dashboard.dart';
@@ -23,16 +21,15 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // 🔒 Активация Firebase App Check для защиты от злоупотребления API
-  await FirebaseAppCheck.instance.activate(
-    // Web: reCAPTCHA v3
-    webProvider:
-        ReCaptchaV3Provider('6Lci2bwqAAAAAHLnGRKaFpoX-J7Jg-Z7PrRjrMEg'),
-    // Android: Play Integrity API (требует настройки в Firebase Console)
-    androidProvider: AndroidProvider.playIntegrity,
-    // iOS: DeviceCheck или App Attest
-    appleProvider: AppleProvider.deviceCheck,
-  );
+  // 🔒 Firebase App Check временно отключен для отладки
+  // await FirebaseAppCheck.instance.activate(
+  //   // Web: отключен из-за проблем с reCAPTCHA
+  //   // webProvider: ReCaptchaV3Provider('6Lci2zWqAAAAAJoAeJbZpCToJz9weyKMmqZE'),
+  //   // Android: Play Integrity API (требует настройки в Firebase Console)
+  //   androidProvider: AndroidProvider.playIntegrity,
+  //   // iOS: DeviceCheck или App Attest
+  //   appleProvider: AppleProvider.deviceCheck,
+  // );
 
   runApp(const LogiRouteApp());
 }
@@ -46,14 +43,13 @@ class LogiRouteApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => LocaleService()),
-        Provider(create: (_) => ClientService()),
+        // ClientService создаётся локально в каждом экране с companyId
       ],
       child: Consumer<LocaleService>(
         builder: (context, localeService, _) {
           return MaterialApp(
             title: 'LogiRoute',
             debugShowCheckedModeBanner: false,
-            // Default locale is Hebrew (he)
             locale: localeService.locale,
             supportedLocales: const [
               Locale('he', ''),
@@ -68,7 +64,8 @@ class LogiRouteApp extends StatelessWidget {
             ],
             theme: ThemeData(
               primarySwatch: Colors.blue,
-              fontFamily: 'NotoSansHebrew', // Шрифт по умолчанию для иврита
+              fontFamily: 'NotoSansHebrew',
+              fontFamilyFallback: const ['NotoSans', 'Roboto', 'Arial'],
               textTheme: const TextTheme(
                 bodyLarge: TextStyle(color: Colors.black),
                 bodyMedium: TextStyle(color: Colors.black),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import '../../models/client_model.dart';
 import '../../services/client_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/web_geocoding_service.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -14,7 +16,7 @@ class ClientManagementScreen extends StatefulWidget {
 }
 
 class _ClientManagementScreenState extends State<ClientManagementScreen> {
-  final ClientService _clientService = ClientService();
+  late final ClientService _clientService;
   List<ClientModel> _clients = [];
   List<ClientModel> _filteredClients = [];
   bool _isLoading = true;
@@ -23,6 +25,9 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    _clientService = ClientService(companyId: companyId);
     _loadClients();
   }
 
@@ -516,6 +521,7 @@ class _EditClientDialogState extends State<_EditClientDialog> {
         phone: _phoneController.text.isEmpty ? null : _phoneController.text,
         contactPerson:
             _contactController.text.isEmpty ? null : _contactController.text,
+        companyId: widget.client.companyId, // Сохраняем companyId
       );
 
       if (mounted) {

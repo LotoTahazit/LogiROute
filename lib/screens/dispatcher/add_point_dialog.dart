@@ -1,6 +1,7 @@
 // lib/screens/dispatcher/add_point_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -26,7 +27,7 @@ class AddPointDialog extends StatefulWidget {
 
 class _AddPointDialogState extends State<AddPointDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _clientService = ClientService();
+  late final ClientService _clientService;
   final _routeService = RouteService();
 
   final TextEditingController _numberController = TextEditingController();
@@ -46,6 +47,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    _clientService = ClientService(companyId: companyId);
     _updateCalculatedFields();
   }
 
@@ -558,6 +562,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
       }
 
       // Если клиент выбран — используем его, если нет — создаём нового
+      final authService = context.read<AuthService>();
+      final companyId = authService.userModel?.companyId ?? '';
+
       ClientModel client = _selectedClient ??
           ClientModel(
             id: '',
@@ -568,6 +575,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
             longitude: longitude,
             phone: _phoneController.text,
             contactPerson: _contactController.text,
+            companyId: companyId,
           );
 
       // Если клиента не было — добавляем в Firestore
