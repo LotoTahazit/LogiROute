@@ -233,20 +233,20 @@ class OsrmRoute {
   /// Форматирует расстояние
   String get formattedDistance {
     if (distance < 1) {
-      return '${(distance * 1000).round()}м';
+      return '${(distance * 1000).round()}מ'; // Hebrew: מ = מטר (meters)
     } else {
-      return '${distance.toStringAsFixed(1)}км';
+      return '${distance.toStringAsFixed(1)}ק"מ'; // Hebrew: ק"מ = קילומטר (kilometers)
     }
   }
 
   /// Форматирует время
   String get formattedDuration {
     if (duration < 60) {
-      return '${duration.round()}м';
+      return '${duration.round()}ד'; // Hebrew: ד = דקות (minutes)
     } else {
       final hours = (duration / 60).floor();
       final minutes = (duration % 60).round();
-      return '$hoursч $minutesм';
+      return '$hoursש $minutesד'; // Hebrew: ש = שעות (hours), ד = דקות (minutes)
     }
   }
 }

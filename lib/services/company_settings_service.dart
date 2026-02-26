@@ -2,34 +2,56 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/company_settings.dart';
 
 class CompanySettingsService {
-  static const String _collectionName = 'companySettings';
-  static const String _defaultDocId = 'default';
+  static const String _defaultDocId = 'settings';
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String companyId;
+
+  CompanySettingsService({required this.companyId});
+
+  /// Получить путь к настройкам компании
+  DocumentReference get _settingsDoc => _firestore
+      .collection('companies')
+      .doc(companyId)
+      .collection('settings')
+      .doc(_defaultDocId);
 
   /// Получить настройки компании
   Future<CompanySettings?> getSettings() async {
     try {
-      final doc =
-          await _firestore.collection(_collectionName).doc(_defaultDocId).get();
-
+      // Сначала ищем в новом месте: companies/{companyId}/settings/settings
+      final doc = await _settingsDoc.get();
       if (doc.exists) {
         return CompanySettings.fromFirestore(doc);
       }
+
+      // Fallback: ищем в старом месте: companySettings/{companyId}
+      final legacyDoc =
+          await _firestore.collection('companySettings').doc(companyId).get();
+      if (legacyDoc.exists) {
+        final settings = CompanySettings.fromFirestore(legacyDoc);
+        // Мигрируем в новое место
+        await _settingsDoc.set(settings.toFirestore());
+        return settings;
+      }
+
       return null;
     } catch (e) {
-      print('❌ [CompanySettings] Error getting settings: $e');
+      print(
+          '❌ [CompanySettings] Error getting settings for company $companyId: $e');
       return null;
     }
   }
 
   /// Получить настройки компании (stream)
-  Stream<CompanySettings?> getSettingsStream() {
-    return _firestore
-        .collection(_collectionName)
-        .doc(_defaultDocId)
-        .snapshots()
-        .map((doc) {
+  Stream<CompanySettings?> getSettingsStream() async* {
+    // Сначала проверяем есть ли данные в новом месте
+    final existing = await _settingsDoc.get();
+    if (!existing.exists) {
+      // Пробуем мигрировать из старого места
+      await getSettings();
+    }
+    yield* _settingsDoc.snapshots().map((doc) {
       if (doc.exists) {
         return CompanySettings.fromFirestore(doc);
       }
@@ -40,13 +62,12 @@ class CompanySettingsService {
   /// Сохранить настройки компании
   Future<void> saveSettings(CompanySettings settings) async {
     try {
-      await _firestore
-          .collection(_collectionName)
-          .doc(_defaultDocId)
-          .set(settings.toFirestore());
-      print('✅ [CompanySettings] Settings saved successfully');
+      await _settingsDoc.set(settings.toFirestore());
+      print(
+          '✅ [CompanySettings] Settings saved successfully for company $companyId');
     } catch (e) {
-      print('❌ [CompanySettings] Error saving settings: $e');
+      print(
+          '❌ [CompanySettings] Error saving settings for company $companyId: $e');
       rethrow;
     }
   }
@@ -54,13 +75,12 @@ class CompanySettingsService {
   /// Обновить настройки компании
   Future<void> updateSettings(Map<String, dynamic> updates) async {
     try {
-      await _firestore
-          .collection(_collectionName)
-          .doc(_defaultDocId)
-          .update(updates);
-      print('✅ [CompanySettings] Settings updated successfully');
+      await _settingsDoc.update(updates);
+      print(
+          '✅ [CompanySettings] Settings updated successfully for company $companyId');
     } catch (e) {
-      print('❌ [CompanySettings] Error updating settings: $e');
+      print(
+          '❌ [CompanySettings] Error updating settings for company $companyId: $e');
       rethrow;
     }
   }
@@ -70,37 +90,39 @@ class CompanySettingsService {
     try {
       final existing = await getSettings();
       if (existing != null) {
-        print('⚠️ [CompanySettings] Settings already exist');
+        print(
+            '⚠️ [CompanySettings] Settings already exist for company $companyId');
         return;
       }
 
       final defaultSettings = CompanySettings(
         id: _defaultDocId,
-        nameHebrew: 'י.כ. פלסט בע״מ',
-        nameEnglish: 'Y.C PLAST L.T.D',
-        taxId: '513322760',
-        addressHebrew: 'פרדס חנה מיקוד 37100',
-        addressEnglish: 'PARDESS HANA Z.C. 37100',
-        poBox: '1057',
-        city: 'פרדס חנה',
-        zipCode: '37100',
-        phone: '04-6288547/9',
-        fax: '04-6288579',
+        nameHebrew: 'שם החברה',
+        nameEnglish: 'Company Name',
+        taxId: '000000000',
+        addressHebrew: 'כתובת',
+        addressEnglish: 'Address',
+        poBox: '',
+        city: '',
+        zipCode: '',
+        phone: '',
+        fax: '',
         email: '',
-        website: 'www.ycplast.co.il',
-        invoiceFooterText:
-            'חובה להחזיר משטחים-לקוח שלא יחזיר יחוייב בגינם\n*הסחורה עד לפרעון התשלום בבעלות י.כ.פלסט בע״מ\nהסמכות הבלעדית נשוא ח-ו זו, נתון לבית המשפט בחדרה\nערעורים והשגות יתקבלו 15 יום מיום קבלת הח-ו\nאם הקונה היינו חברה בע״מ - בעלי החברה ערבים אישית לתשלום.',
+        website: '',
+        invoiceFooterText: 'תודה על הקנייה!',
         paymentTerms: 'תשלום עד 30 יום',
         bankDetails: '',
-        driverName: 'יבגני',
-        driverPhone: '892-94-902',
-        departureTime: '7:00',
+        driverName: '',
+        driverPhone: '',
+        departureTime: '07:00',
       );
 
       await saveSettings(defaultSettings);
-      print('✅ [CompanySettings] Default settings created');
+      print(
+          '✅ [CompanySettings] Default settings created for company $companyId');
     } catch (e) {
-      print('❌ [CompanySettings] Error creating default settings: $e');
+      print(
+          '❌ [CompanySettings] Error creating default settings for company $companyId: $e');
       rethrow;
     }
   }

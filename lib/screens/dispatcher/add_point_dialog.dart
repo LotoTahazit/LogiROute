@@ -1,4 +1,3 @@
-// lib/screens/dispatcher/add_point_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -14,6 +13,7 @@ import '../../services/api_config_service.dart';
 import '../../services/web_geocoding_service.dart';
 import '../../services/inventory_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/company_context.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/box_type_selector.dart';
@@ -27,8 +27,6 @@ class AddPointDialog extends StatefulWidget {
 
 class _AddPointDialogState extends State<AddPointDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final ClientService _clientService;
-  final _routeService = RouteService();
 
   final TextEditingController _numberController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -47,9 +45,6 @@ class _AddPointDialogState extends State<AddPointDialog> {
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
-    final companyId = authService.userModel?.companyId ?? '';
-    _clientService = ClientService(companyId: companyId);
     _updateCalculatedFields();
   }
 
@@ -62,7 +57,10 @@ class _AddPointDialogState extends State<AddPointDialog> {
     }
 
     try {
-      final inventoryService = InventoryService();
+      // ✅ Используем CompanyContext для получения effectiveCompanyId
+      final companyCtx = CompanyContext.of(context);
+      final companyId = companyCtx.effectiveCompanyId ?? '';
+      final inventoryService = InventoryService(companyId: companyId);
       final inventory = await inventoryService.getInventory();
 
       int totalPallets = 0;
@@ -412,7 +410,11 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
   Future<void> _searchClients(String query) async {
     if (query.isEmpty) return;
-    final results = await _clientService.searchClients(query);
+    // ✅ Используем CompanyContext для получения effectiveCompanyId
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
+    final clientService = ClientService(companyId: companyId);
+    final results = await clientService.searchClients(query);
     if (mounted) {
       setState(() {
         _searchResults = results;
@@ -562,8 +564,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
       }
 
       // Если клиент выбран — используем его, если нет — создаём нового
-      final authService = context.read<AuthService>();
-      final companyId = authService.userModel?.companyId ?? '';
+      final companyCtx = CompanyContext.of(context);
+      final companyId = companyCtx.effectiveCompanyId ?? '';
 
       ClientModel client = _selectedClient ??
           ClientModel(
@@ -580,12 +582,15 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
       // Если клиента не было — добавляем в Firestore
       if (_selectedClient == null) {
-        await _clientService.addClient(client);
+        final clientService = ClientService(companyId: companyId);
+        await clientService.addClient(client);
       }
 
       // Проверяем доступность товара на складе
       if (_selectedBoxTypes.isNotEmpty) {
-        final inventoryService = InventoryService();
+        final companyCtx = CompanyContext.of(context);
+        final companyId = companyCtx.effectiveCompanyId ?? '';
+        final inventoryService = InventoryService(companyId: companyId);
         final availability = await inventoryService.checkAvailability(
           _selectedBoxTypes,
         );
@@ -664,6 +669,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
       final point = DeliveryPoint(
         id: '',
+        companyId: companyId,
         clientName: client.name,
         clientNumber: client.clientNumber,
         address: client.address,
@@ -680,12 +686,15 @@ class _AddPointDialogState extends State<AddPointDialog> {
         eta: null,
       );
 
-      await _routeService.addDeliveryPoint(point);
+      final routeService = RouteService(companyId: companyId);
+      await routeService.addDeliveryPoint(point);
 
       // Списываем товар со склада
       if (_selectedBoxTypes.isNotEmpty) {
-        final inventoryService = InventoryService();
-        final authService = AuthService();
+        final authService = context.read<AuthService>();
+        final companyCtx = CompanyContext.of(context);
+        final companyId = companyCtx.effectiveCompanyId ?? '';
+        final inventoryService = InventoryService(companyId: companyId);
         final user = authService.userModel;
         await inventoryService.deductStock(
           _selectedBoxTypes,

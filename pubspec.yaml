@@ -14,6 +14,7 @@ dependencies:
   firebase_core: ^4.1.1
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.2
+  firebase_storage: ^13.0.6
   
   # Maps & Location
   google_maps_flutter: ^2.5.0
@@ -24,6 +25,8 @@ dependencies:
   # Background & Notifications
   flutter_local_notifications: ^18.0.1
   android_alarm_manager_plus: ^4.0.3
+  flutter_background_service: ^5.0.10
+  flutter_background_service_android: ^6.2.4
   firebase_messaging: ^16.1.1
   timezone: ^0.9.2
   
@@ -45,7 +48,15 @@ dependencies:
   
   # Printing
   pdf: ^3.11.3
-  printing: ^5.12.0
+  printing: ^5.13.4
+  
+  # Crypto (SHA-256 for immutable snapshot hash)
+  crypto: ^3.0.3
+  
+  # Excel/CSV Import
+  file_picker: ^8.1.6
+  csv: ^6.0.0
+  excel: ^4.0.6
   firebase_app_check: ^0.4.1+4
 
 dev_dependencies:

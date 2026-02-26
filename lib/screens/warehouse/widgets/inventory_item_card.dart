@@ -1,32 +1,28 @@
 import 'package:flutter/material.dart';
 import '../../../models/inventory_item.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Виджет для отображения одного товара в списке инвентаря
 ///
 /// Параметры:
 /// - [item] - товар для отображения
 /// - [showAllFields] - показывать все поля (true) или только основные (false)
-/// - [onEdit] - callback при нажатии на кнопку редактирования
-/// - [onDelete] - callback при нажатии на кнопку удаления
 /// - [formatDate] - функция для форматирования даты
 class InventoryItemCard extends StatelessWidget {
   final InventoryItem item;
   final bool showAllFields;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
   final String Function(DateTime) formatDate;
 
   const InventoryItemCard({
     super.key,
     required this.item,
     this.showAllFields = true,
-    this.onEdit,
-    this.onDelete,
     required this.formatDate,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isLowStock = item.quantity < 10;
     final isWarningStock = item.quantity <= 30 && item.quantity >= 10;
 
@@ -55,55 +51,70 @@ class InventoryItemCard extends StatelessWidget {
             size: 24,
           ),
         ),
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                '${item.type} ${item.number}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            // מק"ט - ПЕРВОЕ ПОЛЕ (показываем всегда) - ВСЕГДА НА ИВРИТЕ
+            Text(
+              'מק"ט: ${item.productCode}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue,
               ),
             ),
-            if (isLowStock)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'מלאי נמוך!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${item.type} ${item.number}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              )
-            else if (isWarningStock)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'מלאי מועט',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                if (isLowStock)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      l10n.lowStock,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else if (isWarningStock)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      l10n.limitedStock,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+              ],
+            ),
           ],
         ),
         subtitle: Column(
@@ -112,6 +123,7 @@ class InventoryItemCard extends StatelessWidget {
             const SizedBox(height: 4),
 
             // Показываем дополнительные поля только если showAllFields = true
+            // МЕТКИ ПОЛЕЙ НА ИВРИТЕ (данные товара)
             if (showAllFields) ...[
               // Объем в мл (если заполнен)
               if (item.volumeMl != null)
@@ -156,7 +168,7 @@ class InventoryItemCard extends StatelessWidget {
 
             const SizedBox(height: 4),
 
-            // Количество - показываем всегда
+            // Количество - показываем всегда - НА ИВРИТЕ
             Text(
               'כמות: ${item.quantity} יח\'',
               style: TextStyle(
@@ -170,11 +182,12 @@ class InventoryItemCard extends StatelessWidget {
               ),
             ),
 
+            // ПРЕДУПРЕЖДЕНИЯ - локализованные (интерфейс)
             if (isWarningStock)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '⚠️ נותרו ${item.quantity} יחידות בלבד',
+                  '⚠️ ${l10n.remainingUnitsOnly(item.quantity)}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -183,11 +196,11 @@ class InventoryItemCard extends StatelessWidget {
                 ),
               ),
             if (isLowStock)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '🚨 דחוף! יש להזמין מלאי',
-                  style: TextStyle(
+                  '🚨 ${l10n.urgentOrderStock}',
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: Colors.red,
@@ -197,7 +210,7 @@ class InventoryItemCard extends StatelessWidget {
 
             const SizedBox(height: 4),
 
-            // Информация об обновлении - показываем только если showAllFields = true
+            // Информация об обновлении - НА ИВРИТЕ (данные)
             if (showAllFields)
               Text(
                 'עודכן: ${formatDate(item.lastUpdated)} ע"י ${item.updatedBy}',
@@ -208,25 +221,6 @@ class InventoryItemCard extends StatelessWidget {
               ),
           ],
         ),
-        trailing: (onEdit != null || onDelete != null)
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onEdit != null)
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: onEdit,
-                      tooltip: 'ערוך',
-                    ),
-                  if (onDelete != null)
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: onDelete,
-                      tooltip: 'מחק',
-                    ),
-                ],
-              )
-            : null,
       ),
     );
   }

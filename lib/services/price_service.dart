@@ -2,12 +2,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/price.dart';
 
 class PriceService {
+  final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  PriceService({required this.companyId}) {
+    if (companyId.isEmpty) {
+      throw Exception('companyId cannot be empty');
+    }
+  }
+
+  /// Хелпер: возвращает ссылку на вложенную коллекцию цен компании
+  CollectionReference<Map<String, dynamic>> _pricesCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('prices');
+  }
 
   /// Получить все цены
   Future<List<Price>> getAllPrices() async {
     try {
-      final snapshot = await _firestore.collection('prices').get();
+      final snapshot = await _pricesCollection().get();
+      print(
+          '📊 [Price] Loaded ${snapshot.docs.length} prices from companies/$companyId/prices');
       return snapshot.docs
           .map((doc) => Price.fromMap(doc.data(), doc.id))
           .toList();
@@ -19,7 +36,9 @@ class PriceService {
 
   /// Получить цены в реальном времени
   Stream<List<Price>> getPricesStream() {
-    return _firestore.collection('prices').snapshots().map((snapshot) {
+    print('📡 [Price] Starting stream for companies/$companyId/prices');
+    return _pricesCollection().snapshots().map((snapshot) {
+      print('📊 [Price] Stream update: ${snapshot.docs.length} prices');
       return snapshot.docs
           .map((doc) => Price.fromMap(doc.data(), doc.id))
           .toList();
@@ -29,12 +48,16 @@ class PriceService {
   /// Получить цену для конкретного товара
   Future<Price?> getPrice(String type, String number) async {
     try {
-      final id = Price.generateId(type, number);
-      final doc = await _firestore.collection('prices').doc(id).get();
+      final id = Price.generateId(companyId, type, number);
+      final doc = await _pricesCollection().doc(id).get();
 
       if (doc.exists) {
+        print(
+            '✅ [Price] Found price for $type $number in companies/$companyId/prices');
         return Price.fromMap(doc.data()!, doc.id);
       }
+      print(
+          '⚠️ [Price] Price not found for $type $number in companies/$companyId/prices');
       return null;
     } catch (e) {
       print('❌ [Price] Error getting price for $type $number: $e');
@@ -50,9 +73,10 @@ class PriceService {
     required String userName,
   }) async {
     try {
-      final id = Price.generateId(type, number);
+      final id = Price.generateId(companyId, type, number);
 
       final data = {
+        'companyId': companyId,
         'type': type,
         'number': number,
         'priceBeforeVAT': priceBeforeVAT,
@@ -60,12 +84,10 @@ class PriceService {
         'updatedBy': userName,
       };
 
-      await _firestore
-          .collection('prices')
-          .doc(id)
-          .set(data, SetOptions(merge: true));
+      await _pricesCollection().doc(id).set(data, SetOptions(merge: true));
 
-      print('✅ [Price] Updated price for $type $number: ₪$priceBeforeVAT');
+      print(
+          '✅ [Price] Updated price for $type $number: ₪$priceBeforeVAT in companies/$companyId/prices');
     } catch (e) {
       print('❌ [Price] Error setting price: $e');
       rethrow;
@@ -75,8 +97,8 @@ class PriceService {
   /// Удалить цену
   Future<void> deletePrice(String id) async {
     try {
-      await _firestore.collection('prices').doc(id).delete();
-      print('✅ [Price] Deleted price: $id');
+      await _pricesCollection().doc(id).delete();
+      print('✅ [Price] Deleted price: $id from companies/$companyId/prices');
     } catch (e) {
       print('❌ [Price] Error deleting price: $e');
       rethrow;
@@ -96,7 +118,8 @@ class PriceService {
         final price = await getPrice(type, number);
 
         if (price != null) {
-          prices[Price.generateId(type, number)] = price.priceBeforeVAT;
+          prices[Price.generateId(companyId, type, number)] =
+              price.priceBeforeVAT;
         }
       }
 

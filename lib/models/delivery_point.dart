@@ -46,10 +46,12 @@ class DeliveryPoint {
         statusPendingRu,
       ];
   final String id;
+  final String companyId; // ID компании для изоляции данных
   final String address;
   final double latitude;
   final double longitude;
   final String clientName;
+  final String? clientNumber; // 6-значный номер клиента
   final DateTime? openingTime;
   final String urgency;
   final int pallets;
@@ -65,13 +67,16 @@ class DeliveryPoint {
   final bool autoCompleted; // Завершено автоматически
   final List<BoxType>? boxTypes; // Типы коробок в заказе
   final String? eta; // Расчётное время прибытия (ETA)
+  final String? routeId; // ID маршрута для группировки точек
 
   DeliveryPoint({
     required this.id,
+    required this.companyId,
     required this.address,
     required this.latitude,
     required this.longitude,
     required this.clientName,
+    this.clientNumber,
     this.openingTime,
     required this.urgency,
     required this.pallets,
@@ -87,15 +92,18 @@ class DeliveryPoint {
     this.autoCompleted = false,
     this.boxTypes,
     this.eta,
+    this.routeId,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
     return DeliveryPoint(
       id: id,
+      companyId: map['companyId'] ?? '',
       address: map['address'] ?? '',
       latitude: (map['latitude'] ?? 0).toDouble(),
       longitude: (map['longitude'] ?? 0).toDouble(),
       clientName: map['clientName'] ?? '',
+      clientNumber: map['clientNumber'],
       openingTime: map['openingTime'] != null
           ? (map['openingTime'] as Timestamp).toDate()
           : null,
@@ -122,15 +130,18 @@ class DeliveryPoint {
               .toList()
           : null,
       eta: map['eta'],
+      routeId: map['routeId'],
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'companyId': companyId,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
       'clientName': clientName,
+      if (clientNumber != null) 'clientNumber': clientNumber,
       if (openingTime != null) 'openingTime': Timestamp.fromDate(openingTime!),
       'urgency': urgency,
       'pallets': pallets,
@@ -147,6 +158,7 @@ class DeliveryPoint {
       if (boxTypes != null)
         'boxTypes': boxTypes!.map((box) => box.toMap()).toList(),
       if (eta != null) 'eta': eta,
+      if (routeId != null) 'routeId': routeId,
     };
   }
 
@@ -159,10 +171,12 @@ class DeliveryPoint {
   }) {
     return DeliveryPoint(
       id: id,
+      companyId: companyId,
       address: address,
       latitude: latitude,
       longitude: longitude,
       clientName: clientName,
+      clientNumber: clientNumber,
       openingTime: openingTime,
       urgency: urgency,
       pallets: pallets,
@@ -178,6 +192,7 @@ class DeliveryPoint {
       autoCompleted: autoCompleted,
       boxTypes: boxTypes,
       eta: eta ?? this.eta,
+      routeId: routeId,
     );
   }
 

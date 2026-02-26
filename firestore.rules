@@ -41,34 +41,7 @@ service cloud.firestore {
     match /driver_locations/{driverId} {
       allow read: if request.auth != null;
       allow write, create, update: if request.auth != null && request.auth.uid == driverId;
-    }
-
-    // 🧭 Точки доставки
-    match /delivery_points/{pointId} {
-      // ✅ Чтение: разрешено всем авторизованным пользователям
-      allow read: if request.auth != null;
-
-      // ✅ Создание: диспетчер, админ или супер-админ
-      allow create: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin']
-      );
-
-      // ✅ Обновление: водитель может обновлять только свои точки; диспетчер, админ и супер-админ — любые
-      allow update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin'] ||
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
-          request.auth.uid == resource.data.driverId
-        )
-      );
-
-      // ✅ Удаление: диспетчер, админ или супер-админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['dispatcher', 'admin']
-      );
+      allow delete: if request.auth != null && request.auth.uid == driverId;
     }
 
     // 👥 Клиенты
@@ -113,6 +86,14 @@ service cloud.firestore {
       );
     }
 
+    // 🏢 Настройки компаний (глобальная коллекция)
+    match /companySettings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+    }
+
     // 🏢 Компании
     match /companies/{companyId} {
       allow read: if request.auth != null;
@@ -122,6 +103,510 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
+      
+      // 🆕 ВЛОЖЕННЫЕ КОЛЛЕКЦИИ КОМПАНИИ - СТРОГИЕ ПРАВИЛА
+      
+      // ⚙️ Настройки компании
+      match /settings/{settingId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+      }
+      
+      // 🛍️ Типы товаров компании (product_types)
+      match /product_types/{productTypeId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+      }
+      
+      // 📦 Типы коробок компании
+      match /box_types/{boxTypeId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher', 'warehouse_keeper']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+      }
+      
+      // 👥 Клиенты компании
+      match /clients/{clientId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+      }
+      
+      // 📦 Инвентарь компании
+      match /inventory/{inventoryId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher', 'warehouse_keeper']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'warehouse_keeper']
+          )
+        );
+      }
+      
+      // 💰 Цены компании
+      match /prices/{priceId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+      }
+      
+      // 🧾 Счета компании (חשבוניות) — הגנת אי-שינוי לפי חוק ניהול ספרים
+      match /invoices/{invoiceId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        // עדכון: אם המסמך עבר סיום (finalizedAt != null) — רק שדות whitelist
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        ) && (
+          // מסמך לא עבר סיום — ניתן לעדכן הכל
+          resource.data.finalizedAt == null ||
+          // מסמך עבר סיום — רק שדות מותרים (whitelist)
+          (
+            request.resource.data.sequentialNumber == resource.data.sequentialNumber &&
+            request.resource.data.companyId == resource.data.companyId &&
+            request.resource.data.clientName == resource.data.clientName &&
+            request.resource.data.clientNumber == resource.data.clientNumber &&
+            request.resource.data.address == resource.data.address &&
+            request.resource.data.driverName == resource.data.driverName &&
+            request.resource.data.truckNumber == resource.data.truckNumber &&
+            request.resource.data.departureTime == resource.data.departureTime &&
+            request.resource.data.paymentDueDate == resource.data.paymentDueDate &&
+            request.resource.data.items == resource.data.items &&
+            request.resource.data.discount == resource.data.discount &&
+            request.resource.data.deliveryDate == resource.data.deliveryDate &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.createdBy == resource.data.createdBy &&
+            request.resource.data.documentType == resource.data.documentType &&
+            request.resource.data.finalizedAt == resource.data.finalizedAt &&
+            request.resource.data.finalizedBy == resource.data.finalizedBy &&
+            request.resource.data.immutableSnapshotHash == resource.data.immutableSnapshotHash &&
+            request.resource.data.linkedInvoiceId == resource.data.linkedInvoiceId
+          ) || (
+            // ✅ עדכון שדות מותרים לאחר סיום: הקצאה, הדפסה, ביטול
+            resource.data.finalizedAt != null &&
+            request.resource.data.sequentialNumber == resource.data.sequentialNumber &&
+            request.resource.data.companyId == resource.data.companyId &&
+            request.resource.data.clientName == resource.data.clientName &&
+            request.resource.data.items == resource.data.items &&
+            request.resource.data.discount == resource.data.discount &&
+            request.resource.data.immutableSnapshotHash == resource.data.immutableSnapshotHash &&
+            request.resource.data.finalizedAt == resource.data.finalizedAt &&
+            request.resource.data.finalizedBy == resource.data.finalizedBy
+          )
+        );
+        // ❌ מחיקה אסורה (חוק ניהול ספרים)
+        allow delete: if false;
+        
+        // 📝 יומן ביקורת — append-only
+        match /auditLog/{eventId} {
+          allow read: if request.auth != null && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+          );
+          // רק יצירה — append-only, actorUid חייב להתאים ל-auth.uid
+          allow create: if request.auth != null && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+          ) && request.resource.data.actorUid == request.auth.uid;
+          // ❌ עדכון ומחיקה אסורים — append-only
+          allow update: if false;
+          allow delete: if false;
+        }
+        
+        // 🖨️ אירועי הדפסה — append-only
+        match /printEvents/{eventId} {
+          allow read: if request.auth != null && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+          );
+          allow create: if request.auth != null && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+          ) && request.resource.data.printedBy == request.auth.uid;
+          allow update: if false;
+          allow delete: if false;
+        }
+      }
+      
+      // 📋 בקשות מספר הקצאה — append-only + עדכון סטטוס
+      match /assignment_requests/{requestId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        // עדכון מותר רק לשדות סטטוס (תשובה מרשות המסים)
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        ) && request.resource.data.invoiceId == resource.data.invoiceId;
+        allow delete: if false;
+      }
+      
+      // 🚚 Точки доставки компании (delivery_points)
+      match /delivery_points/{pointId} {
+        // 📖 Чтение: все пользователи своей компании + super_admin
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        
+        // ✅ Создание: super_admin, admin, dispatcher
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        
+        // ✅ Обновление: super_admin, admin, dispatcher, водитель (только свои точки)
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          ) ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+            resource.data.driverId == request.auth.uid
+          )
+        );
+        
+        // ✅ Удаление: super_admin, admin, dispatcher
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+      }
+      
+      // 📝 История изменений инвентаря компании (inventory_history)
+      match /inventory_history/{historyId} {
+        // 📖 Чтение: все пользователи своей компании + super_admin
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        
+        // ✅ Создание: все авторизованные пользователи своей компании
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        
+        // ✅ Обновление/Удаление: только super_admin и admin
+        allow update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+        );
+      }
+      
+      // 🔢 Счётчики компании — מספור אטומי, increment == 1 בלבד
+      match /counters/{counterId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        // יצירה: רק עם lastNumber == 1
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        ) && request.resource.data.lastNumber == 1;
+        // עדכון: רק אם lastNumber עולה ב-1 בדיוק
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        ) && request.resource.data.lastNumber == resource.data.lastNumber + 1;
+        // ❌ מחיקה אסורה
+        allow delete: if false;
+      }
+      
+      // 💾 גיבויים רבעוניים (compliance backups)
+      match /backups/{backupId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        // ❌ עדכון ומחיקה אסורים — רשומות גיבוי הן append-only
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 🔗 קישורים בין מסמכים — append-only
+      match /document_links/{linkId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 🔒 שרשרת שלמות — append-only, immutable
+      match /integrity_chain/{chainId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 🔗 עוגנים חיצוניים לשרשרת שלמות — append-only
+      match /integrity_anchors/{anchorId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 📊 ריצות ייצוא במבנה אחיד — append-only
+      match /uniform_export_runs/{runId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 📋 יומן גישה — append-only, SaaS compliance
+      match /access_log/{logId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        ) && request.resource.data.actorUid == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 🖨️ רישום גרסאות תבניות הדפסה
+      match /print_templates/{templateId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
+        );
+        allow create, update: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow delete: if false;
+      }
+      
+      // 📅 בדיקות מדיניות שמירה — append-only
+      match /retention_checks/{checkId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      // 🔄 בדיקות שחזור — append-only
+      match /restore_tests/{testId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
+          )
+        );
+        allow update: if false;
+        allow delete: if false;
+      }
     }
 
     // ⚙️ Общая конфигурация
@@ -274,6 +759,57 @@ service cloud.firestore {
       // ✅ Запись: автоматически через код (диспетчер, водитель, админ, супер-админ)
       allow write: if request.auth != null && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'driver']
+      );
+    }
+
+    // 📝 История изменений инвентаря (inventory changes)
+    match /inventory_changes/{changeId} {
+      // ✅ Чтение и запись: все авторизованные пользователи
+      allow read, write: if request.auth != null;
+    }
+
+    // 📝 История инвентаря (inventory history)
+    match /inventory_history/{historyId} {
+      // ✅ Чтение и запись: все авторизованные пользователи
+      allow read, write: if request.auth != null;
+    }
+
+    // 📊 Инвентаризация (ספירת מלאי)
+    match /inventory_counts/{countId} {
+      // ✅ Чтение: все авторизованные пользователи
+      allow read: if request.auth != null;
+
+      // ✅ Создание: кладовщик, диспетчер, админ или супер-админ
+      allow create: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
+      );
+
+      // ✅ Обновление: кладовщик (свои подсчеты), диспетчер, админ или супер-админ
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
+      );
+
+      // ✅ Удаление: только админ или супер-админ
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+    }
+
+    // 📦 Архивы (archives metadata)
+    match /archives/{archiveId} {
+      // ✅ Чтение: админ, диспетчер или супер-админ
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
+      );
+
+      // ✅ Создание: только через Cloud Functions или админ
+      allow create: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
+      );
+
+      // ✅ Обновление/Удаление: только админ или супер-админ
+      allow update, delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
       );
     }
   }

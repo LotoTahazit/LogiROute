@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../services/box_type_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/company_context.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Диалог добавления нового типа в справочник и в инвентарь
@@ -48,8 +49,8 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
-    final companyId = authService.userModel?.companyId ?? '';
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
     _boxTypeService = BoxTypeService(companyId: companyId);
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
@@ -34,13 +35,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
+
     final authService = context.read<AuthService>();
     final l10n = AppLocalizations.of(context)!;
-    final error = await authService.signIn(
-        _emailController.text, _passwordController.text);
 
-    if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      debugPrint(
+          '🔐 LOGIN: start signIn email=${_emailController.text.trim()}');
+
+      final error = await authService
+          .signIn(_emailController.text.trim(), _passwordController.text)
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('🔐 LOGIN: signIn finished, error=$error');
+
+      if (!mounted) return;
+
       if (error != null) {
         String message;
         switch (error) {
@@ -60,6 +70,23 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
       }
+    } on TimeoutException {
+      debugPrint('❌ LOGIN: TIMEOUT (signIn took > 20s)');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.error}: Login timeout (20s)')),
+        );
+      }
+    } catch (e, st) {
+      debugPrint('❌ LOGIN: EXCEPTION: $e');
+      debugPrint('$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.error}: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

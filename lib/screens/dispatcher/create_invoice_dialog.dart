@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/delivery_point.dart';
 import '../../models/invoice.dart';
 import '../../models/user_model.dart';
 import '../../services/price_service.dart';
-import '../../services/auth_service.dart';
 import '../../services/invoice_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/company_context.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
   final DeliveryPoint point;
@@ -22,11 +24,10 @@ class CreateInvoiceDialog extends StatefulWidget {
 }
 
 class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
-  final PriceService _priceService = PriceService();
-  final AuthService _authService = AuthService();
-  final InvoiceService _invoiceService = InvoiceService();
-
   late DateTime _deliveryDate;
+  int _paymentTermDays = 30; // Срок оплаты по умолчанию 30 дней
+  bool _customPaymentDate = false; // Ручной ввод даты
+  DateTime? _manualPaymentDate; // Дата при ручном вводе
   final TextEditingController _discountController = TextEditingController(
     text: '0',
   );
@@ -34,6 +35,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   bool _isLoading = true;
   List<InvoiceItem> _items = [];
+
+  DateTime get _effectivePaymentDueDate {
+    if (_customPaymentDate && _manualPaymentDate != null) {
+      return _manualPaymentDate!;
+    }
+    return _deliveryDate.add(Duration(days: _paymentTermDays));
+  }
 
   @override
   void initState() {
@@ -61,11 +69,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         return;
       }
 
+      // ✅ Используем CompanyContext для получения effectiveCompanyId
+      final companyCtx = CompanyContext.of(context);
+      final companyId = companyCtx.effectiveCompanyId ?? '';
+      final priceService = PriceService(companyId: companyId);
       final items = <InvoiceItem>[];
 
       for (final boxType in widget.point.boxTypes!) {
         // Загружаем цену из базы
-        final price = await _priceService.getPrice(
+        final price = await priceService.getPrice(
           boxType.type,
           boxType.number,
         );
@@ -123,7 +135,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   Future<void> _createInvoice() async {
     try {
-      final user = _authService.userModel;
+      // ✅ Берём данные из authService (виртуальный companyId для super_admin)
+      final authService = context.read<AuthService>();
+      final user = authService.userModel;
+      final companyId = user?.companyId ?? '';
+      final userName = user?.name ?? 'Unknown';
+      final userUid = authService.currentUser?.uid ?? '';
+      if (userUid.isEmpty) {
+        throw Exception('משתמש לא מחובר — לא ניתן ליצור חשבונית');
+      }
 
       // Время выезда всегда 7:00
       final departureTime = DateTime(
@@ -136,6 +156,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
       final invoice = Invoice(
         id: '',
+        companyId: companyId,
         sequentialNumber: 0, // Will be set by service
         clientName: widget.point.clientName,
         clientNumber: widget.point.clientNumber ?? '', // Берем из DeliveryPoint
@@ -143,23 +164,29 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         driverName: widget.driver.name,
         truckNumber: widget.driver.vehicleNumber ?? '',
         deliveryDate: _deliveryDate,
-        paymentDueDate: null, // TODO: Добавить поле для ввода
+        paymentDueDate: _effectivePaymentDueDate,
         departureTime: departureTime,
         items: _items,
         discount: double.tryParse(_discountController.text) ?? 0.0,
         createdAt: DateTime.now(),
-        createdBy: user?.name ?? 'Unknown',
+        createdBy: userName,
       );
 
-      // Create invoice and get the ID
-      final invoiceId =
-          await _invoiceService.createInvoice(invoice, user?.name ?? 'Unknown');
+      // Создаём сервис с companyId
+      final invoiceService = InvoiceService(companyId: companyId);
 
-      // Create invoice with ID for printing
-      final invoiceWithId = invoice.copyWith(id: invoiceId);
+      // Create invoice and get the ID
+      final invoiceId = await invoiceService.createInvoice(invoice, userUid);
+
+      // Финализируем сразу — это запускает assignment request если нужно
+      await invoiceService.finalizeInvoice(invoiceId, userUid);
+
+      // Загружаем актуальный объект с обновлённым assignmentStatus
+      final finalizedInvoice = await invoiceService.getInvoice(invoiceId);
 
       if (mounted) {
-        Navigator.pop(context, invoiceWithId);
+        Navigator.pop(
+            context, finalizedInvoice ?? invoice.copyWith(id: invoiceId));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ חשבונית נוצרה בהצלחה'),
@@ -197,6 +224,10 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
                     // Дата доставки
                     _buildDatePicker(),
+                    const SizedBox(height: 16),
+
+                    // Срок оплаты
+                    _buildPaymentTermSelector(),
                     const SizedBox(height: 16),
 
                     // Таблица товаров
@@ -267,6 +298,77 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           icon: const Icon(Icons.calendar_today),
           label: Text(DateFormat('dd/MM/yyyy').format(_deliveryDate)),
         ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentTermSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'תנאי תשלום:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 30, label: Text('30 ימים')),
+                  ButtonSegment(value: 60, label: Text('60 ימים')),
+                  ButtonSegment(value: 90, label: Text('90 ימים')),
+                  ButtonSegment(value: -1, label: Text('ידני')),
+                ],
+                selected: {_customPaymentDate ? -1 : _paymentTermDays},
+                onSelectionChanged: (Set<int> selected) {
+                  setState(() {
+                    if (selected.first == -1) {
+                      _customPaymentDate = true;
+                      _manualPaymentDate ??=
+                          _deliveryDate.add(const Duration(days: 30));
+                    } else {
+                      _customPaymentDate = false;
+                      _paymentTermDays = selected.first;
+                    }
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_customPaymentDate)
+          Row(
+            children: [
+              const Text('תשלום עד: '),
+              TextButton.icon(
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _manualPaymentDate ??
+                        _deliveryDate.add(const Duration(days: 30)),
+                    firstDate: _deliveryDate,
+                    lastDate: _deliveryDate.add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setState(() => _manualPaymentDate = picked);
+                  }
+                },
+                icon: const Icon(Icons.calendar_today, size: 16),
+                label: Text(
+                  DateFormat('dd/MM/yyyy').format(_effectivePaymentDueDate),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          )
+        else
+          Text(
+            'תשלום עד: ${DateFormat('dd/MM/yyyy').format(_effectivePaymentDueDate)}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
       ],
     );
   }

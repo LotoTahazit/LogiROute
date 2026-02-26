@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../models/inventory_item.dart';
 import '../../../services/inventory_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/company_context.dart';
 
 /// Диалог редактирования товара
 ///
@@ -37,8 +40,9 @@ class EditInventoryDialog extends StatefulWidget {
 }
 
 class _EditInventoryDialogState extends State<EditInventoryDialog> {
-  final InventoryService _inventoryService = InventoryService();
+  late final InventoryService _inventoryService;
 
+  late final TextEditingController _productCodeController; // מק"ט - ПЕРВОЕ ПОЛЕ
   late final TextEditingController _typeController;
   late final TextEditingController _numberController;
   late final TextEditingController _volumeMlController;
@@ -51,6 +55,12 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
   @override
   void initState() {
     super.initState();
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
+    _inventoryService = InventoryService(companyId: companyId);
+
+    _productCodeController =
+        TextEditingController(text: widget.item.productCode); // מק"ט
     _typeController = TextEditingController(text: widget.item.type);
     _numberController = TextEditingController(text: widget.item.number);
     _volumeMlController = TextEditingController(
@@ -73,6 +83,7 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
 
   @override
   void dispose() {
+    _productCodeController.dispose(); // מק"ט
     _typeController.dispose();
     _numberController.dispose();
     _volumeMlController.dispose();
@@ -85,27 +96,29 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
   }
 
   Future<void> _save() async {
-    if (_typeController.text.trim().isEmpty ||
+    if (_productCodeController.text.trim().isEmpty || // מק"ט обязательное
+        _typeController.text.trim().isEmpty ||
         _numberController.text.trim().isEmpty ||
         _quantityController.text.trim().isEmpty ||
         _quantityPerPalletController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('נא למלא את כל השדות החובה'),
+          content: Text('נא למלא את כל השדות החובה (כולל מק"ט)'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
+    final newProductCode = _productCodeController.text.trim(); // מק"ט
     final newType = _typeController.text.trim();
     final newNumber = _numberController.text.trim();
-    final newQuantity = int.tryParse(_quantityController.text) ?? 0;
-    final newQuantityPerPallet =
-        int.tryParse(_quantityPerPalletController.text) ?? 1;
     final newVolumeMl = _volumeMlController.text.trim().isEmpty
         ? null
         : int.tryParse(_volumeMlController.text);
+    final newQuantity = int.tryParse(_quantityController.text) ?? 0;
+    final newQuantityPerPallet =
+        int.tryParse(_quantityPerPalletController.text) ?? 1;
     final newPiecesPerBox = _piecesPerBoxController.text.trim().isEmpty
         ? null
         : int.tryParse(_piecesPerBoxController.text);
@@ -117,14 +130,13 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
         : _additionalInfoController.text.trim();
 
     try {
-      // Вычисляем новый ID
-      final newId = InventoryItem.generateId(newType, newNumber);
-
-      // Обновляем товар (с новым ID если изменился)
+      // Обновляем товар с новым מק"ט
       await _inventoryService.updateInventory(
+        productCode: newProductCode, // מק"ט - ПЕРВЫЙ ПАРАМЕТР
         type: newType,
         number: newNumber,
         volumeMl: newVolumeMl,
+        volume: widget.item.volume, // Сохраняем старое значение
         quantity: newQuantity,
         quantityPerPallet: newQuantityPerPallet,
         userName: widget.userName,
@@ -133,9 +145,9 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
         additionalInfo: newAdditionalInfo,
       );
 
-      // Если ID изменился (изменили тип или номер), удаляем старый
-      if (newId != widget.item.id) {
-        await _inventoryService.deleteInventoryItem(widget.item.id);
+      // Если מק"ט изменился, удаляем старый товар
+      if (newProductCode != widget.item.productCode) {
+        await _inventoryService.deleteInventoryItem(widget.item.productCode);
       }
 
       // Небольшая задержка для синхронизации с Firestore
@@ -170,6 +182,17 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // מק"ט - ПЕРВОЕ ПОЛЕ
+            TextField(
+              controller: _productCodeController,
+              decoration: const InputDecoration(
+                labelText: 'מק"ט *',
+                border: OutlineInputBorder(),
+                helperText: 'קוד ייחודי לכל מוצר',
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Тип
             TextField(
               controller: _typeController,

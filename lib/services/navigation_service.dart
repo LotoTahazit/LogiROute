@@ -146,7 +146,9 @@ class NavigationService {
   Future<Position?> getCurrentPosition() async {
     try {
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
     } catch (e) {
       debugPrint('❌ [Navigation] Error getting current position: $e');
@@ -168,10 +170,10 @@ class NavigationService {
   /// Форматирует расстояние в метрах
   String _formatDistance(int meters) {
     if (meters < 1000) {
-      return '$metersм';
+      return '$metersמ'; // Hebrew: מ = מטר (meters)
     } else {
       final km = meters / 1000;
-      return '${km.toStringAsFixed(1)}км';
+      return '${km.toStringAsFixed(1)}ק"מ'; // Hebrew: ק"מ = קילומטר (kilometers)
     }
   }
 
@@ -181,9 +183,9 @@ class NavigationService {
     final minutes = (seconds % 3600) ~/ 60;
 
     if (hours > 0) {
-      return '$hoursч $minutesм';
+      return '$hoursש $minutesד'; // Hebrew: ש = שעות (hours), ד = דקות (minutes)
     } else {
-      return '$minutesм';
+      return '$minutesד';
     }
   }
 
@@ -209,33 +211,6 @@ class NavigationService {
   /// Конвертирует градусы в радианы
   double _toRadians(double degrees) {
     return degrees * (math.pi / 180);
-  }
-
-  /// Вычисляет азимут между двумя точками
-  double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
-    final dLon = _toRadians(lon2 - lon1);
-    final lat1Rad = _toRadians(lat1);
-    final lat2Rad = _toRadians(lat2);
-
-    final y = math.sin(dLon) * math.cos(lat2Rad);
-    final x = math.cos(lat1Rad) * math.sin(lat2Rad) -
-        math.sin(lat1Rad) * math.cos(lat2Rad) * math.cos(dLon);
-
-    final bearing = math.atan2(y, x);
-    return (bearing * 180 / math.pi + 360) % 360;
-  }
-
-  /// Получает направление по азимуту
-  String _getDirectionFromBearing(double bearing) {
-    if (bearing >= 337.5 || bearing < 22.5) return 'צפון';
-    if (bearing >= 22.5 && bearing < 67.5) return 'צפון-מזרח';
-    if (bearing >= 67.5 && bearing < 112.5) return 'מזרח';
-    if (bearing >= 112.5 && bearing < 157.5) return 'דרום-מזרח';
-    if (bearing >= 157.5 && bearing < 202.5) return 'דרום';
-    if (bearing >= 202.5 && bearing < 247.5) return 'דרום-מערב';
-    if (bearing >= 247.5 && bearing < 292.5) return 'מערב';
-    if (bearing >= 292.5 && bearing < 337.5) return 'צפון-מערב';
-    return 'צפון';
   }
 }
 

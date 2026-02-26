@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../models/daily_summary.dart';
 import '../models/invoice.dart';
@@ -10,6 +11,9 @@ import '../models/delivery_point.dart';
 /// Instead of querying 50+ invoices, read 1 summary document
 class SummaryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String companyId;
+
+  SummaryService({required this.companyId});
 
   String _getDateKey(DateTime date) {
     return DateFormat('yyyy-MM-dd').format(date);
@@ -109,7 +113,12 @@ class SummaryService {
           });
         } else {
           // Update existing summary
-          final data = summary.data()!;
+          final data = summary.data();
+          if (data == null) {
+            debugPrint('❌ [Summary] Summary exists but data is null');
+            return;
+          }
+
           final byStatus = Map<String, int>.from(data['byStatus'] ?? {});
           final byDriver = Map<String, int>.from(data['byDriver'] ?? {});
 
@@ -128,7 +137,6 @@ class SummaryService {
         }
       });
 
-      print('✅ [SummaryService] Updated invoice summary for $dateKey');
     } catch (e) {
       print('❌ [SummaryService] Error updating invoice summary: $e');
       rethrow;
@@ -168,7 +176,12 @@ class SummaryService {
           });
         } else {
           // Update existing summary
-          final data = summary.data()!;
+          final data = summary.data();
+          if (data == null) {
+            debugPrint('❌ [Summary] Delivery summary exists but data is null');
+            return;
+          }
+
           final byDriver = Map<String, int>.from(data['byDriver'] ?? {});
 
           final driverKey = point.driverId ?? 'unassigned';
@@ -183,7 +196,6 @@ class SummaryService {
         }
       });
 
-      print('✅ [SummaryService] Updated delivery summary for $dateKey');
     } catch (e) {
       print('❌ [SummaryService] Error updating delivery summary: $e');
       rethrow;
@@ -199,6 +211,8 @@ class SummaryService {
 
       // Query all invoices for this date
       final snapshot = await _firestore
+          .collection('companies')
+          .doc(companyId)
           .collection('invoices')
           .where('createdAt',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
@@ -206,7 +220,6 @@ class SummaryService {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        print('ℹ️ [SummaryService] No invoices found for $dateKey');
         return;
       }
 
@@ -255,6 +268,8 @@ class SummaryService {
 
       // Query all delivery points for this date
       final snapshot = await _firestore
+          .collection('companies')
+          .doc(companyId)
           .collection('delivery_points')
           .where('deliveryDate',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
@@ -262,7 +277,6 @@ class SummaryService {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        print('ℹ️ [SummaryService] No delivery points found for $dateKey');
         return;
       }
 

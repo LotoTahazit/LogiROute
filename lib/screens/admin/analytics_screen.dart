@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/auth_service.dart';
+import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/route_model.dart';
@@ -7,10 +10,18 @@ import '../../models/route_model.dart';
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
-  Future<Map<String, dynamic>> _getAnalytics(AppLocalizations l10n) async {
+  Future<Map<String, dynamic>> _getAnalytics(
+      BuildContext context, AppLocalizations l10n) async {
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
     final firestore = FirebaseFirestore.instance;
 
-    final pointsSnapshot = await firestore.collection('delivery_points').get();
+    final pointsSnapshot = await firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('delivery_points')
+        .get();
+
     final routesSnapshot = await firestore.collection('routes').get();
 
     final points = pointsSnapshot.docs
@@ -20,24 +31,22 @@ class AnalyticsScreen extends StatelessWidget {
         .map((doc) => RouteModel.fromMap(doc.data(), doc.id))
         .toList();
 
-    final completed = points
-      .where((p) => p.status == DeliveryPoint.statusCompleted)
-      .length;
+    final completed =
+        points.where((p) => p.status == DeliveryPoint.statusCompleted).length;
     final pending =
-      points.where((p) => p.status == DeliveryPoint.statusPending).length;
+        points.where((p) => p.status == DeliveryPoint.statusPending).length;
     final inProgress = points
-      .where((p) =>
-        p.status == DeliveryPoint.statusAssigned ||
-        p.status == DeliveryPoint.statusInProgress)
-      .length;
-    final cancelled = points
-      .where((p) => p.status == DeliveryPoint.statusCancelled)
-      .length;
+        .where((p) =>
+            p.status == DeliveryPoint.statusAssigned ||
+            p.status == DeliveryPoint.statusInProgress)
+        .length;
+    final cancelled =
+        points.where((p) => p.status == DeliveryPoint.statusCancelled).length;
 
-    final totalPallets = points.fold<int>(0, (sum, p) => sum + (p.pallets));
+    final totalPallets = points.fold<int>(0, (total, p) => total + (p.pallets));
     final completedPallets = points
-      .where((p) => p.status == DeliveryPoint.statusCompleted)
-      .fold<int>(0, (sum, p) => sum + p.pallets);
+        .where((p) => p.status == DeliveryPoint.statusCompleted)
+        .fold<int>(0, (total, p) => total + p.pallets);
 
     final activeRoutes = routes.where((r) => r.status == 'active').length;
 
@@ -66,7 +75,7 @@ class AnalyticsScreen extends StatelessWidget {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.analytics)),
       body: FutureBuilder<Map<String, dynamic>>(
-        future: _getAnalytics(l10n),
+        future: _getAnalytics(context, l10n),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -194,7 +203,7 @@ class AnalyticsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 32),

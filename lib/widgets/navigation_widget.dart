@@ -1,4 +1,4 @@
-// lib/widgets/navigation_widget.dart
+﻿// lib/widgets/navigation_widget.dart
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import '../services/navigation_service.dart';
@@ -87,7 +87,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             endLat: point.latitude,
             endLng: point.longitude,
           );
-          print('🧭 [Navigation] Single point route built');
         }
       } else {
         // Несколько точек - строим маршрут через ВСЕ точки
@@ -200,7 +199,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
           (a.longitude + b.longitude) / 2,
         );
         routePoints.insert(1, mid);
-        debugPrint('🧩 [Navigation] Inserted midpoint for better visibility');
       }
 
       debugPrint(
@@ -238,7 +236,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         }
       }
     } else {
-      debugPrint('⚠️ [Navigation] No polyline to draw');
     }
 
     setState(() {});

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Универсальный диалог подтверждения удаления
 ///
@@ -20,13 +21,15 @@ class DeleteConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return AlertDialog(
       title: Text(title),
       content: Text(content),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -36,8 +39,8 @@ class DeleteConfirmationDialog extends StatelessWidget {
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('נמחק בהצלחה!'),
+                  SnackBar(
+                    content: Text(l10n.deletedSuccessfully),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -46,7 +49,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('שגיאה: $e'),
+                    content: Text('${l10n.error}: $e'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -56,7 +59,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
           ),
-          child: const Text('מחק'),
+          child: Text(l10n.deleteConfirmation),
         ),
       ],
     );

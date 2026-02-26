@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
+import 'services/company_selection_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/dispatcher/dispatcher_dashboard.dart';
@@ -15,6 +17,20 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔥 Глобальный ловец ошибок Flutter
+  FlutterError.onError = (details) {
+    FlutterError.dumpErrorToConsole(details);
+    debugPrint('🔥 FlutterError: ${details.exception}');
+    debugPrint('${details.stack}');
+  };
+
+  // 🔥 Глобальный ловец необработанных ошибок
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔥 Unhandled error: $error');
+    debugPrint('$stack');
+    return true;
+  };
 
   // 🔐 Загрузка переменных окружения из .env файла
   await dotenv.load(fileName: ".env");
@@ -43,6 +59,7 @@ class LogiRouteApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => LocaleService()),
+        ChangeNotifierProvider(create: (_) => CompanySelectionService()),
         // ClientService создаётся локально в каждом экране с companyId
       ],
       child: Consumer<LocaleService>(

@@ -10,8 +10,11 @@ import 'optimized_location_service.dart';
 /// Если водитель находится в радиусе 100м от точки и неподвижен 10 минут,
 /// точка автоматически помечается как выполненная
 class AutoCompleteService {
+  final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final OptimizedLocationService _locationService = OptimizedLocationService();
+
+  AutoCompleteService({required this.companyId});
 
   Timer? _checkTimer;
   Timer? _cleanupTimer;
@@ -67,6 +70,8 @@ class AutoCompleteService {
     try {
       // Получаем все активные точки (assigned или in_progress)
       final pointsSnapshot = await _firestore
+          .collection('companies')
+          .doc(companyId)
           .collection('delivery_points')
           .where('status', whereIn: ['assigned', 'in_progress']).get();
 
@@ -212,7 +217,12 @@ class AutoCompleteService {
   /// Автоматически завершает точку
   Future<void> _completePoint(DeliveryPoint point) async {
     try {
-      await _firestore.collection('delivery_points').doc(point.id).update({
+      await _firestore
+          .collection('companies')
+          .doc(companyId)
+          .collection('delivery_points')
+          .doc(point.id)
+          .update({
         'status': 'completed',
         'completedAt': FieldValue.serverTimestamp(),
         'autoCompleted': true, // Помечаем что завершено автоматически

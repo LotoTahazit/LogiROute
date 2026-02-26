@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:logiroute/services/box_type_service.dart';
 import 'package:logiroute/services/auth_service.dart';
+import 'package:logiroute/services/company_context.dart';
 import 'package:logiroute/l10n/app_localizations.dart';
 import 'package:logiroute/screens/warehouse/dialogs/edit_box_type_dialog.dart';
 import 'package:logiroute/screens/warehouse/dialogs/delete_confirmation_dialog.dart';
@@ -29,8 +30,8 @@ class _BoxTypesManagerDialogState extends State<BoxTypesManagerDialog> {
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
-    final companyId = authService.userModel?.companyId ?? '';
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
     _boxTypeService = BoxTypeService(companyId: companyId);
     _loadBoxTypes();
   }

@@ -1,21 +1,13 @@
 // lib/services/smart_navigation_service.dart
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'osrm_navigation_service.dart';
 import 'navigation_service.dart';
 import '../models/delivery_point.dart';
 
-/// 🧠 Умный навигационный сервис
-/// Использует OSRM как основной источник (бесплатно, без лимитов)
-/// Google Directions API как fallback (с лимитами, но с пошаговыми инструкциями)
 class SmartNavigationService {
   final OsrmNavigationService _osrm = OsrmNavigationService();
   final NavigationService _google = NavigationService();
 
-  /// 🧭 Умный маршрут с несколькими точками
-  /// - OSRM приоритетен
-  /// - Google fallback
-  /// - При ≤3 точках оптимизация отключается (OSRM теряет промежуточные)
   Future<NavigationRoute?> getMultiPointRoute({
     required double startLat,
     required double startLng,
@@ -25,15 +17,6 @@ class SmartNavigationService {
     String language = 'he',
     bool useOptimization = true,
   }) async {
-    debugPrint('🧠 [SmartNavigation] Getting multi-point route with ${waypoints.length} waypoints');
-    debugPrint('🔍 [SmartNavigation] Start: ($startLat, $startLng), End: ($endLat, $endLng)');
-    
-    // Логируем все waypoints
-    for (int i = 0; i < waypoints.length; i++) {
-      debugPrint('  📍 Waypoint $i: ${waypoints[i].clientName} (${waypoints[i].latitude}, ${waypoints[i].longitude})');
-    }
-
-    // 🧹 Убираем дубликаты (но не теряем точки)
     final uniqueWaypoints = <Map<String, double>>[];
     for (var p in waypoints) {
       final exists = uniqueWaypoints.any((w) =>
@@ -41,19 +24,15 @@ class SmartNavigationService {
           (w['lng']! - p.longitude).abs() < 0.00005);
       if (!exists) {
         uniqueWaypoints.add({'lat': p.latitude, 'lng': p.longitude});
-      } else {
-        debugPrint('⚠️ [SmartNavigation] Skipping near-duplicate waypoint: ${p.clientName}');
       }
     }
 
-    // ⚙️ Если ≤3 точек — отключаем оптимизацию, OSRM их теряет
     final shouldOptimize = useOptimization && uniqueWaypoints.length > 3;
 
     try {
       OsrmRoute? osrmRoute;
-      
+
       if (uniqueWaypoints.isEmpty) {
-        // Нет промежуточных точек - простой маршрут
         osrmRoute = await _osrm.getRoute(
           startLat: startLat,
           startLng: startLng,
@@ -62,7 +41,6 @@ class SmartNavigationService {
           language: language,
         );
       } else if (shouldOptimize) {
-        // Много точек - используем trip optimization
         osrmRoute = await _osrm.getOptimizedTrip(
           startLat: startLat,
           startLng: startLng,
@@ -72,7 +50,6 @@ class SmartNavigationService {
           language: language,
         );
       } else {
-        // Мало точек - используем обычный route с waypoints (БЕЗ оптимизации)
         osrmRoute = await _osrm.getOptimizedRoute(
           startLat: startLat,
           startLng: startLng,
@@ -84,15 +61,10 @@ class SmartNavigationService {
       }
 
       if (osrmRoute != null) {
-        debugPrint('✅ [SmartNavigation] OSRM route OK (${uniqueWaypoints.isEmpty ? "simple" : shouldOptimize ? "trip-optimized" : "route-with-waypoints"}): ${osrmRoute.formattedDistance}, ${osrmRoute.formattedDuration}');
-        debugPrint('🔍 [SmartNavigation] Polyline length: ${osrmRoute.polyline.length} chars');
-        debugPrint('🔍 [SmartNavigation] Polyline preview: ${osrmRoute.polyline.substring(0, math.min(50, osrmRoute.polyline.length))}...');
-        
         if (osrmRoute.polyline.isEmpty) {
           debugPrint('❌ [SmartNavigation] OSRM returned empty polyline');
           return null;
         }
-        
         return NavigationRoute(
           distance: osrmRoute.formattedDistance,
           duration: osrmRoute.formattedDuration,
@@ -104,10 +76,9 @@ class SmartNavigationService {
         debugPrint('❌ [SmartNavigation] OSRM returned null route');
       }
     } catch (e) {
-      debugPrint('⚠️ [SmartNavigation] OSRM multi-point failed: $e');
+      debugPrint('❌ [SmartNavigation] OSRM multi-point failed: $e');
     }
 
-    // 🪣 fallback → Google
     if (!kIsWeb) {
       try {
         final googleRoute = await _google.getMultiPointRoute(
@@ -118,11 +89,7 @@ class SmartNavigationService {
           endLng: endLng,
           language: language,
         );
-
-        if (googleRoute != null) {
-          debugPrint('✅ [SmartNavigation] Google fallback route: ${googleRoute.distance}, ${googleRoute.duration}');
-          return googleRoute;
-        }
+        if (googleRoute != null) return googleRoute;
       } catch (e) {
         debugPrint('❌ [SmartNavigation] Google multi-point failed: $e');
       }
@@ -132,7 +99,6 @@ class SmartNavigationService {
     return null;
   }
 
-  /// Получает обычный маршрут между двумя точками (с fallback)
   Future<NavigationRoute?> getNavigationRoute({
     required double startLat,
     required double startLng,
@@ -140,8 +106,6 @@ class SmartNavigationService {
     required double endLng,
     String language = 'he',
   }) async {
-    debugPrint('🧠 [SmartNav] Single route ($startLat,$startLng) → ($endLat,$endLng)');
-    
     try {
       final osrmRoute = await _osrm.getRoute(
         startLat: startLat,
@@ -150,7 +114,6 @@ class SmartNavigationService {
         endLng: endLng,
         language: language,
       );
-      
       if (osrmRoute != null) {
         return NavigationRoute(
           distance: osrmRoute.formattedDistance,
@@ -160,9 +123,6 @@ class SmartNavigationService {
           polyline: osrmRoute.polyline,
         );
       }
-
-      debugPrint('⚠️ [SmartNav] OSRM failed → Google fallback');
-      
       if (!kIsWeb) {
         return await _google.getNavigationRoute(
           startLat: startLat,
@@ -175,11 +135,9 @@ class SmartNavigationService {
     } catch (e) {
       debugPrint('❌ [SmartNav] Error: $e');
     }
-    
     return null;
   }
 
-  /// Получает маршрут (автоматически выбирает лучший источник)
   Future<NavigationRoute?> getAutoRoute({
     required double startLat,
     required double startLng,
@@ -188,8 +146,6 @@ class SmartNavigationService {
     required double endLng,
     String language = 'he',
   }) async {
-    debugPrint('🧠 [SmartNav] Auto route: ${points.length} points');
-    
     if (points.isEmpty) {
       return getNavigationRoute(
         startLat: startLat,
@@ -199,7 +155,6 @@ class SmartNavigationService {
         language: language,
       );
     }
-    
     return getMultiPointRoute(
       startLat: startLat,
       startLng: startLng,
@@ -210,7 +165,6 @@ class SmartNavigationService {
     );
   }
 
-  /// Принудительно OSRM (без fallback)
   Future<NavigationRoute?> getOsrmOnlyRoute({
     required double startLat,
     required double startLng,
@@ -218,7 +172,6 @@ class SmartNavigationService {
     required double endLng,
     String language = 'he',
   }) async {
-    debugPrint('🧩 [SmartNav] OSRM-only route');
     final osrmRoute = await _osrm.getRoute(
       startLat: startLat,
       startLng: startLng,
@@ -226,7 +179,6 @@ class SmartNavigationService {
       endLng: endLng,
       language: language,
     );
-    
     if (osrmRoute != null) {
       return NavigationRoute(
         distance: osrmRoute.formattedDistance,
@@ -236,11 +188,9 @@ class SmartNavigationService {
         polyline: osrmRoute.polyline,
       );
     }
-    
     return null;
   }
 
-  /// Принудительно Google Directions (для инструкций)
   Future<NavigationRoute?> getGoogleOnlyRoute({
     required double startLat,
     required double startLng,
@@ -248,7 +198,6 @@ class SmartNavigationService {
     required double endLng,
     String language = 'he',
   }) async {
-    debugPrint('🧭 [SmartNav] Google-only route');
     return await _google.getNavigationRoute(
       startLat: startLat,
       startLng: startLng,

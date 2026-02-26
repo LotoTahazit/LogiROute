@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -35,13 +35,13 @@ class OptimizedLocationService {
   Future<void> startTracking(
     String driverId,
     String driverName,
-    Function(double, double) onLocationUpdate,
-  ) async {
+    Function(double, double) onLocationUpdate, {
+    String? userRole,
+  }) async {
     _currentDriverId = driverId;
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      debugPrint('⚠️ [Location] Location services disabled');
       return;
     }
 
@@ -49,23 +49,23 @@ class OptimizedLocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        debugPrint('⚠️ [Location] Location permission denied');
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      debugPrint('⚠️ [Location] Location permission denied forever');
       return;
     }
 
-    // ✅ ВАЖНО: Сохраняем имя водителя при старте трекинга
+    // ✅ ВАЖНО: Сохраняем имя водителя и роль при старте трекинга
     try {
       await _firestore.collection('driver_locations').doc(driverId).set({
         'driverName': driverName,
+        'role': userRole ?? 'driver', // Сохраняем роль для фильтрации
         'timestamp': Timestamp.now(),
       }, SetOptions(merge: true));
-      debugPrint('✅ [Location] Driver name saved: $driverName');
+      debugPrint(
+          '✅ [Location] Driver name and role saved: $driverName ($userRole)');
     } catch (e) {
       debugPrint('❌ [Location] Error saving driver name: $e');
     }
@@ -142,7 +142,6 @@ class OptimizedLocationService {
       );
 
       if (distance < 10.0) {
-        debugPrint('📍 [Location] No significant movement, skipping save');
         return;
       }
     }
@@ -173,7 +172,6 @@ class OptimizedLocationService {
         // driverName уже сохранено при startTracking, не перезаписываем
       }, SetOptions(merge: true));
 
-      debugPrint('✅ [Location] Saved to Firestore');
     } catch (e) {
       debugPrint('❌ [Location] Error saving: $e');
     }
@@ -206,7 +204,6 @@ class OptimizedLocationService {
     _lastPosition = null;
     _lastSavedPosition = null;
     _lastSaveTime = null;
-    debugPrint('🛑 [Location] Tracking stopped');
   }
 
   void checkPointCompletion(
@@ -234,13 +231,10 @@ class OptimizedLocationService {
       );
 
       final duration = DateTime.now().difference(trackingData.arrivedAt);
-      final remainingSeconds =
-          AppConfig.autoCompleteDuration.inSeconds - duration.inSeconds;
 
       if (duration >= AppConfig.autoCompleteDuration &&
           !trackingData.completed) {
         trackingData.completed = true;
-        debugPrint('✅ [AutoComplete] Point "${point.clientName}" completed!');
         onComplete(point);
       }
     } else {
@@ -308,17 +302,19 @@ class OptimizedLocationService {
   }
 
   /// Get all driver locations (for map)
+  /// ✅ ФИЛЬТРАЦИЯ: Показываем ТОЛЬКО водителей (role == 'driver')
   Stream<List<Map<String, dynamic>>> getAllDriverLocationsStream() {
     return _firestore
         .collection('driver_locations')
+        .where('role', isEqualTo: 'driver') // ✅ Фильтруем только водителей
         .snapshots()
         .map((snapshot) {
       debugPrint(
-          '📍 [Location Stream] Got ${snapshot.docs.length} driver locations');
+          '📍 [Location Stream] Got ${snapshot.docs.length} driver locations (filtered by role=driver)');
       return snapshot.docs.map((doc) {
         final data = doc.data();
         debugPrint(
-            '📍 [Location Stream] Driver ${doc.id}: lat=${data['latitude']}, lng=${data['longitude']}');
+            '📍 [Location Stream] Driver ${doc.id}: lat=${data['latitude']}, lng=${data['longitude']}, role=${data['role']}');
         return {
           'driverId': doc.id,
           'driverName': data['driverName'] ?? 'Водитель',

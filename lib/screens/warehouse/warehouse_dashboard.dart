@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/inventory_item.dart';
-import '../../services/inventory_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
+import '../shared/inventory_report_screen.dart';
 import 'widgets/inventory_list_view.dart';
 import 'dialogs/add_inventory_dialog.dart';
 import 'dialogs/add_box_type_dialog.dart';
-import 'dialogs/edit_inventory_dialog.dart';
 import 'dialogs/box_types_manager_dialog.dart';
-import 'dialogs/delete_confirmation_dialog.dart';
+import 'inventory_count_screen.dart';
+
+// Условный импорт только для веба
+import '../../services/export_service.dart'
+    if (dart.library.io) '../../services/export_service_stub.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -19,7 +25,6 @@ class WarehouseDashboard extends StatefulWidget {
 }
 
 class _WarehouseDashboardState extends State<WarehouseDashboard> {
-  final InventoryService _inventoryService = InventoryService();
   final AuthService _authService = AuthService();
 
   String _userName = '';
@@ -41,58 +46,64 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
   }
 
-  void _showAddInventoryDialog() {
-    AddInventoryDialog.show(
-      context: context,
-      userName: _userName,
-      onAddNewType: _showAddNewBoxTypeDialog,
-    );
-  }
-
   void _showAddNewBoxTypeDialog() {
-    AddBoxTypeDialog.show(
-      context: context,
-      userName: _userName,
-    );
-  }
-
-  void _showEditInventoryDialog(InventoryItem item) {
-    EditInventoryDialog.show(
-      context: context,
-      item: item,
-      userName: _userName,
-    );
-  }
-
-  void _showDeleteConfirmation(InventoryItem item) {
-    DeleteConfirmationDialog.show(
-      context: context,
-      title: 'מחק פריט',
-      content: 'האם למחוק ${item.toDisplayString()}?',
-      onConfirm: () async {
-        await _inventoryService.deleteInventoryItem(item.id);
-      },
-    );
+    AddBoxTypeDialog.show(context: context, userName: _userName);
   }
 
   void _showInventoryHistory() {
-    // История изменений инвентаря
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('היסטוריה - בפיתוח'),
-        duration: Duration(seconds: 2),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const InventoryReportScreen()),
     );
   }
 
-  void _exportReport() {
-    // Экспорт отчета инвентаря
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ייצוא דוח - בפיתוח'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _exportReport() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    try {
+      // Получаем текущий инвентарь
+      final companyCtx = CompanyContext.of(context);
+      final companyId = companyCtx.effectiveCompanyId ?? '';
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('inventory')
+          .orderBy('productCode')
+          .get();
+
+      final items = snapshot.docs
+          .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+          .toList();
+
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.noItemsToExport)),
+          );
+        }
+        return;
+      }
+
+      // Экспортируем
+      ExportService.exportInventoryToCSV(items);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.reportExportedSuccessfully),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error exporting inventory: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.exportError}: $e')),
+        );
+      }
+    }
   }
 
   void _showBoxTypesManager() {
@@ -112,13 +123,33 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('מחסן - ניהול מלאי'),
+        title: Text(l10n.warehouseInventoryManagement),
         actions: [
+          // Инвентаризация (ספירת מלאי)
+          IconButton(
+            icon: const Icon(Icons.fact_check),
+            tooltip: l10n.inventoryCount,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      InventoryCountScreen(userName: _userName),
+                ),
+              );
+            },
+          ),
           // Управление справочником
           IconButton(
             icon: const Icon(Icons.library_books),
-            tooltip: 'ניהול מאגר סוגים',
+            tooltip: l10n.manageBoxTypes,
             onPressed: _showBoxTypesManager,
+          ),
+          // Добавить новый тип в справочник
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: l10n.addNewBoxTypeToCatalog,
+            onPressed: _showAddNewBoxTypeDialog,
           ),
           // Фильтр низких остатков
           IconButton(
@@ -126,7 +157,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
               color: _showLowStockOnly ? Colors.orange : null,
             ),
-            tooltip: 'הצג רק מלאי נמוך',
+            tooltip: l10n.showLowStockOnly,
             onPressed: () {
               setState(() {
                 _showLowStockOnly = !_showLowStockOnly;
@@ -136,14 +167,26 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           // История
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'היסטוריית שינויים',
+            tooltip: l10n.changeHistory,
             onPressed: _showInventoryHistory,
           ),
-          // Экспорт
+          // Экспорт (только для веба)
+          if (kIsWeb)
+            IconButton(
+              icon: const Icon(Icons.download),
+              tooltip: l10n.exportReport,
+              onPressed: _exportReport,
+            ),
+          // Выход
           IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'ייצוא דוח',
-            onPressed: _exportReport,
+            icon: const Icon(Icons.logout),
+            tooltip: l10n.logout,
+            onPressed: () async {
+              await _authService.signOut();
+              if (mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
+            },
           ),
         ],
       ),
@@ -194,7 +237,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'חיפוש לפי סוג או מספר...',
+                hintText: l10n.searchByTypeOrNumber,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -216,18 +259,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               showAllFields: isDispatcher,
               showLowStockOnly: _showLowStockOnly,
               searchQuery: _searchQuery,
-              onEdit: _showEditInventoryDialog,
-              onDelete: _showDeleteConfirmation,
-              emptyMessage: 'אין פריטים במלאי',
+              emptyMessage: l10n.noItemsInInventory,
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddInventoryDialog,
+        onPressed: () {
+          AddInventoryDialog.show(
+            context: context,
+            userName: _userName,
+          );
+        },
         backgroundColor: Colors.green,
-        tooltip: 'הוסף מלאי',
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
     );
   }

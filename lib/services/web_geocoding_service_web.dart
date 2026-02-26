@@ -33,7 +33,6 @@ class WebGeocodingService {
           final geocoderClass = maps['Geocoder'];
           if (geocoderClass != null) {
             _geocoder = js.JsObject(geocoderClass);
-            debugPrint('✅ [WebGeocoding] Geocoder initialized');
           }
         }
       }
@@ -41,10 +40,12 @@ class WebGeocodingService {
       if (_geocoder == null) {
         debugPrint('❌ [WebGeocoding] Google Maps not loaded');
       }
+      if (_geocoder == null) {
+        debugPrint('❌ [WebGeocoding] Google Maps not loaded');
+      }
     }
   }
 
-  /// Геокодирование адреса
   static Future<GeocodingResult?> geocode(String address) async {
     _ensureInitialized();
 
@@ -76,7 +77,30 @@ class WebGeocodingService {
                 formattedAddress = firstResult['formatted_address'] as String?;
               } catch (_) {}
 
-              debugPrint('✅ [WebGeocoding] Найдено: $lat, $lng');
+              // ✅ ПРОВЕРКА: Если в запросе был конкретный город, проверяем результат
+              final cityChecks = {
+                'חולון': ['חולון', 'Holon'],
+                'Holon': ['חולון', 'Holon'],
+                'ראשון לציון': ['ראשון לציון', 'Rishon'],
+                'Rishon': ['ראשון לציון', 'Rishon'],
+                'תל אביב': ['תל אביב', 'Tel Aviv'],
+                'Tel Aviv': ['תל אביב', 'Tel Aviv'],
+              };
+
+              for (final entry in cityChecks.entries) {
+                if (address.contains(entry.key)) {
+                  final cityFound = entry.value.any(
+                    (city) => formattedAddress?.contains(city) ?? false,
+                  );
+                  if (!cityFound) {
+                    if (!completer.isCompleted) {
+                      completer.complete(null);
+                    }
+                    return;
+                  }
+                }
+              }
+
               if (!completer.isCompleted) {
                 completer.complete(GeocodingResult(
                   latitude: lat,
@@ -98,11 +122,6 @@ class WebGeocodingService {
           }
         },
       );
-
-      _geocoder!.callMethod('geocode', [
-        request,
-        callback,
-      ]);
     } catch (e) {
       debugPrint('❌ [WebGeocoding] Ошибка: $e');
       if (!completer.isCompleted) {

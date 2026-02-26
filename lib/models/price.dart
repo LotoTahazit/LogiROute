@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Price {
-  final String id; // type_number (например: "כוס_218")
+  final String id; // companyId_type_number (например: "company1_כוס_218")
+  final String companyId; // ID компании для изоляции данных
   final String type; // "בביע", "מכסה", "כוס"
   final String number; // "100", "200", etc.
   final double priceBeforeVAT; // Цена до НДС
@@ -10,6 +11,7 @@ class Price {
 
   Price({
     required this.id,
+    required this.companyId,
     required this.type,
     required this.number,
     required this.priceBeforeVAT,
@@ -17,14 +19,15 @@ class Price {
     required this.updatedBy,
   });
 
-  // Создание ID из типа и номера
-  static String generateId(String type, String number) {
-    return '${type}_$number';
+  // Создание ID из companyId, типа и номера
+  static String generateId(String companyId, String type, String number) {
+    return '${companyId}_${type}_$number';
   }
 
   // Конвертация в Map для Firestore
   Map<String, dynamic> toMap() {
     return {
+      'companyId': companyId,
       'type': type,
       'number': number,
       'priceBeforeVAT': priceBeforeVAT,
@@ -37,6 +40,7 @@ class Price {
   factory Price.fromMap(Map<String, dynamic> map, String id) {
     return Price(
       id: id,
+      companyId: map['companyId'] ?? '',
       type: map['type'] ?? '',
       number: map['number'] ?? '',
       priceBeforeVAT: (map['priceBeforeVAT'] is num)
@@ -57,6 +61,7 @@ class Price {
   }) {
     return Price(
       id: id,
+      companyId: companyId,
       type: type,
       number: number,
       priceBeforeVAT: priceBeforeVAT ?? this.priceBeforeVAT,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../services/inventory_service.dart';
 import '../../../services/box_type_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/company_context.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Диалог добавления товара в инвентарь
@@ -36,7 +37,7 @@ class AddInventoryDialog extends StatefulWidget {
 
 class _AddInventoryDialogState extends State<AddInventoryDialog> {
   late final BoxTypeService _boxTypeService;
-  final InventoryService _inventoryService = InventoryService();
+  late final InventoryService _inventoryService;
 
   List<Map<String, dynamic>> _boxTypes = [];
   String? _selectedProductCode; // Выбранный מק"ט из справочника
@@ -56,9 +57,10 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
-    final companyId = authService.userModel?.companyId ?? '';
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
     _boxTypeService = BoxTypeService(companyId: companyId);
+    _inventoryService = InventoryService(companyId: companyId);
 
     _loadBoxTypes();
     // Слушаем изменения в поле מק"ט для поиска

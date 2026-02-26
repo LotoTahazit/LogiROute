@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:logiroute/services/box_type_service.dart';
 import 'package:logiroute/services/auth_service.dart';
+import 'package:logiroute/services/company_context.dart';
 import 'package:logiroute/l10n/app_localizations.dart';
 
 class EditBoxTypeDialog extends StatefulWidget {
@@ -74,8 +75,8 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
-    final companyId = authService.userModel?.companyId ?? '';
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
     _boxTypeService = BoxTypeService(companyId: companyId);
 
     _productCodeController = TextEditingController(text: widget.oldProductCode);

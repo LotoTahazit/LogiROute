@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../models/inventory_item.dart';
 import '../../../services/inventory_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/company_context.dart';
+import '../../../l10n/app_localizations.dart';
 import 'inventory_item_card.dart';
 
 /// Виджет списка товаров с фильтрацией и сортировкой
@@ -9,8 +13,6 @@ import 'inventory_item_card.dart';
 /// - [showAllFields] - показывать все поля товара или только основные
 /// - [showLowStockOnly] - фильтр: показывать только товары с низким остатком
 /// - [searchQuery] - поисковый запрос для фильтрации
-/// - [onEdit] - callback при редактировании товара
-/// - [onDelete] - callback при удалении товара
 /// - [emptyMessage] - сообщение при пустом списке
 ///
 /// ⚡ OPTIMIZED: Converted to StatefulWidget to prevent stream recreation on every build
@@ -18,8 +20,6 @@ class InventoryListView extends StatefulWidget {
   final bool showAllFields;
   final bool showLowStockOnly;
   final String searchQuery;
-  final Function(InventoryItem)? onEdit;
-  final Function(InventoryItem)? onDelete;
   final String emptyMessage;
 
   const InventoryListView({
@@ -27,8 +27,6 @@ class InventoryListView extends StatefulWidget {
     this.showAllFields = true,
     this.showLowStockOnly = false,
     this.searchQuery = '',
-    this.onEdit,
-    this.onDelete,
     this.emptyMessage = 'אין פריטים במלאי',
   });
 
@@ -44,7 +42,9 @@ class _InventoryListViewState extends State<InventoryListView> {
   void initState() {
     super.initState();
     // ✅ Initialize service and stream ONCE in initState
-    _inventoryService = InventoryService();
+    final companyCtx = CompanyContext.of(context);
+    final companyId = companyCtx.effectiveCompanyId ?? '';
+    _inventoryService = InventoryService(companyId: companyId);
     _inventoryStream = _inventoryService.getInventoryStream(limit: 200);
     print('✅ [InventoryListView] Stream initialized in initState()');
   }
@@ -64,7 +64,8 @@ class _InventoryListViewState extends State<InventoryListView> {
 
         if (snapshot.hasError) {
           return Center(
-            child: Text('שגיאה: ${snapshot.error}'),
+            child: Text(
+                '${AppLocalizations.of(context)!.error}: ${snapshot.error}'),
           );
         }
 
@@ -85,11 +86,6 @@ class _InventoryListViewState extends State<InventoryListView> {
                   widget.emptyMessage,
                   style: const TextStyle(fontSize: 18, color: Colors.grey),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'לחץ על + למטה להוספת פריט',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
               ],
             ),
           );
@@ -100,38 +96,35 @@ class _InventoryListViewState extends State<InventoryListView> {
 
         if (widget.searchQuery.isNotEmpty) {
           filteredItems = filteredItems.where((item) {
-            return item.type
+            final productCode = item.productCode;
+            final type = item.type;
+            final number = item.number;
+
+            return productCode
                     .toLowerCase()
                     .contains(widget.searchQuery.toLowerCase()) ||
-                item.number
-                    .toLowerCase()
-                    .contains(widget.searchQuery.toLowerCase());
+                type.toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
+                number.toLowerCase().contains(widget.searchQuery.toLowerCase());
           }).toList();
         }
 
         if (widget.showLowStockOnly) {
           filteredItems =
-              filteredItems.where((item) => item.quantity < 10).toList();
+              filteredItems.where((item) => item.quantity < 60).toList();
         }
 
-        // Сортируем по алфавиту: сначала по типу, потом по номеру
+        // Сортируем по מק"ט (productCode)
         filteredItems.sort((a, b) {
-          final typeCompare = a.type.compareTo(b.type);
-          if (typeCompare != 0) return typeCompare;
-          // Пробуем сортировать номера как числа
-          final numA = int.tryParse(a.number);
-          final numB = int.tryParse(b.number);
-          if (numA != null && numB != null) {
-            return numA.compareTo(numB);
-          }
-          return a.number.compareTo(b.number);
+          final codeA = a.productCode;
+          final codeB = b.productCode;
+          return codeA.compareTo(codeB);
         });
 
         if (filteredItems.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
-              'לא נמצאו פריטים',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              AppLocalizations.of(context)!.noItemsFound,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           );
         }
@@ -146,9 +139,6 @@ class _InventoryListViewState extends State<InventoryListView> {
             return InventoryItemCard(
               item: item,
               showAllFields: widget.showAllFields,
-              onEdit: widget.onEdit != null ? () => widget.onEdit!(item) : null,
-              onDelete:
-                  widget.onDelete != null ? () => widget.onDelete!(item) : null,
               formatDate: _formatDate,
             );
           },

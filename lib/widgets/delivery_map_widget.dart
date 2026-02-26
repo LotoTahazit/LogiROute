@@ -104,28 +104,17 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     });
     // После обновления состояния — фитим камеру по polyline
     if (_polylines.isNotEmpty && _controller != null) {
-      debugPrint(
-          '🎯 [Map] Centering camera on route with ${_polylines.length} polylines');
-      // Небольшая задержка для завершения рендеринга
       await Future.delayed(const Duration(milliseconds: 300));
       if (!mounted || _controller == null) return;
-
       final polyline = _polylines.first;
-      debugPrint('📍 [Map] Polyline has ${polyline.points.length} points');
       final bounds = _calculatePolylineBounds(polyline.points);
-      debugPrint(
-          '🗺️ [Map] Bounds: SW(${bounds.southwest.latitude}, ${bounds.southwest.longitude}) NE(${bounds.northeast.latitude}, ${bounds.northeast.longitude})');
       try {
         await _controller!.animateCamera(
           CameraUpdate.newLatLngBounds(bounds, 50),
         );
-        debugPrint('✅ [Map] Camera centered on route');
       } catch (e) {
-        debugPrint('❌ [Map] Camera animation error (polyline fit): $e');
+        debugPrint('❌ [Map] Camera animation error: $e');
       }
-    } else {
-      debugPrint(
-          '⚠️ [Map] Cannot center: polylines=${_polylines.length}, controller=${_controller != null}');
     }
   }
 
@@ -222,7 +211,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Если нет точек доставки, не строим маршрут
     if (widget.points.isEmpty) {
-      debugPrint('🗺️ [Map] No delivery points, clearing polylines');
       return {};
     }
 
@@ -232,7 +220,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Если нет назначенных точек, не строим маршрут
     if (validRoutePoints.isEmpty) {
-      debugPrint('🗺️ [Map] No points assigned to drivers, clearing polylines');
       return {};
     }
 
@@ -251,11 +238,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Если маршрут не изменился, возвращаем текущие полилинии
     if (_lastRouteSignature == routeSignature && _polylines.isNotEmpty) {
-      debugPrint('✅ [Map] Route signature unchanged, using cached polylines');
       return _polylines;
     }
-
-    debugPrint('🗺️ [Map] Sorted route points by driver and order:');
     for (var p in validRoutePoints) {
       debugPrint(
           '  - ${p.clientName}: driver=${p.driverName}, order=${p.orderInRoute}');
@@ -355,7 +339,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
           debugPrint(
               '🏭 [Map] Building active route for driver $driverKey from ($startLat, $startLng)');
-          debugPrint('📍 [Map] Route has ${activePoints.length} active points');
           debugPrint(
               '🏭 [Map] Start: Warehouse/Last completed ($startLat, $startLng)');
           debugPrint(
@@ -363,8 +346,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
           final end = activePoints.last;
           final waypoints = activePoints.sublist(0, activePoints.length - 1);
-
-          debugPrint('📍 [Map] Waypoints count: ${waypoints.length}');
 
           final smartRoute = await _smartNavigationService.getMultiPointRoute(
             startLat: startLat,
@@ -377,12 +358,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
           debugPrint(
               '🧭 [Map] SmartNavigationService result for driver $driverKey:');
-          debugPrint('  - Route found: ${smartRoute != null}');
-          if (smartRoute != null) {
-            debugPrint('  - Polyline length: ${smartRoute.polyline.length}');
-            debugPrint('  - Distance: ${smartRoute.distance}');
-            debugPrint('  - Duration: ${smartRoute.duration}');
-          }
+          if (smartRoute != null) {}
 
           if (smartRoute == null || smartRoute.polyline.isEmpty) {
             debugPrint(
@@ -397,7 +373,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           var decoded = PolylineDecoder.decode(rawPolyline, precision: 5);
 
           if (!PolylineDecoder.isValid(decoded)) {
-            debugPrint('⚠️ [Map] Polyline invalid, using fallback');
             result.addAll(_fallbackPolyline(activePoints,
                 driverIndex: driverIndex, isCompleted: false));
             driverIndex++;
@@ -425,7 +400,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       _lastRouteSignature = routeSignature; // Сохраняем сигнатуру
       return result;
     } catch (e) {
-      debugPrint('❌ [Map] SmartNavigationService error: $e');
       return _fallbackPolyline(validRoutePoints);
     } finally {
       _isLoadingRoute = false;
@@ -480,9 +454,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       final bounds = _calculateBounds(widget.points);
       await _controller!
           .animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-    } catch (e) {
-      debugPrint('Map camera animation error: $e');
-    }
+    } catch (e) {}
   }
 
   LatLngBounds _calculateBounds(List<DeliveryPoint> points) {
@@ -506,24 +478,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    if (widget.points.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.map_outlined, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              l10n.noDeliveryPoints,
-              style: const TextStyle(color: Colors.black),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // ✅ ВСЕГДА показываем карту (даже без точек - чтобы видеть склад и водителей)
     return Stack(
       children: [
         GoogleMap(
@@ -543,7 +498,6 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           zoomGesturesEnabled: true,
           onMapCreated: (controller) {
             _controller = controller;
-            debugPrint('🗺️ [Map] Controller initialized');
             // Центрируем карту после инициализации контроллера
             Future.delayed(const Duration(milliseconds: 500), () {
               if (mounted && _controller != null) {
@@ -568,9 +522,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       (driverLocations) {
         _updateDriverMarkers(driverLocations);
       },
-      onError: (error) {
-        debugPrint('❌ [Driver Tracking] Error: $error');
-      },
+      onError: (error) {},
     );
   }
 
@@ -689,6 +641,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           (p) => p.driverId == driverId,
           orElse: () => DeliveryPoint(
             id: '',
+            companyId: '',
             clientName: '',
             address: '',
             latitude: 0,
@@ -721,9 +674,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           debugPrint(
               '⏱️ [ETA] Driver $driverId: ${route.duration} to ${nextPoint.clientName}');
         }
-      } catch (e) {
-        debugPrint('❌ [ETA] Error calculating ETA for driver $driverId: $e');
-      }
+      } catch (e) {}
     }
 
     // Обновляем UI если есть изменения
@@ -768,10 +719,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       await _controller!.animateCamera(
         CameraUpdate.newLatLngBounds(bounds, 80),
       );
-      debugPrint('✅ [Map] Successfully centered on route');
-    } catch (e) {
-      debugPrint('❌ [Map] Error centering on route: $e');
-    }
+    } catch (e) {}
   }
 
   String _buildMarkerSnippet(DeliveryPoint point, AppLocalizations? l10n) {

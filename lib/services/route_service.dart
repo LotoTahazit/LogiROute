@@ -10,11 +10,27 @@ import 'api_config_service.dart';
 import '../utils/time_formatter.dart';
 
 class RouteService {
+  final String companyId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  RouteService({required this.companyId}) {
+    if (companyId.isEmpty) {
+      throw Exception('companyId cannot be empty');
+    }
+  }
+
+  /// Хелпер: возвращает ссылку на вложенную коллекцию точек доставки компании
+  CollectionReference<Map<String, dynamic>> _deliveryPointsCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('delivery_points');
+  }
+
   /// 🚚 Автоматически распределяет все pending точки между всеми водителями по palletCapacity
   Future<void> autoDistributePalletsToDrivers(List<UserModel> drivers) async {
     // Получаем все точки, которые ещё не назначены (pending)
-    final pendingSnapshot = await _firestore
-        .collection('delivery_points')
+    final pendingSnapshot = await _deliveryPointsCollection()
         .where('status', isEqualTo: 'pending')
         .get();
 
@@ -50,8 +66,7 @@ class RouteService {
       final routeId = '${driver.uid}_${DateTime.now().millisecondsSinceEpoch}';
 
       // Получаем текущее количество точек у водителя
-      final existingPoints = await _firestore
-          .collection('delivery_points')
+      final existingPoints = await _deliveryPointsCollection()
           .where('driverId', isEqualTo: driver.uid)
           .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
           .get();
@@ -104,7 +119,7 @@ class RouteService {
         // Форматируем ETA используя утилиту
         final eta = TimeFormatter.formatDuration(cumulativeTimeMinutes);
 
-        await _firestore.collection('delivery_points').doc(point.id).update({
+        await _deliveryPointsCollection().doc(point.id).update({
           'driverId': driver.uid,
           'driverName': driver.name,
           'driverCapacity': driver.palletCapacity,
@@ -117,22 +132,16 @@ class RouteService {
     }
   }
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   /// ✅ Поток всех активных маршрутов (для вкладки "מסלולים")
   /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllRoutes() {
-    Query query = _firestore
-        .collection('delivery_points')
+    Query query = _deliveryPointsCollection()
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses);
 
     // Limit to prevent excessive reads
     query = query.limit(200);
 
     return query.snapshots().map((snapshot) {
-      print('📊 [RouteService] Loaded ${snapshot.docs.length} active routes');
-
-      // Группируем точки по водителям и сортируем по orderInRoute
       final points = snapshot.docs
           .map((doc) =>
               DeliveryPoint.fromMap(doc.data() as Map<String, dynamic>, doc.id))
@@ -153,13 +162,11 @@ class RouteService {
   /// ✅ Поток всех ожидающих точек (для вкладки "נקודות משלוח")
   /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
-    return _firestore
-        .collection('delivery_points')
+    return _deliveryPointsCollection()
         .where('status', whereIn: DeliveryPoint.pendingStatuses)
         .limit(100) // Limit pending points
         .snapshots()
         .map((snapshot) {
-      print('📊 [RouteService] Loaded ${snapshot.docs.length} pending points');
       return snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
           .toList();
@@ -169,29 +176,19 @@ class RouteService {
   /// ✅ Для карты — получить только активные маршруты
   /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllPointsForMap() {
-    return _firestore
-        .collection('delivery_points')
+    return _deliveryPointsCollection()
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .limit(200)
         .snapshots()
         .map((snapshot) {
-      print('📊 [RouteService] Loaded ${snapshot.docs.length} points for map');
       return snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
           .toList();
     });
   }
 
-  /// 🗺️ Получить ВСЕ точки для карты (включая pending) - для тестирования
-  /// ⚠️ WARNING: Expensive query - use only for testing!
   Stream<List<DeliveryPoint>> getAllPointsForMapTesting() {
-    print(
-        '⚠️ [RouteService] Using expensive query - getAllPointsForMapTesting');
-    return _firestore
-        .collection('delivery_points')
-        .limit(500) // Add limit even for testing
-        .snapshots()
-        .map((snapshot) {
+    return _deliveryPointsCollection().limit(500).snapshots().map((snapshot) {
       print(
           '📊 [RouteService] Loaded ${snapshot.docs.length} points (testing mode)');
       return snapshot.docs
@@ -202,9 +199,8 @@ class RouteService {
 
   /// ✅ Получить все маршруты как Future (для управления логикой)
   Future<List<DeliveryPoint>> getAllRouteModels() async {
-    final snapshot = await _firestore
-        .collection('delivery_points')
-        .where('status', whereIn: [
+    final snapshot =
+        await _deliveryPointsCollection().where('status', whereIn: [
       DeliveryPoint.statusAssigned,
       DeliveryPoint.statusInProgress,
       DeliveryPoint.statusCompleted,
@@ -519,10 +515,7 @@ class RouteService {
     }
 
     try {
-      await _firestore
-          .collection('delivery_points')
-          .doc(pointId)
-          .update(updateData);
+      await _deliveryPointsCollection().doc(pointId).update(updateData);
       print('✅ [RouteService] Point $pointId updated successfully');
     } catch (e) {
       print('❌ [RouteService] Error updating point $pointId: $e');
@@ -572,7 +565,7 @@ class RouteService {
         '🛑 [RouteService] Starting route cancellation for driverId: "$driverId", routeId: "$routeId"');
 
     // Сначала посмотрим, что у нас есть в базе
-    final allPoints = await _firestore.collection('delivery_points').get();
+    final allPoints = await _deliveryPointsCollection().get();
     print(
         '📊 [RouteService] Total points in database: ${allPoints.docs.length}');
 
@@ -587,20 +580,17 @@ class RouteService {
     if (driverId.isEmpty || driverId == 'null') {
       // Если driverId пустой, удаляем ВСЕ точки (для тестирования)
       print('🗑️ [RouteService] Deleting ALL points (driverId is empty)');
-      query = _firestore.collection('delivery_points');
+      query = _deliveryPointsCollection();
     } else if (routeId != null) {
       // Если есть routeId, удаляем только точки этого маршрута
       print('🗑️ [RouteService] Deleting points for routeId: "$routeId"');
-      query = _firestore
-          .collection('delivery_points')
-          .where('routeId', isEqualTo: routeId);
+      query = _deliveryPointsCollection().where('routeId', isEqualTo: routeId);
     } else {
       // Иначе удаляем точки конкретного водителя (для старых маршрутов без routeId)
       print(
           '🗑️ [RouteService] Deleting points for driverId: "$driverId" (no routeId)');
-      query = _firestore
-          .collection('delivery_points')
-          .where('driverId', isEqualTo: driverId);
+      query =
+          _deliveryPointsCollection().where('driverId', isEqualTo: driverId);
     }
 
     final snapshot = await query.get();
@@ -624,9 +614,8 @@ class RouteService {
     int capacity,
     String? routeId, // ID конкретного маршрута
   ) async {
-    Query query = _firestore
-        .collection('delivery_points')
-        .where('driverId', isEqualTo: oldDriverId);
+    Query query =
+        _deliveryPointsCollection().where('driverId', isEqualTo: oldDriverId);
 
     // Если указан routeId, фильтруем только по нему
     if (routeId != null) {
@@ -651,8 +640,7 @@ class RouteService {
 
   /// Получить активные точки конкретного водителя
   Stream<List<DeliveryPoint>> getDriverPoints(String driverId) {
-    return _firestore
-        .collection('delivery_points')
+    return _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .snapshots()
@@ -661,15 +649,27 @@ class RouteService {
             .toList());
   }
 
+  /// Получить активные точки водителя как Future (для проверки загрузки)
+  Future<List<DeliveryPoint>> getDriverPointsSnapshot(String driverId) async {
+    final snapshot = await _deliveryPointsCollection()
+        .where('driverId', isEqualTo: driverId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
   /// Добавить новую точку доставки
   Future<void> addDeliveryPoint(DeliveryPoint point) async {
-    await _firestore.collection('delivery_points').add(point.toMap());
+    await _deliveryPointsCollection().add(point.toMap());
     print('✅ Delivery point added: ${point.clientName}');
   }
 
   /// Обновить статус точки
   Future<void> updatePointStatus(String pointId, String newStatus) async {
-    await _firestore.collection('delivery_points').doc(pointId).update({
+    await _deliveryPointsCollection().doc(pointId).update({
       'status': newStatus,
     });
     print('✅ Point $pointId status updated to $newStatus');
@@ -677,7 +677,7 @@ class RouteService {
 
   /// Обновить текущую точку водителя
   Future<void> updateCurrentPoint(String pointId) async {
-    await _firestore.collection('delivery_points').doc(pointId).update({
+    await _deliveryPointsCollection().doc(pointId).update({
       'status': DeliveryPoint.statusInProgress,
     });
     print('✅ Point $pointId set to in_progress');
@@ -685,8 +685,7 @@ class RouteService {
 
   /// Активировать маршрут водителя (изменить статус всех точек с assigned на in_progress)
   Future<void> activateDriverRoute(String driverId) async {
-    final snapshot = await _firestore
-        .collection('delivery_points')
+    final snapshot = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
         .where('status', isEqualTo: DeliveryPoint.statusAssigned)
         .get();
@@ -709,7 +708,7 @@ class RouteService {
 
   /// Удалить отдельную точку доставки
   Future<void> deletePoint(String pointId) async {
-    await _firestore.collection('delivery_points').doc(pointId).delete();
+    await _deliveryPointsCollection().doc(pointId).delete();
     print('🗑️ Point $pointId deleted');
   }
 
@@ -720,8 +719,7 @@ class RouteService {
     String? routeId;
 
     try {
-      final existingRoutes = await _firestore
-          .collection('delivery_points')
+      final existingRoutes = await _deliveryPointsCollection()
           .where('driverId', isEqualTo: driverId)
           .where('status', whereIn: [
             DeliveryPoint.statusAssigned,
@@ -748,8 +746,7 @@ class RouteService {
     // Получаем максимальный orderInRoute для этого маршрута
     int nextOrder = 0;
     try {
-      final routePoints = await _firestore
-          .collection('delivery_points')
+      final routePoints = await _deliveryPointsCollection()
           .where('routeId', isEqualTo: routeId)
           .get();
 
@@ -764,7 +761,7 @@ class RouteService {
       print('⚠️ Error calculating order: $e');
     }
 
-    await _firestore.collection('delivery_points').doc(pointId).update({
+    await _deliveryPointsCollection().doc(pointId).update({
       'driverId': driverId,
       'driverName': driverName,
       'driverCapacity': capacity,
@@ -1013,8 +1010,7 @@ class RouteService {
     final routeId = '${driverId}_${DateTime.now().millisecondsSinceEpoch}';
 
     // Сначала получаем все существующие точки водителя
-    final existingPoints = await _firestore
-        .collection('delivery_points')
+    final existingPoints = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .get();
@@ -1069,7 +1065,7 @@ class RouteService {
       final eta = TimeFormatter.formatDuration(cumulativeTimeMinutes);
 
       try {
-        await _firestore.collection('delivery_points').doc(point.id).update({
+        await _deliveryPointsCollection().doc(point.id).update({
           'driverId': driverId,
           'driverName': driverName,
           'driverCapacity': driverCapacity,
@@ -1091,7 +1087,7 @@ class RouteService {
   /// ❌ Отменить точку доставки
   Future<void> cancelPoint(String pointId) async {
     try {
-      await _firestore.collection('delivery_points').doc(pointId).update({
+      await _deliveryPointsCollection().doc(pointId).update({
         'status': 'cancelled',
         'updatedAt': FieldValue.serverTimestamp(),
         'driverId': null,

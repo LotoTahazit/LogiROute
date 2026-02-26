@@ -69,6 +69,45 @@ class AppLocalizationsHe extends AppLocalizations {
   String get clientName => 'שם לקוח';
 
   @override
+  String get clientNumber => 'מספר לקוח';
+
+  @override
+  String get clientManagement => 'ניהול לקוחות';
+
+  @override
+  String get editClient => 'ערוך לקוח';
+
+  @override
+  String get clientUpdated => 'הלקוח עודכן בהצלחה';
+
+  @override
+  String get noClientsFound => 'לא נמצאו לקוחות';
+
+  @override
+  String get searchClientHint => 'חפש לפי שם, מספר או כתובת';
+
+  @override
+  String get addressWillBeGeocoded => 'הכתובת תמופה לקואורדינטות';
+
+  @override
+  String get addressNotFound => 'כתובת לא נמצאה';
+
+  @override
+  String get geocodingError => 'שגיאת מיפוי כתובת';
+
+  @override
+  String get contactPerson => 'איש קשר';
+
+  @override
+  String get phone => 'טלפון';
+
+  @override
+  String get required => 'שדה חובה';
+
+  @override
+  String get search => 'חיפוש';
+
+  @override
   String get urgency => 'דחיפות';
 
   @override
@@ -78,7 +117,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get boxes => 'קרטונים';
 
   @override
-  String get boxesPerPallet => 'קרטונים למשטח (16-48)';
+  String get boxesPerPallet => 'קופסאות במשטח';
 
   @override
   String get openingTime => 'שעת פתיחה';
@@ -93,7 +132,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get assigned => 'הוקצה';
 
   @override
-  String get inProgress => 'בביצוע';
+  String get inProgress => 'בתהליך';
 
   @override
   String get completed => 'הושלם';
@@ -168,6 +207,12 @@ class AppLocalizationsHe extends AppLocalizations {
   String get noDriversAvailable => 'אין נהגים זמינים';
 
   @override
+  String get filterByDriver => 'סנן לפי נהג';
+
+  @override
+  String get allDrivers => 'כל הנהגים';
+
+  @override
   String get viewingAs => 'אתה צופה במצב של';
 
   @override
@@ -220,9 +265,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get pointAdded => 'נקודה נוספה';
-
-  @override
-  String get required => 'שדה חובה';
 
   @override
   String get noPointsForRoute => 'אין נקודות זמינות ליצירת מסלול';
@@ -381,9 +423,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get refreshMap => 'רענן מפה';
 
   @override
-  String get phone => 'טלפון';
-
-  @override
   String get clientNumberLabel => 'מספר לקוח (6 ספרות)';
 
   @override
@@ -400,9 +439,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get pointAssigned => 'נקודה הוקצתה';
-
-  @override
-  String get addressNotFound => 'כתובת לא נמצאה';
 
   @override
   String addressNotFoundDescription(String address) {
@@ -508,6 +544,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get gpsTrackingStopped => 'מעקב GPS הופסק';
+
+  @override
+  String get weekendDay => 'יום מנוחה';
 
   @override
   String get workDayEnded => 'יום העבודה הסתיים';
@@ -656,8 +695,817 @@ class AppLocalizationsHe extends AppLocalizations {
   String get additionalInfoLabel => 'מידע נוסף (אופציונלי)';
 
   @override
-  String get requiredField => 'חובה';
+  String get requiredField => 'שדה חובה';
 
   @override
   String get close => 'סגור';
+
+  @override
+  String formatHours(int hours) {
+    return '$hours ש';
+  }
+
+  @override
+  String formatMinutes(int minutes) {
+    return '$minutes ד';
+  }
+
+  @override
+  String formatHoursMinutes(int hours, int minutes) {
+    return '$hours ש $minutes ד';
+  }
+
+  @override
+  String get setWarehouseLocation => 'הגדר מיקום מחסן';
+
+  @override
+  String get latitudeWarehouse => 'קו רוחב (מחסן במשמרות)';
+
+  @override
+  String get longitudeWarehouse => 'קו אורך (מחסן במשמרות)';
+
+  @override
+  String get clearPendingPoints => 'נקה נקודות ממתינות';
+
+  @override
+  String get clearPendingPointsConfirm =>
+      'זה ימחק רק נקודות משלוח ממתינות (לא מסלולים פעילים). להמשיך?';
+
+  @override
+  String get clearPending => 'נקה ממתינות';
+
+  @override
+  String get clearAllData => 'נקה את כל הנתונים';
+
+  @override
+  String get clearAllDataConfirm =>
+      'זה ימחק את כל נקודות המשלוח. האם אתה בטוח?';
+
+  @override
+  String get deleteAll => 'מחק הכל';
+
+  @override
+  String get fixRouteNumbers => 'תקן מספרי מסלול';
+
+  @override
+  String get fixRouteNumbersConfirm =>
+      'זה יחשב מחדש את מספרי המסלול לכל הנהגים (1, 2, 3...). להמשיך?';
+
+  @override
+  String get fixNumbers => 'תקן מספרים';
+
+  @override
+  String get dataMigration => 'העברת נתונים';
+
+  @override
+  String get daysToMigrate => 'ימים להעברה';
+
+  @override
+  String get oneTimeSetup => 'הגדרה חד-פעמית';
+
+  @override
+  String get migrationDescription =>
+      'זה יבנה מסמכי סיכום עבור חשבוניות ומשלוחים קיימים.';
+
+  @override
+  String get migrationInstructions =>
+      '• הפעל זאת פעם אחת לאחר פריסת העדכון\n• לוקח ~1 דקה עבור 30 ימים של נתונים\n• בטוח להפעיל מספר פעמים (יבנה מחדש)';
+
+  @override
+  String get days => 'ימים';
+
+  @override
+  String get warehouseInventoryManagement => 'מחסן - ניהול מלאי';
+
+  @override
+  String get addNewBoxTypeToCatalog => 'הוסף סוג חדש למאגר';
+
+  @override
+  String get showLowStockOnly => 'הצג רק מלאי נמוך';
+
+  @override
+  String get changeHistory => 'היסטוריית שינויים';
+
+  @override
+  String get exportReport => 'ייצוא דוח';
+
+  @override
+  String get searchByTypeOrNumber => 'חיפוש לפי סוג או מספר...';
+
+  @override
+  String get noItemsToExport => 'אין פריטים לייצוא';
+
+  @override
+  String get reportExportedSuccessfully => 'הדוח יוצא בהצלחה';
+
+  @override
+  String get exportError => 'שגיאה בייצוא';
+
+  @override
+  String get noItemsInInventory => 'אין פריטים במלאי';
+
+  @override
+  String get noItemsFound => 'לא נמצאו פריטים';
+
+  @override
+  String get productCode => 'מק\"ט';
+
+  @override
+  String get productCodeLabel => 'מק\"ט *';
+
+  @override
+  String get productCodeHelper => 'קוד ייחודי לכל מוצר';
+
+  @override
+  String get productCodeSearchHelper => 'הקלד מק\"ט לחיפוש במאגר';
+
+  @override
+  String get productCodeFoundInCatalog => 'מק\"ט נמצא במאגר';
+
+  @override
+  String get productCodeNotFoundInCatalog => 'מק\"ט לא נמצא במאגר';
+
+  @override
+  String get productCodeNotFoundAddFirst =>
+      'מק\"ט לא נמצא במאגר. הוסף סוג חדש למאגר תחילה.';
+
+  @override
+  String get orSelectFromList => 'או בחר מק\"ט מהרשימה';
+
+  @override
+  String get selectFromFullList => 'בחירה מהרשימה המלאה';
+
+  @override
+  String get lowStock => 'מלאי נמוך!';
+
+  @override
+  String get limitedStock => 'מלאי מועט';
+
+  @override
+  String get volume => 'נפח (ליטר)';
+
+  @override
+  String get ml => 'מל';
+
+  @override
+  String get diameter => 'קוטר';
+
+  @override
+  String get packed => 'ארוז';
+
+  @override
+  String get piecesInBox => 'יח\' בקרטון';
+
+  @override
+  String get quantityPerPallet => 'כמות במשטח';
+
+  @override
+  String get additionalInfo => 'מידע נוסף';
+
+  @override
+  String get quantity => 'כמות';
+
+  @override
+  String get units => 'יח\'';
+
+  @override
+  String remainingUnitsOnly(int count) {
+    return 'נותרו $count יחידות בלבד';
+  }
+
+  @override
+  String get urgentOrderStock => 'דחוף! יש להזמין מלאי';
+
+  @override
+  String get updated => 'עודכן';
+
+  @override
+  String get by => 'ע\"י';
+
+  @override
+  String get addInventory => 'הוסף מלאי';
+
+  @override
+  String get inventoryUpdatedSuccessfully => 'מלאי עודכן בהצלחה!';
+
+  @override
+  String get catalogEmpty => 'המאגר ריק. הוסף סוג חדש למאגר תחילה.';
+
+  @override
+  String get editItem => 'ערוך פריט';
+
+  @override
+  String get itemUpdatedSuccessfully => 'פריט עודכן בהצלחה!';
+
+  @override
+  String get fillAllRequiredFields => 'נא למלא את כל השדות החובה';
+
+  @override
+  String get fillAllRequiredFieldsIncludingProductCode =>
+      'נא למלא את כל השדות החובה (כולל מק\"ט)';
+
+  @override
+  String get typeUpdatedSuccessfully => 'סוג עודכן בהצלחה!';
+
+  @override
+  String get deletedSuccessfully => 'נמחק בהצלחה!';
+
+  @override
+  String get deleteConfirmation => 'מחק';
+
+  @override
+  String get searchByProductCode => 'חיפוש לפי מק\"ט או סוג או מספר...';
+
+  @override
+  String get warehouseInventory => 'מלאי';
+
+  @override
+  String get inventoryChangesReport => 'דוח שינויים במלאי';
+
+  @override
+  String get inventoryCountReportsTooltip => 'דוחות ספירת מלאי';
+
+  @override
+  String get archiveManagement => 'ניהול ארכיונים';
+
+  @override
+  String get inventoryCount => 'ספירת מלאי';
+
+  @override
+  String get inventoryCountReports => 'דוחות ספירת מלאי';
+
+  @override
+  String get startNewCount => 'התחל ספירת מלאי חדשה';
+
+  @override
+  String get startNewCountConfirm =>
+      'האם להתחיל ספירת מלאי חדשה?\nזה ייצור רשימה של כל הפריטים במלאי.';
+
+  @override
+  String get start => 'התחל';
+
+  @override
+  String get noActiveCount => 'אין ספירת מלאי פעילה';
+
+  @override
+  String get countStarted => 'ספירת מלאי חדשה התחילה';
+
+  @override
+  String get errorStartingCount => 'שגיאה בהתחלת ספירה';
+
+  @override
+  String get errorLoadingCount => 'שגיאה בטעינת ספירה';
+
+  @override
+  String get errorUpdatingItem => 'שגיאה בעדכון פריט';
+
+  @override
+  String get completeCount => 'סיים ספירה';
+
+  @override
+  String completeCountConfirm(int count) {
+    return 'יש עדיין $count פריטים שלא נספרו.\nהאם לסיים בכל זאת?';
+  }
+
+  @override
+  String get finish => 'סיים';
+
+  @override
+  String get countCompleted => 'ספירת מלאי הושלמה בהצלחה';
+
+  @override
+  String get errorCompletingCount => 'שגיאה בסיום ספירה';
+
+  @override
+  String get showOnlyDifferences => 'הצג רק הפרשים';
+
+  @override
+  String get counted => 'נספרו';
+
+  @override
+  String get differences => 'הפרשים';
+
+  @override
+  String get shortage => 'חסר';
+
+  @override
+  String get surplus => 'עודף';
+
+  @override
+  String get searchByProductCodeTypeNumber => 'חיפוש לפי מק\"ט / סוג / מספר';
+
+  @override
+  String get noResults => 'לא נמצאו תוצאות';
+
+  @override
+  String get noDifferences => 'אין הפרשים';
+
+  @override
+  String get noItems => 'אין פריטים';
+
+  @override
+  String get expected => 'צפוי';
+
+  @override
+  String get actualCounted => 'נספר';
+
+  @override
+  String get difference => 'הפרש';
+
+  @override
+  String get suspiciousOrders => 'הזמנות חשודות';
+
+  @override
+  String get notes => 'הערות';
+
+  @override
+  String get notesOptional => 'הערות (אופציונלי)';
+
+  @override
+  String get enterValidNumber => 'נא להזין מספר תקין';
+
+  @override
+  String get noCountReports => 'אין דוחות ספירת מלאי';
+
+  @override
+  String get countReport => 'דוח ספירת מלאי';
+
+  @override
+  String get performedBy => 'ביצע';
+
+  @override
+  String get started => 'התחיל';
+
+  @override
+  String get finished => 'הסתיים';
+
+  @override
+  String get totalItems => 'סה\"כ פריטים';
+
+  @override
+  String get viewDetails => 'צפה בפרטים';
+
+  @override
+  String get approved => 'אושר';
+
+  @override
+  String get approveCount => 'אשר ספירה';
+
+  @override
+  String get approveCountConfirm =>
+      'האם לאשר את הספירה ולעדכן את המלאי?\nפעולה זו תעדכן את כמויות המלאי בהתאם לספירה.';
+
+  @override
+  String get approveAndUpdate => 'אשר ועדכן';
+
+  @override
+  String get countApproved => 'הספירה אושרה והמלאי עודכן בהצלחה';
+
+  @override
+  String get errorApprovingCount => 'שגיאה באישור ספירה';
+
+  @override
+  String get countNotFound => 'דוח לא נמצא';
+
+  @override
+  String get exportToExcel => 'ייצוא ל-Excel';
+
+  @override
+  String get exportToExcelSoon => 'ייצוא לאקסל - בקרוב';
+
+  @override
+  String get countNotCompleted => 'הספירה לא הושלמה';
+
+  @override
+  String get errorLoadingReport => 'שגיאה בטעינת דוח';
+
+  @override
+  String get items => 'פריטים';
+
+  @override
+  String get selectDates => 'בחר תאריכים';
+
+  @override
+  String get allPeriod => 'כל התקופה';
+
+  @override
+  String get today => 'היום';
+
+  @override
+  String get yesterday => 'אתמול';
+
+  @override
+  String get thisWeek => 'השבוע';
+
+  @override
+  String get thisMonth => 'החודש';
+
+  @override
+  String get all => 'הכל';
+
+  @override
+  String get searchByProductCodeTypeNumberHint =>
+      'חיפוש לפי מק\"ט, סוג או מספר...';
+
+  @override
+  String foundChanges(int count) {
+    return 'נמצאו: $count שינויים';
+  }
+
+  @override
+  String get added => 'הוספה';
+
+  @override
+  String get deducted => 'הוצאה';
+
+  @override
+  String noResultsFor(String query) {
+    return 'לא נמצאו תוצאות עבור \"$query\"';
+  }
+
+  @override
+  String get noChangesInPeriod => 'אין שינויים בתקופה זו';
+
+  @override
+  String get before => 'לפני';
+
+  @override
+  String get after => 'אחרי';
+
+  @override
+  String get reason => 'סיבה';
+
+  @override
+  String get statistics => 'סטטיסטיקה';
+
+  @override
+  String get totalArchives => 'סה\"כ ארכיונים';
+
+  @override
+  String get totalSize => 'גודל כולל';
+
+  @override
+  String get records => 'רשומות';
+
+  @override
+  String get archiveActions => 'פעולות ארכוב';
+
+  @override
+  String get archiveInventoryHistory => 'ארכב היסטוריית מלאי';
+
+  @override
+  String get archiveOrders => 'ארכב הזמנות';
+
+  @override
+  String get existingArchives => 'ארכיונים קיימים';
+
+  @override
+  String get noArchives => 'אין ארכיונים';
+
+  @override
+  String get archiveInventoryHistoryTitle => 'ארכוב היסטוריית מלאי';
+
+  @override
+  String get archiveInventoryHistoryConfirm =>
+      'האם לארכב רשומות ישנות מ-3 חודשים אחרונים?\n\nהרשומות יסומנו כמאורכבות ולא יימחקו.';
+
+  @override
+  String get archiveCompletedOrdersTitle => 'ארכוב הזמנות שהושלמו';
+
+  @override
+  String get archiveCompletedOrdersConfirm =>
+      'האם לארכב הזמנות שהושלמו לפני חודש?\n\nההזמנות יסומנו כמאורכבות ולא יימחקו.';
+
+  @override
+  String get archive => 'ארכב';
+
+  @override
+  String get errorLoadingArchives => 'שגיאה בטעינת ארכיונים';
+
+  @override
+  String get size => 'גודל';
+
+  @override
+  String get created => 'נוצר';
+
+  @override
+  String get download => 'הורד';
+
+  @override
+  String get mb => 'MB';
+
+  @override
+  String get insufficientStock => 'אין מספיק מלאי';
+
+  @override
+  String get cannotCreateOrderInsufficientStock =>
+      'לא ניתן ליצור הזמנה - אין מספיק מלאי:';
+
+  @override
+  String get pleaseContactWarehouseKeeper => 'אנא פנה למחסנאי לעדכון המלאי.';
+
+  @override
+  String get understood => 'הבנתי';
+
+  @override
+  String get available => 'זמין';
+
+  @override
+  String get requested => 'מבוקש';
+
+  @override
+  String get itemNotFoundInInventory => 'פריט לא נמצא במלאי';
+
+  @override
+  String get productCodeNotFound => 'מק\"ט לא נמצא';
+
+  @override
+  String get companySettings => 'הגדרות חברה';
+
+  @override
+  String get companyDetails => 'פרטי חברה';
+
+  @override
+  String get companyNameHebrew => 'שם חברה (עברית)';
+
+  @override
+  String get companyNameEnglish => 'שם חברה (אנגלית)';
+
+  @override
+  String get taxId => 'ח.פ';
+
+  @override
+  String get addressHebrew => 'כתובת (עברית)';
+
+  @override
+  String get addressEnglish => 'כתובת (אנגלית)';
+
+  @override
+  String get poBox => 'ת.ד';
+
+  @override
+  String get city => 'עיר';
+
+  @override
+  String get zipCode => 'מיקוד';
+
+  @override
+  String get contact => 'יצירת קשר';
+
+  @override
+  String get fax => 'פקס';
+
+  @override
+  String get website => 'אתר';
+
+  @override
+  String get defaultDriver => 'נהג ברירת מחדל';
+
+  @override
+  String get driverName => 'שם נהג';
+
+  @override
+  String get driverPhone => 'טלפון נהג';
+
+  @override
+  String get departureTime => 'שעת יציאה';
+
+  @override
+  String get invoice => 'חשבונית';
+
+  @override
+  String get invoiceFooterText => 'טקסט תחתון בחשבונית';
+
+  @override
+  String get paymentTerms => 'תנאי תשלום';
+
+  @override
+  String get bankDetails => 'פרטי בנק';
+
+  @override
+  String get saveSettings => 'שמור הגדרות';
+
+  @override
+  String get settingsSaved => 'הגדרות נשמרו';
+
+  @override
+  String get errorSavingSettings => 'שגיאה בשמירת הגדרות';
+
+  @override
+  String get errorLoadingSettings => 'שגיאה בטעינת הגדרות';
+
+  @override
+  String get warning => 'אזהרה';
+
+  @override
+  String get migrationWarning =>
+      'פעולה זו תוסיף את מזהה החברה לכל הרשומות הקיימות במסד הנתונים. ודא שאתה מבצע גיבוי לפני המשך.';
+
+  @override
+  String get currentCompanyId => 'מזהה חברה נוכחי';
+
+  @override
+  String get startMigration => 'התחל העברה';
+
+  @override
+  String get migrating => 'מעביר נתונים...';
+
+  @override
+  String get migrationStatistics => 'סטטיסטיקת העברה';
+
+  @override
+  String get migrationLog => 'יומן העברה';
+
+  @override
+  String get noMigrationYet => 'טרם בוצעה העברת נתונים';
+
+  @override
+  String get overloadWarning => 'אזהרת עומס יתר';
+
+  @override
+  String overloadWarningMessage(String driverName, int currentLoad, int newLoad,
+      int totalLoad, int capacity) {
+    return 'הנהג $driverName כבר נושא $currentLoad משטחים, והוספת $newLoad משטחים תעלה את הסה\"כ ל-$totalLoad משטחים (קיבולת: $capacity משטחים). האם להמשיך?';
+  }
+
+  @override
+  String get continueAnyway => 'המשך בכל זאת';
+
+  @override
+  String get productManagement => 'ניהול מוצרים';
+
+  @override
+  String get addProduct => 'הוסף מוצר';
+
+  @override
+  String get editProduct => 'ערוך מוצר';
+
+  @override
+  String get deleteProduct => 'מחק מוצר';
+
+  @override
+  String get productName => 'שם המוצר';
+
+  @override
+  String get category => 'קטגוריה';
+
+  @override
+  String get unitsPerBox => 'יחידות בקופסה';
+
+  @override
+  String get weight => 'משקל (ק\"ג)';
+
+  @override
+  String get inactive => 'לא פעיל';
+
+  @override
+  String get showInactive => 'הצג לא פעילים';
+
+  @override
+  String get hideInactive => 'הסתר לא פעילים';
+
+  @override
+  String get importFromExcel => 'ייבוא מ-Excel';
+
+  @override
+  String get noProducts => 'אין מוצרים';
+
+  @override
+  String get addFirstProduct => 'הוסף מוצר ראשון';
+
+  @override
+  String get productAdded => 'המוצר נוסף בהצלחה';
+
+  @override
+  String get productUpdated => 'המוצר עודכן בהצלחה';
+
+  @override
+  String get productDeleted => 'המוצר נמחק';
+
+  @override
+  String deleteProductConfirm(Object productName) {
+    return 'האם למחוק את $productName?';
+  }
+
+  @override
+  String get allCategories => 'הכל';
+
+  @override
+  String get categoryGeneral => 'כללי';
+
+  @override
+  String get categoryCups => 'גביעים';
+
+  @override
+  String get categoryLids => 'מכסים';
+
+  @override
+  String get categoryContainers => 'מיכלים';
+
+  @override
+  String get categoryBread => 'לחם';
+
+  @override
+  String get categoryDairy => 'חלב';
+
+  @override
+  String get categoryShirts => 'חולצות';
+
+  @override
+  String get terminology => 'טרמינולוגיה';
+
+  @override
+  String get businessType => 'סוג עסק';
+
+  @override
+  String get selectBusinessType => 'בחר סוג עסק';
+
+  @override
+  String get businessTypePackaging => 'אריזות ופלסטיק';
+
+  @override
+  String get businessTypeFood => 'מוצרי מזון';
+
+  @override
+  String get businessTypeClothing => 'ביגוד וטקסטיל';
+
+  @override
+  String get businessTypeConstruction => 'חומרי בניין';
+
+  @override
+  String get businessTypeCustom => 'מותאם אישית';
+
+  @override
+  String get unitName => 'שם יחידה (יחיד)';
+
+  @override
+  String get unitNamePlural => 'שם יחידה (רבים)';
+
+  @override
+  String get palletName => 'שם משטח (יחיד)';
+
+  @override
+  String get palletNamePlural => 'שם משטח (רבים)';
+
+  @override
+  String get usesPallets => 'משתמש במשטחים';
+
+  @override
+  String get capacityCalculation => 'חישוב תפוסה';
+
+  @override
+  String get capacityByUnits => 'לפי יחידות';
+
+  @override
+  String get capacityByWeight => 'לפי משקל';
+
+  @override
+  String get capacityByVolume => 'לפי נפח';
+
+  @override
+  String get terminologyUpdated => 'הטרמינולוגיה עודכנה';
+
+  @override
+  String get applyTemplate => 'החל תבנית';
+
+  @override
+  String get customTerminology => 'טרמינולוגיה מותאמת';
+
+  @override
+  String get invalidNumber => 'מספר לא תקין';
+
+  @override
+  String get noCompanySelected => 'לא נבחרה חברה';
+
+  @override
+  String get addNewProduct => 'הוסף מוצר חדש';
+
+  @override
+  String get terminologySettings => 'הגדרות טרמינולוגיה';
+
+  @override
+  String get selectTemplate => 'בחר תבנית';
+
+  @override
+  String get or => 'או';
+
+  @override
+  String get customSettings => 'הגדרות מותאמות';
+
+  @override
+  String get downloadTemplate => 'הורד תבנית';
+
+  @override
+  String importSuccess(Object count) {
+    return 'יובאו $count מוצרים בהצלחה';
+  }
+
+  @override
+  String get importError => 'שגיאה בייבוא';
+
+  @override
+  String get exportSuccess => 'הקובץ הורד בהצלחה';
+
+  @override
+  String get templateDownloaded => 'תבנית הורדה בהצלחה';
 }

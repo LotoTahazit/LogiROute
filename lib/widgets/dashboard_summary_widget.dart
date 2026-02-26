@@ -11,15 +11,17 @@ import '../services/summary_service.dart';
 /// Savings: ~98% reduction in reads
 class DashboardSummaryWidget extends StatelessWidget {
   final DateTime date;
+  final String companyId;
 
   const DashboardSummaryWidget({
     super.key,
     required this.date,
+    required this.companyId,
   });
 
   @override
   Widget build(BuildContext context) {
-    final summaryService = SummaryService();
+    final summaryService = SummaryService(companyId: companyId);
 
     return StreamBuilder<DailySummary>(
       stream: summaryService.watchDailyInvoiceSummary(date),
@@ -162,15 +164,17 @@ class DashboardSummaryWidget extends StatelessWidget {
 /// Delivery summary widget
 class DeliverySummaryWidget extends StatelessWidget {
   final DateTime date;
+  final String companyId;
 
   const DeliverySummaryWidget({
     super.key,
     required this.date,
+    required this.companyId,
   });
 
   @override
   Widget build(BuildContext context) {
-    final summaryService = SummaryService();
+    final summaryService = SummaryService(companyId: companyId);
 
     return StreamBuilder<DeliverySummary>(
       stream: summaryService.watchDailyDeliverySummary(date),

@@ -1,19 +1,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/invoice.dart';
+import '../models/audit_event.dart';
+import '../models/document_link.dart';
 import 'summary_service.dart';
+import 'audit_log_service.dart';
+import 'integrity_chain_service.dart';
+import 'document_link_service.dart';
+import 'invoice_assignment_service.dart';
 
 /// Invoice Service with Israeli Tax Law Compliance
 /// תואם לדרישות רשות המסים הישראלית
 class InvoiceService {
+  final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final SummaryService _summaryService = SummaryService();
+  late final SummaryService _summaryService;
+  late final AuditLogService _auditLogService;
+  late final IntegrityChainService _integrityChainService;
+  late final DocumentLinkService _documentLinkService;
+  late final InvoiceAssignmentService _assignmentService;
 
-  /// Get next sequential number for invoice
-  /// מספר רץ - נדרש לפי חוק
-  Future<int> _getNextSequentialNumber() async {
+  InvoiceService({required this.companyId}) {
+    if (companyId.isEmpty) {
+      throw Exception('companyId cannot be empty');
+    }
+    _summaryService = SummaryService(companyId: companyId);
+    _auditLogService = AuditLogService(companyId: companyId);
+    _integrityChainService = IntegrityChainService(companyId: companyId);
+    _documentLinkService = DocumentLinkService(companyId: companyId);
+    _assignmentService = InvoiceAssignmentService(companyId: companyId);
+  }
+
+  /// Хелпер: возвращает ссылку на вложенную коллекцию счетов компании
+  CollectionReference<Map<String, dynamic>> _invoicesCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('invoices');
+  }
+
+  /// Хелпер: возвращает ссылку на счетчик по типу документа
+  DocumentReference<Map<String, dynamic>> _counterRef(
+      InvoiceDocumentType docType) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('counters')
+        .doc(docType.name);
+  }
+
+  /// הקצאת מספר רץ אטומית לפי סוג מסמך
+  /// סדרות נפרדות: חשבונית מס, קבלה, תעודת משלוח, זיכוי
+  Future<int> _getNextSequentialNumberForType(
+      InvoiceDocumentType docType) async {
     try {
-      // Use a counter document to ensure sequential numbering
-      final counterRef = _firestore.collection('counters').doc('invoices');
+      final counterRef = _counterRef(docType);
 
       return await _firestore.runTransaction((transaction) async {
         final counterDoc = await transaction.get(counterRef);
@@ -30,39 +70,45 @@ class InvoiceService {
         return nextNumber;
       });
     } catch (e) {
-      print('❌ [Invoice] Error getting sequential number: $e');
+      print(
+          '❌ [Invoice] Error getting sequential number for ${docType.name}: $e');
       rethrow;
     }
   }
 
   /// Create חשבונית with sequential numbering and audit log
   /// יצירת חשבונית עם מספר רץ ויומן שינויים
-  Future<String> createInvoice(Invoice invoice, String createdBy) async {
+  Future<String> createInvoice(Invoice invoice, String createdByUid) async {
     try {
-      // Get sequential number
-      final sequentialNumber = await _getNextSequentialNumber();
+      // Проверяем companyId
+      if (invoice.companyId.isEmpty || invoice.companyId != companyId) {
+        throw Exception('Invalid companyId in invoice');
+      }
 
-      // Create audit entry
-      final auditEntry = InvoiceAuditEntry(
-        timestamp: DateTime.now(),
-        action: 'created',
-        performedBy: createdBy,
-        details: 'Invoice created with sequential number $sequentialNumber',
-      );
+      // Get sequential number per document type
+      final sequentialNumber =
+          await _getNextSequentialNumberForType(invoice.documentType);
 
-      // Create invoice with sequential number and audit log
+      // Create invoice with sequential number
       final invoiceWithNumber = invoice.copyWith(
         sequentialNumber: sequentialNumber,
         status: InvoiceStatus.active,
-        auditLog: [auditEntry],
       );
 
-      final docRef = await _firestore
-          .collection('invoices')
-          .add(invoiceWithNumber.toMap());
+      // Резервируем ID документа заранее для log-before-action
+      final docRef = _invoicesCollection().doc();
 
-      print(
-          '✅ [Invoice] Created invoice: ${docRef.id} (Sequential #$sequentialNumber)');
+      // רישום ביומן ביקורת ПЕРЕД созданием — log-before-action
+      await _auditLogService.logEvent(
+        entityId: docRef.id,
+        entityType: invoiceWithNumber.documentType.name,
+        eventType: AuditEventType.created,
+        actorUid: createdByUid,
+        metadata: {'sequentialNumber': sequentialNumber},
+      );
+
+      // Создаём документ
+      await docRef.set(invoiceWithNumber.toMap());
 
       // ⚡ OPTIMIZATION: Update daily summary
       try {
@@ -82,9 +128,10 @@ class InvoiceService {
   /// ביטול חשבונית - מחיקה אסורה לפי חוק!
   Future<void> cancelInvoice(
     String id,
-    String cancelledBy,
-    String reason,
-  ) async {
+    String cancelledByUid,
+    String reason, {
+    String? cancelledByName,
+  }) async {
     try {
       final invoice = await getInvoice(id);
       if (invoice == null) {
@@ -96,31 +143,30 @@ class InvoiceService {
             'Invoice cannot be cancelled (status: ${invoice.status})');
       }
 
-      // Create audit entry
-      final auditEntry = InvoiceAuditEntry(
-        timestamp: DateTime.now(),
-        action: 'cancelled',
-        performedBy: cancelledBy,
-        details: 'Reason: $reason',
+      // רישום ביומן ביקורת (תת-אוסף) — log-before-action
+      await _auditLogService.logEvent(
+        entityId: id,
+        entityType: 'invoice',
+        eventType: AuditEventType.cancelled,
+        actorUid: cancelledByUid,
+        actorName: cancelledByName,
+        metadata: {'reason': reason},
       );
 
-      // Update invoice status
-      await _firestore.collection('invoices').doc(id).update({
+      // Update invoice status — serverTimestamp для clock integrity
+      await _invoicesCollection().doc(id).update({
         'status': InvoiceStatus.cancelled.name,
-        'cancelledAt': Timestamp.fromDate(DateTime.now()),
-        'cancelledBy': cancelledBy,
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'cancelledBy': cancelledByUid,
         'cancellationReason': reason,
-        'auditLog': FieldValue.arrayUnion([auditEntry.toMap()]),
       });
-
-      print('✅ [Invoice] Cancelled invoice: $id');
 
       // ⚡ OPTIMIZATION: Update daily summary
       try {
         final updatedInvoice = invoice.copyWith(
           status: InvoiceStatus.cancelled,
           cancelledAt: DateTime.now(),
-          cancelledBy: cancelledBy,
+          cancelledBy: cancelledByUid,
           cancellationReason: reason,
         );
         await _summaryService.updateInvoiceSummary(updatedInvoice);
@@ -158,7 +204,7 @@ class InvoiceService {
         details: details,
       );
 
-      await _firestore.collection('invoices').doc(invoiceId).update({
+      await _invoicesCollection().doc(invoiceId).update({
         'auditLog': FieldValue.arrayUnion([auditEntry.toMap()]),
       });
     } catch (e) {
@@ -179,7 +225,7 @@ class InvoiceService {
     DateTime? toDate,
   }) async {
     try {
-      Query query = _firestore.collection('invoices');
+      Query query = _invoicesCollection();
 
       // Filter by status
       if (!includeCancelled) {
@@ -252,7 +298,7 @@ class InvoiceService {
   /// Get חשבונית by ID
   Future<Invoice?> getInvoice(String id) async {
     try {
-      final doc = await _firestore.collection('invoices').doc(id).get();
+      final doc = await _invoicesCollection().doc(id).get();
 
       if (doc.exists) {
         return Invoice.fromMap(doc.data()!, doc.id);
@@ -270,8 +316,7 @@ class InvoiceService {
     bool includeCancelled = false,
   }) async {
     try {
-      Query query = _firestore
-          .collection('invoices')
+      Query query = _invoicesCollection()
           .where('clientNumber', isEqualTo: clientNumber)
           .orderBy('sequentialNumber', descending: true);
 
@@ -295,8 +340,7 @@ class InvoiceService {
   /// חיפוש לפי מספר רץ
   Future<Invoice?> getInvoiceBySequentialNumber(int sequentialNumber) async {
     try {
-      final snapshot = await _firestore
-          .collection('invoices')
+      final snapshot = await _invoicesCollection()
           .where('sequentialNumber', isEqualTo: sequentialNumber)
           .limit(1)
           .get();
@@ -312,33 +356,254 @@ class InvoiceService {
     }
   }
 
-  /// Verify sequential numbering integrity
-  /// בדיקת תקינות המספור הרץ
-  Future<bool> verifySequentialIntegrity() async {
+  /// סיום מסמך: מגדיר finalizedAt + מחשב immutableSnapshotHash
+  /// לאחר סיום — שדות מוגנים לא ניתנים לשינוי (Firestore Rules)
+  Future<void> finalizeInvoice(String invoiceId, String finalizedBy) async {
     try {
-      final snapshot = await _firestore
-          .collection('invoices')
-          .orderBy('sequentialNumber')
-          .get();
-
-      if (snapshot.docs.isEmpty) return true;
-
-      int expectedNumber = 1;
-      for (final doc in snapshot.docs) {
-        final invoice = Invoice.fromMap(doc.data(), doc.id);
-        if (invoice.sequentialNumber != expectedNumber) {
-          print(
-              '❌ [Invoice] Sequential number gap detected: expected $expectedNumber, got ${invoice.sequentialNumber}');
-          return false;
-        }
-        expectedNumber++;
+      final invoice = await getInvoice(invoiceId);
+      if (invoice == null) {
+        throw Exception('Invoice not found');
+      }
+      if (invoice.isFinalized) {
+        throw Exception('Invoice already finalized');
       }
 
-      print('✅ [Invoice] Sequential numbering integrity verified');
-      return true;
+      final hash = invoice.computeSnapshotHash();
+
+      // רישום ביומן ביקורת ПЕРЕД финализацией — log-before-action
+      await _auditLogService.logEvent(
+        entityId: invoiceId,
+        entityType: invoice.documentType.name,
+        eventType: AuditEventType.finalized,
+        actorUid: finalizedBy,
+        metadata: {'snapshotHash': hash},
+      );
+
+      // Финализация с serverTimestamp для clock integrity
+      await _invoicesCollection().doc(invoiceId).update({
+        'finalizedAt': FieldValue.serverTimestamp(),
+        'finalizedBy': finalizedBy,
+        'immutableSnapshotHash': hash,
+      });
+
+      // הוספה לשרשרת שלמות
+      await _integrityChainService.appendToChain(
+        documentId: invoiceId,
+        documentType: invoice.documentType.name,
+        sequentialNumber: invoice.sequentialNumber,
+        documentHash: hash,
+      );
+
+      // === בקשת מספר הקצאה אוטומטית אם נדרש ===
+      if (_assignmentService.isAssignmentRequired(invoice)) {
+        try {
+          await _assignmentService.requestAssignmentNumber(invoiceId);
+        } catch (e) {
+          print('⚠️ [Invoice] Assignment request failed (non-blocking): $e');
+        }
+      }
     } catch (e) {
-      print('❌ [Invoice] Error verifying sequential integrity: $e');
-      return false;
+      print('❌ [Invoice] Error finalizing invoice: $e');
+      rethrow;
     }
+  }
+
+  /// יצירת זיכוי (credit note) — מסמך חדש עם סכומים שליליים
+  /// המסמך המקורי לא נמחק ולא משתנה
+  Future<String> createCreditNote({
+    required Invoice originalInvoice,
+    required String reason,
+    required String createdBy,
+  }) async {
+    try {
+      if (originalInvoice.status != InvoiceStatus.active) {
+        throw Exception('ניתן ליצור זיכוי רק למסמך פעיל');
+      }
+      if (originalInvoice.documentType == InvoiceDocumentType.creditNote) {
+        throw Exception('לא ניתן ליצור זיכוי לזיכוי');
+      }
+      if (reason.isEmpty) {
+        throw Exception('חובה לציין סיבה');
+      }
+
+      final sequentialNumber =
+          await _getNextSequentialNumberForType(InvoiceDocumentType.creditNote);
+
+      // פריטים עם מחיר שלילי (סטורנו)
+      final creditItems = originalInvoice.items
+          .map((item) => InvoiceItem(
+                productCode: item.productCode,
+                type: item.type,
+                number: item.number,
+                quantity: item.quantity,
+                pricePerUnit: -item.pricePerUnit,
+              ))
+          .toList();
+
+      final creditNote = Invoice(
+        id: '',
+        companyId: companyId,
+        sequentialNumber: sequentialNumber,
+        clientName: originalInvoice.clientName,
+        clientNumber: originalInvoice.clientNumber,
+        address: originalInvoice.address,
+        driverName: originalInvoice.driverName,
+        truckNumber: originalInvoice.truckNumber,
+        deliveryDate: originalInvoice.deliveryDate,
+        paymentDueDate: originalInvoice.paymentDueDate,
+        departureTime: originalInvoice.departureTime,
+        items: creditItems,
+        discount: originalInvoice.discount,
+        createdAt: DateTime.now(),
+        createdBy: createdBy,
+        documentType: InvoiceDocumentType.creditNote,
+        linkedInvoiceId: originalInvoice.id,
+        status: InvoiceStatus.active,
+      );
+
+      // Резервируем ID для log-before-action
+      final docRef = _invoicesCollection().doc();
+
+      // רישום ביומן ביקורת ПЕРЕД созданием — log-before-action
+      await _auditLogService.logEvent(
+        entityId: originalInvoice.id,
+        entityType: originalInvoice.documentType.name,
+        eventType: AuditEventType.creditNoteCreated,
+        actorUid: createdBy,
+        metadata: {'creditNoteId': docRef.id, 'reason': reason},
+      );
+
+      await _auditLogService.logEvent(
+        entityId: docRef.id,
+        entityType: 'creditNote',
+        eventType: AuditEventType.created,
+        actorUid: createdBy,
+        metadata: {'linkedTo': originalInvoice.id, 'reason': reason},
+      );
+
+      // Создаём документ
+      await docRef.set(creditNote.toMap());
+
+      // יצירת קישור רשמי בין מסמכים
+      await _documentLinkService.createLink(DocumentLink(
+        id: '',
+        companyId: companyId,
+        sourceDocumentId: docRef.id,
+        sourceDocumentType: 'creditNote',
+        sourceSequentialNumber: sequentialNumber,
+        targetDocumentId: originalInvoice.id,
+        targetDocumentType: originalInvoice.documentType.name,
+        targetSequentialNumber: originalInvoice.sequentialNumber,
+        linkType: DocumentLinkType.creditToInvoice,
+        createdBy: createdBy,
+        reason: reason,
+      ));
+
+      return docRef.id;
+    } catch (e) {
+      print('❌ [Invoice] Error creating credit note: $e');
+      rethrow;
+    }
+  }
+
+  /// Verify sequential numbering integrity per document type
+  /// בדיקת תקינות המספור הרץ לפי סוג מסמך
+  /// כולל: התראה, רישום ביומן ביקורת, חסימת הדפסה בפער
+  Future<Map<InvoiceDocumentType, SequentialIntegrityResult>>
+      verifySequentialIntegrity({
+    String? verifiedBy,
+  }) async {
+    final results = <InvoiceDocumentType, SequentialIntegrityResult>{};
+
+    for (final docType in InvoiceDocumentType.values) {
+      try {
+        final snapshot = await _invoicesCollection()
+            .where('documentType', isEqualTo: docType.name)
+            .orderBy('sequentialNumber')
+            .get();
+
+        if (snapshot.docs.isEmpty) {
+          results[docType] =
+              SequentialIntegrityResult(valid: true, checkedCount: 0);
+          continue;
+        }
+
+        int expectedNumber = 1;
+        bool valid = true;
+        int? gapAt;
+        int? gapExpected;
+        for (final doc in snapshot.docs) {
+          final invoice = Invoice.fromMap(doc.data(), doc.id);
+          if (invoice.sequentialNumber != expectedNumber) {
+            print(
+                '❌ [Invoice] Gap in ${docType.name}: expected $expectedNumber, got ${invoice.sequentialNumber}');
+            valid = false;
+            gapAt = invoice.sequentialNumber;
+            gapExpected = expectedNumber;
+            break;
+          }
+          expectedNumber++;
+        }
+
+        final result = SequentialIntegrityResult(
+          valid: valid,
+          checkedCount: snapshot.docs.length,
+          gapAtNumber: gapAt,
+          expectedNumber: gapExpected,
+        );
+        results[docType] = result;
+
+        // רישום ביומן ביקורת אם נמצא פער
+        if (!valid && verifiedBy != null) {
+          await _auditLogService.logEvent(
+            entityId: 'integrity_check_${docType.name}',
+            entityType: docType.name,
+            eventType: AuditEventType.technicalUpdate,
+            actorUid: verifiedBy,
+            metadata: {
+              'action': 'sequential_integrity_gap_detected',
+              'severity': 'HIGH',
+              'docType': docType.name,
+              'gapAt': gapAt,
+              'expected': gapExpected,
+              'totalChecked': snapshot.docs.length,
+            },
+          );
+        }
+      } catch (e) {
+        print('❌ [Invoice] Error verifying ${docType.name} integrity: $e');
+        results[docType] = SequentialIntegrityResult(
+          valid: false,
+          checkedCount: 0,
+          error: e.toString(),
+        );
+      }
+    }
+
+    return results;
+  }
+}
+
+/// תוצאת בדיקת שלמות מספור
+class SequentialIntegrityResult {
+  final bool valid;
+  final int checkedCount;
+  final int? gapAtNumber;
+  final int? expectedNumber;
+  final String? error;
+
+  SequentialIntegrityResult({
+    required this.valid,
+    required this.checkedCount,
+    this.gapAtNumber,
+    this.expectedNumber,
+    this.error,
+  });
+
+  /// תיאור בעברית
+  String get summary {
+    if (valid) return 'תקין — $checkedCount מסמכים נבדקו';
+    if (error != null) return 'שגיאה: $error';
+    return 'פער במספור: צפוי $expectedNumber, נמצא $gapAtNumber';
   }
 }

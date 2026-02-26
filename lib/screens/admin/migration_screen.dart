@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/summary_service.dart';
+import '../../l10n/app_localizations.dart';
 
 /// One-time migration screen to build summaries for existing data
 /// מסך מעבר חד-פעמי לבניית סיכומים לנתונים קיימים
 ///
 /// Run this ONCE after deploying the optimization update
 class MigrationScreen extends StatefulWidget {
-  const MigrationScreen({super.key});
+  final String companyId;
+
+  const MigrationScreen({super.key, required this.companyId});
 
   @override
   State<MigrationScreen> createState() => _MigrationScreenState();
 }
 
 class _MigrationScreenState extends State<MigrationScreen> {
-  final SummaryService _summaryService = SummaryService();
+  late final SummaryService _summaryService;
   bool _isRunning = false;
   final List<String> _logs = [];
   int _daysToMigrate = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryService = SummaryService(companyId: widget.companyId);
+  }
 
   void _addLog(String message) {
     setState(() {
@@ -81,9 +90,11 @@ class _MigrationScreenState extends State<MigrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Data Migration'),
+        title: Text(l10n.dataMigration),
         backgroundColor: Colors.orange,
       ),
       body: Padding(
@@ -102,9 +113,9 @@ class _MigrationScreenState extends State<MigrationScreen> {
                       children: [
                         Icon(Icons.info_outline, color: Colors.orange.shade700),
                         const SizedBox(width: 8),
-                        const Text(
-                          'One-Time Setup',
-                          style: TextStyle(
+                        Text(
+                          l10n.oneTimeSetup,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -112,16 +123,14 @@ class _MigrationScreenState extends State<MigrationScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'This will build summary documents for existing invoices and deliveries.',
-                      style: TextStyle(fontSize: 14),
+                    Text(
+                      l10n.migrationDescription,
+                      style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '• Run this ONCE after deploying the update\n'
-                      '• Takes ~1 minute for 30 days of data\n'
-                      '• Safe to run multiple times (will rebuild)',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      l10n.migrationInstructions,
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
@@ -130,14 +139,14 @@ class _MigrationScreenState extends State<MigrationScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const Text('Days to migrate:'),
+                Text(l10n.daysToMigrate),
                 const SizedBox(width: 16),
                 DropdownButton<int>(
                   value: _daysToMigrate,
                   items: [7, 14, 30, 60, 90]
                       .map((days) => DropdownMenuItem(
                             value: days,
-                            child: Text('$days days'),
+                            child: Text('$days ${l10n.days}'),
                           ))
                       .toList(),
                   onChanged: _isRunning
