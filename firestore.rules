@@ -130,8 +130,8 @@ service cloud.firestore {
       // MODULE: WAREHOUSE — /companies/{c}/warehouse/_root/*
       // =========================================================
       match /warehouse/{document=**} {
-        allow read: if hasModule(companyId, 'warehouse');
-        allow create, update: if hasModule(companyId, 'warehouse') && canWarehouseWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canWarehouseWrite(companyId);
         allow delete: if false;
       }
 
@@ -141,24 +141,18 @@ service cloud.firestore {
 
       // clients: /companies/{c}/logistics/_root/clients/{clientId}
       match /logistics/_root/clients/{clientId} {
-        allow read: if isCompanyMember(companyId) && billingActive(companyId) && (
-          company(companyId).modules['logistics'] == true ||
-          company(companyId).modules['accounting'] == true
-        );
-        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
         allow delete: if false;
       }
 
       // delivery_points: /companies/{c}/logistics/_root/delivery_points/{pointId}
       match /logistics/_root/delivery_points/{pointId} {
-        allow read: if isCompanyMember(companyId) && billingActive(companyId) && (
-          company(companyId).modules['logistics'] == true ||
-          company(companyId).modules['dispatcher'] == true
-        );
-        allow create: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
-        allow update: if isCompanyMember(companyId) && billingActive(companyId) && (
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow update: if isCompanyMember(companyId) && (
           // dispatcher/admin: full update
-          (hasModule(companyId, 'logistics') && canDispatcherWrite(companyId)) ||
+          canDispatcherWrite(companyId) ||
           // driver: only status-related fields, only assigned point
           (isRole('driver')
             && resource.data.driverId == request.auth.uid
@@ -173,24 +167,24 @@ service cloud.firestore {
 
       // cached_routes: /companies/{c}/logistics/_root/cached_routes/{routeId}
       match /logistics/_root/cached_routes/{routeId} {
-        allow read: if isCompanyMember(companyId) && billingActive(companyId);
-        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
-        allow delete: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow delete: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
       }
 
       // prices: /companies/{c}/logistics/_root/prices/{priceId}
       match /logistics/_root/prices/{priceId} {
-        allow read: if isCompanyMember(companyId) && billingActive(companyId);
-        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
-        allow delete: if hasModule(companyId, 'logistics') && canAdminWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow delete: if isCompanyMember(companyId) && canAdminWrite(companyId);
       }
 
       // =========================================================
       // MODULE: DISPATCHER — /companies/{c}/dispatcher/_root/*
       // =========================================================
       match /dispatcher/{document=**} {
-        allow read: if hasModule(companyId, 'dispatcher');
-        allow create, update: if hasModule(companyId, 'dispatcher') && canDriverWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canDriverWrite(companyId);
         allow delete: if false;
       }
 
@@ -201,54 +195,54 @@ service cloud.firestore {
 
       // invoices (includes delivery note by documentType:'delivery')
       match /accounting/_root/invoices/{invoiceId} {
-        allow read: if hasModule(companyId, 'accounting');
+        allow read: if isCompanyMember(companyId);
         // create: admin/super_admin any; dispatcher only if documentType == 'delivery'
-        allow create: if hasModule(companyId, 'accounting') && isCompanyMember(companyId) && (
+        allow create: if isCompanyMember(companyId) && (
           hasAnyRole(['admin', 'super_admin']) ||
           (isRole('dispatcher') && request.resource.data.documentType == 'delivery')
         );
         // update: only admin/super_admin
-        allow update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow update: if isCompanyMember(companyId) && canAdminWrite(companyId);
         allow delete: if false;
 
         // audit log — append-only
         match /auditLog/{eventId} {
-          allow read: if hasModule(companyId, 'accounting');
-          allow create: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+          allow read: if isCompanyMember(companyId);
+          allow create: if isCompanyMember(companyId) && canAdminWrite(companyId);
           allow update, delete: if false;
         }
 
         // print events — append-only
         match /printEvents/{eventId} {
-          allow read: if hasModule(companyId, 'accounting');
-          allow create: if hasModule(companyId, 'accounting') && isCompanyMember(companyId)
+          allow read: if isCompanyMember(companyId);
+          allow create: if isCompanyMember(companyId)
             && request.resource.data.printedBy == request.auth.uid;
           allow update, delete: if false;
         }
       }
 
-      // receipts (если отдельная коллекция)
+      // receipts
       match /accounting/_root/receipts/{receiptId} {
-        allow read: if hasModule(companyId, 'accounting');
-        allow create, update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canAdminWrite(companyId);
         allow delete: if false;
       }
 
-      // credit notes (если отдельная коллекция)
+      // credit notes
       match /accounting/_root/credit_notes/{creditId} {
-        allow read: if hasModule(companyId, 'accounting');
-        allow create, update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) && canAdminWrite(companyId);
         allow delete: if false;
       }
 
       // counters: строго +1, create nextNumber=1, delete forbidden
       match /accounting/_root/counters/{counterId} {
-        allow read: if hasModule(companyId, 'accounting');
-        allow create: if hasModule(companyId, 'accounting')
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId)
           && canAdminWrite(companyId)
           && request.resource.data.keys().hasOnly(['nextNumber', 'updatedAt', 'updatedBy'])
           && request.resource.data.nextNumber == 1;
-        allow update: if hasModule(companyId, 'accounting')
+        allow update: if isCompanyMember(companyId)
           && canAdminWrite(companyId)
           && request.resource.data.nextNumber == resource.data.nextNumber + 1;
         allow delete: if false;
@@ -256,29 +250,29 @@ service cloud.firestore {
 
       // integrity_chain (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_chain/{chainId} {
-        allow read: if hasModule(companyId, 'accounting');
-        allow create: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
         allow update, delete: if false;
       }
 
       // integrity_anchors (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_anchors/{anchorId} {
-        allow read: if hasModule(companyId, 'accounting');
-        allow create: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && canAdminWrite(companyId);
         allow update, delete: if false;
       }
 
       // assignment_requests (lives in accounting/_root/)
       match /accounting/_root/assignment_requests/{reqId} {
-        allow read: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
-        allow create: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
-        allow update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow read: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow update: if isCompanyMember(companyId) && canAdminWrite(companyId);
         allow delete: if false;
       }
 
       // accounting catch-all: everything else under accounting/_root — server-only
       match /accounting/_root/{secColl}/{docId} {
-        allow read: if hasModule(companyId, 'accounting');
+        allow read: if isCompanyMember(companyId);
         allow write: if false;
       }
 
