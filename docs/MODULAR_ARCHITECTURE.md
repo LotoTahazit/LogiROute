@@ -13,48 +13,99 @@
 
 ---
 
-## 2️⃣ Модули
+## 2️⃣ Уровни архитектуры
 
-| ID | Название | Описание |
-|----|---------|----------|
-| `warehouse` | מחסן (Mahsan) | Товары, остатки, приходы/расходы, инвентаризация, сканер |
-| `logistics` | Logistics | Клиенты, точки доставки, маршруты, ETA, водители |
-| `dispatcher` | Dispatcher | Карта, назначение, статусы, чат/комментарии |
-| `accounting` | Accounting | חשבוניות/קבלות/תעודות משלוח/זיכוי, печать, audit trail, counters |
-| `reports` | Reports | Отчёты, экспорт, аналитика |
+### Уровень 0 — Core Platform (обязательный для всех)
+
+Это не модуль, это основа:
+- Auth / Users / Roles
+- Company context
+- Feature flags / entitlements
+- Billing status
+- Audit platform-level
+- Notifications
+- File storage
+
+Всегда включено.
+
+### Уровень 1 — Бизнес-модули
+
+| ID | Название | Коллекции | Зависимости |
+|----|---------|-----------|-------------|
+| `warehouse` | 📦 מחסן (Mahsan) | `product_types`, `inventory`, `stock_movements`, `box_types` | Только Core. Продаётся отдельно. |
+| `logistics` | 🚚 Logistics | `clients`, `delivery_points`, `routes`, `route_assignments` | Core. Опционально Warehouse (если товары). Продаётся отдельно. |
+| `dispatcher` | 🧭 Dispatcher | `live_tracking`, `driver_status`, `route_updates` | Logistics. Нельзя без Logistics. |
+| `accounting` | 🧾 Accounting (СЕРТИФИЦИРУЕМЫЙ) | `accounting/invoices`, `accounting/receipts`, `accounting/credit_notes`, `accounting/counters`, `accounting/audit_log`, `accounting/integrity_chain`, `accounting/backups` | Core + Clients. НЕ зависит от Warehouse. Изолированный блок. |
+| `reports` | 📊 Reports / BI | Читает из warehouse/logistics/accounting | Не создаёт данные. Overlay. |
 
 ---
 
 ## 3️⃣ Dependency Matrix
 
-```
-warehouse     — автономен
-logistics     — требует: clients, delivery_points
-dispatcher    — требует: logistics
-accounting    — требует: clients (+ желательно product_types)
-reports       — не требует, но показывает только доступные домены
-```
+| Модуль | Требует |
+|--------|---------|
+| Warehouse | Core |
+| Logistics | Core |
+| Dispatcher | Logistics |
+| Accounting | Core + Clients |
+| Reports | Любые активные |
 
-Граф:
 ```
-warehouse (standalone)
+Core Platform (Auth, Users, Roles, Billing, Notifications)
     │
-clients + delivery_points (shared core)
+    ├── warehouse (standalone)
     │
-logistics
+    ├── logistics (standalone)
+    │       │
+    │       └── dispatcher (requires logistics)
     │
-dispatcher
-    
-clients + product_types (shared core)
+    ├── accounting (isolated, certifiable)
+    │       └── uses: clients (shared)
     │
-accounting
-
-reports → overlay поверх всего
+    └── reports (overlay, reads all)
 ```
 
 ---
 
-## 4️⃣ Firestore модель entitlements
+## 4️⃣ Firestore структура (чистая и масштабируемая)
+
+```
+companies/{companyId}/
+    settings/
+    entitlements/
+    users/
+
+    warehouse/
+        product_types/
+        inventory/
+        stock_movements/
+
+    logistics/
+        clients/
+        delivery_points/
+        routes/
+
+    dispatcher/
+        live_tracking/
+
+    accounting/          ← ИЗОЛИРОВАННЫЙ БЛОК
+        invoices/
+        receipts/
+        credit_notes/
+        counters/
+        audit_log/
+        integrity_chain/
+```
+
+Почему так:
+- Нет хаоса на одном уровне
+- Accounting изолирован физически
+- Rules проще писать
+- Можно сказать регулятору: "Вот отдельный блок"
+
+---
+
+## 5️⃣ Entitlements (module flags)
 
 ### Документ: `companies/{companyId}`
 
@@ -87,9 +138,19 @@ reports → overlay поверх всего
 | `full` | все модули | Enterprise |
 | `custom` | произвольный набор | По запросу |
 
+### Пакеты (продаваемая модель)
+
+| Пакет | Состав | Ориентир |
+|-------|--------|----------|
+| 🟢 Warehouse Only | Core + Warehouse | ~1,300 ₪ |
+| 🔵 Operations | Core + Warehouse + Logistics + Dispatcher | ~4,500 ₪ |
+| 🟣 Full Business | Все модули | ~7,000–10,000 ₪ |
+
+Accounting можно продавать как add-on к любому пакету.
+
 ---
 
-## 5️⃣ Enforcement — 3 слоя
+## 6️⃣ Enforcement — 3 слоя
 
 ### Слой 1: UI
 - Скрыть модуль/кнопки
@@ -118,7 +179,7 @@ match /companies/{companyId}/invoices/{docId} {
 
 ---
 
-## 6️⃣ Ценообразование (целевое)
+## 7️⃣ Ценообразование (целевое)
 
 ### Структура: Platform fee + модули + лимиты
 
@@ -150,7 +211,7 @@ match /companies/{companyId}/invoices/{docId} {
 
 ---
 
-## 7️⃣ Provisioning (инициализация компании)
+## 8️⃣ Provisioning (инициализация компании)
 
 При создании компании (через Cloud Functions / Admin SDK):
 
@@ -161,7 +222,7 @@ match /companies/{companyId}/invoices/{docId} {
 
 ---
 
-## 8️⃣ Billing
+## 9️⃣ Billing
 
 - Автоматический: entitlements меняет сервер (webhook оплаты)
 - Ручной: super_admin меняет план через панель → серверный слой
@@ -169,7 +230,7 @@ match /companies/{companyId}/invoices/{docId} {
 
 ---
 
-## 9️⃣ Техническая реализация — ModuleManager
+## 🔟 Техническая реализация — ModuleManager
 
 ```dart
 class ModuleManager {
@@ -195,7 +256,20 @@ if (!ModuleManager.hasWarehouse(company)) {
 
 ---
 
-## 🔟 TODO — порядок реализации
+## 1️⃣1️⃣ Стратегическое решение
+
+**Подход: A — Один код-бейс, флаги включают/выключают.**
+
+Микросервисы — потом, когда масштаб потребует. Для старта SaaS — монолит с feature flags оптимален.
+
+**Ключевое правило для Accounting:**
+- Технически независим
+- Не ломается если отключить Warehouse
+- Собственные counters / audit / integrity
+
+---
+
+## 1️⃣2️⃣ TODO — порядок реализации
 
 1. [ ] Добавить `modules`, `limits`, `plan`, `billingStatus` в модель CompanySettings
 2. [ ] Создать `ModuleManager` класс

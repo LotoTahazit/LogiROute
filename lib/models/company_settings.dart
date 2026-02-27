@@ -1,5 +1,87 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Доступные модули системы
+class ModuleEntitlements {
+  final bool warehouse;
+  final bool logistics;
+  final bool dispatcher;
+  final bool accounting;
+  final bool reports;
+
+  const ModuleEntitlements({
+    this.warehouse = true,
+    this.logistics = true,
+    this.dispatcher = true,
+    this.accounting = true,
+    this.reports = true,
+  });
+
+  factory ModuleEntitlements.fromMap(Map<String, dynamic>? map) {
+    if (map == null)
+      return const ModuleEntitlements(); // всё включено по умолчанию
+    return ModuleEntitlements(
+      warehouse: map['warehouse'] ?? true,
+      logistics: map['logistics'] ?? true,
+      dispatcher: map['dispatcher'] ?? true,
+      accounting: map['accounting'] ?? true,
+      reports: map['reports'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'warehouse': warehouse,
+        'logistics': logistics,
+        'dispatcher': dispatcher,
+        'accounting': accounting,
+        'reports': reports,
+      };
+
+  bool operator [](String key) {
+    switch (key) {
+      case 'warehouse':
+        return warehouse;
+      case 'logistics':
+        return logistics;
+      case 'dispatcher':
+        return dispatcher;
+      case 'accounting':
+        return accounting;
+      case 'reports':
+        return reports;
+      default:
+        return false;
+    }
+  }
+}
+
+/// Лимиты по тарифу
+class PlanLimits {
+  final int maxUsers;
+  final int maxDocsPerMonth;
+  final int maxRoutesPerDay;
+
+  const PlanLimits({
+    this.maxUsers = 999,
+    this.maxDocsPerMonth = 99999,
+    this.maxRoutesPerDay = 999,
+  });
+
+  factory PlanLimits.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const PlanLimits();
+    return PlanLimits(
+      maxUsers: map['maxUsers'] ?? 999,
+      maxDocsPerMonth: map['maxDocsPerMonth'] ?? 99999,
+      maxRoutesPerDay: map['maxRoutesPerDay'] ?? 999,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'maxUsers': maxUsers,
+        'maxDocsPerMonth': maxDocsPerMonth,
+        'maxRoutesPerDay': maxRoutesPerDay,
+      };
+}
+
 class CompanySettings {
   final String id;
 
@@ -34,6 +116,13 @@ class CompanySettings {
   final String driverPhone; // Телефон водителя
   final String departureTime; // Время выезда по умолчанию
 
+  // === Модульность SaaS ===
+  final ModuleEntitlements modules;
+  final PlanLimits limits;
+  final String plan; // warehouse_only | ops | full | custom
+  final String billingStatus; // active | past_due | trial | blocked
+  final DateTime? trialEndsAt;
+
   CompanySettings({
     required this.id,
     required this.nameHebrew,
@@ -55,6 +144,11 @@ class CompanySettings {
     required this.driverName,
     required this.driverPhone,
     required this.departureTime,
+    this.modules = const ModuleEntitlements(),
+    this.limits = const PlanLimits(),
+    this.plan = 'full',
+    this.billingStatus = 'active',
+    this.trialEndsAt,
   });
 
   factory CompanySettings.fromFirestore(DocumentSnapshot doc) {
@@ -80,6 +174,14 @@ class CompanySettings {
       driverName: data['driverName'] ?? '',
       driverPhone: data['driverPhone'] ?? '',
       departureTime: data['departureTime'] ?? '7:00',
+      modules:
+          ModuleEntitlements.fromMap(data['modules'] as Map<String, dynamic>?),
+      limits: PlanLimits.fromMap(data['limits'] as Map<String, dynamic>?),
+      plan: data['plan'] ?? 'full',
+      billingStatus: data['billingStatus'] ?? 'active',
+      trialEndsAt: data['trialEndsAt'] != null
+          ? (data['trialEndsAt'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -104,6 +206,12 @@ class CompanySettings {
       'driverName': driverName,
       'driverPhone': driverPhone,
       'departureTime': departureTime,
+      'modules': modules.toMap(),
+      'limits': limits.toMap(),
+      'plan': plan,
+      'billingStatus': billingStatus,
+      'trialEndsAt':
+          trialEndsAt != null ? Timestamp.fromDate(trialEndsAt!) : null,
     };
   }
 
@@ -128,6 +236,11 @@ class CompanySettings {
     String? driverName,
     String? driverPhone,
     String? departureTime,
+    ModuleEntitlements? modules,
+    PlanLimits? limits,
+    String? plan,
+    String? billingStatus,
+    DateTime? trialEndsAt,
   }) {
     return CompanySettings(
       id: id ?? this.id,
@@ -150,6 +263,11 @@ class CompanySettings {
       driverName: driverName ?? this.driverName,
       driverPhone: driverPhone ?? this.driverPhone,
       departureTime: departureTime ?? this.departureTime,
+      modules: modules ?? this.modules,
+      limits: limits ?? this.limits,
+      plan: plan ?? this.plan,
+      billingStatus: billingStatus ?? this.billingStatus,
+      trialEndsAt: trialEndsAt ?? this.trialEndsAt,
     );
   }
 }
