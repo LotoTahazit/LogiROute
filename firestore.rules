@@ -2,815 +2,339 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 👥 Коллекция пользователей
+    // ─── helpers ────────────────────────────────────────────────────────────
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isSuperAdmin() { return userDoc().role == 'super_admin'; }
+    function isAdmin()      { return userDoc().role == 'admin'; }
+    function isDispatcher() { return userDoc().role == 'dispatcher'; }
+    function isDriver()     { return userDoc().role == 'driver'; }
+    function inCompany(cId) { return userDoc().companyId == cId; }
+    function isAdminOrAbove()      { return isSuperAdmin() || isAdmin(); }
+    function isDispatcherOrAbove() { return isSuperAdmin() || isAdmin() || isDispatcher(); }
+
+    // ─── users ───────────────────────────────────────────────────────────────
     match /users/{userId} {
-      // ✅ Любой авторизованный пользователь может читать документы из коллекции users
       allow read: if request.auth != null;
-
-      // 🔥 Создание: супер-админ и админ
       allow create: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-          request.resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId &&
-          request.resource.data.role in ['dispatcher', 'driver', 'warehouse_keeper']
-        )
+        isSuperAdmin() ||
+        (isAdmin() &&
+          request.resource.data.companyId == userDoc().companyId &&
+          request.resource.data.role in ['dispatcher', 'driver', 'warehouse_keeper'])
       );
-
-      // 🔥 Обновление: свой документ, админ своей компании или супер-админ
       allow update: if request.auth != null && (
-        userId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-          resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
-        )
+        userId == request.auth.uid || isSuperAdmin() ||
+        (isAdmin() && resource.data.companyId == userDoc().companyId)
       );
-
-      // 🔥 Удаление: админ своей компании или супер-админ
       allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-          resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
-        )
+        isSuperAdmin() ||
+        (isAdmin() && resource.data.companyId == userDoc().companyId)
       );
     }
 
-    // 📍 Локации водителей (GPS)
+    // ─── driver_locations ────────────────────────────────────────────────────
     match /driver_locations/{driverId} {
-      allow read: if request.auth != null;
-      allow write, create, update: if request.auth != null && request.auth.uid == driverId;
-      allow delete: if request.auth != null && request.auth.uid == driverId;
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null && request.auth.uid == driverId;
+      // history subcollection — written by AutoCompleteService cleanup
+      match /history/{entryId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == driverId;
+        allow delete: if request.auth != null && (
+          request.auth.uid == driverId || isAdminOrAbove()
+        );
+        allow update: if false;
+      }
     }
 
-    // 👥 Клиенты
+    // ─── global clients ──────────────────────────────────────────────────────
     match /clients/{clientId} {
-      // 📖 Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание/Обновление: суперадмин, админ или диспетчер
-      allow create, update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
-
-      // ✅ Удаление: суперадмин или админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow create, update: if request.auth != null && isDispatcherOrAbove();
+      allow delete: if request.auth != null && isAdminOrAbove();
     }
 
-    // 🚛 Маршруты
+    // ─── routes / truck_routes ───────────────────────────────────────────────
     match /routes/{routeId} {
-      // 📖 Чтение: все авторизованные
-      allow read: if request.auth != null;
-
-      // ✅ Запись: супер-админ, админ или диспетчер
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isDispatcherOrAbove();
     }
-
-    // 🚛 База данных маршрутов для грузовиков
     match /truck_routes/{routeId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isAdminOrAbove();
     }
 
-    // ⚙️ Настройки
+    // ─── settings / companySettings / config ─────────────────────────────────
     match /settings/{settingId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isAdminOrAbove();
     }
-
-    // 🏢 Настройки компаний (глобальная коллекция)
     match /companySettings/{settingId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isAdminOrAbove();
+    }
+    match /config/{docId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isAdminOrAbove();
     }
 
-    // 🏢 Компании
+    // ─── companies + nested collections ──────────────────────────────────────
     match /companies/{companyId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
-      allow update, delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-      
-      // 🆕 ВЛОЖЕННЫЕ КОЛЛЕКЦИИ КОМПАНИИ - СТРОГИЕ ПРАВИЛА
-      
-      // ⚙️ Настройки компании
+      allow create: if request.auth != null && isAdminOrAbove();
+      allow update, delete: if request.auth != null && isAdminOrAbove();
+
       match /settings/{settingId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 🛍️ Типы товаров компании (product_types)
+
       match /product_types/{productTypeId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 📦 Типы коробок компании
+
       match /box_types/{boxTypeId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher', 'warehouse_keeper']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || isDispatcher() || userDoc().role == 'warehouse_keeper')));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 👥 Клиенты компании
+
       match /clients/{clientId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 📦 Инвентарь компании
+
       match /inventory/{inventoryId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher', 'warehouse_keeper']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'warehouse_keeper']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || isDispatcher() || userDoc().role == 'warehouse_keeper')));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || userDoc().role == 'warehouse_keeper')));
       }
-      
-      // 💰 Цены компании
+
       match /prices/{priceId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 🧾 Счета компании (חשבוניות) — הגנת אי-שינוי לפי חוק ניהול ספרים
+
+      // 🧾 invoices — immutability per Israeli bookkeeping law
       match /invoices/{invoiceId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        // עדכון: אם המסמך עבר סיום (finalizedAt != null) — רק שדות whitelist
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        // update: protect only truly immutable fields after finalization
         allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
+          isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())
         ) && (
-          // מסמך לא עבר סיום — ניתן לעדכן הכל
+          !('finalizedAt' in resource.data) ||
           resource.data.finalizedAt == null ||
-          // מסמך עבר סיום — רק שדות מותרים (whitelist)
           (
-            request.resource.data.sequentialNumber == resource.data.sequentialNumber &&
-            request.resource.data.companyId == resource.data.companyId &&
-            request.resource.data.clientName == resource.data.clientName &&
-            request.resource.data.clientNumber == resource.data.clientNumber &&
-            request.resource.data.address == resource.data.address &&
-            request.resource.data.driverName == resource.data.driverName &&
-            request.resource.data.truckNumber == resource.data.truckNumber &&
-            request.resource.data.departureTime == resource.data.departureTime &&
-            request.resource.data.paymentDueDate == resource.data.paymentDueDate &&
-            request.resource.data.items == resource.data.items &&
-            request.resource.data.discount == resource.data.discount &&
-            request.resource.data.deliveryDate == resource.data.deliveryDate &&
-            request.resource.data.createdAt == resource.data.createdAt &&
-            request.resource.data.createdBy == resource.data.createdBy &&
-            request.resource.data.documentType == resource.data.documentType &&
-            request.resource.data.finalizedAt == resource.data.finalizedAt &&
-            request.resource.data.finalizedBy == resource.data.finalizedBy &&
+            request.resource.data.sequentialNumber    == resource.data.sequentialNumber &&
+            request.resource.data.companyId           == resource.data.companyId &&
+            request.resource.data.clientName          == resource.data.clientName &&
+            request.resource.data.clientNumber        == resource.data.clientNumber &&
+            request.resource.data.items               == resource.data.items &&
+            request.resource.data.discount            == resource.data.discount &&
             request.resource.data.immutableSnapshotHash == resource.data.immutableSnapshotHash &&
-            request.resource.data.linkedInvoiceId == resource.data.linkedInvoiceId
-          ) || (
-            // ✅ עדכון שדות מותרים לאחר סיום: הקצאה, הדפסה, ביטול
-            resource.data.finalizedAt != null &&
-            request.resource.data.sequentialNumber == resource.data.sequentialNumber &&
-            request.resource.data.companyId == resource.data.companyId &&
-            request.resource.data.clientName == resource.data.clientName &&
-            request.resource.data.items == resource.data.items &&
-            request.resource.data.discount == resource.data.discount &&
-            request.resource.data.immutableSnapshotHash == resource.data.immutableSnapshotHash &&
-            request.resource.data.finalizedAt == resource.data.finalizedAt &&
-            request.resource.data.finalizedBy == resource.data.finalizedBy
+            request.resource.data.finalizedAt         == resource.data.finalizedAt &&
+            request.resource.data.finalizedBy         == resource.data.finalizedBy
           )
         );
-        // ❌ מחיקה אסורה (חוק ניהול ספרים)
         allow delete: if false;
-        
-        // 📝 יומן ביקורת — append-only
+
+        // audit log — append-only
         match /auditLog/{eventId} {
-          allow read: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-          );
-          // רק יצירה — append-only, actorUid חייב להתאים ל-auth.uid
-          allow create: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-          ) && request.resource.data.actorUid == request.auth.uid;
-          // ❌ עדכון ומחיקה אסורים — append-only
-          allow update: if false;
-          allow delete: if false;
+          allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+          allow create: if request.auth != null &&
+            (isSuperAdmin() || inCompany(companyId)) &&
+            request.resource.data.actorUid == request.auth.uid;
+          allow update, delete: if false;
         }
-        
-        // 🖨️ אירועי הדפסה — append-only
+
+        // print events — append-only
         match /printEvents/{eventId} {
-          allow read: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-          );
-          allow create: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-          ) && request.resource.data.printedBy == request.auth.uid;
-          allow update: if false;
-          allow delete: if false;
+          allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+          allow create: if request.auth != null &&
+            (isSuperAdmin() || inCompany(companyId)) &&
+            request.resource.data.printedBy == request.auth.uid;
+          allow update, delete: if false;
         }
       }
-      
-      // 📋 בקשות מספר הקצאה — append-only + עדכון סטטוס
+
+      // assignment requests
       match /assignment_requests/{requestId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        // עדכון מותר רק לשדות סטטוס (תשובה מרשות המסים)
-        allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        ) && request.resource.data.invoiceId == resource.data.invoiceId;
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow update: if request.auth != null &&
+          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
+          request.resource.data.invoiceId == resource.data.invoiceId;
         allow delete: if false;
       }
-      
-      // 🚚 Точки доставки компании (delivery_points)
+
+      // delivery points
       match /delivery_points/{pointId} {
-        // 📖 Чтение: все пользователи своей компании + super_admin
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        
-        // ✅ Создание: super_admin, admin, dispatcher
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        
-        // ✅ Обновление: super_admin, admin, dispatcher, водитель (только свои точки)
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
         allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          ) ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
-            resource.data.driverId == request.auth.uid
-          )
+          isSuperAdmin() ||
+          (inCompany(companyId) && isDispatcherOrAbove()) ||
+          (isDriver() && resource.data.driverId == request.auth.uid)
         );
-        
-        // ✅ Удаление: super_admin, admin, dispatcher
-        allow delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
+        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
       }
-      
-      // 📝 История изменений инвентаря компании (inventory_history)
+
+      // inventory history
       match /inventory_history/{historyId} {
-        // 📖 Чтение: все пользователи своей компании + super_admin
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        
-        // ✅ Создание: все авторизованные пользователи своей компании
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        
-        // ✅ Обновление/Удаление: только super_admin и admin
-        allow update, delete: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow update, delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
       }
-      
-      // 🔢 Счётчики компании — מספור אטומי, increment == 1 בלבד
+
+      // counters — atomic sequential numbering
       match /counters/{counterId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        // יצירה: רק עם lastNumber == 1
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        ) && request.resource.data.lastNumber == 1;
-        // עדכון: רק אם lastNumber עולה ב-1 בדיוק
-        allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        ) && request.resource.data.lastNumber == resource.data.lastNumber + 1;
-        // ❌ מחיקה אסורה
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null &&
+          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
+          request.resource.data.lastNumber == 1;
+        allow update: if request.auth != null &&
+          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
+          request.resource.data.lastNumber == resource.data.lastNumber + 1;
         allow delete: if false;
       }
-      
-      // 💾 גיבויים רבעוניים (compliance backups)
+
+      // append-only collections
       match /backups/{backupId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        // ❌ עדכון ומחיקה אסורים — רשומות גיבוי הן append-only
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow update, delete: if false;
       }
-      
-      // 🔗 קישורים בין מסמכים — append-only
       match /document_links/{linkId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow update, delete: if false;
       }
-      
-      // 🔒 שרשרת שלמות — append-only, immutable
       match /integrity_chain/{chainId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow update, delete: if false;
       }
-      
-      // 🔗 עוגנים חיצוניים לשרשרת שלמות — append-only
       match /integrity_anchors/{anchorId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow update, delete: if false;
       }
-      
-      // 📊 ריצות ייצוא במבנה אחיד — append-only
       match /uniform_export_runs/{runId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow update, delete: if false;
       }
-      
-      // 📋 יומן גישה — append-only, SaaS compliance
       match /access_log/{logId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        ) && request.resource.data.actorUid == request.auth.uid;
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow create: if request.auth != null &&
+          (isSuperAdmin() || inCompany(companyId)) &&
+          request.resource.data.actorUid == request.auth.uid;
+        allow update, delete: if false;
       }
-      
-      // 🖨️ רישום גרסאות תבניות הדפסה
       match /print_templates/{templateId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId
-        );
-        allow create, update: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
+        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
+        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
         allow delete: if false;
       }
-      
-      // 📅 בדיקות מדיניות שמירה — append-only
       match /retention_checks/{checkId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow update, delete: if false;
       }
-      
-      // 🔄 בדיקות שחזור — append-only
       match /restore_tests/{testId} {
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow create: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']
-          )
-        );
-        allow update: if false;
-        allow delete: if false;
+        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow update, delete: if false;
       }
-    }
+    } // end /companies/{companyId}
 
-    // ⚙️ Общая конфигурация
-    match /config/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
-    }
-
-    // 🌉 Мосты
+    // ─── global collections ───────────────────────────────────────────────────
     match /bridges/{bridgeId} {
       allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow create, update, delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 💾 Резервные копии
     match /backups/{backupId} {
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
-      allow create, update, delete: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow read: if request.auth != null && isAdminOrAbove();
+      allow create, update, delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 📝 Логи действий
     match /action_logs/{logId} {
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow read: if request.auth != null && isAdminOrAbove();
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'];
+      allow update, delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 🔔 Уведомления
     match /notifications/{notificationId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin'] ||
-        (resource.data.userId == request.auth.uid)
+        isAdminOrAbove() || resource.data.userId == request.auth.uid
       );
     }
-
-    // 📍 IL Addresses (кеш адресов)
     match /il_addresses/{addressId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
-    // 🗺️ Cached routes (кеш маршрутов)
     match /cached_routes/{routeId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
-    // 📦 Типы коробок (справочник)
+    match /product_templates/{templateId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
     match /box_types/{boxTypeId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание/Обновление: диспетчер, кладовщик, админ или супер-админ
-      allow create, update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
-      );
-
-      // ✅ Удаление: админ или супер-админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
+      allow delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 📦 Инвентарь (склад)
     match /inventory/{inventoryId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание/Обновление: кладовщик, диспетчер, админ или супер-админ
-      allow create, update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
-      );
-
-      // ✅ Удаление: кладовщик, админ или супер-админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'warehouse_keeper']
-      );
+      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
+      allow delete: if request.auth != null && (isAdminOrAbove() || userDoc().role == 'warehouse_keeper');
     }
-
-    // 💰 Цены (прайс-лист)
     match /prices/{priceId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание/Обновление: диспетчер, админ или супер-админ
-      allow create, update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
-
-      // ✅ Удаление: админ или супер-админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow create, update: if request.auth != null && isDispatcherOrAbove();
+      allow delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 🧾 Счета (חשבוניות)
     match /invoices/{invoiceId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание: диспетчер, админ или супер-админ
-      allow create: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
-
-      // ✅ Обновление: только для отмены счетов (status, cancelledAt, cancelledBy, cancellationReason)
-      allow update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
-
-      // ❌ Удаление запрещено (Israeli tax law compliance)
+      allow create: if request.auth != null && isDispatcherOrAbove();
+      allow update: if request.auth != null && isDispatcherOrAbove();
       allow delete: if false;
     }
-
-    // 🔢 Счётчики (для последовательной нумерации счетов)
     match /counters/{counterId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Запись: только через транзакции в коде (диспетчер, админ, супер-админ)
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
+      allow write: if request.auth != null && isDispatcherOrAbove();
     }
-
-    // 📊 Дневные сводки (daily summaries)
     match /daily_summaries/{summaryId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Запись: автоматически через код (диспетчер, админ, супер-админ)
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
-      );
+      allow write: if request.auth != null && (isDispatcherOrAbove() || userDoc().role == 'warehouse_keeper');
     }
-
-    // 📊 Сводки доставок (delivery summaries)
     match /delivery_summaries/{summaryId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Запись: автоматически через код (диспетчер, водитель, админ, супер-админ)
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'driver']
-      );
+      allow write: if request.auth != null && (isDispatcherOrAbove() || isDriver());
     }
-
-    // 📝 История изменений инвентаря (inventory changes)
     match /inventory_changes/{changeId} {
-      // ✅ Чтение и запись: все авторизованные пользователи
       allow read, write: if request.auth != null;
     }
-
-    // 📝 История инвентаря (inventory history)
     match /inventory_history/{historyId} {
-      // ✅ Чтение и запись: все авторизованные пользователи
       allow read, write: if request.auth != null;
     }
-
-    // 📊 Инвентаризация (ספירת מלאי)
     match /inventory_counts/{countId} {
-      // ✅ Чтение: все авторизованные пользователи
       allow read: if request.auth != null;
-
-      // ✅ Создание: кладовщик, диспетчер, админ или супер-админ
-      allow create: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
-      );
-
-      // ✅ Обновление: кладовщик (свои подсчеты), диспетчер, админ или супер-админ
-      allow update: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher', 'warehouse_keeper']
-      );
-
-      // ✅ Удаление: только админ или супер-админ
-      allow delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
+      allow delete: if request.auth != null && isAdminOrAbove();
     }
-
-    // 📦 Архивы (archives metadata)
     match /archives/{archiveId} {
-      // ✅ Чтение: админ, диспетчер или супер-админ
-      allow read: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'dispatcher']
-      );
-
-      // ✅ Создание: только через Cloud Functions или админ
-      allow create: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
-
-      // ✅ Обновление/Удаление: только админ или супер-админ
-      allow update, delete: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin']
-      );
+      allow read: if request.auth != null && isDispatcherOrAbove();
+      allow create: if request.auth != null && isAdminOrAbove();
+      allow update, delete: if request.auth != null && isAdminOrAbove();
     }
+
   }
 }

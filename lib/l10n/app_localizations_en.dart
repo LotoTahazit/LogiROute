@@ -1418,6 +1418,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryShirts => 'Shirts';
 
   @override
+  String get categoryTrays => 'Trays';
+
+  @override
+  String get categoryBottles => 'Bottles';
+
+  @override
+  String get categoryBags => 'Bags';
+
+  @override
+  String get categoryBoxes => 'Boxes';
+
+  @override
   String get terminology => 'Terminology';
 
   @override

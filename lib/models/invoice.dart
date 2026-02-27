@@ -22,6 +22,7 @@ enum InvoiceDocumentType {
   receipt, // קבלה
   delivery, // תעודת משלוח
   creditNote, // זיכוי
+  taxInvoiceReceipt, // חשבונית מס / קבלה
 }
 
 /// סטטוס מספר הקצאה מרשות המסים
@@ -146,6 +147,9 @@ class Invoice {
   final AssignmentStatus assignmentStatus; // סטטוס הקצאה
   final DateTime? assignmentRequestedAt; // מתי נשלחה הבקשה
   final String? assignmentResponseRaw; // תשובה גולמית מה-API
+  final String?
+      deliveryPointId; // ID точки доставки — для предотвращения дублей
+  final String? paymentMethod; // אופן תשלום (для taxInvoiceReceipt)
 
   Invoice({
     required this.id,
@@ -182,6 +186,8 @@ class Invoice {
     this.assignmentStatus = AssignmentStatus.notRequired,
     this.assignmentRequestedAt,
     this.assignmentResponseRaw,
+    this.deliveryPointId,
+    this.paymentMethod,
   });
 
   // Константа НДС в Израиле
@@ -222,7 +228,8 @@ class Invoice {
   /// בדיקה אם נדרש מספר הקצאה — לפי סף וסוג מסמך
   bool get requiresAssignment {
     // רק חשבוניות מס דורשות מספר הקצאה
-    if (documentType != InvoiceDocumentType.invoice) return false;
+    if (documentType != InvoiceDocumentType.invoice &&
+        documentType != InvoiceDocumentType.taxInvoiceReceipt) return false;
     final threshold = _getAssignmentThreshold(DateTime.now());
     return subtotalBeforeVAT >= threshold;
   }
@@ -327,6 +334,8 @@ class Invoice {
         'assignmentRequestedAt': Timestamp.fromDate(assignmentRequestedAt!),
       if (assignmentResponseRaw != null)
         'assignmentResponseRaw': assignmentResponseRaw,
+      if (deliveryPointId != null) 'deliveryPointId': deliveryPointId,
+      if (paymentMethod != null) 'paymentMethod': paymentMethod,
     };
   }
 
@@ -401,6 +410,8 @@ class Invoice {
           ? (map['assignmentRequestedAt'] as Timestamp).toDate()
           : null,
       assignmentResponseRaw: map['assignmentResponseRaw'],
+      deliveryPointId: map['deliveryPointId'],
+      paymentMethod: map['paymentMethod'],
     );
   }
 
@@ -442,6 +453,8 @@ class Invoice {
     AssignmentStatus? assignmentStatus,
     DateTime? assignmentRequestedAt,
     String? assignmentResponseRaw,
+    String? deliveryPointId,
+    String? paymentMethod,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -481,6 +494,8 @@ class Invoice {
           assignmentRequestedAt ?? this.assignmentRequestedAt,
       assignmentResponseRaw:
           assignmentResponseRaw ?? this.assignmentResponseRaw,
+      deliveryPointId: deliveryPointId ?? this.deliveryPointId,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
     );
   }
 }

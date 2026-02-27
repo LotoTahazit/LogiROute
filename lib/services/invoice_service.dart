@@ -85,6 +85,23 @@ class InvoiceService {
         throw Exception('Invalid companyId in invoice');
       }
 
+      // Проверка дубликата: если deliveryPointId задан, ищем существующий документ
+      if (invoice.deliveryPointId != null &&
+          invoice.deliveryPointId!.isNotEmpty) {
+        final existing = await _invoicesCollection()
+            .where('deliveryPointId', isEqualTo: invoice.deliveryPointId)
+            .where('documentType', isEqualTo: invoice.documentType.name)
+            .where('status', isEqualTo: InvoiceStatus.active.name)
+            .limit(1)
+            .get();
+        if (existing.docs.isNotEmpty) {
+          // Документ уже существует — возвращаем его ID
+          print(
+              '⚠️ [Invoice] Duplicate prevented: ${invoice.documentType.name} for deliveryPoint ${invoice.deliveryPointId} already exists');
+          return existing.docs.first.id;
+        }
+      }
+
       // Get sequential number per document type
       final sequentialNumber =
           await _getNextSequentialNumberForType(invoice.documentType);

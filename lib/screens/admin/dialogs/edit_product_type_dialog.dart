@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/product_type.dart';
 import '../../../services/product_type_service.dart';
 import '../../../l10n/app_localizations.dart';
+import 'add_product_type_dialog.dart' show categoryDisplayName;
 
 class EditProductTypeDialog extends StatefulWidget {
   final ProductType product;
@@ -147,7 +148,7 @@ class _EditProductTypeDialogState extends State<EditProductTypeDialog> {
                         items: _categories
                             .map((cat) => DropdownMenuItem(
                                   value: cat,
-                                  child: Text(cat),
+                                  child: Text(categoryDisplayName(cat, l10n)),
                                 ))
                             .toList(),
                         onChanged: (value) => setState(() =>

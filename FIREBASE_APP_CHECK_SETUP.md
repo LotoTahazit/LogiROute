@@ -39,7 +39,7 @@ Firebase App Check защищает ваши backend ресурсы (Firestore, 
 
 ### 3. Настройка для Web
 
-#### Шаг 1: Получить reCAPTCHA v3 Site Key
+#### Шаг 1: Получить reCAPTCHA v3 ключи
 
 1. Откройте [reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
 2. Нажмите **+** для создания нового сайта
@@ -51,7 +51,11 @@ Firebase App Check защищает ваши backend ресурсы (Firestore, 
      - `logiroute-app.firebaseapp.com`
      - `localhost` (для разработки)
 4. Нажмите **Submit**
-5. Скопируйте **Site Key**
+5. Вы получите ДВА ключа:
+   - **Site Key** (начинается с 6L...) - для клиентского кода
+   - **Secret Key** (начинается с 6L...) - для Firebase Console
+   
+⚠️ **ВАЖНО**: Это РАЗНЫЕ ключи! Не путайте их!
 
 #### Шаг 2: Добавить Site Key в код
 
@@ -70,11 +74,15 @@ webProvider: ReCaptchaV3Provider('ВАШ_SITE_KEY'),
 #### Шаг 3: Зарегистрировать в Firebase
 
 1. В Firebase Console → App Check → Apps
-2. Выберите Web приложение
-3. Нажмите **Register**
-4. Выберите **reCAPTCHA v3** provider
-5. Вставьте **Site Key**
-6. Нажмите **Save**
+2. Выберите Web приложение (LogiRoute Web)
+3. Нажмите на три точки ⋮ → **Manage reCAPTCHA keys**
+4. Вставьте **Secret Key** (НЕ Site Key!)
+5. Нажмите **Save**
+
+⚠️ **КРИТИЧЕСКИ ВАЖНО**: 
+- В Firebase Console нужен **Secret Key** (серверный ключ)
+- В коде приложения используется **Site Key** (клиентский ключ)
+- Если вставить Site Key вместо Secret Key - будет ошибка `appCheck/recaptcha-error`
 
 **Готово!** Web приложение защищено.
 

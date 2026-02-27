@@ -1420,6 +1420,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categoryShirts => 'Рубашки';
 
   @override
+  String get categoryTrays => 'Подносы';
+
+  @override
+  String get categoryBottles => 'Бутылки';
+
+  @override
+  String get categoryBags => 'Пакеты';
+
+  @override
+  String get categoryBoxes => 'Коробки';
+
+  @override
   String get terminology => 'Терминология';
 
   @override

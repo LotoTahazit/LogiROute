@@ -113,6 +113,83 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     );
   }
 
+  /// יצירת קבלה עבור חשבונית קיימת
+  Future<void> _createReceipt(String companyId, Invoice invoice) async {
+    // בחירת אופן תשלום
+    String? paymentMethod = await showDialog<String>(
+      context: context,
+      builder: (context) => _ReceiptPaymentDialog(invoice: invoice),
+    );
+
+    if (paymentMethod == null || !mounted) return;
+
+    try {
+      final authService = context.read<AuthService>();
+      final user = authService.userModel;
+      final userUid = authService.currentUser?.uid ?? '';
+      if (userUid.isEmpty) throw Exception('משתמש לא מחובר');
+
+      final receipt = Invoice(
+        id: '',
+        companyId: companyId,
+        sequentialNumber: 0,
+        clientName: invoice.clientName,
+        clientNumber: invoice.clientNumber,
+        address: invoice.address,
+        driverName: invoice.driverName,
+        truckNumber: invoice.truckNumber,
+        deliveryDate: invoice.deliveryDate,
+        paymentDueDate: DateTime.now(),
+        departureTime: invoice.departureTime,
+        items: invoice.items,
+        discount: invoice.discount,
+        createdAt: DateTime.now(),
+        createdBy: user?.name ?? 'Unknown',
+        documentType: InvoiceDocumentType.receipt,
+        linkedInvoiceId: invoice.id,
+        paymentMethod: paymentMethod,
+      );
+
+      final invoiceService = InvoiceService(companyId: companyId);
+      final receiptId = await invoiceService.createInvoice(receipt, userUid);
+
+      try {
+        await invoiceService.finalizeInvoice(receiptId, userUid);
+      } catch (e) {
+        if (!e.toString().contains('already finalized')) rethrow;
+      }
+
+      final finalizedReceipt = await invoiceService.getInvoice(receiptId);
+      if (finalizedReceipt != null && mounted) {
+        final auth = context.read<AuthService>();
+        await InvoicePrintService.printFirstTime(
+          finalizedReceipt,
+          actorUid: auth.currentUser?.uid,
+          actorName: auth.userModel?.name,
+        );
+      }
+
+      await _loadInvoices(companyId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ קבלה נוצרה והודפסה'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ שגיאה ביצירת קבלה: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _reprintInvoice(String companyId, Invoice invoice) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -343,7 +420,15 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                                           : invoice.documentType ==
                                                   InvoiceDocumentType.receipt
                                               ? 'קבלה'
-                                              : 'ת. משלוח',
+                                              : invoice.documentType ==
+                                                      InvoiceDocumentType
+                                                          .taxInvoiceReceipt
+                                                  ? 'חשבונית מס/קבלה'
+                                                  : invoice.documentType ==
+                                                          InvoiceDocumentType
+                                                              .delivery
+                                                      ? 'ת. משלוח'
+                                                      : '',
                                       style: const TextStyle(fontSize: 11),
                                     ),
                                   ),
@@ -536,6 +621,19 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                                   }
                                 },
                               ),
+                            // כפתור קבלה — רק לחשבוניות מס פעילות (לא לזיכוי/קבלה/ת.משלוח)
+                            if (invoice.status == InvoiceStatus.active &&
+                                (invoice.documentType ==
+                                        InvoiceDocumentType.invoice ||
+                                    invoice.documentType ==
+                                        InvoiceDocumentType.taxInvoiceReceipt))
+                              IconButton(
+                                icon: const Icon(Icons.payments,
+                                    color: Colors.teal),
+                                tooltip: 'צור קבלה',
+                                onPressed: () =>
+                                    _createReceipt(effectiveCompanyId, invoice),
+                              ),
                             if (invoice.canBeCancelled)
                               IconButton(
                                 icon:
@@ -646,6 +744,76 @@ class _ReprintDialogState extends State<_ReprintDialog> {
           }),
           icon: const Icon(Icons.print),
           label: Text('הדפס $_copies עותקים'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Диалог выбора способа оплаты для קבלה
+class _ReceiptPaymentDialog extends StatefulWidget {
+  final Invoice invoice;
+  const _ReceiptPaymentDialog({required this.invoice});
+
+  @override
+  State<_ReceiptPaymentDialog> createState() => _ReceiptPaymentDialogState();
+}
+
+class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
+  String _paymentMethod = 'מזומן';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('יצירת קבלה'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'קבלה עבור חשבונית #${widget.invoice.sequentialNumber}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text('לקוח: ${widget.invoice.clientName}'),
+          Text(
+            'סכום: ₪${widget.invoice.totalWithVAT.toStringAsFixed(2)}',
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.green),
+          ),
+          const SizedBox(height: 16),
+          const Text('אופן תשלום:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _paymentMethod,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'מזומן', child: Text('מזומן')),
+              DropdownMenuItem(
+                  value: 'כרטיס אשראי', child: Text('כרטיס אשראי')),
+              DropdownMenuItem(
+                  value: 'העברה בנקאית', child: Text('העברה בנקאית')),
+              DropdownMenuItem(value: 'צ\'ק', child: Text('צ\'ק')),
+            ],
+            onChanged: (val) {
+              if (val != null) setState(() => _paymentMethod = val);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ביטול'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.pop(context, _paymentMethod),
+          icon: const Icon(Icons.payments),
+          label: const Text('צור קבלה'),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
         ),
       ],
     );

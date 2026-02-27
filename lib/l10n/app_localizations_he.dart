@@ -1412,6 +1412,18 @@ class AppLocalizationsHe extends AppLocalizations {
   String get categoryShirts => 'חולצות';
 
   @override
+  String get categoryTrays => 'מגשים';
+
+  @override
+  String get categoryBottles => 'בקבוקים';
+
+  @override
+  String get categoryBags => 'שקיות';
+
+  @override
+  String get categoryBoxes => 'קופסאות';
+
+  @override
   String get terminology => 'טרמינולוגיה';
 
   @override

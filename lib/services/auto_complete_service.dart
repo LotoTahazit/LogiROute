@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/delivery_point.dart';
+import '../config/app_config.dart';
 import 'optimized_location_service.dart';
 
 /// Сервис автоматического завершения точек доставки
@@ -24,8 +25,6 @@ class AutoCompleteService {
   final Map<String, Map<String, dynamic>> _lastLocations =
       {}; // driverId -> {lat, lng, timestamp}
 
-  static const double _proximityRadius = 100.0; // метров
-  static const int _waitTimeMinutes = 10; // минут неподвижности
   static const int _checkIntervalSeconds =
       180; // проверка каждые 3 минуты (оптимизировано для бесплатного плана)
   static const int _cleanupIntervalMinutes = 60; // очистка истории каждый час
@@ -112,7 +111,7 @@ class AutoCompleteService {
           driverLocation['longitude'] as double,
         );
 
-        if (distance <= _proximityRadius) {
+        if (distance <= AppConfig.autoCompleteRadius) {
           // Водитель рядом с точкой
           await _handleProximity(point, driverLocation);
         } else {
@@ -166,7 +165,7 @@ class AutoCompleteService {
     final arrivalTime = _arrivalTimes[pointId]!;
     final waitedMinutes = now.difference(arrivalTime).inMinutes;
 
-    if (waitedMinutes >= _waitTimeMinutes) {
+    if (waitedMinutes >= AppConfig.autoCompleteDuration.inMinutes) {
       // Прошло достаточно времени - автоматически завершаем точку
       debugPrint(
           '🤖 [AutoComplete] Auto-completing point ${point.clientName} after $waitedMinutes minutes');
@@ -174,7 +173,7 @@ class AutoCompleteService {
       _arrivalTimes.remove(pointId);
     } else {
       debugPrint(
-          '🤖 [AutoComplete] Driver at ${point.clientName} for $waitedMinutes/$_waitTimeMinutes minutes');
+          '🤖 [AutoComplete] Driver at ${point.clientName} for $waitedMinutes/${AppConfig.autoCompleteDuration.inMinutes} minutes');
     }
   }
 

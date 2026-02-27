@@ -1,5 +1,82 @@
 # LogiRoute - Changelog
 
+## v2.0 (2026-02-27) — Бухгалтерский модуль + Compliance
+
+### 📄 Типы документов — полная реализация
+
+- **חשבונית מס** (налоговый инвойс) — основной документ, создаётся из точки доставки
+- **תעודת משלוח** (накладная) — без цен, только товар/количество/клиент/водитель/дата/подпись
+- **חשבונית מס / קבלה** (инвойс-квитанция) — автоматически при галочке "תשלום התקבל" в диалоге создания חשבונית. Включает способ оплаты (מזומן / כרטיס אשראי / העברה בנקאית / צ'ק)
+- **קבלה** (квитанция) — отдельная кнопка на экране ניהול חשבוניות, привязывается к существующей חשבונית через `linkedInvoiceId`. Диалог выбора способа оплаты, автопечать
+- **חשבונית זיכוי** (credit note) — создаётся из экрана ניהול חשבוניות
+
+### 🧾 PDF-документы
+
+- Хедер: данные компании на иврите + английском, ח.פ, контакты. Место для логотипа компании-клиента (TODO)
+- Заголовок: тип документа + номер, дата, время, тип копии (מקור/עותק/נאמן למקור), метка הדפסה חוזרת
+- Блок клиента: имя, адрес, город, номер клиента
+- Таблица позиций: מק"ט, описание, количество, цена, скидка, итого (для חשבונית); только מק"ט/описание/количество (для תעודת משלוח)
+- Итоги: סה״כ, הנחה, סה״כ לפני מע״מ, מע״מ 18%, סה״כ לתשלום
+- Способ оплаты (אופן תשלום) — отображается для חשבונית מס/קבלה и קבלה
+- Ссылка на оригинальную חשבונית — отображается для קבלה
+- Футер: подпись, условия оплаты, водитель/машина/время выезда, мета-данные (ID, дата הפקה)
+- Шрифты: NotoSansHebrew (Regular + Bold) + Arial, кешируются
+- Размеры шрифтов увеличены на +2 от базовых
+
+### 🔒 Compliance (Israeli Tax Law)
+
+- Последовательная нумерация через Firestore transaction (без пропусков/повторов)
+- Immutable snapshot hash (SHA-256) при финализации
+- Audit log (append-only) — каждое действие логируется
+- Print events — отдельная коллекция, append-only
+- Integrity chain — append-only
+- Статусы: active / cancelled / draft (удаление запрещено)
+- מספר הקצאה (assignment number) — пороги по датам (2025: 20K, 2026.01: 10K, 2026.06: 5K), блокировка печати מקור без одобрения
+- Защита от дублей: `deliveryPointId` + `documentType` + active status
+- Защита от двойного клика: `_isCreating` guard + disabled button + spinner
+
+### 👤 Модель клиента
+
+- Добавлено поле `vatId` (ח.פ / ע.מ) — опциональное, станет обязательным при выходе на рынок
+- Поле ввода в EditClientDialog с подсказкой "לא חובה כרגע"
+
+### 🖥️ UI
+
+- Логотип LogiRoute на экране логина (внутри белой карточки, RichText "LOGIROUTE")
+- Убрана надпись "מערכת ניהול לוגיסטיקה" с экрана логина
+- Кнопка תעודת משלוח (синяя, local_shipping) на точке доставки
+- Кнопка קבלה (teal, payments) на экране ניהול חשבוניות — для חשבונית מס и חשבונית מס/קבלה
+- Badge типа документа в списке: חשבונית מס/קבלה, קבלה, ת. משלוח, זיכוי
+- Чекбокс "תשלום התקבל" + dropdown способа оплаты в диалоге создания חשבונית
+
+### ⚡ Оптимизация
+
+- Кеширование шрифтов (грузятся один раз за сессию)
+- Параллельная загрузка Firestore данных при создании инвойса
+- Уменьшен timeout для API assignment
+- Параллельные audit log + print event записи
+
+### 📦 Файлы изменены
+
+```
+lib/models/invoice.dart                          — enum InvoiceDocumentType + paymentMethod field
+lib/models/client_model.dart                     — vatId field
+lib/screens/auth/login_screen.dart               — логотип, убрана подпись
+lib/screens/dispatcher/create_invoice_dialog.dart — все типы документов, чекбокс оплаты
+lib/screens/dispatcher/dispatcher_dashboard.dart  — кнопка תעודת משלוח
+lib/screens/dispatcher/widgets/active_routes_tab.dart — callback תעודת משלוח
+lib/screens/dispatcher/invoice_management_screen.dart — кнопка קבלה, диалог оплаты, badge типов
+lib/screens/shared/dialogs/edit_client_dialog.dart — поле ח.פ
+lib/services/invoice_print_service.dart          — все типы PDF, способ оплаты, linkedInvoice
+lib/services/invoice_service.dart                — duplicate check по deliveryPointId
+lib/services/invoice_assignment_service.dart     — taxInvoiceReceipt support
+docs/ENGINEERING_METHODS.md                      — compliance contract
+docs/ISRAELI_INVOICE_COMPLIANCE.md               — справочник требований
+pubspec.yaml                                     — assets (logo, company_logo)
+```
+
+---
+
 ## v1.0-stable (2025-02-08) - ЭТАЛОННАЯ ВЕРСИЯ
 
 ### 🎯 Основные возможности

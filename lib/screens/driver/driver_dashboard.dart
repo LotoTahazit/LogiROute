@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
@@ -184,8 +185,17 @@ class _DriverDashboardState extends State<DriverDashboard> {
           if (!_isAutoCompleting) {
             _isAutoCompleting = true;
 
-            await _routeService!
-                .updatePointStatus(point.id, DeliveryPoint.statusCompleted);
+            // Помечаем autoCompleted: true для единообразия с AutoCompleteService
+            await FirebaseFirestore.instance
+                .collection('companies')
+                .doc(_routeService!.companyId)
+                .collection('delivery_points')
+                .doc(point.id)
+                .update({
+              'status': DeliveryPoint.statusCompleted,
+              'completedAt': FieldValue.serverTimestamp(),
+              'autoCompleted': true,
+            });
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

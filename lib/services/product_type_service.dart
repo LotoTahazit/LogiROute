@@ -51,10 +51,42 @@ class ProductTypeService {
     return null;
   }
 
-  /// Создать тип товара
+  /// Нормализация מק"ט: trim, uppercase, убрать двойные пробелы
+  static String normalizeProductCode(String code) {
+    return code.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  /// Проверить существует ли מק"ט в коллекции компании
+  Future<bool> isProductCodeExists(String productCode) async {
+    final normalized = normalizeProductCode(productCode);
+    final snapshot = await _collection
+        .where('productCode', isEqualTo: normalized)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
+  /// Создать тип товара (с проверкой дубликата מק"ט)
   Future<String> createProductType(ProductType productType) async {
-    final docRef = await _collection.add(productType.toMap());
-    print('✅ [ProductType] Created: ${productType.name} (${docRef.id})');
+    final normalized = normalizeProductCode(productType.productCode);
+    if (await isProductCodeExists(normalized)) {
+      throw Exception('DUPLICATE_PRODUCT_CODE:$normalized');
+    }
+    final normalizedProduct = ProductType(
+      id: productType.id,
+      companyId: productType.companyId,
+      name: productType.name,
+      productCode: normalized,
+      category: productType.category,
+      unitsPerBox: productType.unitsPerBox,
+      boxesPerPallet: productType.boxesPerPallet,
+      weight: productType.weight,
+      volume: productType.volume,
+      createdAt: productType.createdAt,
+      createdBy: productType.createdBy,
+    );
+    final docRef = await _collection.add(normalizedProduct.toMap());
+    print('✅ [ProductType] Created: ${normalizedProduct.name} (${docRef.id})');
     return docRef.id;
   }
 
@@ -77,17 +109,29 @@ class ProductTypeService {
     print('🗑️ [ProductType] Deleted: $id');
   }
 
-  /// Получить все категории
+  /// Базовые категории — всегда доступны в дропдауне
+  static const List<String> baseCategories = [
+    'general',
+    'cups',
+    'lids',
+    'containers',
+    'trays',
+    'bottles',
+    'bags',
+    'boxes',
+  ];
+
+  /// Получить все категории (базовые + из товаров компании)
   Future<List<String>> getCategories() async {
     final snapshot = await _collection.get();
-    final categories = snapshot.docs
+    final fromDb = snapshot.docs
         .map((doc) => doc.data()['category'] as String?)
         .where((cat) => cat != null && cat.isNotEmpty)
         .cast<String>()
-        .toSet()
-        .toList();
-    categories.sort();
-    return categories;
+        .toSet();
+    final all = {...baseCategories, ...fromDb}.toList();
+    all.sort();
+    return all;
   }
 
   /// Импорт товаров из списка (для Excel/CSV)
@@ -101,109 +145,5 @@ class ProductTypeService {
 
     await batch.commit();
     print('✅ [ProductType] Imported ${products.length} products');
-  }
-
-  /// Создать шаблонные товары для типа бизнеса
-  Future<void> createTemplateProducts(
-      String businessType, String createdBy) async {
-    List<ProductType> templates = [];
-
-    switch (businessType) {
-      case 'packaging':
-        templates = [
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'גביע 100',
-            productCode: '1001',
-            category: 'cups',
-            unitsPerBox: 20,
-            boxesPerPallet: 50,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'גביע 250',
-            productCode: '1002',
-            category: 'cups',
-            unitsPerBox: 20,
-            boxesPerPallet: 40,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'מכסה שטוח',
-            productCode: '1030',
-            category: 'lids',
-            unitsPerBox: 60,
-            boxesPerPallet: 40,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-        ];
-        break;
-      case 'food':
-        templates = [
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'לחם לבן',
-            productCode: '2001',
-            category: 'bread',
-            unitsPerBox: 10,
-            boxesPerPallet: 30,
-            weight: 0.5,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'חלב 1 ליטר',
-            productCode: '2002',
-            category: 'dairy',
-            unitsPerBox: 12,
-            boxesPerPallet: 40,
-            weight: 1.0,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-        ];
-        break;
-      case 'clothing':
-        templates = [
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'חולצה S',
-            productCode: '3001',
-            category: 'shirts',
-            unitsPerBox: 10,
-            boxesPerPallet: 20,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-          ProductType(
-            id: '',
-            companyId: companyId,
-            name: 'חולצה M',
-            productCode: '3002',
-            category: 'shirts',
-            unitsPerBox: 10,
-            boxesPerPallet: 20,
-            createdAt: DateTime.now(),
-            createdBy: createdBy,
-          ),
-        ];
-        break;
-    }
-
-    if (templates.isNotEmpty) {
-      await importProductTypes(templates);
-    }
   }
 }

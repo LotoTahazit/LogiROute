@@ -20,6 +20,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
   late TextEditingController _contactController;
+  late TextEditingController _vatIdController;
   late TextEditingController _latitudeController;
   late TextEditingController _longitudeController;
   bool _isGeocoding = false;
@@ -34,6 +35,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
     _phoneController = TextEditingController(text: widget.client.phone ?? '');
     _contactController =
         TextEditingController(text: widget.client.contactPerson ?? '');
+    _vatIdController = TextEditingController(text: widget.client.vatId ?? '');
     _latitudeController =
         TextEditingController(text: widget.client.latitude.toString());
     _longitudeController =
@@ -47,6 +49,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
     _addressController.dispose();
     _phoneController.dispose();
     _contactController.dispose();
+    _vatIdController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     super.dispose();
@@ -150,6 +153,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
         phone: _phoneController.text.isEmpty ? null : _phoneController.text,
         contactPerson:
             _contactController.text.isEmpty ? null : _contactController.text,
+        vatId: _vatIdController.text.isEmpty ? null : _vatIdController.text,
         companyId: widget.client.companyId,
       );
 
@@ -218,6 +222,15 @@ class _EditClientDialogState extends State<EditClientDialog> {
                   decoration: InputDecoration(
                     labelText: l10n.phone,
                     border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _vatIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'ח.פ / ע.מ (מספר עוסק)',
+                    border: OutlineInputBorder(),
+                    helperText: 'לא חובה כרגע',
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -3,220 +3,264 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+const db = admin.firestore();
+const storage = admin.storage();
+
 /**
- * Cloud Function для создания пользователя
- * Вызывается из приложения админом/суперадмином
+ * Автоматическая архивация истории инвентаря
+ * Запускается каждый месяц 1-го числа в 02:00
  */
-exports.createUser = functions.https.onCall(async (data, context) => {
-  // Проверяем что пользователь авторизован
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'User must be authenticated'
-    );
-  }
-
-  // Проверяем что пользователь - админ или суперадмин
-  const callerUid = context.auth.uid;
-  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
-  
-  if (!callerDoc.exists) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Caller profile not found'
-    );
-  }
-
-  const callerRole = callerDoc.data().role;
-  if (callerRole !== 'admin' && callerRole !== 'super_admin') {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admins can create users'
-    );
-  }
-
-  // Извлекаем данные
-  const {
-    email,
-    password,
-    name,
-    role,
-    companyId,
-    palletCapacity,
-    truckWeight,
-    vehicleNumber
-  } = data;
-
-  // Валидация
-  if (!email || !password || !name || !role || !companyId) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Missing required fields'
-    );
-  }
-
-  // Проверяем права: обычный админ может создавать только в своей компании
-  if (callerRole === 'admin') {
-    const callerCompanyId = callerDoc.data().companyId;
-    if (companyId !== callerCompanyId) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Admin can only create users in their own company'
-      );
-    }
-
-    // Обычный админ не может создавать других админов
-    if (role === 'admin' || role === 'super_admin') {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Admin cannot create other admins'
-      );
-    }
-  }
-
-  try {
-    // Создаём пользователя в Firebase Auth
-    const userRecord = await admin.auth().createUser({
-      email: email,
-      password: password,
-      displayName: name,
-    });
-
-    // Создаём профиль в Firestore
-    const userData = {
-      email: email,
-      name: name,
-      role: role,
-      companyId: companyId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      createdBy: callerUid,
-    };
-
-    if (palletCapacity !== undefined) userData.palletCapacity = palletCapacity;
-    if (truckWeight !== undefined) userData.truckWeight = truckWeight;
-    if (vehicleNumber !== undefined) userData.vehicleNumber = vehicleNumber;
-
-    await admin.firestore().collection('users').doc(userRecord.uid).set(userData);
-
-    return {
-      success: true,
-      uid: userRecord.uid,
-      message: 'User created successfully'
-    };
-
-  } catch (error) {
-    console.error('Error creating user:', error);
+exports.archiveInventoryHistory = functions.pubsub
+  .schedule('0 2 1 * *')
+  .timeZone('Asia/Jerusalem')
+  .onRun(async (context) => {
+    console.log('🗄️ Starting automatic inventory history archiving...');
     
-    if (error.code === 'auth/email-already-exists') {
-      throw new functions.https.HttpsError(
-        'already-exists',
-        'Email already in use'
-      );
+    try {
+      // Дата отсечки - 3 месяца назад
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - 3);
+      
+      console.log(`📅 Cutoff date: ${cutoffDate.toISOString()}`);
+      
+      // Получаем старые записи (порциями по 1000)
+      const snapshot = await db.collection('inventory_history')
+        .where('timestamp', '<', admin.firestore.Timestamp.fromDate(cutoffDate))
+        .where('archived', '==', false) // Только неархивированные
+        .orderBy('timestamp')
+        .limit(1000)
+        .get();
+      
+      if (snapshot.empty) {
+        console.log('✅ No records to archive');
+        return null;
+      }
+      
+      console.log(`📦 Found ${snapshot.size} records to archive`);
+      
+      // Конвертируем в JSON
+      const records = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        data._id = doc.id;
+        // Конвертируем Timestamp в ISO string для JSON
+        if (data.timestamp) {
+          data.timestamp = data.timestamp.toDate().toISOString();
+        }
+        records.push(data);
+      });
+      
+      // Создаем имя файла
+      const year = cutoffDate.getFullYear();
+      const month = String(cutoffDate.getMonth() + 1).padStart(2, '0');
+      const fileName = `inventory_history_${year}_${month}.json`;
+      const filePath = `archives/inventory_history/${fileName}`;
+      
+      // Загружаем в Storage
+      const bucket = storage.bucket();
+      const file = bucket.file(filePath);
+      
+      await file.save(JSON.stringify(records, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          metadata: {
+            recordCount: records.length.toString(),
+            cutoffDate: cutoffDate.toISOString(),
+            archivedAt: new Date().toISOString(),
+          }
+        }
+      });
+      
+      console.log(`✅ Uploaded ${records.length} records to ${filePath}`);
+      
+      // Помечаем записи как архивированные
+      const batch = db.batch();
+      snapshot.forEach(doc => {
+        batch.update(doc.ref, {
+          archived: true,
+          archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+          archiveFile: filePath,
+        });
+      });
+      
+      await batch.commit();
+      
+      console.log(`✅ Marked ${records.length} records as archived`);
+      console.log('🎉 Inventory history archiving completed successfully');
+      
+      return {
+        success: true,
+        archived: records.length,
+        filePath: filePath,
+      };
+      
+    } catch (error) {
+      console.error('❌ Error archiving inventory history:', error);
+      throw error;
     }
+  });
+
+/**
+ * Автоматическая архивация завершенных заказов
+ * Запускается каждый месяц 1-го числа в 03:00
+ */
+exports.archiveCompletedOrders = functions.pubsub
+  .schedule('0 3 1 * *')
+  .timeZone('Asia/Jerusalem')
+  .onRun(async (context) => {
+    console.log('🗄️ Starting automatic completed orders archiving...');
     
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to create user: ' + error.message
-    );
-  }
-});
+    try {
+      // Дата отсечки - 1 месяц назад
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+      
+      console.log(`📅 Cutoff date: ${cutoffDate.toISOString()}`);
+      
+      // Получаем старые завершенные заказы
+      const snapshot = await db.collection('delivery_points')
+        .where('status', '==', 'completed')
+        .where('completedAt', '<', admin.firestore.Timestamp.fromDate(cutoffDate))
+        .where('archived', '==', false) // Только неархивированные
+        .orderBy('completedAt')
+        .limit(500)
+        .get();
+      
+      if (snapshot.empty) {
+        console.log('✅ No orders to archive');
+        return null;
+      }
+      
+      console.log(`📦 Found ${snapshot.size} orders to archive`);
+      
+      // Конвертируем в JSON
+      const records = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        data._id = doc.id;
+        // Конвертируем все Timestamp в ISO string
+        ['completedAt', 'arrivedAt', 'openingTime'].forEach(field => {
+          if (data[field]) {
+            data[field] = data[field].toDate().toISOString();
+          }
+        });
+        records.push(data);
+      });
+      
+      // Создаем имя файла
+      const year = cutoffDate.getFullYear();
+      const month = String(cutoffDate.getMonth() + 1).padStart(2, '0');
+      const fileName = `completed_orders_${year}_${month}.json`;
+      const filePath = `archives/orders/${fileName}`;
+      
+      // Загружаем в Storage
+      const bucket = storage.bucket();
+      const file = bucket.file(filePath);
+      
+      await file.save(JSON.stringify(records, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          metadata: {
+            recordCount: records.length.toString(),
+            cutoffDate: cutoffDate.toISOString(),
+            archivedAt: new Date().toISOString(),
+          }
+        }
+      });
+      
+      console.log(`✅ Uploaded ${records.length} orders to ${filePath}`);
+      
+      // Помечаем заказы как архивированные
+      const batch = db.batch();
+      snapshot.forEach(doc => {
+        batch.update(doc.ref, {
+          archived: true,
+          archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+          archiveFile: filePath,
+        });
+      });
+      
+      await batch.commit();
+      
+      console.log(`✅ Marked ${records.length} orders as archived`);
+      console.log('🎉 Completed orders archiving completed successfully');
+      
+      return {
+        success: true,
+        archived: records.length,
+        filePath: filePath,
+      };
+      
+    } catch (error) {
+      console.error('❌ Error archiving completed orders:', error);
+      throw error;
+    }
+  });
 
 /**
- * Cloud Function для обновления пользователя
+ * Очистка старых архивированных записей из Firestore
+ * Запускается каждый месяц 15-го числа в 02:00
+ * Удаляет записи, которые были архивированы более 6 месяцев назад
  */
-exports.updateUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
-
-  const callerUid = context.auth.uid;
-  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
-  
-  if (!callerDoc.exists) {
-    throw new functions.https.HttpsError('permission-denied', 'Caller profile not found');
-  }
-
-  const callerRole = callerDoc.data().role;
-  if (callerRole !== 'admin' && callerRole !== 'super_admin') {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can update users');
-  }
-
-  const { uid, email, password, name, role, palletCapacity, truckWeight, vehicleNumber } = data;
-
-  if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'User UID is required');
-  }
-
-  try {
-    // Обновляем в Firebase Auth
-    const authUpdates = {};
-    if (email) authUpdates.email = email;
-    if (password) authUpdates.password = password;
-    if (name) authUpdates.displayName = name;
-
-    if (Object.keys(authUpdates).length > 0) {
-      await admin.auth().updateUser(uid, authUpdates);
+exports.cleanupArchivedRecords = functions.pubsub
+  .schedule('0 2 15 * *')
+  .timeZone('Asia/Jerusalem')
+  .onRun(async (context) => {
+    console.log('🧹 Starting cleanup of old archived records...');
+    
+    try {
+      // Дата отсечки - 6 месяцев назад
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - 6);
+      
+      console.log(`📅 Cutoff date: ${cutoffDate.toISOString()}`);
+      
+      let totalDeleted = 0;
+      
+      // Очистка истории инвентаря
+      const historySnapshot = await db.collection('inventory_history')
+        .where('archived', '==', true)
+        .where('archivedAt', '<', admin.firestore.Timestamp.fromDate(cutoffDate))
+        .limit(500)
+        .get();
+      
+      if (!historySnapshot.empty) {
+        const batch1 = db.batch();
+        historySnapshot.forEach(doc => {
+          batch1.delete(doc.ref);
+        });
+        await batch1.commit();
+        totalDeleted += historySnapshot.size;
+        console.log(`🗑️ Deleted ${historySnapshot.size} archived inventory history records`);
+      }
+      
+      // Очистка заказов
+      const ordersSnapshot = await db.collection('delivery_points')
+        .where('archived', '==', true)
+        .where('archivedAt', '<', admin.firestore.Timestamp.fromDate(cutoffDate))
+        .limit(500)
+        .get();
+      
+      if (!ordersSnapshot.empty) {
+        const batch2 = db.batch();
+        ordersSnapshot.forEach(doc => {
+          batch2.delete(doc.ref);
+        });
+        await batch2.commit();
+        totalDeleted += ordersSnapshot.size;
+        console.log(`🗑️ Deleted ${ordersSnapshot.size} archived order records`);
+      }
+      
+      console.log(`✅ Total deleted: ${totalDeleted} records`);
+      console.log('🎉 Cleanup completed successfully');
+      
+      return {
+        success: true,
+        deleted: totalDeleted,
+      };
+      
+    } catch (error) {
+      console.error('❌ Error cleaning up archived records:', error);
+      throw error;
     }
-
-    // Обновляем в Firestore
-    const firestoreUpdates = {};
-    if (email) firestoreUpdates.email = email;
-    if (name) firestoreUpdates.name = name;
-    if (role) firestoreUpdates.role = role;
-    if (palletCapacity !== undefined) firestoreUpdates.palletCapacity = palletCapacity;
-    if (truckWeight !== undefined) firestoreUpdates.truckWeight = truckWeight;
-    if (vehicleNumber !== undefined) firestoreUpdates.vehicleNumber = vehicleNumber;
-    firestoreUpdates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-
-    if (Object.keys(firestoreUpdates).length > 0) {
-      await admin.firestore().collection('users').doc(uid).update(firestoreUpdates);
-    }
-
-    return { success: true, message: 'User updated successfully' };
-
-  } catch (error) {
-    console.error('Error updating user:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to update user: ' + error.message);
-  }
-});
-
-/**
- * Cloud Function для удаления пользователя
- */
-exports.deleteUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
-
-  const callerUid = context.auth.uid;
-  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
-  
-  if (!callerDoc.exists) {
-    throw new functions.https.HttpsError('permission-denied', 'Caller profile not found');
-  }
-
-  const callerRole = callerDoc.data().role;
-  if (callerRole !== 'admin' && callerRole !== 'super_admin') {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can delete users');
-  }
-
-  const { uid } = data;
-
-  if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'User UID is required');
-  }
-
-  try {
-    // Удаляем из Firebase Auth
-    await admin.auth().deleteUser(uid);
-
-    // Удаляем из Firestore
-    await admin.firestore().collection('users').doc(uid).delete();
-
-    return { success: true, message: 'User deleted successfully' };
-
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to delete user: ' + error.message);
-  }
-});
+  });

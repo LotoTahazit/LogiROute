@@ -40,6 +40,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
   Stream<List<DeliveryPoint>>? _pendingPointsStream;
   Stream<List<DeliveryPoint>>? _routesStream;
+  Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
 
   @override
@@ -434,6 +435,41 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
+  Future<void> _createDeliveryNoteForPoint(DeliveryPoint point) async {
+    final driver = _drivers.firstWhere(
+      (d) => d.uid == point.driverId,
+      orElse: () => UserModel(
+        uid: point.driverId ?? '',
+        email: '',
+        name: point.driverName ?? 'Unknown',
+        role: 'driver',
+        vehicleNumber: '',
+      ),
+    );
+
+    final invoice = await showDialog<Invoice>(
+      context: context,
+      builder: (context) => CreateInvoiceDialog(
+        point: point,
+        driver: driver,
+        documentType: InvoiceDocumentType.delivery,
+      ),
+    );
+
+    if (invoice != null && mounted) {
+      try {
+        final auth = context.read<AuthService>();
+        await InvoicePrintService.printFirstTime(
+          invoice,
+          actorUid: auth.currentUser?.uid,
+          actorName: auth.userModel?.name,
+        );
+      } catch (e) {
+        SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
+      }
+    }
+  }
+
   Future<void> _deletePoint(
       String companyId, String pointId, String clientName) async {
     final l10n = AppLocalizations.of(context)!;
@@ -609,6 +645,24 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
+  Future<void> _reopenPoint(String companyId, DeliveryPoint point) async {
+    try {
+      final routeService = RouteService(companyId: companyId);
+      await routeService.reopenPoint(point.id);
+      if (mounted) {
+        SnackbarHelper.showSuccess(
+          context,
+          '✅ ${point.clientName} הוחזר למסלול',
+        );
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '❌ שגיאה: $e');
+      }
+    }
+  }
+
   Future<void> _reorderRoutePoints(
     List<DeliveryPoint> routes,
     int oldIndex,
@@ -720,6 +774,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
         return routes;
       });
+      _autoCompletedStream = routeService.getAutoCompletedPoints();
     }
 
     return Directionality(
@@ -825,20 +880,31 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           return Center(
                               child: Text('Error: ${snapshot.error}'));
                         }
-                        return ActiveRoutesTab(
-                          routes: snapshot.data ?? [],
-                          lastNonEmptyRoutes: _lastNonEmptyRoutes,
-                          onChangeDriver: (driverId, driverName, routeId) =>
-                              _changeDriver(effectiveCompanyId, driverId,
-                                  driverName, routeId),
-                          onCancelRoute: (driverId, routeId) => _cancelRoute(
-                              effectiveCompanyId, driverId, routeId),
-                          onPrintRoute: _printDriverRoute,
-                          onReorderPoints: _reorderRoutePoints,
-                          onCreateInvoice: _createInvoiceForPoint,
-                          onPrintAllInvoices: _printAllRouteInvoices,
-                          onEditPoint: (point) =>
-                              _editPoint(effectiveCompanyId, point),
+                        return StreamBuilder<List<DeliveryPoint>>(
+                          stream: _autoCompletedStream,
+                          initialData: const [],
+                          builder: (context, autoSnapshot) {
+                            return ActiveRoutesTab(
+                              routes: snapshot.data ?? [],
+                              lastNonEmptyRoutes: _lastNonEmptyRoutes,
+                              autoCompletedPoints: autoSnapshot.data ?? [],
+                              onChangeDriver: (driverId, driverName, routeId) =>
+                                  _changeDriver(effectiveCompanyId, driverId,
+                                      driverName, routeId),
+                              onCancelRoute: (driverId, routeId) =>
+                                  _cancelRoute(
+                                      effectiveCompanyId, driverId, routeId),
+                              onPrintRoute: _printDriverRoute,
+                              onReorderPoints: _reorderRoutePoints,
+                              onCreateInvoice: _createInvoiceForPoint,
+                              onCreateDeliveryNote: _createDeliveryNoteForPoint,
+                              onPrintAllInvoices: _printAllRouteInvoices,
+                              onEditPoint: (point) =>
+                                  _editPoint(effectiveCompanyId, point),
+                              onReopenPoint: (point) =>
+                                  _reopenPoint(effectiveCompanyId, point),
+                            );
+                          },
                         );
                       },
                     ),

@@ -15,6 +15,7 @@ dependencies:
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.2
   firebase_storage: ^13.0.6
+  firebase_analytics: ^12.1.2
   
   # Maps & Location
   google_maps_flutter: ^2.5.0
@@ -63,6 +64,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  fake_cloud_firestore: ^4.0.1
 
 flutter:
   uses-material-design: true
@@ -73,6 +75,9 @@ flutter:
     - assets/fonts/
     # 🔐 Файл с переменными окружения
     - .env
+    # 🖼 Логотип приложения
+    - assets/logo.png
+    - assets/company_logo.png
 
   fonts:
     - family: NotoSansHebrew

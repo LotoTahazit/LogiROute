@@ -40,9 +40,6 @@ class WebGeocodingService {
       if (_geocoder == null) {
         debugPrint('❌ [WebGeocoding] Google Maps not loaded');
       }
-      if (_geocoder == null) {
-        debugPrint('❌ [WebGeocoding] Google Maps not loaded');
-      }
     }
   }
 
@@ -122,6 +119,9 @@ class WebGeocodingService {
           }
         },
       );
+
+      // Вызываем геокодер с callback
+      _geocoder!.callMethod('geocode', [request, callback]);
     } catch (e) {
       debugPrint('❌ [WebGeocoding] Ошибка: $e');
       if (!completer.isCompleted) {

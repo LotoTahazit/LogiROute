@@ -151,7 +151,34 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 48),
+              const SizedBox(height: 24),
+              Image.asset('assets/logo.png', width: 90, height: 90),
+              const SizedBox(height: 12),
+              RichText(
+                text: const TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'LOGI',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w300,
+                        color: Color(0xFF1565C0),
+                        letterSpacing: 4,
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'ROUTE',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1565C0),
+                        letterSpacing: 4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(

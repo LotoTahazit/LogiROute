@@ -159,6 +159,20 @@ class RouteService {
     });
   }
 
+  /// ✅ Поток автозакрытых точек (для кнопки "החזר לנקודה פתוחה")
+  Stream<List<DeliveryPoint>> getAutoCompletedPoints() {
+    return _deliveryPointsCollection()
+        .where('status', isEqualTo: DeliveryPoint.statusCompleted)
+        .where('autoCompleted', isEqualTo: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
   /// ✅ Поток всех ожидающих точек (для вкладки "נקודות משלוח")
   /// ⚡ OPTIMIZED: Added limit
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
@@ -1082,6 +1096,22 @@ class RouteService {
     }
 
     print('✅ [RouteService] Route successfully created for $driverName');
+  }
+
+  /// 🔄 Переоткрыть автозакрытую точку (вернуть в маршрут)
+  Future<void> reopenPoint(String pointId) async {
+    print('🔄 [RouteService] Reopening point $pointId');
+    try {
+      await _deliveryPointsCollection().doc(pointId).update({
+        'status': DeliveryPoint.statusInProgress,
+        'completedAt': null,
+        'autoCompleted': false,
+      });
+      print('✅ [RouteService] Point $pointId reopened');
+    } catch (e) {
+      print('❌ [RouteService] Error reopening point $pointId: $e');
+      rethrow;
+    }
   }
 
   /// ❌ Отменить точку доставки

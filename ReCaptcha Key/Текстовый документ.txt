@@ -1,0 +1,5 @@
+6Lc6c2ssAAAAAHUxGBbdQw9_7ZlgCZ27DfjjzMAg   Используйте этот ключ в HTML-коде, который ваш сайт передает на устройства пользователей.
+
+
+
+6Lc6c2ssAAAAAAHceQbdbUOlBCrBqjXs1bL-XkFU   Используйте этот секретный ключ для обмена данными между сайтом и сервисом reCAPTCHA.

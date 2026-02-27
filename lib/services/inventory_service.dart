@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/inventory_item.dart';
 import '../models/box_type.dart';
 import '../models/inventory_change.dart';
+import '../models/product_type.dart';
 
 class InventoryService {
   final String companyId;
@@ -19,6 +20,14 @@ class InventoryService {
         .collection('companies')
         .doc(companyId)
         .collection('inventory');
+  }
+
+  /// Хелпер: product_types коллекция
+  CollectionReference<Map<String, dynamic>> _productTypesCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('product_types');
   }
 
   /// Записать изменение в историю
@@ -58,7 +67,7 @@ class InventoryService {
 
   /// Добавить товар (прибавить к существующему)
   Future<void> addInventory({
-    required String productCode, // מק"ט - уникальный идентификатор
+    required String productCode,
     required String type,
     required String number,
     int? volumeMl,
@@ -88,7 +97,7 @@ class InventoryService {
 
   /// Обновить остаток товара (или добавить новый)
   Future<void> updateInventory({
-    required String productCode, // מק"ט - уникальный идентификатор
+    required String productCode,
     required String type,
     required String number,
     int? volumeMl,
@@ -99,15 +108,14 @@ class InventoryService {
     String? volume,
     int? piecesPerBox,
     String? additionalInfo,
-    bool addToExisting = false, // Флаг: прибавлять к существующему или заменить
+    bool addToExisting = false,
   }) async {
     try {
-      final id = InventoryItem.generateId(productCode); // מק"ט как ID
+      final id = InventoryItem.generateId(productCode);
 
       int finalQuantity = quantity;
       int quantityBefore = 0;
 
-      // Если нужно прибавить к существующему
       if (addToExisting) {
         final doc = await _inventoryCollection().doc(id).get();
         if (doc.exists) {
@@ -117,7 +125,6 @@ class InventoryService {
               '➕ [Inventory] Adding $quantity to existing $quantityBefore = $finalQuantity');
         }
       } else {
-        // Получаем текущее количество для истории
         final doc = await _inventoryCollection().doc(id).get();
         if (doc.exists) {
           quantityBefore = doc.data()!['quantity'] as int;
@@ -125,7 +132,7 @@ class InventoryService {
       }
 
       final data = {
-        'productCode': productCode, // מק"ט - ПЕРВОЕ ПОЛЕ
+        'productCode': productCode,
         'type': type,
         'number': number,
         'quantity': finalQuantity,
@@ -147,7 +154,6 @@ class InventoryService {
             SetOptions(merge: true),
           );
 
-      // Записываем в историю
       final changeAmount = finalQuantity - quantityBefore;
       await _logChange(
         productCode: productCode,
@@ -172,7 +178,6 @@ class InventoryService {
   Future<List<InventoryItem>> getInventory() async {
     try {
       final snapshot = await _inventoryCollection().get();
-
       return snapshot.docs
           .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
           .toList();
@@ -183,13 +188,9 @@ class InventoryService {
   }
 
   /// Получить товары в реальном времени
-  /// ⚡ OPTIMIZED: Added limit to prevent excessive reads
   Stream<List<InventoryItem>> getInventoryStream({int limit = 200}) {
     print('📊 [Inventory] Starting stream with limit: $limit');
-    return _inventoryCollection() // ✅ Используем вложенную коллекцию
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
+    return _inventoryCollection().limit(limit).snapshots().map((snapshot) {
       print('📊 [Inventory] Stream update: ${snapshot.docs.length} items');
       final items = <InventoryItem>[];
       for (final doc in snapshot.docs) {
@@ -199,7 +200,6 @@ class InventoryService {
         } catch (e) {
           print('❌ [Inventory] Error parsing item ${doc.id}: $e');
           print('📄 [Inventory] Problematic data: ${doc.data()}');
-          // Пропускаем проблемную запись
         }
       }
       return items;
@@ -211,10 +211,8 @@ class InventoryService {
     try {
       final inventory = await getInventory();
 
-      // Группируем запрошенные коробки по מק"ט
       final Map<String, int> requested = {};
       for (final box in boxTypes) {
-        // Ищем товар по type + number, чтобы получить его מק"ט
         final item = inventory.firstWhere(
           (i) => i.type == box.type && i.number == box.number,
           orElse: () => throw Exception(
@@ -222,11 +220,10 @@ class InventoryService {
           ),
         );
 
-        final productCode = item.productCode; // מק"ט товара
+        final productCode = item.productCode;
         requested[productCode] = (requested[productCode] ?? 0) + box.quantity;
       }
 
-      // Проверяем доступность каждого מק"ט
       final List<String> insufficient = [];
       final Map<String, Map<String, dynamic>> details = {};
 
@@ -234,7 +231,6 @@ class InventoryService {
         final productCode = entry.key;
         final requestedQty = entry.value;
 
-        // Ищем товар в инвентаре по מק"ט
         final item = inventory.firstWhere(
           (i) => i.productCode == productCode,
           orElse: () => throw Exception('PRODUCT_CODE_NOT_FOUND:$productCode'),
@@ -243,7 +239,6 @@ class InventoryService {
         final availableQty = item.quantity;
 
         if (availableQty < requestedQty) {
-          // Возвращаем структурированные данные вместо форматированной строки
           insufficient.add(
               '${item.type}|${item.number}|${item.productCode}|$availableQty|$requestedQty');
           details[productCode] = {
@@ -263,11 +258,10 @@ class InventoryService {
       };
     } catch (e) {
       print('❌ [Inventory] Error checking availability: $e');
-      // Возвращаем код ошибки вместо текста
       final errorMsg = e.toString();
       return {
         'available': false,
-        'insufficient': [errorMsg], // Возвращаем код ошибки
+        'insufficient': [errorMsg],
         'details': {},
       };
     }
@@ -278,10 +272,8 @@ class InventoryService {
     try {
       final inventory = await getInventory();
 
-      // Группируем коробки по מק"ט
       final Map<String, int> toDeduct = {};
       for (final box in boxTypes) {
-        // Ищем товар по type + number, чтобы получить его מק"ט
         final item = inventory.firstWhere(
           (i) => i.type == box.type && i.number == box.number,
           orElse: () => throw Exception(
@@ -289,11 +281,10 @@ class InventoryService {
           ),
         );
 
-        final productCode = item.productCode; // מק"ט товара
+        final productCode = item.productCode;
         toDeduct[productCode] = (toDeduct[productCode] ?? 0) + box.quantity;
       }
 
-      // Списываем каждый מק"ט
       for (final entry in toDeduct.entries) {
         final productCode = entry.key;
         final quantity = entry.value;
@@ -313,7 +304,6 @@ class InventoryService {
             'updatedBy': userName,
           });
 
-          // Записываем в историю
           await _logChange(
             productCode: productCode,
             type: type,
@@ -347,5 +337,92 @@ class InventoryService {
       print('❌ [Inventory] Error deleting item: $e');
       rethrow;
     }
+  }
+
+  /// Ручная синхронизация: создать/обновить product_types для всех товаров на складе
+  Future<Map<String, int>> syncAllToProductTypes(String userName) async {
+    int created = 0;
+    int skipped = 0;
+    int updated = 0;
+    int errors = 0;
+
+    try {
+      final inventorySnapshot = await _inventoryCollection().get();
+      final existingPT = await _productTypesCollection().get();
+
+      final existingMap = <String, Map<String, String>>{};
+      for (final d in existingPT.docs) {
+        final code = d.data()['productCode'] as String?;
+        if (code != null) {
+          existingMap[code] = {
+            'docId': d.id,
+            'name': d.data()['name'] as String? ?? ''
+          };
+        }
+      }
+
+      for (final doc in inventorySnapshot.docs) {
+        final data = doc.data();
+        final productCode = data['productCode']?.toString() ?? '';
+        if (productCode.isEmpty) {
+          skipped++;
+          continue;
+        }
+
+        final expectedName =
+            '${data['type'] ?? ''} ${data['number'] ?? ''}'.trim();
+
+        if (existingMap.containsKey(productCode)) {
+          final existing = existingMap[productCode]!;
+          if (existing['name'] != expectedName) {
+            try {
+              await _productTypesCollection().doc(existing['docId']!).update({
+                'name': expectedName,
+                'unitsPerBox': (data['piecesPerBox'] as int?) ?? 1,
+                'boxesPerPallet': (data['quantityPerPallet'] as int?) ?? 1,
+              });
+              updated++;
+            } catch (e) {
+              errors++;
+            }
+          } else {
+            skipped++;
+          }
+          continue;
+        }
+
+        try {
+          final product = ProductType(
+            id: '',
+            companyId: companyId,
+            name: expectedName,
+            productCode: productCode,
+            category: 'general',
+            unitsPerBox: (data['piecesPerBox'] as int?) ?? 1,
+            boxesPerPallet: (data['quantityPerPallet'] as int?) ?? 1,
+            createdAt: DateTime.now(),
+            createdBy: userName,
+          );
+          await _productTypesCollection().add(product.toMap());
+          existingMap[productCode] = {'docId': '', 'name': expectedName};
+          created++;
+        } catch (e) {
+          errors++;
+          print('⚠️ [Sync] Error syncing $productCode: $e');
+        }
+      }
+
+      print(
+          '🔄 [Sync] Done: created=$created, updated=$updated, skipped=$skipped, errors=$errors');
+    } catch (e) {
+      print('❌ [Sync] Error: $e');
+    }
+
+    return {
+      'created': created,
+      'updated': updated,
+      'skipped': skipped,
+      'errors': errors
+    };
   }
 }

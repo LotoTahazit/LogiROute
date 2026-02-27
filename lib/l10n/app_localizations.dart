@@ -2801,6 +2801,30 @@ abstract class AppLocalizations {
   /// **'Shirts'**
   String get categoryShirts;
 
+  /// No description provided for @categoryTrays.
+  ///
+  /// In en, this message translates to:
+  /// **'Trays'**
+  String get categoryTrays;
+
+  /// No description provided for @categoryBottles.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottles'**
+  String get categoryBottles;
+
+  /// No description provided for @categoryBags.
+  ///
+  /// In en, this message translates to:
+  /// **'Bags'**
+  String get categoryBags;
+
+  /// No description provided for @categoryBoxes.
+  ///
+  /// In en, this message translates to:
+  /// **'Boxes'**
+  String get categoryBoxes;
+
   /// No description provided for @terminology.
   ///
   /// In en, this message translates to:

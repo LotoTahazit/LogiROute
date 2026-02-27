@@ -3,6 +3,12 @@
     "rules": "firestore.rules",
     "indexes": "firestore_indexes.json"
   },
+  "storage": [
+    {
+      "bucket": "logiroute-app.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ],
   "hosting": {
     "public": "build/web",
     "ignore": [

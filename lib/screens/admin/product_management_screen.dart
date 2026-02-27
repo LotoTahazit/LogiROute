@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/product_type.dart';
 import '../../services/product_type_service.dart';
 import '../../services/product_import_service.dart';
+import '../../services/inventory_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
@@ -12,6 +13,7 @@ import 'dialogs/add_product_type_dialog.dart';
 import 'dialogs/edit_product_type_dialog.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../utils/file_download.dart';
+import '../../widgets/template_import_dialog.dart';
 
 /// Экран управления типами товаров
 class ProductManagementScreen extends StatefulWidget {
@@ -39,6 +41,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     }
 
     final productService = ProductTypeService(companyId: companyId);
+    final authService = context.read<AuthService>();
+    final isAdmin = authService.userModel?.isAdmin ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +55,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'show_inactive') {
                 setState(() => _showInactiveProducts = !_showInactiveProducts);
               } else if (value == 'import') {
@@ -61,7 +65,15 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               } else if (value == 'template') {
                 _downloadTemplate();
               } else if (value == 'load_template') {
-                _showLoadTemplateDialog(context, companyId);
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => const TemplateImportDialog(),
+                );
+                if (result == true && context.mounted) {
+                  setState(() {}); // Refresh product list
+                }
+              } else if (value == 'sync_inventory') {
+                _syncFromInventory(context, companyId);
               }
             },
             itemBuilder: (context) => [
@@ -111,13 +123,24 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   ],
                 ),
               ),
+              if (isAdmin)
+                const PopupMenuItem(
+                  value: 'load_template',
+                  child: Row(
+                    children: [
+                      Icon(Icons.auto_fix_high, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('טען תבנית מוצרים'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
-                value: 'load_template',
+                value: 'sync_inventory',
                 child: Row(
                   children: [
-                    Icon(Icons.auto_fix_high, color: Colors.orange),
+                    Icon(Icons.sync, color: Colors.blue),
                     SizedBox(width: 8),
-                    Text('טען תבנית מוצרים'),
+                    Text('סנכרן מהמחסן'),
                   ],
                 ),
               ),
@@ -238,6 +261,9 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     String companyId,
     AppLocalizations l10n,
   ) {
+    final authService = context.read<AuthService>();
+    final isSuperAdmin = authService.userModel?.isSuperAdmin ?? false;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -282,6 +308,19 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   SnackbarHelper.showSuccess(context, l10n.productDeleted);
                 }
               }
+            } else if (value == 'hard_delete') {
+              final confirmed = await DialogHelper.showConfirmation(
+                context: context,
+                title: 'מחיקה סופית',
+                content:
+                    'למחוק לצמיתות את "${product.name}"? פעולה זו אינה הפיכה.',
+              );
+              if (confirmed == true) {
+                await productService.hardDeleteProductType(product.id);
+                if (context.mounted) {
+                  SnackbarHelper.showSuccess(context, l10n.productDeleted);
+                }
+              }
             } else if (value == 'toggle_active') {
               await productService.updateProductType(
                 product.id,
@@ -322,6 +361,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                 ],
               ),
             ),
+            if (isSuperAdmin)
+              const PopupMenuItem(
+                value: 'hard_delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_forever, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('מחיקה סופית', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -344,6 +394,14 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         return l10n.categoryDairy;
       case 'shirts':
         return l10n.categoryShirts;
+      case 'trays':
+        return l10n.categoryTrays;
+      case 'bottles':
+        return l10n.categoryBottles;
+      case 'bags':
+        return l10n.categoryBags;
+      case 'boxes':
+        return l10n.categoryBoxes;
       default:
         return category;
     }
@@ -363,11 +421,25 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
 
     if (result != null && context.mounted) {
-      final productService = ProductTypeService(companyId: companyId);
-      await productService.createProductType(result);
-      if (context.mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        SnackbarHelper.showSuccess(context, l10n.productAdded);
+      try {
+        final productService = ProductTypeService(companyId: companyId);
+        await productService.createProductType(result);
+        if (context.mounted) {
+          final l10n = AppLocalizations.of(context)!;
+          SnackbarHelper.showSuccess(context, l10n.productAdded);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          final msg = e.toString();
+          if (msg.contains('DUPLICATE_PRODUCT_CODE')) {
+            SnackbarHelper.showError(
+              context,
+              'מק"ט ${result.productCode} כבר קיים. יש לבחור מק"ט אחר.',
+            );
+          } else {
+            SnackbarHelper.showError(context, 'שגיאה: $e');
+          }
+        }
       }
     }
   }
@@ -480,52 +552,31 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     }
   }
 
-  Future<void> _showLoadTemplateDialog(
+  Future<void> _syncFromInventory(
       BuildContext context, String companyId) async {
     final authService = context.read<AuthService>();
     final userName = authService.userModel?.name ?? 'Unknown';
 
-    final selected = await showDialog<String>(
+    final confirmed = await DialogHelper.showConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('טען תבנית מוצרים'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('בחר סוג עסק:'),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.local_drink),
-              title: const Text('אריזות פלסטיק (כוסות, גביעים, מכסים)'),
-              onTap: () => Navigator.pop(ctx, 'packaging'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.restaurant),
-              title: const Text('מזון (לחם, חלב)'),
-              onTap: () => Navigator.pop(ctx, 'food'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.checkroom),
-              title: const Text('ביגוד (חולצות)'),
-              onTap: () => Navigator.pop(ctx, 'clothing'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('ביטול'),
-          ),
-        ],
-      ),
+      title: 'סנכרון מהמחסן',
+      content:
+          'ליצור מוצרים חדשים בקטלוג עבור כל הפריטים שקיימים במחסן אך חסרים בקטלוג?',
     );
+    if (confirmed != true || !context.mounted) return;
 
-    if (selected != null && context.mounted) {
-      final productService = ProductTypeService(companyId: companyId);
-      await productService.createTemplateProducts(selected, userName);
-      if (context.mounted) {
-        SnackbarHelper.showSuccess(context, '✅ תבנית נטענה בהצלחה');
-      }
+    final inventoryService = InventoryService(companyId: companyId);
+    final result = await inventoryService.syncAllToProductTypes(userName);
+
+    if (context.mounted) {
+      final created = result['created'] ?? 0;
+      final updated = result['updated'] ?? 0;
+      final skipped = result['skipped'] ?? 0;
+      SnackbarHelper.showSuccess(
+        context,
+        '✅ סנכרון הושלם: נוספו $created, עודכנו $updated, דולגו $skipped',
+      );
+      setState(() {}); // רענון הרשימה
     }
   }
 }

@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/company_terminology.dart';
 import '../../services/company_terminology_service.dart';
 import '../../services/company_context.dart';
-import '../../services/product_type_service.dart';
-import '../../services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../l10n/app_localizations.dart';
-import 'package:provider/provider.dart';
 
 /// Экран настройки терминологии компании
 class TerminologySettingsScreen extends StatefulWidget {
@@ -72,17 +69,16 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final companyCtx = CompanyContext.of(context);
     final companyId = companyCtx.effectiveCompanyId ?? '';
-    final authService = context.read<AuthService>();
-    final userName = authService.userModel?.name ?? 'Unknown';
 
     if (companyId.isEmpty) return;
 
     final service = CompanyTerminologyService(companyId: companyId);
     await service.setBusinessTypeTemplate(businessType);
 
-    // Создаём шаблонные товары
-    final productService = ProductTypeService(companyId: companyId);
-    await productService.createTemplateProducts(businessType, userName);
+    // Legacy: createTemplateProducts removed — template products are now
+    // imported via TemplateService.importSelectedTemplates through the
+    // TemplateImportDialog flow. Terminology template still applies terminology
+    // settings, but no longer auto-creates hardcoded products.
 
     await _loadTerminology();
 

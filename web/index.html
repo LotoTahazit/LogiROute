@@ -71,70 +71,57 @@
   </div>
 
   <script>
-    var serviceWorkerVersion = null;
-    var scriptLoaded = false;
+    // Простая и надежная загрузка Flutter
+    window.addEventListener('load', function(ev) {
+      console.log('🚀 Loading Flutter with bootstrap...');
+      
+      // Проверяем доступность _flutter.loader
+      if (typeof _flutter !== 'undefined' && _flutter.loader) {
+        _flutter.loader.load().then(function(engineInitializer) {
+          console.log('✅ Flutter entrypoint loaded');
+          const loader = document.getElementById('flutter_loader');
+          if (loader) loader.remove();
+          
+          if (engineInitializer && typeof engineInitializer.initializeEngine === 'function') {
+            return engineInitializer.initializeEngine();
+          } else {
+            // Fallback для старых версий Flutter
+            console.log('🔄 Using fallback initialization');
+            return engineInitializer;
+          }
+        }).then(function(appRunner) {
+          console.log('✅ Flutter engine initialized');
+          if (appRunner && typeof appRunner.runApp === 'function') {
+            appRunner.runApp();
+          }
+        }).catch(function(error) {
+          console.error('❌ Flutter loading failed:', error);
+          showError('Loading Error', 'Failed to load Flutter app');
+        });
+      } else {
+        console.error('❌ Flutter loader not available');
+        showError('Bootstrap Error', 'Flutter bootstrap not found');
+      }
+    });
 
-    function loadMainDartJs() {
-      if (scriptLoaded) return;
-      scriptLoaded = true;
-
-      console.log('🚀 Starting Flutter app initialization...');
-
+    function showError(title, message) {
       const loader = document.getElementById('flutter_loader');
-      if (loader) loader.remove();
-
-      var scriptTag = document.createElement('script');
-      scriptTag.src = 'main.dart.js';
-      scriptTag.type = 'application/javascript';
-      scriptTag.onerror = function() {
-        console.error('❌ Failed to load main.dart.js');
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center; font-family: Arial;"><h2>⚠️ Loading Error</h2><p>Failed to load application. Please refresh the page.</p><button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Refresh</button></div>';
-      };
-      scriptTag.onload = function() {
-        console.log('✅ main.dart.js loaded successfully');
-      };
-      document.body.append(scriptTag);
-    }
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        const serviceWorkerUrl = 'flutter_service_worker.js?v=' + Date.now();
-        navigator.serviceWorker.register(serviceWorkerUrl)
-          .then((reg) => {
-            function waitForActivation(sw) {
-              sw.addEventListener('statechange', () => {
-                if (sw.state === 'activated') {
-                  console.log('✅ Service worker activated.');
-                  loadMainDartJs();
-                }
-              });
-            }
-
-            if (!reg.active && (reg.installing || reg.waiting)) {
-              waitForActivation(reg.installing || reg.waiting);
-            } else {
-              console.log('✅ Loading main.dart.js...');
-              loadMainDartJs();
-            }
-          })
-          .catch((error) => {
-            console.error('❌ Service worker registration failed:', error);
-            loadMainDartJs(); // Загружаем приложение даже если SW не зарегистрировался
-          });
-      });
-    } else {
-      console.log('ℹ️ Service Worker not supported, loading main.dart.js directly...');
-      loadMainDartJs();
+      if (loader) {
+        loader.innerHTML = '<div style="text-align: center;"><h3 style="color: #e74c3c;">' + title + '</h3><p>' + message + '</p><button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px;">Refresh Page</button></div>';
+      }
     }
 
     // Таймаут на случай зависания (30 секунд)
     setTimeout(function() {
       const loader = document.getElementById('flutter_loader');
-      if (loader) {
+      if (loader && loader.innerHTML.indexOf('Loading timeout') === -1) {
         console.error('❌ Application loading timeout (30s)');
-        loader.innerHTML = '<div style="text-align: center;"><img src="icons/Icon-192.png" width="96" height="96"><br><h3 style="color: #e74c3c;">Loading timeout</h3><p>The application is taking too long to load.</p><button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px;">Refresh Page</button></div>';
+        showError('Loading timeout', 'The application is taking too long to load.');
       }
     }, 30000);
   </script>
+  
+  <!-- Загружаем Flutter bootstrap -->
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

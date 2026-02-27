@@ -188,44 +188,80 @@ class _ProductTypeSelectorState extends State<ProductTypeSelector> {
 
   void _showProductPicker() {
     final l10n = AppLocalizations.of(context)!;
+    final searchController = TextEditingController();
+    var filtered = List<ProductType>.from(_availableProducts);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.addProduct),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _availableProducts.length,
-            itemBuilder: (context, index) {
-              final product = _availableProducts[index];
-              final isSelected = _selectedQuantities.containsKey(product.id);
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l10n.addProduct),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: 'חיפוש לפי מק"ט, סוג, מספר...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (query) {
+                      final q = query.toLowerCase();
+                      setDialogState(() {
+                        filtered = _availableProducts.where((p) {
+                          return p.name.toLowerCase().contains(q) ||
+                              p.productCode.toLowerCase().contains(q) ||
+                              p.category.toLowerCase().contains(q);
+                        }).toList();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final product = filtered[index];
+                        final isSelected =
+                            _selectedQuantities.containsKey(product.id);
 
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isSelected ? Colors.green : Colors.grey,
-                  child: Text(product.name.substring(0, 1)),
-                ),
-                title: Text(product.name),
-                subtitle: Text('${l10n.productCode}: ${product.productCode}'),
-                trailing: isSelected
-                    ? const Icon(Icons.check, color: Colors.green)
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  _addProduct(product);
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-        ],
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                isSelected ? Colors.green : Colors.grey,
+                            child: Text(product.name.substring(0, 1)),
+                          ),
+                          title: Text(product.name),
+                          subtitle: Text(
+                              '${l10n.productCode}: ${product.productCode}'),
+                          trailing: isSelected
+                              ? const Icon(Icons.check, color: Colors.green)
+                              : null,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _addProduct(product);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.cancel),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

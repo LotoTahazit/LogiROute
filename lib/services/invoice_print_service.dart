@@ -11,6 +11,23 @@ import '../services/print_event_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InvoicePrintService {
+  // Кеш шрифтов — грузятся один раз за сессию
+  static pw.Font? _fontHebrew;
+  static pw.Font? _fontHebrewBold;
+  static pw.Font? _fontLatin;
+
+  static Future<void> _loadFonts() async {
+    if (_fontHebrew != null) return;
+    final results = await Future.wait([
+      rootBundle.load('assets/fonts/NotoSansHebrew-Regular.ttf'),
+      rootBundle.load('assets/fonts/NotoSansHebrew-Bold.ttf'),
+      rootBundle.load('assets/fonts/Arial.ttf'),
+    ]);
+    _fontHebrew = pw.Font.ttf(results[0]);
+    _fontHebrewBold = pw.Font.ttf(results[1]);
+    _fontLatin = pw.Font.ttf(results[2]);
+  }
+
   /// Извлекает город из адреса (текст после последней запятой)
   static String _extractCity(String address) {
     // Адрес обычно в формате: "улица номер, город"
@@ -106,31 +123,32 @@ class InvoicePrintService {
     String? actorUid,
     String? actorName,
   }) async {
-    // Загружаем настройки компании
-    final companySettings =
-        await CompanySettingsService(companyId: invoice.companyId)
-                .getSettings() ??
-            CompanySettings(
-              id: 'settings',
-              nameHebrew: invoice.companyId,
-              nameEnglish: invoice.companyId,
-              taxId: '',
-              addressHebrew: '',
-              addressEnglish: '',
-              poBox: '',
-              city: '',
-              zipCode: '',
-              phone: '',
-              fax: '',
-              email: '',
-              website: '',
-              invoiceFooterText: 'תודה על הקנייה!',
-              paymentTerms: 'תשלום עד 30 יום',
-              bankDetails: '',
-              driverName: '',
-              driverPhone: '',
-              departureTime: '07:00',
-            );
+    // Загружаем настройки компании и шрифты параллельно
+    final settingsFuture =
+        CompanySettingsService(companyId: invoice.companyId).getSettings();
+    await Future.wait([settingsFuture, _loadFonts()]);
+    final companySettings = (await settingsFuture) ??
+        CompanySettings(
+          id: 'settings',
+          nameHebrew: invoice.companyId,
+          nameEnglish: invoice.companyId,
+          taxId: '',
+          addressHebrew: '',
+          addressEnglish: '',
+          poBox: '',
+          city: '',
+          zipCode: '',
+          phone: '',
+          fax: '',
+          email: '',
+          website: '',
+          invoiceFooterText: 'תודה על הקנייה!',
+          paymentTerms: 'תשלום עד 30 יום',
+          bankDetails: '',
+          driverName: '',
+          driverPhone: '',
+          departureTime: '07:00',
+        );
 
     // Определяем тип копии
     InvoiceCopyType actualCopyType;
@@ -157,41 +175,37 @@ class InvoicePrintService {
     // log-before-action: רישום לפני יצירת PDF
     if (actorUid != null && invoice.id.isNotEmpty) {
       final auditService = AuditLogService(companyId: invoice.companyId);
-      await auditService.logEvent(
-        entityId: invoice.id,
-        entityType: invoice.documentType.name,
-        eventType: AuditEventType.printed,
-        actorUid: actorUid,
-        actorName: actorName,
-        metadata: {
-          'copyType': actualCopyType.name,
-          'copies': copies,
-          'isOriginal': actualCopyType == InvoiceCopyType.original,
-        },
-      );
-      // רישום אירוע הדפסה מפורט
       final printEventService = PrintEventService(companyId: invoice.companyId);
-      await printEventService.recordPrintEvent(
-        documentId: invoice.id,
-        printedBy: actorUid,
-        printedByName: actorName,
-        mode: actualCopyType,
-        copiesCount: copies,
-      );
+      // Параллельно: лог + событие печати + шрифты
+      await Future.wait([
+        auditService.logEvent(
+          entityId: invoice.id,
+          entityType: invoice.documentType.name,
+          eventType: AuditEventType.printed,
+          actorUid: actorUid,
+          actorName: actorName,
+          metadata: {
+            'copyType': actualCopyType.name,
+            'copies': copies,
+            'isOriginal': actualCopyType == InvoiceCopyType.original,
+          },
+        ),
+        printEventService.recordPrintEvent(
+          documentId: invoice.id,
+          printedBy: actorUid,
+          printedByName: actorName,
+          mode: actualCopyType,
+          copiesCount: copies,
+        ),
+        _loadFonts(),
+      ]);
+    } else {
+      await _loadFonts();
     }
 
-    // Подключаем шрифты
-    final fontHebrewData = await rootBundle.load(
-      'assets/fonts/NotoSansHebrew-Regular.ttf',
-    );
-    final fontHebrewBoldData = await rootBundle.load(
-      'assets/fonts/NotoSansHebrew-Bold.ttf',
-    );
-    final fontLatinData = await rootBundle.load('assets/fonts/Arial.ttf');
-
-    final fontHebrew = pw.Font.ttf(fontHebrewData);
-    final fontHebrewBold = pw.Font.ttf(fontHebrewBoldData);
-    final fontLatin = pw.Font.ttf(fontLatinData);
+    final fontHebrew = _fontHebrew!;
+    final fontHebrewBold = _fontHebrewBold!;
+    final fontLatin = _fontLatin!;
 
     final pdf = pw.Document();
 
@@ -199,22 +213,28 @@ class InvoicePrintService {
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
+          margin: const pw.EdgeInsets.all(20),
           build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               _buildHeader(invoice, fontHebrew, fontHebrewBold, fontLatin,
                   actualCopyType, companySettings),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 5),
               _buildInvoiceTitle(invoice, fontHebrew, fontHebrewBold, fontLatin,
                   actualCopyType),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 5),
               _buildClientInfo(invoice, fontHebrew, fontHebrewBold, fontLatin),
-              pw.SizedBox(height: 15),
-              _buildItemsTable(invoice, fontHebrew, fontHebrewBold, fontLatin),
-              pw.SizedBox(height: 15),
-              _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
-              pw.SizedBox(height: 20),
+              pw.SizedBox(height: 7),
+              if (invoice.documentType == InvoiceDocumentType.delivery)
+                _buildDeliveryItemsTable(
+                    invoice, fontHebrew, fontHebrewBold, fontLatin)
+              else
+                _buildItemsTable(
+                    invoice, fontHebrew, fontHebrewBold, fontLatin),
+              pw.SizedBox(height: 7),
+              if (invoice.documentType != InvoiceDocumentType.delivery)
+                _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
+              pw.Spacer(),
               _buildFooter(invoice, fontHebrew, fontHebrewBold, fontLatin,
                   companySettings),
             ],
@@ -239,40 +259,31 @@ class InvoicePrintService {
   /// log-before-action: сначала лог, потом PDF
   static Future<void> printFirstTime(Invoice invoice,
       {String? actorUid, String? actorName}) async {
-    final companySettings =
-        await CompanySettingsService(companyId: invoice.companyId)
-                .getSettings() ??
-            CompanySettings(
-              id: 'settings',
-              nameHebrew: invoice.companyId,
-              nameEnglish: invoice.companyId,
-              taxId: '',
-              addressHebrew: '',
-              addressEnglish: '',
-              poBox: '',
-              city: '',
-              zipCode: '',
-              phone: '',
-              fax: '',
-              email: '',
-              website: '',
-              invoiceFooterText: 'תודה על הקנייה!',
-              paymentTerms: 'תשלום עד 30 יום',
-              bankDetails: '',
-              driverName: '',
-              driverPhone: '',
-              departureTime: '07:00',
-            );
-
-    final fontHebrewData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Regular.ttf');
-    final fontHebrewBoldData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Bold.ttf');
-    final fontLatinData = await rootBundle.load('assets/fonts/Arial.ttf');
-
-    final fontHebrew = pw.Font.ttf(fontHebrewData);
-    final fontHebrewBold = pw.Font.ttf(fontHebrewBoldData);
-    final fontLatin = pw.Font.ttf(fontLatinData);
+    final settingsFuture =
+        CompanySettingsService(companyId: invoice.companyId).getSettings();
+    await Future.wait([settingsFuture, _loadFonts()]);
+    final companySettings = (await settingsFuture) ??
+        CompanySettings(
+          id: 'settings',
+          nameHebrew: invoice.companyId,
+          nameEnglish: invoice.companyId,
+          taxId: '',
+          addressHebrew: '',
+          addressEnglish: '',
+          poBox: '',
+          city: '',
+          zipCode: '',
+          phone: '',
+          fax: '',
+          email: '',
+          website: '',
+          invoiceFooterText: 'תודה על הקנייה!',
+          paymentTerms: 'תשלום עד 30 יום',
+          bankDetails: '',
+          driverName: '',
+          driverPhone: '',
+          departureTime: '07:00',
+        );
 
     final pdf = pw.Document();
 
@@ -281,34 +292,34 @@ class InvoicePrintService {
       // חסימת הדפסת מקור ללא מספר הקצאה — מדפיסים עותק במקום
       if (invoice.requiresAssignment &&
           invoice.assignmentStatus != AssignmentStatus.approved) {
-        // מדפיסים עותק זמני — מקור יודפס לאחר קבלת מספר הקצאה
         final auditService = AuditLogService(companyId: invoice.companyId);
-        await auditService.logEvent(
-          entityId: invoice.id,
-          entityType: invoice.documentType.name,
-          eventType: AuditEventType.printed,
-          actorUid: actorUid,
-          actorName: actorName,
-          metadata: {
-            'copyType': 'copy_pending_assignment',
-            'copies': 3,
-            'isFirstPrint': true,
-            'note': 'printed as copy — awaiting assignment number',
-          },
-        );
         final printEventService =
             PrintEventService(companyId: invoice.companyId);
-        await printEventService.recordPrintEvent(
-          documentId: invoice.id,
-          printedBy: actorUid,
-          printedByName: actorName,
-          mode: InvoiceCopyType.copy,
-          copiesCount: 3,
-        );
-        // מדפיסים 3 עותקים (לא מקור) עד קבלת מספר הקצאה
+        await Future.wait([
+          auditService.logEvent(
+            entityId: invoice.id,
+            entityType: invoice.documentType.name,
+            eventType: AuditEventType.printed,
+            actorUid: actorUid,
+            actorName: actorName,
+            metadata: {
+              'copyType': 'copy_pending_assignment',
+              'copies': 3,
+              'isFirstPrint': true,
+              'note': 'printed as copy — awaiting assignment number',
+            },
+          ),
+          printEventService.recordPrintEvent(
+            documentId: invoice.id,
+            printedBy: actorUid,
+            printedByName: actorName,
+            mode: InvoiceCopyType.copy,
+            copiesCount: 3,
+          ),
+        ]);
         for (int i = 0; i < 3; i++) {
-          pdf.addPage(_buildInvoicePage(invoice, fontHebrew, fontHebrewBold,
-              fontLatin, InvoiceCopyType.copy, companySettings));
+          pdf.addPage(_buildInvoicePage(invoice, _fontHebrew!, _fontHebrewBold!,
+              _fontLatin!, InvoiceCopyType.copy, companySettings));
         }
         await Printing.layoutPdf(
           onLayout: (format) async => pdf.save(),
@@ -318,35 +329,31 @@ class InvoicePrintService {
         return;
       }
       final auditService = AuditLogService(companyId: invoice.companyId);
-      await auditService.logEvent(
-        entityId: invoice.id,
-        entityType: invoice.documentType.name,
-        eventType: AuditEventType.printed,
-        actorUid: actorUid,
-        actorName: actorName,
-        metadata: {
-          'copyType': 'original',
-          'copies': 3,
-          'isFirstPrint': true,
-        },
-      );
       final printEventService = PrintEventService(companyId: invoice.companyId);
-      await printEventService.recordPrintEvent(
-        documentId: invoice.id,
-        printedBy: actorUid,
-        printedByName: actorName,
-        mode: InvoiceCopyType.original,
-        copiesCount: 3,
-      );
+      await Future.wait([
+        auditService.logEvent(
+          entityId: invoice.id,
+          entityType: invoice.documentType.name,
+          eventType: AuditEventType.printed,
+          actorUid: actorUid,
+          actorName: actorName,
+          metadata: {'copyType': 'original', 'copies': 3, 'isFirstPrint': true},
+        ),
+        printEventService.recordPrintEvent(
+          documentId: invoice.id,
+          printedBy: actorUid,
+          printedByName: actorName,
+          mode: InvoiceCopyType.original,
+          copiesCount: 3,
+        ),
+      ]);
     }
 
-    // 1 экземпляр מקור (по закону — только один оригинал)
-    pdf.addPage(_buildInvoicePage(invoice, fontHebrew, fontHebrewBold,
-        fontLatin, InvoiceCopyType.original, companySettings));
-    // 2 экземпляра העתק
+    pdf.addPage(_buildInvoicePage(invoice, _fontHebrew!, _fontHebrewBold!,
+        _fontLatin!, InvoiceCopyType.original, companySettings));
     for (int i = 0; i < 2; i++) {
-      pdf.addPage(_buildInvoicePage(invoice, fontHebrew, fontHebrewBold,
-          fontLatin, InvoiceCopyType.copy, companySettings));
+      pdf.addPage(_buildInvoicePage(invoice, _fontHebrew!, _fontHebrewBold!,
+          _fontLatin!, InvoiceCopyType.copy, companySettings));
     }
 
     await Printing.layoutPdf(
@@ -367,96 +374,89 @@ class InvoicePrintService {
       {String? actorUid, String? actorName}) async {
     if (invoices.isEmpty) return;
 
-    final fontHebrewData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Regular.ttf');
-    final fontHebrewBoldData =
-        await rootBundle.load('assets/fonts/NotoSansHebrew-Bold.ttf');
-    final fontLatinData = await rootBundle.load('assets/fonts/Arial.ttf');
+    await _loadFonts();
 
-    final fontHebrew = pw.Font.ttf(fontHebrewData);
-    final fontHebrewBold = pw.Font.ttf(fontHebrewBoldData);
-    final fontLatin = pw.Font.ttf(fontLatinData);
-
-    // Кешируем настройки по companyId
+    // Собираем уникальные companyId и грузим все настройки параллельно
+    final uniqueIds = invoices.map((i) => i.companyId).toSet().toList();
+    final settingsList = await Future.wait(
+      uniqueIds
+          .map((id) => CompanySettingsService(companyId: id).getSettings()),
+    );
     final Map<String, CompanySettings> settingsCache = {};
+    for (int i = 0; i < uniqueIds.length; i++) {
+      settingsCache[uniqueIds[i]] = settingsList[i] ??
+          CompanySettings(
+            id: 'settings',
+            nameHebrew: uniqueIds[i],
+            nameEnglish: uniqueIds[i],
+            taxId: '',
+            addressHebrew: '',
+            addressEnglish: '',
+            poBox: '',
+            city: '',
+            zipCode: '',
+            phone: '',
+            fax: '',
+            email: '',
+            website: '',
+            invoiceFooterText: 'תודה על הקנייה!',
+            paymentTerms: '',
+            bankDetails: '',
+            driverName: '',
+            driverPhone: '',
+            departureTime: '07:00',
+          );
+    }
 
     final pdf = pw.Document();
 
-    for (final invoice in invoices) {
-      if (!settingsCache.containsKey(invoice.companyId)) {
-        settingsCache[invoice.companyId] =
-            await CompanySettingsService(companyId: invoice.companyId)
-                    .getSettings() ??
-                CompanySettings(
-                  id: 'settings',
-                  nameHebrew: invoice.companyId,
-                  nameEnglish: invoice.companyId,
-                  taxId: '',
-                  addressHebrew: '',
-                  addressEnglish: '',
-                  poBox: '',
-                  city: '',
-                  zipCode: '',
-                  phone: '',
-                  fax: '',
-                  email: '',
-                  website: '',
-                  invoiceFooterText: 'תודה על הקנייה!',
-                  paymentTerms: '',
-                  bankDetails: '',
-                  driverName: '',
-                  driverPhone: '',
-                  departureTime: '07:00',
-                );
-      }
-      final settings = settingsCache[invoice.companyId]!;
-
-      // log-before-action: רישום לפני יצירת PDF
-      if (actorUid != null && invoice.id.isNotEmpty) {
-        // חסימת הדפסת מקור ללא מספר הקצאה
+    // Логи для всех счётов параллельно
+    if (actorUid != null) {
+      final logFutures = <Future>[];
+      for (final invoice in invoices) {
+        if (invoice.id.isEmpty) continue;
         if (invoice.requiresAssignment &&
-            invoice.assignmentStatus != AssignmentStatus.approved) {
-          print(
-              '⚠️ [Print] Skipping invoice ${invoice.id} — pending assignment');
-          continue;
-        }
+            invoice.assignmentStatus != AssignmentStatus.approved) continue;
         final auditService = AuditLogService(companyId: invoice.companyId);
-        await auditService.logEvent(
+        final printEventService =
+            PrintEventService(companyId: invoice.companyId);
+        logFutures.add(auditService.logEvent(
           entityId: invoice.id,
           entityType: invoice.documentType.name,
           eventType: AuditEventType.printed,
           actorUid: actorUid,
           actorName: actorName,
-          metadata: {
-            'copyType': 'original',
-            'copies': 3,
-            'isRoutePrint': true,
-          },
-        );
-        final printEventService =
-            PrintEventService(companyId: invoice.companyId);
-        await printEventService.recordPrintEvent(
+          metadata: {'copyType': 'original', 'copies': 3, 'isRoutePrint': true},
+        ));
+        logFutures.add(printEventService.recordPrintEvent(
           documentId: invoice.id,
           printedBy: actorUid,
           printedByName: actorName,
           mode: InvoiceCopyType.original,
           copiesCount: 3,
-        );
+        ));
       }
+      await Future.wait(logFutures);
+    }
 
-      // 1 מקור + 2 העתק для каждого счёта (по закону — только один оригинал)
-      pdf.addPage(_buildInvoicePage(invoice, fontHebrew, fontHebrewBold,
-          fontLatin, InvoiceCopyType.original, settings));
+    for (final invoice in invoices) {
+      if (invoice.requiresAssignment &&
+          invoice.assignmentStatus != AssignmentStatus.approved) {
+        print('⚠️ [Print] Skipping invoice ${invoice.id} — pending assignment');
+        continue;
+      }
+      final settings = settingsCache[invoice.companyId]!;
+      pdf.addPage(_buildInvoicePage(invoice, _fontHebrew!, _fontHebrewBold!,
+          _fontLatin!, InvoiceCopyType.original, settings));
       for (int i = 0; i < 2; i++) {
-        pdf.addPage(_buildInvoicePage(invoice, fontHebrew, fontHebrewBold,
-            fontLatin, InvoiceCopyType.copy, settings));
-      }
-
-      if (invoice.id.isNotEmpty) {
-        await _updatePrintCounters(
-            invoice.id, invoice.companyId, InvoiceCopyType.original);
+        pdf.addPage(_buildInvoicePage(invoice, _fontHebrew!, _fontHebrewBold!,
+            _fontLatin!, InvoiceCopyType.copy, settings));
       }
     }
+
+    // Обновляем счётчики параллельно
+    await Future.wait(invoices.where((inv) => inv.id.isNotEmpty).map((inv) =>
+        _updatePrintCounters(inv.id, inv.companyId, InvoiceCopyType.original)));
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
@@ -475,22 +475,27 @@ class InvoicePrintService {
   ) {
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(40),
+      margin: const pw.EdgeInsets.all(20),
       build: (context) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildHeader(invoice, fontHebrew, fontHebrewBold, fontLatin, copyType,
               companySettings),
-          pw.SizedBox(height: 10),
+          pw.SizedBox(height: 5),
           _buildInvoiceTitle(
               invoice, fontHebrew, fontHebrewBold, fontLatin, copyType),
-          pw.SizedBox(height: 10),
+          pw.SizedBox(height: 5),
           _buildClientInfo(invoice, fontHebrew, fontHebrewBold, fontLatin),
-          pw.SizedBox(height: 15),
-          _buildItemsTable(invoice, fontHebrew, fontHebrewBold, fontLatin),
-          pw.SizedBox(height: 15),
-          _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 7),
+          if (invoice.documentType == InvoiceDocumentType.delivery)
+            _buildDeliveryItemsTable(
+                invoice, fontHebrew, fontHebrewBold, fontLatin)
+          else
+            _buildItemsTable(invoice, fontHebrew, fontHebrewBold, fontLatin),
+          pw.SizedBox(height: 7),
+          if (invoice.documentType != InvoiceDocumentType.delivery)
+            _buildTotals(invoice, fontHebrew, fontHebrewBold, fontLatin),
+          pw.Spacer(),
           _buildFooter(
               invoice, fontHebrew, fontHebrewBold, fontLatin, companySettings),
         ],
@@ -540,41 +545,41 @@ class InvoicePrintService {
               settings.nameEnglish,
               style: pw.TextStyle(
                 font: fontLatin,
-                fontSize: 16,
+                fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             pw.Text(
               'P.O.B ${settings.poBox}',
-              style: pw.TextStyle(font: fontLatin, fontSize: 10),
+              style: pw.TextStyle(font: fontLatin, fontSize: 7),
             ),
             pw.Text(
               settings.addressEnglish,
-              style: pw.TextStyle(font: fontLatin, fontSize: 10),
+              style: pw.TextStyle(font: fontLatin, fontSize: 7),
             ),
             pw.Text(
               'TEL. ${settings.phone}  FAX. ${settings.fax}',
-              style: pw.TextStyle(font: fontLatin, fontSize: 9),
+              style: pw.TextStyle(font: fontLatin, fontSize: 7),
             ),
-            pw.SizedBox(height: 2),
+            pw.SizedBox(height: 1),
             _smartText(
               'אתר  ${settings.website}',
               fontHebrew,
               fontLatin,
-              fontSize: 9,
+              fontSize: 7,
             ),
             _smartText(
               'ח.פ  ${settings.taxId}',
               fontHebrew,
               fontLatin,
-              fontSize: 10,
+              fontSize: 7,
               bold: true,
             ),
           ],
         ),
-        // Центр - логотип (пропускаем как сказано)
-        pw.SizedBox(width: 100),
+        // Центр — место для логотипа компании-клиента (TODO: загрузка из настроек)
+        pw.SizedBox(width: 60),
         // Правая часть - название на иврите
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -583,27 +588,27 @@ class InvoicePrintService {
               settings.nameHebrew,
               fontHebrewBold,
               fontLatin,
-              fontSize: 18,
+              fontSize: 11,
               bold: true,
             ),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             _smartText(
               'ת.ד. ${settings.poBox}',
               fontHebrew,
               fontLatin,
-              fontSize: 10,
+              fontSize: 7,
             ),
             _smartText(
               settings.addressHebrew,
               fontHebrew,
               fontLatin,
-              fontSize: 10,
+              fontSize: 7,
             ),
             _smartText(
               'טל: ${settings.phone} פקס: ${settings.fax}',
               fontHebrew,
               fontLatin,
-              fontSize: 9,
+              fontSize: 7,
             ),
           ],
         ),
@@ -649,6 +654,9 @@ class InvoicePrintService {
       case InvoiceDocumentType.creditNote:
         documentTitle = 'זיכוי';
         break;
+      case InvoiceDocumentType.taxInvoiceReceipt:
+        documentTitle = 'חשבונית מס / קבלה';
+        break;
     }
 
     // הדפסה חוזרת — אם המקור כבר הודפס וזו לא הדפסה ראשונה
@@ -681,7 +689,7 @@ class InvoicePrintService {
                     copyTypeText,
                     fontHebrewBold,
                     fontLatin,
-                    fontSize: 14,
+                    fontSize: 9,
                     bold: true,
                   ),
                 ],
@@ -690,31 +698,17 @@ class InvoicePrintService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  _smartText(
-                    'תאריך',
-                    fontHebrew,
-                    fontLatin,
-                    fontSize: 9,
-                  ),
-                  pw.Text(
-                    dateStr,
-                    style: pw.TextStyle(font: fontLatin, fontSize: 9),
-                  ),
+                  _smartText('תאריך', fontHebrew, fontLatin, fontSize: 7),
+                  pw.Text(dateStr,
+                      style: pw.TextStyle(font: fontLatin, fontSize: 7)),
                 ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  _smartText(
-                    'שעה',
-                    fontHebrew,
-                    fontLatin,
-                    fontSize: 9,
-                  ),
-                  pw.Text(
-                    timeStr,
-                    style: pw.TextStyle(font: fontLatin, fontSize: 9),
-                  ),
+                  _smartText('שעה', fontHebrew, fontLatin, fontSize: 7),
+                  pw.Text(timeStr,
+                      style: pw.TextStyle(font: fontLatin, fontSize: 7)),
                 ],
               ),
             ],
@@ -729,20 +723,15 @@ class InvoicePrintService {
               // סימון טיוטה
               if (invoice.status == InvoiceStatus.draft)
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  margin: const pw.EdgeInsets.only(bottom: 4),
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  margin: const pw.EdgeInsets.only(bottom: 2),
                   decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.red, width: 2),
+                    border: pw.Border.all(color: PdfColors.red, width: 1),
                   ),
                   child: _smartText(
-                    'טיוטה — לא לשימוש רשמי',
-                    fontHebrewBold,
-                    fontLatin,
-                    fontSize: 14,
-                    bold: true,
-                    color: PdfColors.red,
-                  ),
+                      'טיוטה — לא לשימוש רשמי', fontHebrewBold, fontLatin,
+                      fontSize: 9, bold: true, color: PdfColors.red),
                 ),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -750,60 +739,45 @@ class InvoicePrintService {
                   pw.Text(
                     invoice.sequentialNumber.toString(),
                     style: pw.TextStyle(
-                      font: fontLatin,
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                        font: fontLatin,
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold),
                   ),
-                  pw.SizedBox(width: 5),
-                  _smartText(
-                    documentTitle,
-                    fontHebrewBold,
-                    fontLatin,
-                    fontSize: 20,
-                    bold: true,
-                  ),
+                  pw.SizedBox(width: 3),
+                  _smartText(documentTitle, fontHebrewBold, fontLatin,
+                      fontSize: 12, bold: true),
                 ],
               ),
               // סימון הדפסה חוזרת
               if (isReprint)
                 pw.Padding(
-                  padding: const pw.EdgeInsets.only(top: 4),
-                  child: _smartText(
-                    reprintStr,
-                    fontHebrew,
-                    fontLatin,
-                    fontSize: 9,
-                    color: PdfColors.grey700,
-                  ),
+                  padding: const pw.EdgeInsets.only(top: 2),
+                  child: _smartText(reprintStr, fontHebrew, fontLatin,
+                      fontSize: 7, color: PdfColors.grey700),
                 ),
             ],
           ),
         ),
-        // Дата оплаты (תשלום עד) - используем paymentDueDate или deliveryDate
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 1),
+        // Дата оплаты (תשלום עד) - не для תעודת משלוח
+        if (invoice.documentType != InvoiceDocumentType.delivery)
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 1),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Text(
+                  '${(invoice.paymentDueDate ?? invoice.deliveryDate).day.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).month.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).year}',
+                  style: pw.TextStyle(font: fontLatin, fontSize: 8),
+                ),
+                pw.SizedBox(width: 5),
+                _smartText('תשלום עד', fontHebrewBold, fontLatin,
+                    fontSize: 8, bold: true),
+              ],
+            ),
           ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            children: [
-              pw.Text(
-                '${(invoice.paymentDueDate ?? invoice.deliveryDate).day.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).month.toString().padLeft(2, '0')}/${(invoice.paymentDueDate ?? invoice.deliveryDate).year}',
-                style: pw.TextStyle(font: fontLatin, fontSize: 12),
-              ),
-              pw.SizedBox(width: 10),
-              _smartText(
-                'תשלום עד',
-                fontHebrewBold,
-                fontLatin,
-                fontSize: 12,
-                bold: true,
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -831,19 +805,14 @@ class InvoicePrintService {
               pw.Text(
                 invoice.clientNumber,
                 style: pw.TextStyle(
-                  font: fontLatin,
-                  fontSize: 14, // Уменьшено с 24 до 14
-                  fontWeight: pw.FontWeight.bold,
-                ),
+                    font: fontLatin,
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               _smartText(
-                _extractCity(invoice.address),
-                fontHebrewBold,
-                fontLatin,
-                fontSize: 12, // Увеличено с 11 до 12
-                bold: true,
-              ),
+                  _extractCity(invoice.address), fontHebrewBold, fontLatin,
+                  fontSize: 8, bold: true),
             ],
           ),
           // Правая часть - основная информация
@@ -851,49 +820,21 @@ class InvoicePrintService {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                // לקוח
-                _smartText(
-                  'לקוח',
-                  fontHebrewBold,
-                  fontLatin,
-                  fontSize: 12,
-                  bold: true,
-                ),
-                pw.SizedBox(height: 3),
-                // Имя клиента
-                _smartText(
-                  invoice.clientName,
-                  fontHebrewBold,
-                  fontLatin,
-                  fontSize: 11,
-                  bold: true,
-                ),
-                pw.SizedBox(height: 3),
-                // Адрес
-                _smartText(
-                  invoice.address,
-                  fontHebrew,
-                  fontLatin,
-                  fontSize: 10,
-                ),
-                pw.SizedBox(height: 3),
-                // ת.ד
-                _smartText(
-                  'ת.ד',
-                  fontHebrew,
-                  fontLatin,
-                  fontSize: 10,
-                ),
-                pw.SizedBox(height: 3),
-                // טלפון פקס - НА ИВРИТЕ, НО СЛЕВА НАПРАВО (LTR)
+                _smartText('לקוח', fontHebrewBold, fontLatin,
+                    fontSize: 8, bold: true),
+                pw.SizedBox(height: 2),
+                _smartText(invoice.clientName, fontHebrewBold, fontLatin,
+                    fontSize: 8, bold: true),
+                pw.SizedBox(height: 2),
+                _smartText(invoice.address, fontHebrew, fontLatin, fontSize: 7),
+                pw.SizedBox(height: 2),
+                _smartText('ת.ד', fontHebrew, fontLatin, fontSize: 7),
+                pw.SizedBox(height: 2),
                 pw.Directionality(
                   textDirection: pw.TextDirection.ltr,
                   child: _smartText(
-                    'טלפון 02-5631092 פקס',
-                    fontHebrew,
-                    fontLatin,
-                    fontSize: 9,
-                  ),
+                      'טלפון:              פקס:', fontHebrew, fontLatin,
+                      fontSize: 7),
                 ),
               ],
             ),
@@ -999,13 +940,13 @@ class InvoicePrintService {
   static pw.Widget _buildTableHeader(
       String text, pw.Font mainFont, pw.Font fallbackFont) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
+      padding: const pw.EdgeInsets.all(4),
       alignment: pw.Alignment.center,
       child: _smartText(
         text,
         mainFont,
         fallbackFont,
-        fontSize: 12,
+        fontSize: 9,
         bold: true,
       ),
     );
@@ -1018,14 +959,60 @@ class InvoicePrintService {
     pw.Alignment align = pw.Alignment.center,
   }) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       alignment: align,
-      child: _smartText(
-        text,
-        mainFont,
-        fallbackFont,
-        fontSize: 11,
-      ),
+      child: _smartText(text, mainFont, fallbackFont, fontSize: 9),
+    );
+  }
+
+  /// Таблица для תעודת משלוח — только товар + количество, без цен
+  static pw.Widget _buildDeliveryItemsTable(
+    Invoice invoice,
+    pw.Font fontHebrew,
+    pw.Font fontHebrewBold,
+    pw.Font fontLatin,
+  ) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.black, width: 1),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(1.5), // כמות
+        1: const pw.FlexColumnWidth(4), // תאור פריט
+        2: const pw.FlexColumnWidth(1.5), // מס' פריט
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _buildTableHeader('כמות', fontHebrewBold, fontLatin),
+            _buildTableHeader('תאור פריט', fontHebrewBold, fontLatin),
+            _buildTableHeader('מס\' פריט', fontHebrewBold, fontLatin),
+          ],
+        ),
+        ...invoice.items.map((item) {
+          return pw.TableRow(
+            children: [
+              _buildTableCell(
+                '${item.quantity}',
+                fontLatin,
+                fontHebrew,
+                align: pw.Alignment.center,
+              ),
+              _buildTableCell(
+                '${item.type} ${item.number}',
+                fontHebrew,
+                fontLatin,
+                align: pw.Alignment.center,
+              ),
+              _buildTableCell(
+                item.productCode,
+                fontLatin,
+                fontHebrew,
+                align: pw.Alignment.center,
+              ),
+            ],
+          );
+        }),
+      ],
     );
   }
 
@@ -1056,105 +1043,105 @@ class InvoicePrintService {
                 children: [
                   pw.Text(
                     invoice.subtotalBeforeVAT.toStringAsFixed(2),
-                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 8),
                   ),
                   _smartText(
                     'סה״כ',
                     fontHebrew,
                     fontLatin,
-                    fontSize: 11,
+                    fontSize: 8,
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               // הנחה
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     '0.00',
-                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 8),
                   ),
                   pw.Row(
                     children: [
                       pw.Text(
                         '0.0%',
-                        style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                        style: pw.TextStyle(font: fontLatin, fontSize: 8),
                       ),
-                      pw.SizedBox(width: 3),
+                      pw.SizedBox(width: 2),
                       _smartText(
                         'הנחה',
                         fontHebrew,
                         fontLatin,
-                        fontSize: 11,
+                        fontSize: 8,
                       ),
                     ],
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               // חיוב/זיכוי/תוספות
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     '0.00',
-                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 8),
                   ),
                   _smartText(
                     'חיוב/זיכוי/תוספות',
                     fontHebrew,
                     fontLatin,
-                    fontSize: 10,
+                    fontSize: 7,
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               // סה"כ לפני מע"מ
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     invoice.subtotalBeforeVAT.toStringAsFixed(2),
-                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 8),
                   ),
                   _smartText(
                     'סה״כ לפני מע״מ',
                     fontHebrew,
                     fontLatin,
-                    fontSize: 11,
+                    fontSize: 8,
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               // מע"מ 18%
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     invoice.vatAmount.toStringAsFixed(2),
-                    style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                    style: pw.TextStyle(font: fontLatin, fontSize: 8),
                   ),
                   pw.Row(
                     children: [
                       pw.Text(
                         '18%',
-                        style: pw.TextStyle(font: fontLatin, fontSize: 11),
+                        style: pw.TextStyle(font: fontLatin, fontSize: 8),
                       ),
-                      pw.SizedBox(width: 3),
+                      pw.SizedBox(width: 2),
                       _smartText(
                         'מע״מ',
                         fontHebrew,
                         fontLatin,
-                        fontSize: 11,
+                        fontSize: 8,
                       ),
                     ],
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               pw.Divider(color: PdfColors.black, thickness: 1),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3),
               // סה"כ לתשלום
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1163,7 +1150,7 @@ class InvoicePrintService {
                     invoice.totalWithVAT.toStringAsFixed(2),
                     style: pw.TextStyle(
                       font: fontLatin,
-                      fontSize: 14,
+                      fontSize: 9,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -1171,11 +1158,53 @@ class InvoicePrintService {
                     'סה״כ לתשלום',
                     fontHebrewBold,
                     fontLatin,
-                    fontSize: 14,
+                    fontSize: 9,
                     bold: true,
                   ),
                 ],
               ),
+              // אופן תשלום — для חשבונית מס / קבלה и קבלה
+              if ((invoice.documentType ==
+                          InvoiceDocumentType.taxInvoiceReceipt ||
+                      invoice.documentType == InvoiceDocumentType.receipt) &&
+                  invoice.paymentMethod != null) ...[
+                pw.SizedBox(height: 5),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    _smartText(
+                      invoice.paymentMethod!,
+                      fontHebrew,
+                      fontLatin,
+                      fontSize: 8,
+                    ),
+                    _smartText(
+                      'אופן תשלום',
+                      fontHebrewBold,
+                      fontLatin,
+                      fontSize: 8,
+                      bold: true,
+                    ),
+                  ],
+                ),
+              ],
+              // הפניה לחשבונית מקור — לקבלות
+              if (invoice.documentType == InvoiceDocumentType.receipt &&
+                  invoice.linkedInvoiceId != null) ...[
+                pw.SizedBox(height: 3),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    _smartText(
+                      'עבור חשבונית מס',
+                      fontHebrew,
+                      fontLatin,
+                      fontSize: 7,
+                      color: PdfColors.grey700,
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1199,6 +1228,38 @@ class InvoicePrintService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
+        // חתימת הלקוח (Client signature field)
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
+            pw.Container(
+              width: 220,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.SizedBox(height: 40),
+                  pw.Container(
+                    width: 200,
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: PdfColors.black, width: 1),
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  _smartText(
+                    'חתימה',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 12,
+                    bold: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 7),
         // Условия оплаты
         pw.Container(
           width: double.infinity,
@@ -1207,41 +1268,19 @@ class InvoicePrintService {
             crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: footerLines.map((line) {
               return pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 3),
+                padding: const pw.EdgeInsets.only(bottom: 2),
                 child: _smartText(
                   line,
                   line == footerLines.first ? fontHebrewBold : fontHebrew,
                   fontLatin,
-                  fontSize: line == footerLines.first ? 10 : 9,
+                  fontSize: 7,
                   bold: line == footerLines.first,
                 ),
               );
             }).toList(),
           ),
         ),
-        pw.SizedBox(height: 10),
-        // חתימה (Signature field)
-        pw.Container(
-          width: 200,
-          padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 1),
-          ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              _smartText(
-                'חתימה',
-                fontHebrewBold,
-                fontLatin,
-                fontSize: 11,
-                bold: true,
-              ),
-              pw.SizedBox(height: 30), // Space for signature
-            ],
-          ),
-        ),
-        pw.SizedBox(height: 10),
+        pw.SizedBox(height: 5),
         // Информация о водителе и машине
         pw.Container(
           width: double.infinity,
@@ -1262,7 +1301,7 @@ class InvoicePrintService {
                     invoice.driverName,
                     fontHebrewBold,
                     fontLatin,
-                    fontSize: 11,
+                    fontSize: 8,
                     bold: true,
                   ),
                 ],
@@ -1275,15 +1314,15 @@ class InvoicePrintService {
                     'מס\' רכב:',
                     fontHebrewBold,
                     fontLatin,
-                    fontSize: 11,
+                    fontSize: 8,
                     bold: true,
                   ),
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 2),
                   _smartText(
                     invoice.truckNumber,
                     fontLatin,
                     fontHebrew,
-                    fontSize: 11,
+                    fontSize: 8,
                   ),
                 ],
               ),
@@ -1295,15 +1334,15 @@ class InvoicePrintService {
                     'שעת יציאה :',
                     fontHebrewBold,
                     fontLatin,
-                    fontSize: 11,
+                    fontSize: 8,
                     bold: true,
                   ),
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 2),
                   _smartText(
                     '07:00',
                     fontLatin,
                     fontHebrew,
-                    fontSize: 12,
+                    fontSize: 8,
                     bold: true,
                   ),
                 ],
@@ -1311,7 +1350,7 @@ class InvoicePrintService {
             ],
           ),
         ),
-        pw.SizedBox(height: 15),
+        pw.SizedBox(height: 7),
         // Подпись внизу
         pw.Container(
           width: double.infinity,
@@ -1322,20 +1361,20 @@ class InvoicePrintService {
                 'תודה על הקנייה!',
                 fontHebrewBold,
                 fontLatin,
-                fontSize: 10,
+                fontSize: 7,
                 bold: true,
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 2),
               _smartText(
                 'נשמח לשרת אתכם שוב',
                 fontHebrew,
                 fontLatin,
-                fontSize: 9,
+                fontSize: 7,
               ),
             ],
           ),
         ),
-        pw.SizedBox(height: 10),
+        pw.SizedBox(height: 5),
         // מטא-נתונים: תאריך הפקה, מזהה מסמך
         pw.Container(
           width: double.infinity,
@@ -1351,13 +1390,13 @@ class InvoicePrintService {
               pw.Text(
                 'ID: ${invoice.id.length > 8 ? invoice.id.substring(0, 8) : invoice.id}',
                 style: pw.TextStyle(
-                    font: fontLatin, fontSize: 7, color: PdfColors.grey600),
+                    font: fontLatin, fontSize: 9, color: PdfColors.grey600),
               ),
               _smartText(
                 'הופק: ${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year} ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
                 fontHebrew,
                 fontLatin,
-                fontSize: 7,
+                fontSize: 9,
                 color: PdfColors.grey600,
               ),
             ],

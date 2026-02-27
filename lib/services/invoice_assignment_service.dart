@@ -37,7 +37,9 @@ class InvoiceAssignmentService {
 
   /// בדיקה אם נדרש מספר הקצאה לפי סף ותאריך
   bool isAssignmentRequired(Invoice invoice) {
-    if (invoice.documentType != InvoiceDocumentType.invoice) return false;
+    if (invoice.documentType != InvoiceDocumentType.invoice &&
+        invoice.documentType != InvoiceDocumentType.taxInvoiceReceipt)
+      return false;
     final threshold = _getThreshold(DateTime.now());
     return invoice.subtotalBeforeVAT >= threshold;
   }
@@ -163,26 +165,16 @@ class InvoiceAssignmentService {
   /// requestId משמש כ-idempotency key — מונע כפל הקצאה
   Future<AssignmentResult> _sendWithRetry(
       Invoice invoice, String requestId) async {
-    const maxRetries = 3;
-
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        final result = await _callAssignmentApi(invoice, requestId);
-        return result;
-      } catch (e) {
-        if (attempt == maxRetries) {
-          return AssignmentResult(
-            success: false,
-            error: 'נכשל לאחר $maxRetries ניסיונות: $e',
-          );
-        }
-        // Exponential backoff: 2^attempt seconds
-        final delay = Duration(seconds: pow(2, attempt).toInt());
-        await Future.delayed(delay);
-      }
+    // TODO: когда API будет реальным — вернуть retry с backoff
+    // Пока API placeholder — одна попытка без retry
+    try {
+      return await _callAssignmentApi(invoice, requestId);
+    } catch (e) {
+      return AssignmentResult(
+        success: false,
+        error: 'API недоступен: $e',
+      );
     }
-
-    return AssignmentResult(success: false, error: 'שגיאה לא צפויה');
   }
 
   /// קריאה בפועל ל-API של חשבוניות ישראל
@@ -215,7 +207,7 @@ class InvoiceAssignmentService {
             },
             body: body,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -242,7 +234,7 @@ class InvoiceAssignmentService {
     } on TimeoutException {
       return AssignmentResult(
         success: false,
-        error: 'תם הזמן המוקצב לבקשה (30 שניות)',
+        error: 'תם הזמן המוקצב לבקשה (5 שניות)',
       );
     } catch (e) {
       rethrow;

@@ -69,3 +69,10 @@ android/local.properties
 android/key.properties
 android/build/
 android/app/build/
+
+# Node modules
+functions/node_modules/
+node_modules/
+
+# Kiro IDE
+.kiro/

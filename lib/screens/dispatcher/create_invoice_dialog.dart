@@ -12,11 +12,13 @@ import '../../services/company_context.dart';
 class CreateInvoiceDialog extends StatefulWidget {
   final DeliveryPoint point;
   final UserModel driver;
+  final InvoiceDocumentType documentType;
 
   const CreateInvoiceDialog({
     super.key,
     required this.point,
     required this.driver,
+    this.documentType = InvoiceDocumentType.invoice,
   });
 
   @override
@@ -34,6 +36,20 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   final Map<int, TextEditingController> _priceControllers = {};
 
   bool _isLoading = true;
+  bool _isCreating = false;
+  bool _paymentReceived =
+      false; // תשלום התקבל — переключает тип на taxInvoiceReceipt
+  String _paymentMethod = 'מזומן'; // אופן תשלום
+
+  /// Эффективный тип документа: если оплата получена — taxInvoiceReceipt
+  InvoiceDocumentType get _effectiveDocumentType {
+    if (_paymentReceived &&
+        widget.documentType == InvoiceDocumentType.invoice) {
+      return InvoiceDocumentType.taxInvoiceReceipt;
+    }
+    return widget.documentType;
+  }
+
   List<InvoiceItem> _items = [];
 
   DateTime get _effectivePaymentDueDate {
@@ -134,6 +150,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   double get _totalWithVAT => _subtotalBeforeVAT + _vatAmount;
 
   Future<void> _createInvoice() async {
+    if (_isCreating) return;
+    setState(() => _isCreating = true);
     try {
       // ✅ Берём данные из authService (виртуальный companyId для super_admin)
       final authService = context.read<AuthService>();
@@ -164,12 +182,19 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         driverName: widget.driver.name,
         truckNumber: widget.driver.vehicleNumber ?? '',
         deliveryDate: _deliveryDate,
-        paymentDueDate: _effectivePaymentDueDate,
+        paymentDueDate: widget.documentType == InvoiceDocumentType.delivery
+            ? null
+            : _effectiveDocumentType == InvoiceDocumentType.taxInvoiceReceipt
+                ? DateTime.now()
+                : _effectivePaymentDueDate,
         departureTime: departureTime,
         items: _items,
         discount: double.tryParse(_discountController.text) ?? 0.0,
         createdAt: DateTime.now(),
         createdBy: userName,
+        documentType: _effectiveDocumentType,
+        deliveryPointId: widget.point.id,
+        paymentMethod: _paymentReceived ? _paymentMethod : null,
       );
 
       // Создаём сервис с companyId
@@ -178,8 +203,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       // Create invoice and get the ID
       final invoiceId = await invoiceService.createInvoice(invoice, userUid);
 
-      // Финализируем сразу — это запускает assignment request если нужно
-      await invoiceService.finalizeInvoice(invoiceId, userUid);
+      // Финализируем (если уже финализирован — пропускаем)
+      try {
+        await invoiceService.finalizeInvoice(invoiceId, userUid);
+      } catch (e) {
+        // Если уже финализирован — это дубликат, просто продолжаем
+        if (!e.toString().contains('already finalized')) rethrow;
+      }
 
       // Загружаем актуальный объект с обновлённым assignmentStatus
       final finalizedInvoice = await invoiceService.getInvoice(invoiceId);
@@ -188,14 +218,20 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         Navigator.pop(
             context, finalizedInvoice ?? invoice.copyWith(id: invoiceId));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ חשבונית נוצרה בהצלחה'),
+          SnackBar(
+            content: Text(_effectiveDocumentType == InvoiceDocumentType.delivery
+                ? '✅ תעודת משלוח נוצרה בהצלחה'
+                : _effectiveDocumentType ==
+                        InvoiceDocumentType.taxInvoiceReceipt
+                    ? '✅ חשבונית מס / קבלה נוצרה בהצלחה'
+                    : '✅ חשבונית נוצרה בהצלחה'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isCreating = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ שגיאה: $e'), backgroundColor: Colors.red),
         );
@@ -206,7 +242,9 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('יצירת חשבונית'),
+      title: Text(widget.documentType == InvoiceDocumentType.delivery
+          ? 'יצירת תעודת משלוח'
+          : 'יצירת חשבונית'),
       content: SizedBox(
         width: 600,
         child: _isLoading
@@ -226,21 +264,33 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                     _buildDatePicker(),
                     const SizedBox(height: 16),
 
-                    // Срок оплаты
-                    _buildPaymentTermSelector(),
-                    const SizedBox(height: 16),
+                    // Срок оплаты (не для תעודת משלוח)
+                    if (widget.documentType !=
+                        InvoiceDocumentType.delivery) ...[
+                      _buildPaymentTermSelector(),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Таблица товаров
                     _buildItemsTable(),
                     const SizedBox(height: 16),
 
-                    // Скидка
-                    _buildDiscountField(),
-                    const SizedBox(height: 16),
-                    const Divider(),
+                    // Скидка и итоги (не для תעודת משלוח)
+                    if (widget.documentType !=
+                        InvoiceDocumentType.delivery) ...[
+                      _buildDiscountField(),
+                      const SizedBox(height: 16),
 
-                    // Итоги
-                    _buildTotals(),
+                      // Чекбокс "תשלום התקבל" + способ оплаты (только для invoice)
+                      if (widget.documentType ==
+                          InvoiceDocumentType.invoice) ...[
+                        _buildPaymentReceivedSection(),
+                        const SizedBox(height: 16),
+                      ],
+
+                      const Divider(),
+                      _buildTotals(),
+                    ],
                   ],
                 ),
               ),
@@ -251,9 +301,19 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           child: const Text('ביטול'),
         ),
         ElevatedButton.icon(
-          onPressed: _items.isEmpty ? null : _createInvoice,
-          icon: const Icon(Icons.print),
-          label: const Text('צור והדפס'),
+          onPressed: _items.isEmpty || _isCreating ? null : _createInvoice,
+          icon: _isCreating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.print),
+          label: Text(_isCreating
+              ? 'יוצר...'
+              : widget.documentType == InvoiceDocumentType.delivery
+                  ? 'צור תעודת משלוח'
+                  : 'צור והדפס'),
         ),
       ],
     );
@@ -488,6 +548,51 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
             onChanged: (_) => setState(() {}),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentReceivedSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'תשלום התקבל (חשבונית מס / קבלה)',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: const Text(
+            'סמן אם הלקוח שילם — המסמך יהפוך לחשבונית מס-קבלה',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          value: _paymentReceived,
+          onChanged: (val) => setState(() => _paymentReceived = val ?? false),
+        ),
+        if (_paymentReceived) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('אופן תשלום: ',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              DropdownButton<String>(
+                value: _paymentMethod,
+                items: const [
+                  DropdownMenuItem(value: 'מזומן', child: Text('מזומן')),
+                  DropdownMenuItem(
+                      value: 'כרטיס אשראי', child: Text('כרטיס אשראי')),
+                  DropdownMenuItem(
+                      value: 'העברה בנקאית', child: Text('העברה בנקאית')),
+                  DropdownMenuItem(value: 'צ\'ק', child: Text('צ\'ק')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _paymentMethod = val);
+                },
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

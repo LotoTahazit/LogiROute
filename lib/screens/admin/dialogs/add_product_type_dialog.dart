@@ -3,6 +3,36 @@ import '../../../models/product_type.dart';
 import '../../../services/product_type_service.dart';
 import '../../../l10n/app_localizations.dart';
 
+/// תרגום מפתח קטגוריה לשם בעברית
+String categoryDisplayName(String key, AppLocalizations l10n) {
+  switch (key) {
+    case 'general':
+      return l10n.categoryGeneral;
+    case 'cups':
+      return l10n.categoryCups;
+    case 'lids':
+      return l10n.categoryLids;
+    case 'containers':
+      return l10n.categoryContainers;
+    case 'bread':
+      return l10n.categoryBread;
+    case 'dairy':
+      return l10n.categoryDairy;
+    case 'shirts':
+      return l10n.categoryShirts;
+    case 'trays':
+      return l10n.categoryTrays;
+    case 'bottles':
+      return l10n.categoryBottles;
+    case 'bags':
+      return l10n.categoryBags;
+    case 'boxes':
+      return l10n.categoryBoxes;
+    default:
+      return key;
+  }
+}
+
 class AddProductTypeDialog extends StatefulWidget {
   final String companyId;
   final String createdBy;
@@ -138,7 +168,7 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
                         items: _categories
                             .map((cat) => DropdownMenuItem(
                                   value: cat,
-                                  child: Text(cat),
+                                  child: Text(categoryDisplayName(cat, l10n)),
                                 ))
                             .toList(),
                         onChanged: (value) =>
@@ -240,17 +270,43 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
     );
   }
 
-  void _save() {
-    if (_formKey.currentState!.validate()) {
-      final category = _addingNewCategory
-          ? _newCategoryController.text.trim()
-          : (_selectedCategory ?? 'general');
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
+
+    final category = _addingNewCategory
+        ? _newCategoryController.text.trim()
+        : (_selectedCategory ?? 'general');
+
+    final productCode =
+        ProductTypeService.normalizeProductCode(_productCodeController.text);
+
+    setState(() => _saving = true);
+
+    try {
+      // Проверка дубликата מק"ט
+      final service = ProductTypeService(companyId: widget.companyId);
+      final exists = await service.isProductCodeExists(productCode);
+      if (exists) {
+        if (mounted) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('מק"ט $productCode כבר תפוס. יש לבחור מק"ט אחר.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
 
       final product = ProductType(
         id: '',
         companyId: widget.companyId,
         name: _nameController.text.trim(),
-        productCode: _productCodeController.text.trim(),
+        productCode: productCode,
         category: category,
         unitsPerBox: int.parse(_unitsPerBoxController.text),
         boxesPerPallet: int.parse(_boxesPerPalletController.text),
@@ -265,6 +321,16 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
       );
 
       Navigator.pop(context, product);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
