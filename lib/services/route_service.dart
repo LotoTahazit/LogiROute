@@ -683,19 +683,34 @@ class RouteService {
     print('✅ Delivery point added: ${point.clientName}');
   }
 
-  /// Обновить статус точки
-  Future<void> updatePointStatus(String pointId, String newStatus) async {
-    await _deliveryPointsCollection().doc(pointId).update({
+  /// Обновить статус точки (с аудитом: updatedByUid + updatedAt)
+  /// ВАЖНО: водитель может менять только: status, completedAt, autoCompleted, updatedByUid, updatedAt
+  Future<void> updatePointStatus(
+    String pointId,
+    String newStatus, {
+    String? updatedByUid,
+    bool autoCompleted = false,
+  }) async {
+    final Map<String, dynamic> patch = {
       'status': newStatus,
-    });
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (updatedByUid != null) {
+      patch['updatedByUid'] = updatedByUid;
+    }
+    if (newStatus == DeliveryPoint.statusCompleted) {
+      patch['completedAt'] = FieldValue.serverTimestamp();
+      patch['autoCompleted'] = autoCompleted;
+    }
+    await _deliveryPointsCollection().doc(pointId).update(patch);
     print('✅ Point $pointId status updated to $newStatus');
   }
 
-  /// Обновить текущую точку водителя
-  Future<void> updateCurrentPoint(String pointId) async {
-    await _deliveryPointsCollection().doc(pointId).update({
-      'status': DeliveryPoint.statusInProgress,
-    });
+  /// Обновить текущую точку водителя (in_progress)
+  Future<void> updateCurrentPoint(String pointId,
+      {String? updatedByUid}) async {
+    await updatePointStatus(pointId, DeliveryPoint.statusInProgress,
+        updatedByUid: updatedByUid);
     print('✅ Point $pointId set to in_progress');
   }
 
@@ -714,7 +729,10 @@ class RouteService {
     // Обновляем все точки водителя на in_progress
     final batch = _firestore.batch();
     for (final doc in snapshot.docs) {
-      batch.update(doc.reference, {'status': DeliveryPoint.statusInProgress});
+      batch.update(doc.reference, {
+        'status': DeliveryPoint.statusInProgress,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
 
     await batch.commit();
@@ -1101,14 +1119,19 @@ class RouteService {
   }
 
   /// 🔄 Переоткрыть автозакрытую точку (вернуть в маршрут)
-  Future<void> reopenPoint(String pointId) async {
+  /// completedAt НЕ сбрасываем — оставляем как историю
+  Future<void> reopenPoint(String pointId, {String? updatedByUid}) async {
     print('🔄 [RouteService] Reopening point $pointId');
     try {
-      await _deliveryPointsCollection().doc(pointId).update({
+      final Map<String, dynamic> patch = {
         'status': DeliveryPoint.statusInProgress,
-        'completedAt': null,
         'autoCompleted': false,
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (updatedByUid != null) {
+        patch['updatedByUid'] = updatedByUid;
+      }
+      await _deliveryPointsCollection().doc(pointId).update(patch);
       print('✅ [RouteService] Point $pointId reopened');
     } catch (e) {
       print('❌ [RouteService] Error reopening point $pointId: $e');
@@ -1117,15 +1140,19 @@ class RouteService {
   }
 
   /// ❌ Отменить точку доставки
-  Future<void> cancelPoint(String pointId) async {
+  Future<void> cancelPoint(String pointId, {String? updatedByUid}) async {
     try {
-      await _deliveryPointsCollection().doc(pointId).update({
+      final Map<String, dynamic> patch = {
         'status': 'cancelled',
         'updatedAt': FieldValue.serverTimestamp(),
         'driverId': null,
         'driverName': null,
         'orderInRoute': null,
-      });
+      };
+      if (updatedByUid != null) {
+        patch['updatedByUid'] = updatedByUid;
+      }
+      await _deliveryPointsCollection().doc(pointId).update(patch);
 
       print('❌ [RouteService] Point $pointId cancelled');
     } catch (e) {

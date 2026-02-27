@@ -229,6 +229,9 @@ class AutoCompleteService {
         'status': 'completed',
         'completedAt': FieldValue.serverTimestamp(),
         'autoCompleted': true, // Помечаем что завершено автоматически
+        'updatedByUid':
+            point.driverId ?? '', // Аудит: кто обновил (водитель точки)
+        'updatedAt': FieldValue.serverTimestamp(), // Аудит: когда обновлено
       });
 
       debugPrint('✅ [AutoComplete] Point ${point.clientName} auto-completed');

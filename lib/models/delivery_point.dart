@@ -68,6 +68,8 @@ class DeliveryPoint {
   final List<BoxType>? boxTypes; // Типы коробок в заказе
   final String? eta; // Расчётное время прибытия (ETA)
   final String? routeId; // ID маршрута для группировки точек
+  final String? updatedByUid; // Аудит: кто последний обновил статус
+  final DateTime? updatedAt; // Аудит: когда последний раз обновлён статус
 
   DeliveryPoint({
     required this.id,
@@ -93,6 +95,8 @@ class DeliveryPoint {
     this.boxTypes,
     this.eta,
     this.routeId,
+    this.updatedByUid,
+    this.updatedAt,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -131,6 +135,10 @@ class DeliveryPoint {
           : null,
       eta: map['eta'],
       routeId: map['routeId'],
+      updatedByUid: map['updatedByUid'],
+      updatedAt: map['updatedAt'] != null
+          ? (map['updatedAt'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -159,6 +167,8 @@ class DeliveryPoint {
         'boxTypes': boxTypes!.map((box) => box.toMap()).toList(),
       if (eta != null) 'eta': eta,
       if (routeId != null) 'routeId': routeId,
+      if (updatedByUid != null) 'updatedByUid': updatedByUid,
+      if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }
 
@@ -168,6 +178,8 @@ class DeliveryPoint {
     DateTime? completedAt,
     int? orderInRoute,
     String? eta,
+    String? updatedByUid,
+    DateTime? updatedAt,
   }) {
     return DeliveryPoint(
       id: id,
@@ -193,6 +205,8 @@ class DeliveryPoint {
       boxTypes: boxTypes,
       eta: eta ?? this.eta,
       routeId: routeId,
+      updatedByUid: updatedByUid ?? this.updatedByUid,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
