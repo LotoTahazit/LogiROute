@@ -110,6 +110,8 @@ class ArchiveService {
       final snapshot = await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
           .collection('delivery_points')
           .where('status', isEqualTo: 'completed')
           .where('completedAt', isLessThan: Timestamp.fromDate(cutoffDate))

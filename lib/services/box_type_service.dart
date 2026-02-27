@@ -21,6 +21,8 @@ class BoxTypeService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
         .collection('box_types');
   }
 

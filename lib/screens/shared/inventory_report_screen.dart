@@ -108,6 +108,8 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
     Query query = _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
         .collection('inventory_history')
         .orderBy('timestamp', descending: true);
 

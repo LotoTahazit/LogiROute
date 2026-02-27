@@ -19,6 +19,8 @@ class AnalyticsScreen extends StatelessWidget {
     final pointsSnapshot = await firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('delivery_points')
         .get();
 

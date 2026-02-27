@@ -10,6 +10,16 @@ class InventoryCountService {
 
   InventoryCountService({required this.companyId});
 
+  /// Хелпер: коллекция инвентаризаций (warehouse module)
+  CollectionReference<Map<String, dynamic>> _countsCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
+        .collection('inventory_counts');
+  }
+
   /// Начать новую инвентаризацию
   Future<String> startNewCount({
     required String userName,
@@ -42,8 +52,7 @@ class InventoryCountService {
         ),
       );
 
-      final docRef =
-          await _firestore.collection('inventory_counts').add(count.toMap());
+      final docRef = await _countsCollection().add(count.toMap());
 
       print('✅ [InventoryCount] Started new count: ${docRef.id}');
       return docRef.id;
@@ -61,7 +70,7 @@ class InventoryCountService {
     String? notes,
   }) async {
     try {
-      final docRef = _firestore.collection('inventory_counts').doc(countId);
+      final docRef = _countsCollection().doc(countId);
       final doc = await docRef.get();
 
       if (!doc.exists) {
@@ -120,7 +129,7 @@ class InventoryCountService {
   /// Завершить инвентаризацию
   Future<void> completeCount(String countId) async {
     try {
-      await _firestore.collection('inventory_counts').doc(countId).update({
+      await _countsCollection().doc(countId).update({
         'status': 'completed',
         'completedAt': FieldValue.serverTimestamp(),
       });
@@ -135,8 +144,7 @@ class InventoryCountService {
   /// Получить текущую активную инвентаризацию
   Future<InventoryCount?> getActiveCount() async {
     try {
-      final snapshot = await _firestore
-          .collection('inventory_counts')
+      final snapshot = await _countsCollection()
           .where('status', isEqualTo: 'in_progress')
           .orderBy('startedAt', descending: true)
           .limit(1)
@@ -157,8 +165,7 @@ class InventoryCountService {
   /// Получить инвентаризацию по ID
   Future<InventoryCount?> getCountById(String countId) async {
     try {
-      final doc =
-          await _firestore.collection('inventory_counts').doc(countId).get();
+      final doc = await _countsCollection().doc(countId).get();
 
       if (!doc.exists) {
         return null;
@@ -173,8 +180,7 @@ class InventoryCountService {
 
   /// Получить все инвентаризации (для админа/диспетчера)
   Stream<List<InventoryCount>> getAllCountsStream() {
-    return _firestore
-        .collection('inventory_counts')
+    return _countsCollection()
         .orderBy('startedAt', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -197,6 +203,8 @@ class InventoryCountService {
       final pointsSnapshot = await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
           .collection('delivery_points')
           .where('createdAt',
               isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
@@ -300,6 +308,8 @@ class InventoryCountService {
           final inventoryQuery = await _firestore
               .collection('companies')
               .doc(companyId)
+              .collection('warehouse')
+              .doc('_root')
               .collection('inventory')
               .where('productCode', isEqualTo: item.productCode)
               .limit(1)
@@ -316,7 +326,7 @@ class InventoryCountService {
       }
 
       // Помечаем подсчет как утвержденный
-      batch.update(_firestore.collection('inventory_counts').doc(countId), {
+      batch.update(_countsCollection().doc(countId), {
         'status': 'approved',
         'approvedAt': FieldValue.serverTimestamp(),
       });

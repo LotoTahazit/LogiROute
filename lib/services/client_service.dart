@@ -18,6 +18,8 @@ class ClientService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('clients');
   }
 

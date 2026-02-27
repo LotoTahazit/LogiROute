@@ -189,6 +189,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
             await FirebaseFirestore.instance
                 .collection('companies')
                 .doc(_routeService!.companyId)
+                .collection('logistics')
+                .doc('_root')
                 .collection('delivery_points')
                 .doc(point.id)
                 .update({

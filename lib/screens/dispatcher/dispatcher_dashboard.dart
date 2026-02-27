@@ -714,6 +714,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         await FirebaseFirestore.instance
             .collection('companies')
             .doc(effectiveCompanyId)
+            .collection('logistics')
+            .doc('_root')
             .collection('delivery_points')
             .doc(point.id)
             .update({

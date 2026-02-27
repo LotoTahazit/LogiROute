@@ -11,6 +11,8 @@ class ProductTypeService {
   CollectionReference<Map<String, dynamic>> get _collection => _firestore
       .collection('companies')
       .doc(companyId)
+      .collection('warehouse')
+      .doc('_root')
       .collection('product_types');
 
   /// Получить все типы товаров компании

@@ -68,6 +68,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       final snapshot = await FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
+          .collection('warehouse')
+          .doc('_root')
           .collection('inventory')
           .orderBy('productCode')
           .get();

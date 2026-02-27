@@ -19,6 +19,8 @@ class InventoryService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
         .collection('inventory');
   }
 
@@ -27,6 +29,8 @@ class InventoryService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
         .collection('product_types');
   }
 
@@ -57,7 +61,13 @@ class InventoryService {
         reason: reason,
       );
 
-      await _firestore.collection('inventory_history').add(change.toMap());
+      await _firestore
+          .collection('companies')
+          .doc(companyId)
+          .collection('warehouse')
+          .doc('_root')
+          .collection('inventory_history')
+          .add(change.toMap());
       print(
           '✅ [History] Logged: $productCode ${quantityChange > 0 ? '+' : ''}$quantityChange');
     } catch (e) {

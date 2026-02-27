@@ -71,6 +71,8 @@ class AutoCompleteService {
       final pointsSnapshot = await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
           .collection('delivery_points')
           .where('status', whereIn: ['assigned', 'in_progress']).get();
 
@@ -219,6 +221,8 @@ class AutoCompleteService {
       await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
           .collection('delivery_points')
           .doc(point.id)
           .update({

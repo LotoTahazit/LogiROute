@@ -513,6 +513,8 @@ class InvoicePrintService {
     final docRef = FirebaseFirestore.instance
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('invoices')
         .doc(invoiceId);
 

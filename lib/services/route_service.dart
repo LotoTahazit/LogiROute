@@ -24,6 +24,8 @@ class RouteService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('delivery_points');
   }
 

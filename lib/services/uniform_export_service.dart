@@ -20,6 +20,8 @@ class UniformExportService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('invoices');
   }
 
@@ -188,6 +190,8 @@ class UniformExportService {
     switch (type) {
       case InvoiceDocumentType.invoice:
         return 'חשבונית_מס';
+      case InvoiceDocumentType.taxInvoiceReceipt:
+        return 'חשבונית_מס_קבלה';
       case InvoiceDocumentType.receipt:
         return 'קבלה';
       case InvoiceDocumentType.delivery:

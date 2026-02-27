@@ -13,6 +13,7 @@ import 'screens/admin/admin_dashboard.dart';
 import 'screens/dispatcher/dispatcher_dashboard.dart';
 import 'screens/driver/driver_dashboard.dart';
 import 'screens/warehouse/warehouse_dashboard.dart';
+import 'widgets/module_guard.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -128,16 +129,33 @@ class AuthWrapper extends StatelessWidget {
         final role = authService.userRole;
         final viewAs = authService.viewAsRole ?? role;
 
+        // Получаем companyId для проверки модулей
+        final companyService = context.read<CompanySelectionService>();
+        final companyId =
+            companyService.getEffectiveCompanyId(authService) ?? '';
+
         switch (viewAs) {
           case 'admin':
           case 'super_admin':
-            return const AdminDashboard();
+            return const AdminDashboard(); // admin видит всё
           case 'dispatcher':
-            return const DispatcherDashboard();
+            return ModuleGuard(
+              companyId: companyId,
+              requiredModule: 'logistics',
+              child: const DispatcherDashboard(),
+            );
           case 'driver':
-            return const DriverDashboard();
+            return ModuleGuard(
+              companyId: companyId,
+              requiredModule: 'logistics',
+              child: const DriverDashboard(),
+            );
           case 'warehouse_keeper':
-            return const WarehouseDashboard();
+            return ModuleGuard(
+              companyId: companyId,
+              requiredModule: 'warehouse',
+              child: const WarehouseDashboard(),
+            );
           default:
             return const LoginScreen();
         }

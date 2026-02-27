@@ -21,6 +21,8 @@ class AuditLogService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('invoices')
         .doc(entityId)
         .collection('auditLog');

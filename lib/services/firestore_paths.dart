@@ -45,19 +45,71 @@ class FirestorePaths {
   // COMPANY-SCOPED COLLECTIONS (зависят от компании)
   // ============================================================================
 
+  // ============================================================================
+  // WAREHOUSE MODULE — companies/{companyId}/warehouse/*
+  // ============================================================================
+
   /// Коллекция типов коробок компании
   CollectionReference<Map<String, dynamic>> boxTypes(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
         .collection('box_types');
   }
 
-  /// Коллекция клиентов компании
+  /// Коллекция инвентаря компании
+  CollectionReference<Map<String, dynamic>> inventory(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
+        .collection('inventory');
+  }
+
+  /// Коллекция типов товаров компании
+  CollectionReference<Map<String, dynamic>> productTypes(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
+        .collection('product_types');
+  }
+
+  /// Коллекция инвентаризаций компании
+  CollectionReference<Map<String, dynamic>> inventoryCounts(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
+        .collection('inventory_counts');
+  }
+
+  /// Коллекция истории инвентаря компании
+  CollectionReference<Map<String, dynamic>> inventoryHistory(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('warehouse')
+        .doc('_root')
+        .collection('inventory_history');
+  }
+
+  // ============================================================================
+  // LOGISTICS MODULE — companies/{companyId}/logistics/*
+  // ============================================================================
+
+  /// Коллекция клиентов компании (shared: logistics + accounting)
   CollectionReference<Map<String, dynamic>> clients(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('clients');
   }
 
@@ -66,15 +118,19 @@ class FirestorePaths {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('delivery_points');
   }
 
-  /// Коллекция счетов компании
-  CollectionReference<Map<String, dynamic>> invoices(String companyId) {
+  /// Коллекция кешированных маршрутов компании
+  CollectionReference<Map<String, dynamic>> cachedRoutes(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('invoices');
+        .collection('logistics')
+        .doc('_root')
+        .collection('cached_routes');
   }
 
   /// Коллекция цен компании
@@ -82,33 +138,73 @@ class FirestorePaths {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
         .collection('prices');
   }
 
-  /// Коллекция инвентаря компании
-  CollectionReference<Map<String, dynamic>> inventory(String companyId) {
+  // ============================================================================
+  // DISPATCHER MODULE — companies/{companyId}/dispatcher/*
+  // ============================================================================
+
+  /// Коллекция локаций водителей компании
+  CollectionReference<Map<String, dynamic>> driverLocations(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('inventory');
+        .collection('dispatcher')
+        .doc('_root')
+        .collection('driver_locations');
   }
 
-  /// Коллекция счётчиков компании (для нумерации счетов)
+  // ============================================================================
+  // ACCOUNTING MODULE — companies/{companyId}/accounting/* (ИЗОЛИРОВАННЫЙ)
+  // ============================================================================
+
+  /// Коллекция счетов компании (accounting)
+  CollectionReference<Map<String, dynamic>> invoices(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
+        .collection('invoices');
+  }
+
+  /// Коллекция счётчиков компании (accounting)
   CollectionReference<Map<String, dynamic>> counters(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('counters');
   }
 
-  /// Документ счётчика счетов
+  /// Документ счётчика счетов (accounting)
   DocumentReference<Map<String, dynamic>> invoiceCounter(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('counters')
         .doc('invoices');
   }
+
+  /// Коллекция резервных копий (accounting)
+  CollectionReference<Map<String, dynamic>> backups(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
+        .collection('backups');
+  }
+
+  // ============================================================================
+  // CORE / SHARED — companies/{companyId}/*
+  // ============================================================================
 
   /// Коллекция настроек компании
   CollectionReference<Map<String, dynamic>> companySettings(String companyId) {
@@ -118,52 +214,12 @@ class FirestorePaths {
         .collection('settings');
   }
 
-  /// Коллекция кешированных маршрутов компании
-  CollectionReference<Map<String, dynamic>> cachedRoutes(String companyId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('cached_routes');
-  }
-
-  /// Коллекция резервных копий компании
-  CollectionReference<Map<String, dynamic>> backups(String companyId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('backups');
-  }
-
-  /// Коллекция инвентаризаций компании
-  CollectionReference<Map<String, dynamic>> inventoryCounts(String companyId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('inventory_counts');
-  }
-
-  /// Коллекция истории инвентаря компании
-  CollectionReference<Map<String, dynamic>> inventoryHistory(String companyId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('inventory_history');
-  }
-
   /// Коллекция дневных сводок компании
   CollectionReference<Map<String, dynamic>> dailySummaries(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
         .collection('daily_summaries');
-  }
-
-  /// Коллекция локаций водителей компании
-  CollectionReference<Map<String, dynamic>> driverLocations(String companyId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('driver_locations');
   }
 
   /// Коллекция уведомлений компании

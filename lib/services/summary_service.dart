@@ -136,7 +136,6 @@ class SummaryService {
           });
         }
       });
-
     } catch (e) {
       print('❌ [SummaryService] Error updating invoice summary: $e');
       rethrow;
@@ -195,7 +194,6 @@ class SummaryService {
           });
         }
       });
-
     } catch (e) {
       print('❌ [SummaryService] Error updating delivery summary: $e');
       rethrow;
@@ -213,6 +211,8 @@ class SummaryService {
       final snapshot = await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('accounting')
+          .doc('_root')
           .collection('invoices')
           .where('createdAt',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
@@ -270,6 +270,8 @@ class SummaryService {
       final snapshot = await _firestore
           .collection('companies')
           .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
           .collection('delivery_points')
           .where('deliveryDate',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))

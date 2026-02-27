@@ -271,11 +271,14 @@ if (!ModuleManager.hasWarehouse(company)) {
 
 ## 1️⃣2️⃣ TODO — порядок реализации
 
-1. [ ] Добавить `modules`, `limits`, `plan`, `billingStatus` в модель CompanySettings
-2. [ ] Создать `ModuleManager` класс
-3. [ ] Обернуть все экраны проверкой модулей (UI слой)
-4. [ ] Обернуть сервисы проверкой (Service слой)
-5. [ ] Обновить Firestore Security Rules (Rules слой)
-6. [ ] Создать provisioning Cloud Function
-7. [ ] Создать super_admin панель управления модулями
-8. [ ] Тестирование: включение/выключение модулей
+1. [x] Добавить `modules`, `limits`, `plan`, `billingStatus` в модель CompanySettings
+2. [x] Создать `ModuleManager` класс
+3. [x] Перенести Firestore коллекции в namespace'ы (warehouse/*, logistics/*, accounting/*)
+4. [x] Обернуть дашборды проверкой модулей (ModuleGuard — UI слой)
+5. [x] Создать виджет ModuleAccessDenied (UI "модуль недоступен")
+6. [ ] Обновить Firestore Security Rules (Rules слой) — **делает владелец**
+7. [ ] Мигрировать существующие данные в новые namespace'ы (скрипт миграции)
+8. [ ] Перенести `driver_locations` в company-scoped namespace
+9. [ ] Создать provisioning Cloud Function
+10. [ ] Создать super_admin панель управления модулями
+11. [ ] Тестирование: включение/выключение модулей

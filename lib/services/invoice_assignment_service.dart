@@ -25,6 +25,8 @@ class InvoiceAssignmentService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('invoices');
   }
 
@@ -32,6 +34,8 @@ class InvoiceAssignmentService {
     return _firestore
         .collection('companies')
         .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
         .collection('assignment_requests');
   }
 
