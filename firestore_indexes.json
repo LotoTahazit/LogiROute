@@ -2,7 +2,7 @@
   "indexes": [
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "driverId",
@@ -20,7 +20,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "driverId",
@@ -34,7 +34,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "driverId",
@@ -48,7 +48,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "driverId",
@@ -66,7 +66,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "status",
@@ -84,7 +84,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "companyId",
@@ -98,7 +98,7 @@
     },
     {
       "collectionGroup": "delivery_points",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "status",
@@ -112,7 +112,7 @@
     },
     {
       "collectionGroup": "box_types",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "type",
@@ -256,7 +256,7 @@
     },
     {
       "collectionGroup": "product_types",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "isActive",
@@ -270,7 +270,7 @@
     },
     {
       "collectionGroup": "product_types",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "category",
@@ -288,7 +288,7 @@
     },
     {
       "collectionGroup": "inventory_counts",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "status",
