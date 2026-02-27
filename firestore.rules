@@ -31,13 +31,17 @@ service cloud.firestore {
     }
 
     // membership: user.companyId == companyId (или super_admin)
-    function isCompanyMember(companyId) {
-      return signedIn() && (isSuperAdmin() || userDoc().companyId == companyId);
+    // + billing guard: компания должна быть active
+    function billingActive(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId))
+        .data.billingStatus == 'active';
     }
-    // TODO: включить после заполнения billingStatus/modules у всех компаний
-    // function company(companyId) { ... }
-    // function billingActive(companyId) { ... }
-    // function hasModule(companyId, moduleKey) { ... }
+    function isCompanyMember(companyId) {
+      return signedIn() && (
+        isSuperAdmin() ||
+        (userDoc().companyId == companyId && billingActive(companyId))
+      );
+    }
     function canAdminWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
     }
