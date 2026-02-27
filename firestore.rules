@@ -2,338 +2,359 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── helpers ────────────────────────────────────────────────────────────
+    // =========================================================
+    // Helpers
+    // =========================================================
+    function signedIn() {
+      return request.auth != null;
+    }
     function userDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    function isSuperAdmin() { return userDoc().role == 'super_admin'; }
-    function isAdmin()      { return userDoc().role == 'admin'; }
-    function isDispatcher() { return userDoc().role == 'dispatcher'; }
-    function isDriver()     { return userDoc().role == 'driver'; }
-    function inCompany(cId) { return userDoc().companyId == cId; }
-    function isAdminOrAbove()      { return isSuperAdmin() || isAdmin(); }
-    function isDispatcherOrAbove() { return isSuperAdmin() || isAdmin() || isDispatcher(); }
-
-    // ─── users ───────────────────────────────────────────────────────────────
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && (
-        isSuperAdmin() ||
-        (isAdmin() &&
-          request.resource.data.companyId == userDoc().companyId &&
-          request.resource.data.role in ['dispatcher', 'driver', 'warehouse_keeper'])
-      );
-      allow update: if request.auth != null && (
-        userId == request.auth.uid || isSuperAdmin() ||
-        (isAdmin() && resource.data.companyId == userDoc().companyId)
-      );
-      allow delete: if request.auth != null && (
-        isSuperAdmin() ||
-        (isAdmin() && resource.data.companyId == userDoc().companyId)
-      );
+    function role() {
+      return signedIn() ? userDoc().role : null;
+    }
+    function isRole(r) {
+      return signedIn() && role() == r;
+    }
+    function hasAnyRole(list) {
+      return signedIn() && (role() in list);
+    }
+    function isSuperAdmin() {
+      return isRole('super_admin');
+    }
+    function isAdminOrAbove() {
+      return hasAnyRole(['admin', 'super_admin']);
+    }
+    function isDispatcherOrAbove() {
+      return hasAnyRole(['dispatcher', 'admin', 'super_admin']);
     }
 
-    // ─── driver_locations ────────────────────────────────────────────────────
+    // membership: user.companyId == companyId (или super_admin)
+    function isCompanyMember(companyId) {
+      return signedIn() && (isSuperAdmin() || userDoc().companyId == companyId);
+    }
+    function company(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+    function billingActive(companyId) {
+      return isCompanyMember(companyId)
+        && (company(companyId).billingStatus in ['active', 'trial']);
+    }
+    function hasModule(companyId, moduleKey) {
+      return billingActive(companyId) && company(companyId).modules[moduleKey] == true;
+    }
+    function canAdminWrite(companyId) {
+      return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
+    }
+    function canDispatcherWrite(companyId) {
+      return isCompanyMember(companyId) && hasAnyRole(['dispatcher', 'admin', 'super_admin']);
+    }
+    function canWarehouseWrite(companyId) {
+      return isCompanyMember(companyId) && hasAnyRole(['warehouse_keeper', 'admin', 'super_admin']);
+    }
+    function canDriverWrite(companyId) {
+      return isCompanyMember(companyId) && hasAnyRole(['driver', 'dispatcher', 'admin', 'super_admin']);
+    }
+
+    // =========================================================
+    // Global templates (read-only)
+    // =========================================================
+    match /product_templates/{templateId} {
+      allow read: if signedIn();
+      allow write: if false; // только Admin SDK
+    }
+
+    // =========================================================
+    // Users (global)
+    // =========================================================
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && (
+        isSuperAdmin() ||
+        (isRole('admin') && request.resource.data.companyId == userDoc().companyId)
+      );
+      allow update: if signedIn() && (
+        request.auth.uid == userId ||
+        (isRole('admin') && resource.data.companyId == userDoc().companyId) ||
+        isSuperAdmin()
+      );
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Driver locations (global, not company-scoped)
+    // =========================================================
     match /driver_locations/{driverId} {
-      allow read:   if request.auth != null;
-      allow write:  if request.auth != null && request.auth.uid == driverId;
-      // history subcollection — written by AutoCompleteService cleanup
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == driverId;
       match /history/{entryId} {
-        allow read:   if request.auth != null;
-        allow create: if request.auth != null && request.auth.uid == driverId;
-        allow delete: if request.auth != null && (
+        allow read: if signedIn();
+        allow create: if signedIn() && request.auth.uid == driverId;
+        allow delete: if signedIn() && (
           request.auth.uid == driverId || isAdminOrAbove()
         );
         allow update: if false;
       }
     }
 
-    // ─── global clients ──────────────────────────────────────────────────────
-    match /clients/{clientId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && isDispatcherOrAbove();
-      allow delete: if request.auth != null && isAdminOrAbove();
-    }
-
-    // ─── routes / truck_routes ───────────────────────────────────────────────
-    match /routes/{routeId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && isDispatcherOrAbove();
-    }
-    match /truck_routes/{routeId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && isAdminOrAbove();
-    }
-
-    // ─── settings / companySettings / config ─────────────────────────────────
-    match /settings/{settingId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && isAdminOrAbove();
-    }
-    match /companySettings/{settingId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && isAdminOrAbove();
-    }
-    match /config/{docId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && isAdminOrAbove();
-    }
-
-    // ─── companies + nested collections ──────────────────────────────────────
+    // =========================================================
+    // Companies root doc
+    // =========================================================
     match /companies/{companyId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && isAdminOrAbove();
-      allow update, delete: if request.auth != null && isAdminOrAbove();
+      allow read: if isCompanyMember(companyId);
+      allow create: if signedIn() && (isSuperAdmin() || isRole('admin'));
+      allow update: if canAdminWrite(companyId);
+      allow delete: if false;
 
-      match /settings/{settingId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+      // =========================================================
+      // Company settings
+      // =========================================================
+      match /settings/{docId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canAdminWrite(companyId);
+        allow delete: if false;
       }
 
-      match /product_types/{productTypeId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+      // Entitlements (если отдельная подколлекция)
+      match /entitlements/{docId} {
+        allow read: if canAdminWrite(companyId);
+        allow create, update: if isSuperAdmin();
+        allow delete: if false;
       }
 
-      match /box_types/{boxTypeId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || isDispatcher() || userDoc().role == 'warehouse_keeper')));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+      // =========================================================
+      // MODULE: WAREHOUSE — /companies/{c}/warehouse/_root/*
+      // =========================================================
+      match /warehouse/{document=**} {
+        allow read: if hasModule(companyId, 'warehouse');
+        allow create, update: if hasModule(companyId, 'warehouse') && canWarehouseWrite(companyId);
+        allow delete: if false;
       }
 
-      match /clients/{clientId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+      // =========================================================
+      // LOGISTICS — /companies/{c}/logistics/_root/*
+      // =========================================================
+
+      // clients: /companies/{c}/logistics/_root/clients/{clientId}
+      match /logistics/_root/clients/{clientId} {
+        allow read: if isCompanyMember(companyId) && billingActive(companyId) && (
+          company(companyId).modules['logistics'] == true ||
+          company(companyId).modules['accounting'] == true
+        );
+        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow delete: if false;
       }
 
-      match /inventory/{inventoryId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || isDispatcher() || userDoc().role == 'warehouse_keeper')));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && (isAdmin() || userDoc().role == 'warehouse_keeper')));
-      }
-
-      match /prices/{priceId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-      }
-
-      // 🧾 invoices — immutability per Israeli bookkeeping law
-      match /invoices/{invoiceId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        // update: protect only truly immutable fields after finalization
-        allow update: if request.auth != null && (
-          isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())
-        ) && (
-          !('finalizedAt' in resource.data) ||
-          resource.data.finalizedAt == null ||
-          (
-            request.resource.data.sequentialNumber    == resource.data.sequentialNumber &&
-            request.resource.data.companyId           == resource.data.companyId &&
-            request.resource.data.clientName          == resource.data.clientName &&
-            request.resource.data.clientNumber        == resource.data.clientNumber &&
-            request.resource.data.items               == resource.data.items &&
-            request.resource.data.discount            == resource.data.discount &&
-            request.resource.data.immutableSnapshotHash == resource.data.immutableSnapshotHash &&
-            request.resource.data.finalizedAt         == resource.data.finalizedAt &&
-            request.resource.data.finalizedBy         == resource.data.finalizedBy
+      // delivery_points: /companies/{c}/logistics/_root/delivery_points/{pointId}
+      match /logistics/_root/delivery_points/{pointId} {
+        allow read: if isCompanyMember(companyId) && billingActive(companyId) && (
+          company(companyId).modules['logistics'] == true ||
+          company(companyId).modules['dispatcher'] == true
+        );
+        allow create: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow update: if isCompanyMember(companyId) && billingActive(companyId) && (
+          // dispatcher/admin: full update
+          (hasModule(companyId, 'logistics') && canDispatcherWrite(companyId)) ||
+          // driver: only status-related fields, only assigned point
+          (isRole('driver')
+            && resource.data.driverId == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys()
+                .hasOnly(['status', 'completedAt', 'autoCompleted', 'updatedByUid', 'updatedAt'])
+            && request.resource.data.driverId == resource.data.driverId
+            && request.resource.data.driverName == resource.data.driverName
           )
         );
+        allow delete: if false;
+      }
+
+      // cached_routes: /companies/{c}/logistics/_root/cached_routes/{routeId}
+      match /logistics/_root/cached_routes/{routeId} {
+        allow read: if isCompanyMember(companyId) && billingActive(companyId);
+        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow delete: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+      }
+
+      // prices: /companies/{c}/logistics/_root/prices/{priceId}
+      match /logistics/_root/prices/{priceId} {
+        allow read: if isCompanyMember(companyId) && billingActive(companyId);
+        allow create, update: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow delete: if hasModule(companyId, 'logistics') && canAdminWrite(companyId);
+      }
+
+      // =========================================================
+      // MODULE: DISPATCHER — /companies/{c}/dispatcher/_root/*
+      // =========================================================
+      match /dispatcher/{document=**} {
+        allow read: if hasModule(companyId, 'dispatcher');
+        allow create, update: if hasModule(companyId, 'dispatcher') && canDriverWrite(companyId);
+        allow delete: if false;
+      }
+
+      // =========================================================
+      // MODULE: ACCOUNTING — /companies/{c}/accounting/_root/*
+      // (сертифицируемый блок)
+      // =========================================================
+
+      // invoices (includes delivery note by documentType:'delivery')
+      match /accounting/_root/invoices/{invoiceId} {
+        allow read: if hasModule(companyId, 'accounting');
+        // create: admin/super_admin any; dispatcher only if documentType == 'delivery'
+        allow create: if hasModule(companyId, 'accounting') && isCompanyMember(companyId) && (
+          hasAnyRole(['admin', 'super_admin']) ||
+          (isRole('dispatcher') && request.resource.data.documentType == 'delivery')
+        );
+        // update: only admin/super_admin
+        allow update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
         allow delete: if false;
 
         // audit log — append-only
         match /auditLog/{eventId} {
-          allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-          allow create: if request.auth != null &&
-            (isSuperAdmin() || inCompany(companyId)) &&
-            request.resource.data.actorUid == request.auth.uid;
+          allow read: if hasModule(companyId, 'accounting');
+          allow create: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
           allow update, delete: if false;
         }
 
         // print events — append-only
         match /printEvents/{eventId} {
-          allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-          allow create: if request.auth != null &&
-            (isSuperAdmin() || inCompany(companyId)) &&
-            request.resource.data.printedBy == request.auth.uid;
+          allow read: if hasModule(companyId, 'accounting');
+          allow create: if hasModule(companyId, 'accounting') && isCompanyMember(companyId)
+            && request.resource.data.printedBy == request.auth.uid;
           allow update, delete: if false;
         }
       }
 
-      // assignment requests
+      // receipts (если отдельная коллекция)
+      match /accounting/_root/receipts/{receiptId} {
+        allow read: if hasModule(companyId, 'accounting');
+        allow create, update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow delete: if false;
+      }
+
+      // credit notes (если отдельная коллекция)
+      match /accounting/_root/credit_notes/{creditId} {
+        allow read: if hasModule(companyId, 'accounting');
+        allow create, update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow delete: if false;
+      }
+
+      // counters: строго +1, create nextNumber=1, delete forbidden
+      match /accounting/_root/counters/{counterId} {
+        allow read: if hasModule(companyId, 'accounting');
+        allow create: if hasModule(companyId, 'accounting')
+          && canAdminWrite(companyId)
+          && request.resource.data.keys().hasOnly(['nextNumber', 'updatedAt', 'updatedBy'])
+          && request.resource.data.nextNumber == 1;
+        allow update: if hasModule(companyId, 'accounting')
+          && canAdminWrite(companyId)
+          && request.resource.data.nextNumber == resource.data.nextNumber + 1;
+        allow delete: if false;
+      }
+
+      // backups
+      match /accounting/_root/backups/{backupId} {
+        allow read: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow create: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow update, delete: if false;
+      }
+
+      // integrity/templates/access logs/retention — server-only catch-all
+      match /accounting/_root/{secColl}/{docId} {
+        allow read: if hasModule(companyId, 'accounting');
+        allow write: if false;
+      }
+
+      // =========================================================
+      // SHARED company-level collections (legacy / non-namespaced)
+      // =========================================================
       match /assignment_requests/{requestId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow update: if request.auth != null &&
-          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
-          request.resource.data.invoiceId == resource.data.invoiceId;
+        allow read: if isCompanyMember(companyId) && billingActive(companyId);
+        allow create: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
+        allow update: if canDispatcherWrite(companyId)
+          && request.resource.data.invoiceId == resource.data.invoiceId;
         allow delete: if false;
       }
 
-      // delivery points
-      match /delivery_points/{pointId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow update: if request.auth != null && (
-          isSuperAdmin() ||
-          (inCompany(companyId) && isDispatcherOrAbove()) ||
-          (isDriver() && resource.data.driverId == request.auth.uid)
+      match /daily_summaries/{summaryId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if isCompanyMember(companyId) && (isDispatcherOrAbove() || isRole('warehouse_keeper'));
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId);
+        allow update, delete: if isCompanyMember(companyId) && (
+          isAdminOrAbove() || resource.data.userId == request.auth.uid
         );
-        allow delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
       }
 
-      // inventory history
-      match /inventory_history/{historyId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow update, delete: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-      }
-
-      // counters — atomic sequential numbering
-      match /counters/{counterId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null &&
-          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
-          request.resource.data.lastNumber == 1;
-        allow update: if request.auth != null &&
-          (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove())) &&
-          request.resource.data.lastNumber == resource.data.lastNumber + 1;
-        allow delete: if false;
-      }
-
-      // append-only collections
-      match /backups/{backupId} {
-        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow update, delete: if false;
-      }
-      match /document_links/{linkId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
-        allow update, delete: if false;
-      }
+      // append-only audit/integrity collections
       match /integrity_chain/{chainId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
         allow update, delete: if false;
       }
       match /integrity_anchors/{anchorId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow read: if isCompanyMember(companyId);
+        allow create: if canAdminWrite(companyId);
+        allow update, delete: if false;
+      }
+      match /document_links/{linkId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if canDispatcherWrite(companyId);
         allow update, delete: if false;
       }
       match /uniform_export_runs/{runId} {
-        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isDispatcherOrAbove()));
+        allow read: if canAdminWrite(companyId);
+        allow create: if canDispatcherWrite(companyId);
         allow update, delete: if false;
       }
       match /access_log/{logId} {
-        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow create: if request.auth != null &&
-          (isSuperAdmin() || inCompany(companyId)) &&
-          request.resource.data.actorUid == request.auth.uid;
+        allow read: if canAdminWrite(companyId);
+        allow create: if isCompanyMember(companyId)
+          && request.resource.data.actorUid == request.auth.uid;
         allow update, delete: if false;
       }
       match /print_templates/{templateId} {
-        allow read: if request.auth != null && (isSuperAdmin() || inCompany(companyId));
-        allow create, update: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canAdminWrite(companyId);
         allow delete: if false;
       }
       match /retention_checks/{checkId} {
-        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow read: if canAdminWrite(companyId);
+        allow create: if canAdminWrite(companyId);
         allow update, delete: if false;
       }
       match /restore_tests/{testId} {
-        allow read: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
-        allow create: if request.auth != null && (isSuperAdmin() || (inCompany(companyId) && isAdmin()));
+        allow read: if canAdminWrite(companyId);
+        allow create: if canAdminWrite(companyId);
         allow update, delete: if false;
       }
+
     } // end /companies/{companyId}
 
-    // ─── global collections ───────────────────────────────────────────────────
+    // =========================================================
+    // Global collections (legacy, backward compat)
+    // =========================================================
     match /bridges/{bridgeId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /backups/{backupId} {
-      allow read: if request.auth != null && isAdminOrAbove();
-      allow create, update, delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /action_logs/{logId} {
-      allow read: if request.auth != null && isAdminOrAbove();
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /notifications/{notificationId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (
-        isAdminOrAbove() || resource.data.userId == request.auth.uid
-      );
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && isAdminOrAbove();
     }
     match /il_addresses/{addressId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if signedIn();
     }
-    match /cached_routes/{routeId} {
-      allow read, write: if request.auth != null;
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && isAdminOrAbove();
     }
-    match /product_templates/{templateId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+    match /settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && isAdminOrAbove();
     }
-    match /box_types/{boxTypeId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
-      allow delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /inventory/{inventoryId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
-      allow delete: if request.auth != null && (isAdminOrAbove() || userDoc().role == 'warehouse_keeper');
-    }
-    match /prices/{priceId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && isDispatcherOrAbove();
-      allow delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /invoices/{invoiceId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && isDispatcherOrAbove();
-      allow update: if request.auth != null && isDispatcherOrAbove();
-      allow delete: if false;
-    }
-    match /counters/{counterId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isDispatcherOrAbove();
-    }
-    match /daily_summaries/{summaryId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (isDispatcherOrAbove() || userDoc().role == 'warehouse_keeper');
-    }
-    match /delivery_summaries/{summaryId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (isDispatcherOrAbove() || isDriver());
-    }
-    match /inventory_changes/{changeId} {
-      allow read, write: if request.auth != null;
-    }
-    match /inventory_history/{historyId} {
-      allow read, write: if request.auth != null;
-    }
-    match /inventory_counts/{countId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && (isAdminOrAbove() || isDispatcher() || userDoc().role == 'warehouse_keeper');
-      allow delete: if request.auth != null && isAdminOrAbove();
-    }
-    match /archives/{archiveId} {
-      allow read: if request.auth != null && isDispatcherOrAbove();
-      allow create: if request.auth != null && isAdminOrAbove();
-      allow update, delete: if request.auth != null && isAdminOrAbove();
+    match /action_logs/{logId} {
+      allow read: if signedIn() && isAdminOrAbove();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && isAdminOrAbove();
     }
 
   }
