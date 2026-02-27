@@ -31,7 +31,7 @@ class CompanySettingsService {
       if (legacyDoc.exists) {
         final settings = CompanySettings.fromFirestore(legacyDoc);
         // Мигрируем в новое место
-        await _settingsDoc.set(settings.toFirestore());
+        await _settingsDoc.set(settings.toFirestore(), SetOptions(merge: true));
         return settings;
       }
 
@@ -62,7 +62,7 @@ class CompanySettingsService {
   /// Сохранить настройки компании
   Future<void> saveSettings(CompanySettings settings) async {
     try {
-      await _settingsDoc.set(settings.toFirestore());
+      await _settingsDoc.set(settings.toFirestore(), SetOptions(merge: true));
       print(
           '✅ [CompanySettings] Settings saved successfully for company $companyId');
     } catch (e) {

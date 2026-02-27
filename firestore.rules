@@ -251,14 +251,29 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // backups
-      match /accounting/_root/backups/{backupId} {
-        allow read: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+      // integrity_chain (append-only, lives in accounting/_root/)
+      match /accounting/_root/integrity_chain/{chainId} {
+        allow read: if hasModule(companyId, 'accounting');
+        allow create: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
+        allow update, delete: if false;
+      }
+
+      // integrity_anchors (append-only, lives in accounting/_root/)
+      match /accounting/_root/integrity_anchors/{anchorId} {
+        allow read: if hasModule(companyId, 'accounting');
         allow create: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
         allow update, delete: if false;
       }
 
-      // integrity/templates/access logs/retention — server-only catch-all
+      // assignment_requests (lives in accounting/_root/)
+      match /accounting/_root/assignment_requests/{reqId} {
+        allow read: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
+        allow create: if hasModule(companyId, 'accounting') && canDispatcherWrite(companyId);
+        allow update: if hasModule(companyId, 'accounting') && canAdminWrite(companyId);
+        allow delete: if false;
+      }
+
+      // accounting catch-all: everything else under accounting/_root — server-only
       match /accounting/_root/{secColl}/{docId} {
         allow read: if hasModule(companyId, 'accounting');
         allow write: if false;
@@ -267,12 +282,10 @@ service cloud.firestore {
       // =========================================================
       // SHARED company-level collections (legacy / non-namespaced)
       // =========================================================
-      match /assignment_requests/{requestId} {
-        allow read: if isCompanyMember(companyId) && billingActive(companyId);
-        allow create: if hasModule(companyId, 'logistics') && canDispatcherWrite(companyId);
-        allow update: if canDispatcherWrite(companyId)
-          && request.resource.data.invoiceId == resource.data.invoiceId;
-        allow delete: if false;
+      match /backups/{backupId} {
+        allow read: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow create: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow update, delete: if false;
       }
 
       match /daily_summaries/{summaryId} {
@@ -288,17 +301,7 @@ service cloud.firestore {
         );
       }
 
-      // append-only audit/integrity collections
-      match /integrity_chain/{chainId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow update, delete: if false;
-      }
-      match /integrity_anchors/{anchorId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if canAdminWrite(companyId);
-        allow update, delete: if false;
-      }
+      // append-only audit collections (company-level, not namespaced)
       match /document_links/{linkId} {
         allow read: if isCompanyMember(companyId);
         allow create: if canDispatcherWrite(companyId);

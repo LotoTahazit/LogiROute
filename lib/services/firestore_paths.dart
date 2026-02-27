@@ -192,13 +192,11 @@ class FirestorePaths {
         .doc('invoices');
   }
 
-  /// Коллекция резервных копий (accounting)
+  /// Коллекция резервных копий (company-level, не в accounting namespace)
   CollectionReference<Map<String, dynamic>> backups(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('accounting')
-        .doc('_root')
         .collection('backups');
   }
 
