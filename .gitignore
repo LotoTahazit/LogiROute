@@ -41,6 +41,8 @@ app.*.map.json
 # Firebase
 firebase_options.dart
 google-services.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
 GoogleService-Info.plist
 
 # Environment variables (API keys, secrets)
