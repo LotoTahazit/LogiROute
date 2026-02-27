@@ -38,11 +38,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/companies/$(companyId)).data;
     }
     function billingActive(companyId) {
+      // Fallback: если billingStatus не задан — считаем active (обратная совместимость)
       return isCompanyMember(companyId)
-        && (company(companyId).billingStatus in ['active', 'trial']);
+        && (!('billingStatus' in company(companyId)) || company(companyId).billingStatus in ['active', 'trial']);
     }
     function hasModule(companyId, moduleKey) {
-      return billingActive(companyId) && company(companyId).modules[moduleKey] == true;
+      // Fallback: если modules не задан — все модули включены (обратная совместимость)
+      return billingActive(companyId)
+        && (!('modules' in company(companyId)) || company(companyId).modules[moduleKey] == true);
     }
     function canAdminWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
