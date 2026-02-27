@@ -34,19 +34,10 @@ service cloud.firestore {
     function isCompanyMember(companyId) {
       return signedIn() && (isSuperAdmin() || userDoc().companyId == companyId);
     }
-    function company(companyId) {
-      return get(/databases/$(database)/documents/companies/$(companyId)).data;
-    }
-    function billingActive(companyId) {
-      // Fallback: если billingStatus не задан — считаем active (обратная совместимость)
-      return isCompanyMember(companyId)
-        && (!('billingStatus' in company(companyId)) || company(companyId).billingStatus in ['active', 'trial']);
-    }
-    function hasModule(companyId, moduleKey) {
-      // Fallback: если modules не задан — все модули включены (обратная совместимость)
-      return billingActive(companyId)
-        && (!('modules' in company(companyId)) || company(companyId).modules[moduleKey] == true);
-    }
+    // TODO: включить после заполнения billingStatus/modules у всех компаний
+    // function company(companyId) { ... }
+    // function billingActive(companyId) { ... }
+    // function hasModule(companyId, moduleKey) { ... }
     function canAdminWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
     }
