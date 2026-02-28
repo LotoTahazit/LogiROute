@@ -33,16 +33,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   // Сохраняем сервисы чтобы использовать в dispose
   CompanySelectionService? _companyService;
+  bool _initializing =
+      true; // блокируем _onCompanyChanged во время инициализации
 
   @override
   void initState() {
     super.initState();
     _companyService = context.read<CompanySelectionService>();
-    _loadUsers();
-    _initializeCompanySelection();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _initializeCompanySelection().then((_) {
+      if (!mounted) return;
+      _initializing = false;
       _companyService?.addListener(_onCompanyChanged);
+      _loadUsers();
     });
   }
 
@@ -53,7 +55,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _onCompanyChanged() {
-    if (!mounted) return;
+    if (!mounted || _initializing) return;
     _loadUsers();
   }
 

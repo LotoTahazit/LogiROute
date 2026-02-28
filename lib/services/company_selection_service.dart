@@ -47,7 +47,7 @@ class CompanySelectionService extends ChangeNotifier {
   /// Загрузить список доступных компаний
   Future<void> loadCompanies() async {
     _isLoading = true;
-    notifyListeners();
+    // не вызываем notifyListeners() здесь — только по завершении
 
     try {
       // Получаем все документы компаний

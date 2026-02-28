@@ -64,10 +64,10 @@ class AuthService extends ChangeNotifier {
 
   /// Установить виртуальный companyId для super_admin
   void setVirtualCompanyId(String? companyId) {
-    if (_userModel?.isSuperAdmin == true) {
+    if (_userModel?.isSuperAdmin == true && _virtualCompanyId != companyId) {
       _virtualCompanyId = companyId;
       print('✅ [AuthService] Virtual companyId set to: $companyId');
-      notifyListeners(); // ✅ Уведомляем всех слушателей!
+      notifyListeners();
     }
   }
 
