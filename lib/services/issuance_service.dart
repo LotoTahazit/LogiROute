@@ -39,10 +39,15 @@ class IssuanceService {
     });
 
     final data = result.data;
+    // Cloud Functions on web returns numbers as Int64 (fixnum) which dart2js
+    // cannot cast directly to int — use num conversion instead.
+    final rawDocNumber = data['docNumber'];
+    final docNumber =
+        rawDocNumber != null ? int.tryParse(rawDocNumber.toString()) ?? 0 : 0;
     return IssuanceResult(
       ok: data['ok'] == true,
       invoiceId: data['invoiceId'] as String? ?? invoiceId,
-      docNumber: data['docNumber'] as int? ?? 0,
+      docNumber: docNumber,
       docNumberFormatted: data['docNumberFormatted'] as String? ?? '',
       issuedAt: data['issuedAt'] as String?,
       anchorId: data['anchorId'] as String?,

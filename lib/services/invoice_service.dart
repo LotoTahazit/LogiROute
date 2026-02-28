@@ -55,9 +55,19 @@ class InvoiceService {
             .limit(1)
             .get();
         if (existing.docs.isNotEmpty) {
+          final existingDoc = existing.docs.first;
+          final existingStatus = existingDoc.data()['status'] as String? ?? '';
+          // Если уже выдан — возвращаем как есть (idempotent)
+          if (existingStatus == 'issued' ||
+              existingStatus == InvoiceStatus.active.name) {
+            print(
+                '⚠️ [Invoice] Duplicate prevented (already issued): ${invoice.documentType.name} for deliveryPoint ${invoice.deliveryPointId}');
+            return existingDoc.id;
+          }
+          // Если draft — возвращаем ID для повторной попытки выдачи
           print(
-              '⚠️ [Invoice] Duplicate prevented: ${invoice.documentType.name} for deliveryPoint ${invoice.deliveryPointId} already exists');
-          return existing.docs.first.id;
+              '⚠️ [Invoice] Found existing draft for deliveryPoint ${invoice.deliveryPointId} — returning for re-issuance');
+          return existingDoc.id;
         }
       }
 
