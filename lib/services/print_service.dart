@@ -149,15 +149,15 @@ class PrintService {
             'מסלול משלוח',
             fontHebrewBold,
             fontLatin,
-            fontSize: 24,
+            fontSize: 16,
             bold: true,
           ),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 4),
           _smartText(
             'LogiRoute - Logistics Management System',
             fontLatin,
             fontHebrew,
-            fontSize: 16,
+            fontSize: 10,
             color: PdfColors.grey600,
           ),
           pw.SizedBox(height: 12),
@@ -167,19 +167,20 @@ class PrintService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  _smartText('נהג: ${driver.name}', fontHebrewBold, fontLatin),
+                  _smartText('נהג: ${driver.name}', fontHebrewBold, fontLatin,
+                      fontSize: 10),
                   _smartText(
                     'קיבולת משאית: ${driver.palletCapacity ?? 0} משטחים',
                     fontHebrew,
                     fontLatin,
-                    fontSize: 12,
+                    fontSize: 9,
                   ),
                 ],
               ),
               pw.Row(
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  _smartText('תאריך: ', fontHebrew, fontLatin, fontSize: 12),
+                  _smartText('תאריך: ', fontHebrew, fontLatin, fontSize: 9),
                   pw.SizedBox(
                     width: 5,
                   ), // Добавляем отступ между текстом и датой
@@ -187,7 +188,7 @@ class PrintService {
                     textDirection: pw.TextDirection.ltr,
                     child: pw.Text(
                       _formatDate(DateTime.now().toLocal()),
-                      style: pw.TextStyle(font: fontLatin, fontSize: 12),
+                      style: pw.TextStyle(font: fontLatin, fontSize: 9),
                     ),
                   ),
                 ],
@@ -234,8 +235,8 @@ class PrintService {
                   children: [
                     // Порядковый номер - большой и заметный
                     pw.Container(
-                      width: 40,
-                      height: 40,
+                      width: 28,
+                      height: 28,
                       decoration: const pw.BoxDecoration(
                         color: PdfColors.blue700,
                         shape: pw.BoxShape.circle,
@@ -244,9 +245,8 @@ class PrintService {
                         child: pw.Text(
                           '$orderNumber',
                           style: pw.TextStyle(
-                            font:
-                                fontLatin, // Используем латинский шрифт для цифр
-                            fontSize: 20,
+                            font: fontLatin,
+                            fontSize: 13,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.white,
                           ),
@@ -264,25 +264,23 @@ class PrintService {
                             point.clientNumber ?? '000000',
                             fontHebrewBold,
                             fontLatin,
-                            fontSize: 14,
+                            fontSize: 10,
                             bold: true,
                           ),
-                          pw.SizedBox(height: 4),
-                          // Имя клиента
+                          pw.SizedBox(height: 2),
                           _smartText(
                             'לקוח: ${point.clientName}',
                             fontHebrewBold,
                             fontLatin,
-                            fontSize: 11,
+                            fontSize: 9,
                             bold: true,
                           ),
-                          pw.SizedBox(height: 4),
-                          // Адрес
+                          pw.SizedBox(height: 2),
                           _smartText(
                             'עד: ${point.address}',
                             fontHebrew,
                             fontLatin,
-                            fontSize: 10,
+                            fontSize: 8,
                           ),
                         ],
                       ),
@@ -366,7 +364,7 @@ class PrintService {
                       'סה"כ ללקוח: ${point.boxes} יח\'',
                       fontHebrewBold,
                       fontLatin,
-                      fontSize: 11,
+                      fontSize: 9,
                       bold: true,
                     ),
                   ],
@@ -422,10 +420,10 @@ class PrintService {
             'סיכום',
             fontHebrewBold,
             fontLatin,
-            fontSize: 16,
+            fontSize: 11,
             bold: true,
           ),
-          pw.SizedBox(height: 10),
+          pw.SizedBox(height: 6),
           // Главная строка - общее количество коробок
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -440,7 +438,7 @@ class PrintService {
                   'סה"כ קופסאות במסלול: $totalBoxes יח\'',
                   fontHebrewBold,
                   fontLatin,
-                  fontSize: 14,
+                  fontSize: 10,
                   bold: true,
                 ),
               ],
