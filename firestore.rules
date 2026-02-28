@@ -141,7 +141,9 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && (
         isSuperAdmin() ||
-        (isRole('admin') && request.resource.data.companyId == userDoc().companyId)
+        (isRole('admin') && request.resource.data.companyId == userDoc().companyId) ||
+        // Self-service onboarding: user creates their own profile
+        request.auth.uid == userId
       );
       allow update: if signedIn() && (
         request.auth.uid == userId ||
@@ -172,7 +174,14 @@ service cloud.firestore {
     // =========================================================
     match /companies/{companyId} {
       allow read: if isCompanyMember(companyId);
-      allow create: if signedIn() && (isSuperAdmin() || isRole('admin'));
+      // Self-service onboarding: newly registered user (no profile yet) can create
+      // their own company, provided they set themselves as createdBy.
+      // Existing admins/super_admin can also create companies.
+      allow create: if signedIn() && (
+        isSuperAdmin() ||
+        isRole('admin') ||
+        request.resource.data.createdBy == request.auth.uid
+      );
       allow update: if canAdminWrite(companyId);
       allow delete: if false;
 

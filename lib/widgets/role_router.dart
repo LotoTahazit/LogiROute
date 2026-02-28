@@ -37,6 +37,37 @@ class RoleRouter extends StatelessWidget {
       return const LoginScreen();
     }
 
+    // Auth user exists but no Firestore profile — account not provisioned
+    if (authService.userModel == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle_outlined,
+                  size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'החשבון לא נמצא במערכת',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                authService.currentUser!.email ?? '',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => authService.signOut(),
+                icon: const Icon(Icons.logout),
+                label: const Text('יציאה'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Initialize FCM for authenticated user
     FcmService().initialize(authService.currentUser!.uid);
 
