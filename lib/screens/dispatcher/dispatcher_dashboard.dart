@@ -23,6 +23,7 @@ import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
 import 'widgets/map_tab.dart';
+import '../../widgets/notification_bell.dart';
 
 class DispatcherDashboard extends StatefulWidget {
   const DispatcherDashboard({super.key});
@@ -788,6 +789,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.dispatcher),
           actions: [
+            NotificationBell(companyId: effectiveCompanyId),
             DispatcherAppBarActions(
               onSetWarehouseLocation: _setWarehouseLocation,
               authService: authService,

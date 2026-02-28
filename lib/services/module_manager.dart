@@ -15,10 +15,15 @@ class ModuleManager {
     return company.modules[moduleId];
   }
 
-  /// Проверить что billing активен (active или trial)
+  /// Проверить что billing активен (active, trial с валидным сроком, или grace)
   static bool isBillingActive(CompanySettings company) {
-    return company.billingStatus == 'active' ||
-        company.billingStatus == 'trial';
+    final status = company.billingStatus;
+    if (status == 'active' || status == 'grace') return true;
+    if (status == 'trial') {
+      if (company.trialEndsAt == null) return true;
+      return company.trialEndsAt!.isAfter(DateTime.now());
+    }
+    return false;
   }
 
   // === Convenience методы ===

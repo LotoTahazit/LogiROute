@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
 import '../../services/invoice_print_service.dart';
@@ -8,6 +9,8 @@ import '../../services/invoice_assignment_service.dart';
 import '../../services/company_context.dart';
 import '../../services/auth_service.dart';
 import '../../services/access_log_service.dart';
+import '../../services/cross_module_audit_service.dart';
+import '../../services/issuance_service.dart';
 import 'audit_log_screen.dart';
 import 'credit_note_dialog.dart';
 
@@ -115,6 +118,34 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
 
   /// יצירת קבלה עבור חשבונית קיימת
   Future<void> _createReceipt(String companyId, Invoice invoice) async {
+    // Проверка period lock: квитанция наследует deliveryDate от invoice
+    try {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .get();
+      final data = companyDoc.data() ?? {};
+      if (data['accountingLockedUntil'] != null) {
+        final lockedUntil =
+            (data['accountingLockedUntil'] as Timestamp).toDate();
+        if (!invoice.deliveryDate.isAfter(lockedUntil)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    '🔒 לא ניתן ליצור קבלה — תאריך המסמך (${DateFormat('dd/MM/yyyy').format(invoice.deliveryDate)}) נמצא בתקופה חשבונאית סגורה (עד ${DateFormat('dd/MM/yyyy').format(lockedUntil)})'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (_) {
+      // Не блокируем если не удалось прочитать — rules всё равно заблокируют
+    }
+
     // בחירת אופן תשלום
     String? paymentMethod = await showDialog<String>(
       context: context,
@@ -153,21 +184,35 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       final invoiceService = InvoiceService(companyId: companyId);
       final receiptId = await invoiceService.createInvoice(receipt, userUid);
 
-      try {
-        await invoiceService.finalizeInvoice(receiptId, userUid);
-      } catch (e) {
-        if (!e.toString().contains('already finalized')) rethrow;
+      // Серверная выдача номера (атомарно: counter + anchor + chain + audit)
+      final issuanceResult = await IssuanceService().issueDocument(
+        companyId: companyId,
+        invoiceId: receiptId,
+        counterKey: InvoiceDocumentType.receipt.name,
+      );
+
+      if (!issuanceResult.ok) {
+        throw Exception('שגיאה בהנפקת קבלה מהשרת');
       }
 
-      final finalizedReceipt = await invoiceService.getInvoice(receiptId);
-      if (finalizedReceipt != null && mounted) {
+      final issuedReceipt = await invoiceService.getInvoice(receiptId);
+      if (issuedReceipt != null && mounted) {
         final auth = context.read<AuthService>();
         await InvoicePrintService.printFirstTime(
-          finalizedReceipt,
+          issuedReceipt,
           actorUid: auth.currentUser?.uid,
           actorName: auth.userModel?.name,
         );
       }
+
+      // Cross-module audit log
+      CrossModuleAuditService(companyId: companyId).log(
+        moduleKey: 'accounting',
+        type: 'receipt_created',
+        entityCollection: 'receipts',
+        entityDocId: receiptId,
+        uid: userUid,
+      );
 
       await _loadInvoices(companyId);
       if (mounted) {

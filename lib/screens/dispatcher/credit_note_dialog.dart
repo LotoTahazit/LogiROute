@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cross_module_audit_service.dart';
+import '../../services/issuance_service.dart';
 import 'package:provider/provider.dart';
 
 /// דיאלוג יצירת זיכוי
@@ -32,6 +36,26 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
       return;
     }
 
+    // Проверка period lock: credit note наследует deliveryDate от оригинала
+    try {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(widget.originalInvoice.companyId)
+          .get();
+      final data = companyDoc.data() ?? {};
+      if (data['accountingLockedUntil'] != null) {
+        final lockedUntil =
+            (data['accountingLockedUntil'] as Timestamp).toDate();
+        if (!widget.originalInvoice.deliveryDate.isAfter(lockedUntil)) {
+          setState(() => _error =
+              '🔒 לא ניתן ליצור זיכוי — תאריך המסמך (${DateFormat('dd/MM/yyyy').format(widget.originalInvoice.deliveryDate)}) נמצא בתקופה חשבונאית סגורה (עד ${DateFormat('dd/MM/yyyy').format(lockedUntil)})');
+          return;
+        }
+      }
+    } catch (_) {
+      // Не блокируем — rules всё равно заблокируют
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -48,6 +72,26 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
         originalInvoice: widget.originalInvoice,
         reason: reason,
         createdBy: uid,
+      );
+
+      // Серверная выдача номера (атомарно: counter + anchor + chain + audit)
+      final issuanceResult = await IssuanceService().issueDocument(
+        companyId: widget.originalInvoice.companyId,
+        invoiceId: creditNoteId,
+        counterKey: InvoiceDocumentType.creditNote.name,
+      );
+
+      if (!issuanceResult.ok) {
+        throw Exception('שגיאה בהנפקת זיכוי מהשרת');
+      }
+
+      // Cross-module audit log
+      CrossModuleAuditService(companyId: widget.originalInvoice.companyId).log(
+        moduleKey: 'accounting',
+        type: 'credit_note_created',
+        entityCollection: 'credit_notes',
+        entityDocId: creditNoteId,
+        uid: uid,
       );
 
       if (mounted) {

@@ -13,7 +13,9 @@ enum InvoiceCopyType {
 enum InvoiceStatus {
   active, // פעיל - חשבונית תקפה
   cancelled, // מבוטל - חשבונית מבוטלת (סטורנו)
-  draft, // טיוטה - לא סופי (אם נדרש)
+  draft, // טיוטה - לא סופי
+  issued, // הונפק - מספר רץ הוקצה, לא ניתן לשינוי
+  voided, // בוטל לאחר הנפקה - soft void, לא מחיקה
 }
 
 /// סוג מסמך חשבונאי
@@ -150,6 +152,10 @@ class Invoice {
   final String?
       deliveryPointId; // ID точки доставки — для предотвращения дублей
   final String? paymentMethod; // אופן תשלום (для taxInvoiceReceipt)
+  // === Void fields (soft-void for issued docs) ===
+  final DateTime? voidedAt; // מתי בוטל (server time)
+  final String? voidedBy; // מי ביטל (uid)
+  final String? voidReason; // סיבת ביטול
 
   Invoice({
     required this.id,
@@ -188,6 +194,9 @@ class Invoice {
     this.assignmentResponseRaw,
     this.deliveryPointId,
     this.paymentMethod,
+    this.voidedAt,
+    this.voidedBy,
+    this.voidReason,
   });
 
   // Константа НДС в Израиле
@@ -336,6 +345,9 @@ class Invoice {
         'assignmentResponseRaw': assignmentResponseRaw,
       if (deliveryPointId != null) 'deliveryPointId': deliveryPointId,
       if (paymentMethod != null) 'paymentMethod': paymentMethod,
+      if (voidedAt != null) 'voidedAt': Timestamp.fromDate(voidedAt!),
+      if (voidedBy != null) 'voidedBy': voidedBy,
+      if (voidReason != null) 'voidReason': voidReason,
     };
   }
 
@@ -412,6 +424,11 @@ class Invoice {
       assignmentResponseRaw: map['assignmentResponseRaw'],
       deliveryPointId: map['deliveryPointId'],
       paymentMethod: map['paymentMethod'],
+      voidedAt: map['voidedAt'] != null
+          ? (map['voidedAt'] as Timestamp).toDate()
+          : null,
+      voidedBy: map['voidedBy'],
+      voidReason: map['voidReason'],
     );
   }
 
@@ -455,6 +472,9 @@ class Invoice {
     String? assignmentResponseRaw,
     String? deliveryPointId,
     String? paymentMethod,
+    DateTime? voidedAt,
+    String? voidedBy,
+    String? voidReason,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -496,6 +516,9 @@ class Invoice {
           assignmentResponseRaw ?? this.assignmentResponseRaw,
       deliveryPointId: deliveryPointId ?? this.deliveryPointId,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      voidedAt: voidedAt ?? this.voidedAt,
+      voidedBy: voidedBy ?? this.voidedBy,
+      voidReason: voidReason ?? this.voidReason,
     );
   }
 }

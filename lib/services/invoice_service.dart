@@ -4,9 +4,7 @@ import '../models/audit_event.dart';
 import '../models/document_link.dart';
 import 'summary_service.dart';
 import 'audit_log_service.dart';
-import 'integrity_chain_service.dart';
 import 'document_link_service.dart';
-import 'invoice_assignment_service.dart';
 
 /// Invoice Service with Israeli Tax Law Compliance
 /// תואם לדרישות רשות המסים הישראלית
@@ -15,9 +13,7 @@ class InvoiceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late final SummaryService _summaryService;
   late final AuditLogService _auditLogService;
-  late final IntegrityChainService _integrityChainService;
   late final DocumentLinkService _documentLinkService;
-  late final InvoiceAssignmentService _assignmentService;
 
   InvoiceService({required this.companyId}) {
     if (companyId.isEmpty) {
@@ -25,9 +21,7 @@ class InvoiceService {
     }
     _summaryService = SummaryService(companyId: companyId);
     _auditLogService = AuditLogService(companyId: companyId);
-    _integrityChainService = IntegrityChainService(companyId: companyId);
     _documentLinkService = DocumentLinkService(companyId: companyId);
-    _assignmentService = InvoiceAssignmentService(companyId: companyId);
   }
 
   /// Хелпер: возвращает ссылку на вложенную коллекцию счетов компании
@@ -40,48 +34,9 @@ class InvoiceService {
         .collection('invoices');
   }
 
-  /// Хелпер: возвращает ссылку на счетчик по типу документа
-  DocumentReference<Map<String, dynamic>> _counterRef(
-      InvoiceDocumentType docType) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('accounting')
-        .doc('_root')
-        .collection('counters')
-        .doc(docType.name);
-  }
-
-  /// הקצאת מספר רץ אטומית לפי סוג מסמך
-  /// סדרות נפרדות: חשבונית מס, קבלה, תעודת משלוח, זיכוי
-  Future<int> _getNextSequentialNumberForType(
-      InvoiceDocumentType docType) async {
-    try {
-      final counterRef = _counterRef(docType);
-
-      return await _firestore.runTransaction((transaction) async {
-        final counterDoc = await transaction.get(counterRef);
-
-        int nextNumber;
-        if (!counterDoc.exists) {
-          nextNumber = 1;
-          transaction.set(counterRef, {'lastNumber': nextNumber});
-        } else {
-          nextNumber = (counterDoc.data()?['lastNumber'] ?? 0) + 1;
-          transaction.update(counterRef, {'lastNumber': nextNumber});
-        }
-
-        return nextNumber;
-      });
-    } catch (e) {
-      print(
-          '❌ [Invoice] Error getting sequential number for ${docType.name}: $e');
-      rethrow;
-    }
-  }
-
-  /// Create חשבונית with sequential numbering and audit log
-  /// יצירת חשבונית עם מספר רץ ויומן שינויים
+  /// Create חשבונית as draft (без номера).
+  /// Номер выдаётся сервером через issueInvoice callable.
+  /// יצירת חשבונית כטיוטה — מספר רץ יוקצה בשרת
   Future<String> createInvoice(Invoice invoice, String createdByUid) async {
     try {
       // Проверяем companyId
@@ -95,45 +50,39 @@ class InvoiceService {
         final existing = await _invoicesCollection()
             .where('deliveryPointId', isEqualTo: invoice.deliveryPointId)
             .where('documentType', isEqualTo: invoice.documentType.name)
-            .where('status', isEqualTo: InvoiceStatus.active.name)
+            .where('status',
+                whereIn: [InvoiceStatus.active.name, 'issued', 'draft'])
             .limit(1)
             .get();
         if (existing.docs.isNotEmpty) {
-          // Документ уже существует — возвращаем его ID
           print(
               '⚠️ [Invoice] Duplicate prevented: ${invoice.documentType.name} for deliveryPoint ${invoice.deliveryPointId} already exists');
           return existing.docs.first.id;
         }
       }
 
-      // Get sequential number per document type
-      final sequentialNumber =
-          await _getNextSequentialNumberForType(invoice.documentType);
-
-      // Create invoice with sequential number
-      final invoiceWithNumber = invoice.copyWith(
-        sequentialNumber: sequentialNumber,
-        status: InvoiceStatus.active,
+      // Создаём как draft — sequentialNumber=0, status=draft
+      final draftInvoice = invoice.copyWith(
+        sequentialNumber: 0,
+        status: InvoiceStatus.draft,
       );
 
-      // Резервируем ID документа заранее для log-before-action
       final docRef = _invoicesCollection().doc();
 
       // רישום ביומן ביקורת ПЕРЕД созданием — log-before-action
       await _auditLogService.logEvent(
         entityId: docRef.id,
-        entityType: invoiceWithNumber.documentType.name,
+        entityType: draftInvoice.documentType.name,
         eventType: AuditEventType.created,
         actorUid: createdByUid,
-        metadata: {'sequentialNumber': sequentialNumber},
+        metadata: {'status': 'draft'},
       );
 
-      // Создаём документ
-      await docRef.set(invoiceWithNumber.toMap());
+      await docRef.set(draftInvoice.toMap());
 
       // ⚡ OPTIMIZATION: Update daily summary
       try {
-        await _summaryService.updateInvoiceSummary(invoiceWithNumber);
+        await _summaryService.updateInvoiceSummary(draftInvoice);
       } catch (e) {
         print('⚠️ [Invoice] Failed to update summary (non-critical): $e');
       }
@@ -207,6 +156,64 @@ class InvoiceService {
     throw UnsupportedError(
       'Invoice deletion is not allowed per Israeli tax law. Use cancelInvoice instead.',
     );
+  }
+
+  /// Soft-void issued document.
+  /// ביטול מסמך שהונפק — status=voided, לא מחיקה.
+  /// Only issued documents can be voided. Voided docs are frozen in rules.
+  Future<void> voidInvoice(
+    String id,
+    String voidedByUid,
+    String reason, {
+    String? voidedByName,
+  }) async {
+    try {
+      final invoice = await getInvoice(id);
+      if (invoice == null) throw Exception('Invoice not found');
+
+      // Only issued docs can be voided
+      if (invoice.status != InvoiceStatus.issued) {
+        throw Exception(
+            'רק מסמך שהונפק ניתן לביטול (סטטוס נוכחי: ${invoice.status.name})');
+      }
+
+      // Audit log before action
+      await _auditLogService.logEvent(
+        entityId: id,
+        entityType: invoice.documentType.name,
+        eventType: AuditEventType.cancelled,
+        actorUid: voidedByUid,
+        actorName: voidedByName,
+        metadata: {'reason': reason, 'action': 'voided'},
+      );
+
+      await _invoicesCollection().doc(id).update({
+        'status': InvoiceStatus.voided.name,
+        'voidedAt': FieldValue.serverTimestamp(),
+        'voidedBy': voidedByUid,
+        'voidReason': reason,
+      });
+
+      // Cross-module audit: invoice_voided
+      try {
+        await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .collection('audit')
+            .add({
+          'moduleKey': 'accounting',
+          'type': 'invoice_voided',
+          'entity': {'collection': 'invoices', 'docId': id},
+          'createdBy': voidedByUid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        print('⚠️ [Invoice] Audit write failed (non-blocking): $e');
+      }
+    } catch (e) {
+      print('❌ [Invoice] Error voiding invoice: $e');
+      rethrow;
+    }
   }
 
   /// Add audit log entry to invoice
@@ -377,68 +384,21 @@ class InvoiceService {
     }
   }
 
-  /// סיום מסמך: מגדיר finalizedAt + מחשב immutableSnapshotHash
-  /// לאחר סיום — שדות מוגנים לא ניתנים לשינוי (Firestore Rules)
-  Future<void> finalizeInvoice(String invoiceId, String finalizedBy) async {
-    try {
-      final invoice = await getInvoice(invoiceId);
-      if (invoice == null) {
-        throw Exception('Invoice not found');
-      }
-      if (invoice.isFinalized) {
-        throw Exception('Invoice already finalized');
-      }
-
-      final hash = invoice.computeSnapshotHash();
-
-      // רישום ביומן ביקורת ПЕРЕД финализацией — log-before-action
-      await _auditLogService.logEvent(
-        entityId: invoiceId,
-        entityType: invoice.documentType.name,
-        eventType: AuditEventType.finalized,
-        actorUid: finalizedBy,
-        metadata: {'snapshotHash': hash},
-      );
-
-      // Финализация с serverTimestamp для clock integrity
-      await _invoicesCollection().doc(invoiceId).update({
-        'finalizedAt': FieldValue.serverTimestamp(),
-        'finalizedBy': finalizedBy,
-        'immutableSnapshotHash': hash,
-      });
-
-      // הוספה לשרשרת שלמות
-      await _integrityChainService.appendToChain(
-        documentId: invoiceId,
-        documentType: invoice.documentType.name,
-        sequentialNumber: invoice.sequentialNumber,
-        documentHash: hash,
-      );
-
-      // === בקשת מספר הקצאה אוטומטית אם נדרש ===
-      if (_assignmentService.isAssignmentRequired(invoice)) {
-        try {
-          await _assignmentService.requestAssignmentNumber(invoiceId);
-        } catch (e) {
-          print('⚠️ [Invoice] Assignment request failed (non-blocking): $e');
-        }
-      }
-    } catch (e) {
-      print('❌ [Invoice] Error finalizing invoice: $e');
-      rethrow;
-    }
-  }
-
   /// יצירת זיכוי (credit note) — מסמך חדש עם סכומים שליליים
   /// המסמך המקורי לא נמחק ולא משתנה
+  /// Создаётся как draft — номер выдаёт сервер через issueInvoice callable.
   Future<String> createCreditNote({
     required Invoice originalInvoice,
     required String reason,
     required String createdBy,
   }) async {
     try {
-      if (originalInvoice.status != InvoiceStatus.active) {
-        throw Exception('ניתן ליצור זיכוי רק למסמך פעיל');
+      if (originalInvoice.status != InvoiceStatus.active &&
+          originalInvoice.status != InvoiceStatus.draft) {
+        // Разрешаем issued тоже (после миграции на серверную выдачу)
+        if (originalInvoice.sequentialNumber == 0) {
+          throw Exception('ניתן ליצור זיכוי רק למסמך שהונפק');
+        }
       }
       if (originalInvoice.documentType == InvoiceDocumentType.creditNote) {
         throw Exception('לא ניתן ליצור זיכוי לזיכוי');
@@ -446,9 +406,6 @@ class InvoiceService {
       if (reason.isEmpty) {
         throw Exception('חובה לציין סיבה');
       }
-
-      final sequentialNumber =
-          await _getNextSequentialNumberForType(InvoiceDocumentType.creditNote);
 
       // פריטים עם מחיר שלילי (סטורנו)
       final creditItems = originalInvoice.items
@@ -464,7 +421,7 @@ class InvoiceService {
       final creditNote = Invoice(
         id: '',
         companyId: companyId,
-        sequentialNumber: sequentialNumber,
+        sequentialNumber: 0, // Draft — номер выдаст сервер
         clientName: originalInvoice.clientName,
         clientNumber: originalInvoice.clientNumber,
         address: originalInvoice.address,
@@ -479,7 +436,7 @@ class InvoiceService {
         createdBy: createdBy,
         documentType: InvoiceDocumentType.creditNote,
         linkedInvoiceId: originalInvoice.id,
-        status: InvoiceStatus.active,
+        status: InvoiceStatus.draft,
       );
 
       // Резервируем ID для log-before-action
@@ -511,7 +468,7 @@ class InvoiceService {
         companyId: companyId,
         sourceDocumentId: docRef.id,
         sourceDocumentType: 'creditNote',
-        sourceSequentialNumber: sequentialNumber,
+        sourceSequentialNumber: 0, // Будет обновлён после issuance
         targetDocumentId: originalInvoice.id,
         targetDocumentType: originalInvoice.documentType.name,
         targetSequentialNumber: originalInvoice.sequentialNumber,

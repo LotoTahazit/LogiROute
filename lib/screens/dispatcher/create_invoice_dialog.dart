@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/delivery_point.dart';
 import '../../models/invoice.dart';
 import '../../models/user_model.dart';
@@ -8,6 +9,7 @@ import '../../services/price_service.dart';
 import '../../services/invoice_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
+import '../../services/issuance_service.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
   final DeliveryPoint point;
@@ -40,6 +42,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   bool _paymentReceived =
       false; // תשלום התקבל — переключает тип на taxInvoiceReceipt
   String _paymentMethod = 'מזומן'; // אופן תשלום
+  DateTime? _accountingLockedUntil; // период закрытия бухгалтерии
+  String? _periodLockError; // ошибка если дата в закрытом периоде
 
   /// Эффективный тип документа: если оплата получена — taxInvoiceReceipt
   InvoiceDocumentType get _effectiveDocumentType {
@@ -80,14 +84,35 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     setState(() => _isLoading = true);
 
     try {
+      // Загружаем accountingLockedUntil из company doc
+      final companyCtx = CompanyContext.of(context);
+      final companyId = companyCtx.effectiveCompanyId ?? '';
+
+      try {
+        final companyDoc = await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .get();
+        final data = companyDoc.data() ?? {};
+        if (data['accountingLockedUntil'] != null) {
+          _accountingLockedUntil =
+              (data['accountingLockedUntil'] as Timestamp).toDate();
+          // Если дефолтная дата попадает в закрытый период — сдвигаем
+          if (_accountingLockedUntil != null &&
+              !_deliveryDate.isAfter(_accountingLockedUntil!)) {
+            _deliveryDate =
+                _accountingLockedUntil!.add(const Duration(days: 1));
+          }
+        }
+      } catch (_) {
+        // Не блокируем загрузку если не удалось прочитать lock
+      }
+
       if (widget.point.boxTypes == null || widget.point.boxTypes!.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      // ✅ Используем CompanyContext для получения effectiveCompanyId
-      final companyCtx = CompanyContext.of(context);
-      final companyId = companyCtx.effectiveCompanyId ?? '';
       final priceService = PriceService(companyId: companyId);
       final items = <InvoiceItem>[];
 
@@ -139,6 +164,17 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     });
   }
 
+  /// Проверка: дата не попадает в закрытый бухгалтерский период
+  void _validatePeriodLock() {
+    if (_accountingLockedUntil != null &&
+        !_deliveryDate.isAfter(_accountingLockedUntil!)) {
+      _periodLockError =
+          'תאריך ${DateFormat('dd/MM/yyyy').format(_deliveryDate)} נמצא בתקופה חשבונאית סגורה (עד ${DateFormat('dd/MM/yyyy').format(_accountingLockedUntil!)}). בחר תאריך מאוחר יותר.';
+    } else {
+      _periodLockError = null;
+    }
+  }
+
   double get _subtotalBeforeVAT {
     final total = _items.fold(0.0, (sum, item) => sum + item.totalBeforeVAT);
     final discountPercent = double.tryParse(_discountController.text) ?? 0.0;
@@ -175,9 +211,9 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       final invoice = Invoice(
         id: '',
         companyId: companyId,
-        sequentialNumber: 0, // Will be set by service
+        sequentialNumber: 0, // Draft — номер выдаст сервер
         clientName: widget.point.clientName,
-        clientNumber: widget.point.clientNumber ?? '', // Берем из DeliveryPoint
+        clientNumber: widget.point.clientNumber ?? '',
         address: widget.point.address,
         driverName: widget.driver.name,
         truckNumber: widget.driver.vehicleNumber ?? '',
@@ -195,36 +231,40 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         documentType: _effectiveDocumentType,
         deliveryPointId: widget.point.id,
         paymentMethod: _paymentReceived ? _paymentMethod : null,
+        status: InvoiceStatus.draft,
       );
 
       // Создаём сервис с companyId
       final invoiceService = InvoiceService(companyId: companyId);
 
-      // Create invoice and get the ID
+      // 1. Создаём draft
       final invoiceId = await invoiceService.createInvoice(invoice, userUid);
 
-      // Финализируем (если уже финализирован — пропускаем)
-      try {
-        await invoiceService.finalizeInvoice(invoiceId, userUid);
-      } catch (e) {
-        // Если уже финализирован — это дубликат, просто продолжаем
-        if (!e.toString().contains('already finalized')) rethrow;
+      // 2. Вызываем серверную функцию issueInvoice (атомарно: номер + anchor + chain)
+      final issuanceResult = await IssuanceService().issueDocument(
+        companyId: companyId,
+        invoiceId: invoiceId,
+        counterKey: _effectiveDocumentType.name,
+      );
+
+      if (!issuanceResult.ok) {
+        throw Exception('שגיאה בהנפקת מסמך מהשרת');
       }
 
-      // Загружаем актуальный объект с обновлённым assignmentStatus
-      final finalizedInvoice = await invoiceService.getInvoice(invoiceId);
+      // Загружаем актуальный объект с номером и статусом issued
+      final issuedInvoice = await invoiceService.getInvoice(invoiceId);
 
       if (mounted) {
         Navigator.pop(
-            context, finalizedInvoice ?? invoice.copyWith(id: invoiceId));
+            context, issuedInvoice ?? invoice.copyWith(id: invoiceId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_effectiveDocumentType == InvoiceDocumentType.delivery
-                ? '✅ תעודת משלוח נוצרה בהצלחה'
+                ? '✅ תעודת משלוח נוצרה בהצלחה (#${issuanceResult.docNumber})'
                 : _effectiveDocumentType ==
                         InvoiceDocumentType.taxInvoiceReceipt
-                    ? '✅ חשבונית מס / קבלה נוצרה בהצלחה'
-                    : '✅ חשבונית נוצרה בהצלחה'),
+                    ? '✅ חשבונית מס / קבלה נוצרה בהצלחה (#${issuanceResult.docNumber})'
+                    : '✅ חשבונית נוצרה בהצלחה (#${issuanceResult.docNumber})'),
             backgroundColor: Colors.green,
           ),
         );
@@ -301,7 +341,9 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           child: const Text('ביטול'),
         ),
         ElevatedButton.icon(
-          onPressed: _items.isEmpty || _isCreating ? null : _createInvoice,
+          onPressed: _items.isEmpty || _isCreating || _periodLockError != null
+              ? null
+              : _createInvoice,
           icon: _isCreating
               ? const SizedBox(
                   width: 16,
@@ -337,27 +379,51 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   }
 
   Widget _buildDatePicker() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'תאריך אספקה: ',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text(
+              'תאריך אספקה: ',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            TextButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _deliveryDate,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _deliveryDate = picked;
+                    _validatePeriodLock();
+                  });
+                }
+              },
+              icon: const Icon(Icons.calendar_today),
+              label: Text(DateFormat('dd/MM/yyyy').format(_deliveryDate)),
+            ),
+          ],
         ),
-        TextButton.icon(
-          onPressed: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: _deliveryDate,
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-            );
-            if (picked != null) {
-              setState(() => _deliveryDate = picked);
-            }
-          },
-          icon: const Icon(Icons.calendar_today),
-          label: Text(DateFormat('dd/MM/yyyy').format(_deliveryDate)),
-        ),
+        if (_periodLockError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.lock, size: 16, color: Colors.red),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _periodLockError!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

@@ -13,6 +13,7 @@ import 'widgets/user_list_widget.dart';
 import 'widgets/admin_filters_widget.dart';
 import 'dialogs/add_user_dialog.dart';
 import 'dialogs/edit_user_dialog.dart';
+import '../../widgets/notification_bell.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -484,6 +485,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           backgroundColor: Colors.blue,
           elevation: 0,
           actions: [
+            NotificationBell(
+              companyId: context
+                      .read<CompanySelectionService>()
+                      .getEffectiveCompanyId(authService) ??
+                  '',
+            ),
             AdminAppBarActions(
               onAddUser: _showAddUserDialog,
               onRefresh: _loadUsers,

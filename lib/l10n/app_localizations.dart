@@ -3016,6 +3016,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Template Downloaded'**
   String get templateDownloaded;
+
+  /// No description provided for @billingAndLocks.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing & Locks'**
+  String get billingAndLocks;
+
+  /// No description provided for @moduleManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Module Management'**
+  String get moduleManagement;
+
+  /// No description provided for @subscriptionManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription Management'**
+  String get subscriptionManagement;
+
+  /// No description provided for @subscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get subscription;
+
+  /// No description provided for @currentPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Plan'**
+  String get currentPlan;
+
+  /// No description provided for @changePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Plan'**
+  String get changePlan;
+
+  /// No description provided for @changePlanConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Change plan?'**
+  String get changePlanConfirm;
+
+  /// No description provided for @payNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay Now'**
+  String get payNow;
+
+  /// No description provided for @contactSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Support'**
+  String get contactSupport;
+
+  /// No description provided for @paymentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment History'**
+  String get paymentHistory;
+
+  /// No description provided for @noPaymentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'No payment history'**
+  String get noPaymentHistory;
+
+  /// No description provided for @reports.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports'**
+  String get reports;
+
+  /// No description provided for @integrityCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrity Check'**
+  String get integrityCheck;
+
+  /// No description provided for @documentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Document Type'**
+  String get documentType;
+
+  /// No description provided for @checkRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Range'**
+  String get checkRange;
+
+  /// No description provided for @backupManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup Management'**
+  String get backupManagement;
+
+  /// No description provided for @backupHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup History'**
+  String get backupHistory;
+
+  /// No description provided for @noBackups.
+  ///
+  /// In en, this message translates to:
+  /// **'No backups'**
+  String get noBackups;
+
+  /// No description provided for @createBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Backup'**
+  String get createBackup;
+
+  /// No description provided for @backupLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup Location'**
+  String get backupLocation;
+
+  /// No description provided for @backupCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup created successfully'**
+  String get backupCreated;
+
+  /// No description provided for @restoreTest.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Test'**
+  String get restoreTest;
+
+  /// No description provided for @restoreTestHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Test History'**
+  String get restoreTestHistory;
+
+  /// No description provided for @complianceReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance Report'**
+  String get complianceReport;
+
+  /// No description provided for @dataRetention.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Retention Policy'**
+  String get dataRetention;
+
+  /// No description provided for @retentionCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Retention Check'**
+  String get retentionCheck;
+
+  /// No description provided for @retentionHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Check History'**
+  String get retentionHistory;
+
+  /// No description provided for @runCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Run Check'**
+  String get runCheck;
+
+  /// No description provided for @compliant.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliant'**
+  String get compliant;
+
+  /// No description provided for @notCompliant.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Compliant'**
+  String get notCompliant;
+
+  /// No description provided for @totalDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Documents'**
+  String get totalDocuments;
+
+  /// No description provided for @oldestDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest Document'**
+  String get oldestDocument;
+
+  /// No description provided for @sequentialGaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequential Gaps'**
+  String get sequentialGaps;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark All Read'**
+  String get markAllRead;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get noNotifications;
+
+  /// No description provided for @upgradePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade Plan'**
+  String get upgradePlan;
+
+  /// No description provided for @accountSuspended.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Suspended'**
+  String get accountSuspended;
+
+  /// No description provided for @accountGrace.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace Period'**
+  String get accountGrace;
+
+  /// No description provided for @trialEnding.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial Ending'**
+  String get trialEnding;
+
+  /// No description provided for @savePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get savePlan;
+
+  /// No description provided for @cancelAction2.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelAction2;
 }
 
 class _AppLocalizationsDelegate

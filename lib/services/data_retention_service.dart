@@ -7,12 +7,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - בדיקה שמסמכים לא נמחקו לפני תום תקופת השמירה
 /// - התראה כשמסמכים מתקרבים לסוף תקופת השמירה
 /// - רישום בדיקות תקופתיות (compliance audit trail)
+///
+/// SAFETY RAILS — коллекции, которые НИКОГДА не удаляются retention job:
+///   - audit (cross-module audit log)
+///   - accounting/_root/integrity_chain (hash chain)
+///   - accounting/_root/integrity_anchors
+///   - payment_events (payment ledger)
+///   - notifications (in-app inbox — server-only create)
+/// Retention проверяет ТОЛЬКО accounting/_root/invoices (read-only check).
 class DataRetentionService {
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// תקופת שמירה מינימלית בשנים (חוק ניהול ספרים)
   static const int minimumRetentionYears = 7;
+
+  /// Коллекции, которые ЗАПРЕЩЕНО удалять/модифицировать retention job.
+  /// Используется для safety check в runRetentionCheck.
+  static const Set<String> protectedCollections = {
+    'audit',
+    'integrity_chain',
+    'integrity_anchors',
+    'payment_events',
+    'notifications',
+    'invoices',
+    'receipts',
+    'credit_notes',
+  };
 
   DataRetentionService({required this.companyId});
 

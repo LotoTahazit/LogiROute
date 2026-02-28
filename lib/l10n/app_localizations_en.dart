@@ -1526,4 +1526,130 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get templateDownloaded => 'Template Downloaded';
+
+  @override
+  String get billingAndLocks => 'Billing & Locks';
+
+  @override
+  String get moduleManagement => 'Module Management';
+
+  @override
+  String get subscriptionManagement => 'Subscription Management';
+
+  @override
+  String get subscription => 'Subscription';
+
+  @override
+  String get currentPlan => 'Current Plan';
+
+  @override
+  String get changePlan => 'Change Plan';
+
+  @override
+  String get changePlanConfirm => 'Change plan?';
+
+  @override
+  String get payNow => 'Pay Now';
+
+  @override
+  String get contactSupport => 'Contact Support';
+
+  @override
+  String get paymentHistory => 'Payment History';
+
+  @override
+  String get noPaymentHistory => 'No payment history';
+
+  @override
+  String get reports => 'Reports';
+
+  @override
+  String get integrityCheck => 'Integrity Check';
+
+  @override
+  String get documentType => 'Document Type';
+
+  @override
+  String get checkRange => 'Check Range';
+
+  @override
+  String get backupManagement => 'Backup Management';
+
+  @override
+  String get backupHistory => 'Backup History';
+
+  @override
+  String get noBackups => 'No backups';
+
+  @override
+  String get createBackup => 'Create Backup';
+
+  @override
+  String get backupLocation => 'Backup Location';
+
+  @override
+  String get backupCreated => 'Backup created successfully';
+
+  @override
+  String get restoreTest => 'Restore Test';
+
+  @override
+  String get restoreTestHistory => 'Restore Test History';
+
+  @override
+  String get complianceReport => 'Compliance Report';
+
+  @override
+  String get dataRetention => 'Data Retention Policy';
+
+  @override
+  String get retentionCheck => 'Retention Check';
+
+  @override
+  String get retentionHistory => 'Check History';
+
+  @override
+  String get runCheck => 'Run Check';
+
+  @override
+  String get compliant => 'Compliant';
+
+  @override
+  String get notCompliant => 'Not Compliant';
+
+  @override
+  String get totalDocuments => 'Total Documents';
+
+  @override
+  String get oldestDocument => 'Oldest Document';
+
+  @override
+  String get sequentialGaps => 'Sequential Gaps';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get markAllRead => 'Mark All Read';
+
+  @override
+  String get noNotifications => 'No notifications';
+
+  @override
+  String get upgradePlan => 'Upgrade Plan';
+
+  @override
+  String get accountSuspended => 'Account Suspended';
+
+  @override
+  String get accountGrace => 'Grace Period';
+
+  @override
+  String get trialEnding => 'Trial Ending';
+
+  @override
+  String get savePlan => 'Save';
+
+  @override
+  String get cancelAction2 => 'Cancel';
 }

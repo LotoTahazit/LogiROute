@@ -16,6 +16,7 @@ import 'inventory_count_screen.dart';
 // Условный импорт только для веба
 import '../../services/export_service.dart'
     if (dart.library.io) '../../services/export_service_stub.dart';
+import '../../widgets/notification_bell.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -127,6 +128,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       appBar: AppBar(
         title: Text(l10n.warehouseInventoryManagement),
         actions: [
+          NotificationBell(
+            companyId: CompanyContext.of(context).effectiveCompanyId ?? '',
+          ),
           // Инвентаризация (ספירת מלאי)
           IconButton(
             icon: const Icon(Icons.fact_check),

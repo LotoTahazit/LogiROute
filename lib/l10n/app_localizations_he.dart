@@ -1520,4 +1520,130 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get templateDownloaded => 'תבנית הורדה בהצלחה';
+
+  @override
+  String get billingAndLocks => 'חיוב ונעילות';
+
+  @override
+  String get moduleManagement => 'ניהול מודולים';
+
+  @override
+  String get subscriptionManagement => 'ניהול מנוי';
+
+  @override
+  String get subscription => 'מנוי';
+
+  @override
+  String get currentPlan => 'תוכנית נוכחית';
+
+  @override
+  String get changePlan => 'שנה תוכנית';
+
+  @override
+  String get changePlanConfirm => 'לשנות תוכנית?';
+
+  @override
+  String get payNow => 'שלם עכשיו';
+
+  @override
+  String get contactSupport => 'צור קשר עם התמיכה';
+
+  @override
+  String get paymentHistory => 'היסטוריית תשלומים';
+
+  @override
+  String get noPaymentHistory => 'אין היסטוריית תשלומים';
+
+  @override
+  String get reports => 'דוחות';
+
+  @override
+  String get integrityCheck => 'בדיקת שלמות';
+
+  @override
+  String get documentType => 'סוג מסמך';
+
+  @override
+  String get checkRange => 'טווח בדיקה';
+
+  @override
+  String get backupManagement => 'ניהול גיבויים';
+
+  @override
+  String get backupHistory => 'היסטוריית גיבויים';
+
+  @override
+  String get noBackups => 'אין גיבויים';
+
+  @override
+  String get createBackup => 'צור גיבוי';
+
+  @override
+  String get backupLocation => 'מיקום גיבוי';
+
+  @override
+  String get backupCreated => 'גיבוי נוצר בהצלחה';
+
+  @override
+  String get restoreTest => 'בדיקת שחזור';
+
+  @override
+  String get restoreTestHistory => 'היסטוריית בדיקות שחזור';
+
+  @override
+  String get complianceReport => 'דוח עמידה';
+
+  @override
+  String get dataRetention => 'מדיניות שמירת נתונים';
+
+  @override
+  String get retentionCheck => 'בדיקת שמירה';
+
+  @override
+  String get retentionHistory => 'היסטוריית בדיקות';
+
+  @override
+  String get runCheck => 'הפעל בדיקה';
+
+  @override
+  String get compliant => 'תקין';
+
+  @override
+  String get notCompliant => 'לא תקין';
+
+  @override
+  String get totalDocuments => 'סה\"כ מסמכים';
+
+  @override
+  String get oldestDocument => 'מסמך ישן ביותר';
+
+  @override
+  String get sequentialGaps => 'פערים במספור';
+
+  @override
+  String get notifications => 'התראות';
+
+  @override
+  String get markAllRead => 'סמן הכל כנקרא';
+
+  @override
+  String get noNotifications => 'אין התראות';
+
+  @override
+  String get upgradePlan => 'שדרג תוכנית';
+
+  @override
+  String get accountSuspended => 'החשבון הושעה';
+
+  @override
+  String get accountGrace => 'תקופת חסד';
+
+  @override
+  String get trialEnding => 'תקופת ניסיון מסתיימת';
+
+  @override
+  String get savePlan => 'שמור';
+
+  @override
+  String get cancelAction2 => 'ביטול';
 }

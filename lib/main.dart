@@ -8,12 +8,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
 import 'services/company_selection_service.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/admin/admin_dashboard.dart';
-import 'screens/dispatcher/dispatcher_dashboard.dart';
-import 'screens/driver/driver_dashboard.dart';
-import 'screens/warehouse/warehouse_dashboard.dart';
-import 'widgets/module_guard.dart';
+import 'widgets/role_router.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -115,51 +110,6 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
-      builder: (context, authService, _) {
-        if (authService.isLoading) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-
-        if (authService.currentUser == null) {
-          return const LoginScreen();
-        }
-
-        final role = authService.userRole;
-        final viewAs = authService.viewAsRole ?? role;
-
-        // Получаем companyId для проверки модулей
-        final companyService = context.read<CompanySelectionService>();
-        final companyId =
-            companyService.getEffectiveCompanyId(authService) ?? '';
-
-        switch (viewAs) {
-          case 'admin':
-          case 'super_admin':
-            return const AdminDashboard(); // admin видит всё
-          case 'dispatcher':
-            return ModuleGuard(
-              companyId: companyId,
-              requiredModule: 'logistics',
-              child: const DispatcherDashboard(),
-            );
-          case 'driver':
-            return ModuleGuard(
-              companyId: companyId,
-              requiredModule: 'logistics',
-              child: const DriverDashboard(),
-            );
-          case 'warehouse_keeper':
-            return ModuleGuard(
-              companyId: companyId,
-              requiredModule: 'warehouse',
-              child: const WarehouseDashboard(),
-            );
-          default:
-            return const LoginScreen();
-        }
-      },
-    );
+    return const RoleRouter();
   }
 }

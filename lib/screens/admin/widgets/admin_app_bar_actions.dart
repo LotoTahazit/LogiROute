@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import '../../warehouse/warehouse_dashboard.dart';
 import '../../shared/inventory_report_screen.dart';
 import '../analytics_screen.dart';
+import '../../../screens/shared/reports_screen.dart';
 import '../inventory_counts_list_screen.dart';
 import '../company_settings_screen.dart';
 import '../archive_management_screen.dart';
+import '../billing_locks_screen.dart';
+import '../module_toggle_screen.dart';
+import '../subscription_screen.dart';
+import '../billing/billing_portal_screen.dart';
+import '../backup_management_screen.dart';
+import '../data_retention_screen.dart';
+import '../support_console_screen.dart';
+import '../../../screens/shared/client_management_screen.dart';
+import '../integrity_check_screen.dart';
 import '../nested_migration_screen.dart';
 import '../final_migration_screen.dart';
 import '../product_management_screen.dart';
@@ -52,6 +62,10 @@ class AdminAppBarActions extends StatelessWidget {
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
               break;
+            case 'reports':
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ReportsScreen()));
+              break;
             case 'warehouse':
               Navigator.push(
                   context,
@@ -94,6 +108,54 @@ class AdminAppBarActions extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (_) => const ArchiveManagementScreen()));
               break;
+            case 'billing_locks':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const BillingLocksScreen()));
+              break;
+            case 'module_toggle':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ModuleToggleScreen()));
+              break;
+            case 'subscription':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SubscriptionScreen()));
+              break;
+            case 'billing_portal':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const BillingPortalScreen()));
+              break;
+            case 'client_management':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ClientManagementScreen()));
+              break;
+            case 'backup':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const BackupManagementScreen()));
+              break;
+            case 'data_retention':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const DataRetentionScreen()));
+              break;
+            case 'integrity_check':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const IntegrityCheckScreen()));
+              break;
             case 'nested_migration':
               Navigator.push(
                   context,
@@ -105,6 +167,12 @@ class AdminAppBarActions extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (_) => const FinalMigrationScreen()));
+              break;
+            case 'support_console':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SupportConsoleScreen()));
               break;
             case 'logout':
               authService.signOut();
@@ -146,6 +214,16 @@ class AdminAppBarActions extends StatelessWidget {
                 const Icon(Icons.analytics),
                 const SizedBox(width: 8),
                 Text(l10n.analytics),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'reports',
+            child: Row(
+              children: [
+                const Icon(Icons.assessment),
+                const SizedBox(width: 8),
+                const Text('דוחות'),
               ],
             ),
           ),
@@ -219,6 +297,91 @@ class AdminAppBarActions extends StatelessWidget {
               ],
             ),
           ),
+          PopupMenuItem(
+            value: 'subscription',
+            child: Row(
+              children: [
+                const Icon(Icons.card_membership),
+                const SizedBox(width: 8),
+                const Text('ניהול מנוי'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'billing_portal',
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long),
+                const SizedBox(width: 8),
+                const Text('פורטל חיוב'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'client_management',
+            child: Row(
+              children: [
+                const Icon(Icons.people),
+                const SizedBox(width: 8),
+                Text(l10n.clientManagement),
+              ],
+            ),
+          ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'backup',
+              child: Row(
+                children: [
+                  const Icon(Icons.backup),
+                  const SizedBox(width: 8),
+                  const Text('ניהול גיבויים'),
+                ],
+              ),
+            ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'data_retention',
+              child: Row(
+                children: [
+                  const Icon(Icons.policy),
+                  const SizedBox(width: 8),
+                  const Text('מדיניות שמירה'),
+                ],
+              ),
+            ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'billing_locks',
+              child: Row(
+                children: [
+                  const Icon(Icons.payments),
+                  const SizedBox(width: 8),
+                  const Text('Billing & Locks'),
+                ],
+              ),
+            ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'module_toggle',
+              child: Row(
+                children: [
+                  const Icon(Icons.toggle_on),
+                  const SizedBox(width: 8),
+                  const Text('ניהול מודולים'),
+                ],
+              ),
+            ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'integrity_check',
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user),
+                  const SizedBox(width: 8),
+                  const Text('בדיקת שלמות'),
+                ],
+              ),
+            ),
           if (authService.userModel?.isSuperAdmin == true)
             PopupMenuItem(
               value: 'nested_migration',
@@ -238,6 +401,17 @@ class AdminAppBarActions extends StatelessWidget {
                   const Icon(Icons.move_down),
                   const SizedBox(width: 8),
                   const Text('Final Migration'),
+                ],
+              ),
+            ),
+          if (authService.userModel?.isSuperAdmin == true)
+            PopupMenuItem(
+              value: 'support_console',
+              child: Row(
+                children: [
+                  const Icon(Icons.support_agent),
+                  const SizedBox(width: 8),
+                  const Text('Support Console'),
                 ],
               ),
             ),
@@ -281,6 +455,16 @@ class AdminAppBarActions extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.assessment),
+          tooltip: 'דוחות',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReportsScreen()),
             );
           },
         ),
@@ -365,6 +549,72 @@ class AdminAppBarActions extends StatelessWidget {
             );
           },
         ),
+        IconButton(
+          icon: const Icon(Icons.receipt_long),
+          tooltip: 'פורטל חיוב',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BillingPortalScreen()),
+            );
+          },
+        ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.payments),
+            tooltip: 'Billing & Locks',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BillingLocksScreen()),
+              );
+            },
+          ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.backup),
+            tooltip: 'ניהול גיבויים',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const BackupManagementScreen()),
+              );
+            },
+          ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.policy),
+            tooltip: 'מדיניות שמירה',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DataRetentionScreen()),
+              );
+            },
+          ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.toggle_on),
+            tooltip: 'ניהול מודולים',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ModuleToggleScreen()),
+              );
+            },
+          ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.verified_user),
+            tooltip: 'בדיקת שלמות שרשרת',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IntegrityCheckScreen()),
+              );
+            },
+          ),
         if (authService.userModel?.isSuperAdmin == true)
           IconButton(
             icon: const Icon(Icons.account_tree),
@@ -385,6 +635,17 @@ class AdminAppBarActions extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FinalMigrationScreen()),
+              );
+            },
+          ),
+        if (authService.userModel?.isSuperAdmin == true)
+          IconButton(
+            icon: const Icon(Icons.support_agent),
+            tooltip: 'Support Console',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SupportConsoleScreen()),
               );
             },
           ),

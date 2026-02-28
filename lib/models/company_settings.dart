@@ -120,8 +120,17 @@ class CompanySettings {
   final ModuleEntitlements modules;
   final PlanLimits limits;
   final String plan; // warehouse_only | ops | full | custom
-  final String billingStatus; // active | past_due | trial | blocked
+  final String billingStatus; // active | trial | grace | suspended | cancelled
   final DateTime? trialEndsAt;
+  final DateTime? accountingLockedUntil; // период закрытия бухгалтерии
+
+  // === Payment & Billing ===
+  final DateTime?
+      paidUntil; // оплачено до (source of truth для billing automation)
+  final String? paymentProvider; // stripe | tranzila | payplus | yaad | manual
+  final String? subscriptionId; // ID подписки у провайдера
+  final String? paymentCustomerId; // ID клиента у провайдера
+  final int gracePeriodDays; // дней grace после paidUntil (default 7)
 
   CompanySettings({
     required this.id,
@@ -149,6 +158,12 @@ class CompanySettings {
     this.plan = 'full',
     this.billingStatus = 'active',
     this.trialEndsAt,
+    this.accountingLockedUntil,
+    this.paidUntil,
+    this.paymentProvider,
+    this.subscriptionId,
+    this.paymentCustomerId,
+    this.gracePeriodDays = 7,
   });
 
   factory CompanySettings.fromFirestore(DocumentSnapshot doc) {
@@ -179,9 +194,21 @@ class CompanySettings {
       limits: PlanLimits.fromMap(data['limits'] as Map<String, dynamic>?),
       plan: data['plan'] ?? 'full',
       billingStatus: data['billingStatus'] ?? 'active',
-      trialEndsAt: data['trialEndsAt'] != null
-          ? (data['trialEndsAt'] as Timestamp).toDate()
+      trialEndsAt: data['trialUntil'] != null
+          ? (data['trialUntil'] as Timestamp).toDate()
+          : data['trialEndsAt'] != null
+              ? (data['trialEndsAt'] as Timestamp).toDate()
+              : null,
+      accountingLockedUntil: data['accountingLockedUntil'] != null
+          ? (data['accountingLockedUntil'] as Timestamp).toDate()
           : null,
+      paidUntil: data['paidUntil'] != null
+          ? (data['paidUntil'] as Timestamp).toDate()
+          : null,
+      paymentProvider: data['paymentProvider'],
+      subscriptionId: data['subscriptionId'],
+      paymentCustomerId: data['paymentCustomerId'],
+      gracePeriodDays: data['gracePeriodDays'] ?? 7,
     );
   }
 
@@ -210,8 +237,16 @@ class CompanySettings {
       'limits': limits.toMap(),
       'plan': plan,
       'billingStatus': billingStatus,
-      'trialEndsAt':
+      'trialUntil':
           trialEndsAt != null ? Timestamp.fromDate(trialEndsAt!) : null,
+      'accountingLockedUntil': accountingLockedUntil != null
+          ? Timestamp.fromDate(accountingLockedUntil!)
+          : null,
+      'paidUntil': paidUntil != null ? Timestamp.fromDate(paidUntil!) : null,
+      'paymentProvider': paymentProvider,
+      'subscriptionId': subscriptionId,
+      'paymentCustomerId': paymentCustomerId,
+      'gracePeriodDays': gracePeriodDays,
     };
   }
 
@@ -241,6 +276,12 @@ class CompanySettings {
     String? plan,
     String? billingStatus,
     DateTime? trialEndsAt,
+    DateTime? accountingLockedUntil,
+    DateTime? paidUntil,
+    String? paymentProvider,
+    String? subscriptionId,
+    String? paymentCustomerId,
+    int? gracePeriodDays,
   }) {
     return CompanySettings(
       id: id ?? this.id,
@@ -268,6 +309,13 @@ class CompanySettings {
       plan: plan ?? this.plan,
       billingStatus: billingStatus ?? this.billingStatus,
       trialEndsAt: trialEndsAt ?? this.trialEndsAt,
+      accountingLockedUntil:
+          accountingLockedUntil ?? this.accountingLockedUntil,
+      paidUntil: paidUntil ?? this.paidUntil,
+      paymentProvider: paymentProvider ?? this.paymentProvider,
+      subscriptionId: subscriptionId ?? this.subscriptionId,
+      paymentCustomerId: paymentCustomerId ?? this.paymentCustomerId,
+      gracePeriodDays: gracePeriodDays ?? this.gracePeriodDays,
     );
   }
 }

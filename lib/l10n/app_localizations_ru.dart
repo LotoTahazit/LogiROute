@@ -1528,4 +1528,130 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get templateDownloaded => 'Шаблон скачан';
+
+  @override
+  String get billingAndLocks => 'Биллинг и блокировки';
+
+  @override
+  String get moduleManagement => 'Управление модулями';
+
+  @override
+  String get subscriptionManagement => 'Управление подпиской';
+
+  @override
+  String get subscription => 'Подписка';
+
+  @override
+  String get currentPlan => 'Текущий план';
+
+  @override
+  String get changePlan => 'Сменить план';
+
+  @override
+  String get changePlanConfirm => 'Сменить план?';
+
+  @override
+  String get payNow => 'Оплатить';
+
+  @override
+  String get contactSupport => 'Связаться с поддержкой';
+
+  @override
+  String get paymentHistory => 'История платежей';
+
+  @override
+  String get noPaymentHistory => 'Нет истории платежей';
+
+  @override
+  String get reports => 'Отчёты';
+
+  @override
+  String get integrityCheck => 'Проверка целостности';
+
+  @override
+  String get documentType => 'Тип документа';
+
+  @override
+  String get checkRange => 'Диапазон проверки';
+
+  @override
+  String get backupManagement => 'Управление бэкапами';
+
+  @override
+  String get backupHistory => 'История бэкапов';
+
+  @override
+  String get noBackups => 'Нет бэкапов';
+
+  @override
+  String get createBackup => 'Создать бэкап';
+
+  @override
+  String get backupLocation => 'Расположение бэкапа';
+
+  @override
+  String get backupCreated => 'Бэкап создан успешно';
+
+  @override
+  String get restoreTest => 'Тест восстановления';
+
+  @override
+  String get restoreTestHistory => 'История тестов восстановления';
+
+  @override
+  String get complianceReport => 'Отчёт о соответствии';
+
+  @override
+  String get dataRetention => 'Политика хранения данных';
+
+  @override
+  String get retentionCheck => 'Проверка хранения';
+
+  @override
+  String get retentionHistory => 'История проверок';
+
+  @override
+  String get runCheck => 'Запустить проверку';
+
+  @override
+  String get compliant => 'Соответствует';
+
+  @override
+  String get notCompliant => 'Не соответствует';
+
+  @override
+  String get totalDocuments => 'Всего документов';
+
+  @override
+  String get oldestDocument => 'Самый старый документ';
+
+  @override
+  String get sequentialGaps => 'Пропуски в нумерации';
+
+  @override
+  String get notifications => 'Уведомления';
+
+  @override
+  String get markAllRead => 'Отметить все как прочитанные';
+
+  @override
+  String get noNotifications => 'Нет уведомлений';
+
+  @override
+  String get upgradePlan => 'Обновить план';
+
+  @override
+  String get accountSuspended => 'Аккаунт заблокирован';
+
+  @override
+  String get accountGrace => 'Льготный период';
+
+  @override
+  String get trialEnding => 'Пробный период заканчивается';
+
+  @override
+  String get savePlan => 'Сохранить';
+
+  @override
+  String get cancelAction2 => 'Отмена';
 }

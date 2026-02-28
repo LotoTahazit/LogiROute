@@ -32,27 +32,98 @@ service cloud.firestore {
 
     // membership: user.companyId == companyId (или super_admin)
     // + billing guard: компания должна быть active
-    function billingActive(companyId) {
-      return get(/databases/$(database)/documents/companies/$(companyId))
-        .data.billingStatus == 'active';
+    function companyData(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+    // Billing state machine: trial | active | grace | suspended | cancelled
+    // trial: full access while request.time < trialUntil
+    // active/grace: full access
+    // suspended/cancelled: blocked (super_admin bypass elsewhere)
+    function billingAllowsRead(companyId) {
+      let status = companyData(companyId).billingStatus;
+      return status in ['active', 'grace']
+        || (status == 'trial' && request.time < companyData(companyId).trialUntil);
+    }
+    function billingAllowsWrite(companyId) {
+      let status = companyData(companyId).billingStatus;
+      return status in ['active', 'grace']
+        || (status == 'trial' && request.time < companyData(companyId).trialUntil);
+    }
+    // Layer 2: module guard — проверяет modules.{key} == true
+    // super_admin обходит проверку модулей
+    function hasModule(companyId, moduleKey) {
+      return isSuperAdmin() || companyData(companyId).modules[moduleKey] == true;
     }
     function isCompanyMember(companyId) {
       return signedIn() && (
         isSuperAdmin() ||
-        (userDoc().companyId == companyId && billingActive(companyId))
+        (userDoc().companyId == companyId && billingAllowsRead(companyId))
       );
     }
+    // Layer 3: data integrity — companyId в документе == companyId из пути
+    function companyIdMatchesPath(companyId) {
+      return request.resource.data.companyId == companyId;
+    }
+    // Layer 4: immutable fields — поле не изменилось при update
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // Layer 7: Accounting period lock
+    // accountingLockedUntil: Timestamp | null в company doc
+    // Документы с deliveryDate <= lockedUntil нельзя создавать/менять
+    // create: проверяем дату нового документа
+    function isNewDocUnlocked(companyId, docDate) {
+      return isSuperAdmin()
+        || !('accountingLockedUntil' in companyData(companyId))
+        || companyData(companyId).accountingLockedUntil == null
+        || docDate > companyData(companyId).accountingLockedUntil;
+    }
+    // update/delete: проверяем дату существующего документа
+    function isExistingDocUnlocked(companyId, existingDocDate) {
+      return isSuperAdmin()
+        || !('accountingLockedUntil' in companyData(companyId))
+        || companyData(companyId).accountingLockedUntil == null
+        || existingDocDate > companyData(companyId).accountingLockedUntil;
+    }
+
     function canAdminWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
     }
     function canDispatcherWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['dispatcher', 'admin', 'super_admin']);
     }
-    function canWarehouseWrite(companyId) {
-      return isCompanyMember(companyId) && hasAnyRole(['warehouse_keeper', 'admin', 'super_admin']);
+
+    // Layer 5: RBAC × Module matrix — canUseModule (read)
+    // Объединяет isCompanyMember + hasModule + role-per-module
+    // logistics: admin, dispatcher, driver
+    // warehouse: admin, warehouse_keeper
+    // accounting: admin, dispatcher
+    // dispatcher: admin, dispatcher, driver
+    function canUseModule(companyId, moduleKey) {
+      return isSuperAdmin() || (
+        isCompanyMember(companyId) && hasModule(companyId, moduleKey) && (
+          (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher', 'driver'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
+          (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher'])) ||
+          (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
+        )
+      );
     }
-    function canDriverWrite(companyId) {
-      return isCompanyMember(companyId) && hasAnyRole(['driver', 'dispatcher', 'admin', 'super_admin']);
+
+    // Layer 6: RBAC × Module matrix — canWriteModule (write)
+    // Единый гейт для write-операций в модульных коллекциях
+    // Дополнительно проверяет billingAllowsWrite (сейчас == billingAllowsRead,
+    // но разделены для будущего ужесточения grace)
+    function canWriteModule(companyId, moduleKey) {
+      return isSuperAdmin() || (
+        isCompanyMember(companyId) && billingAllowsWrite(companyId) && hasModule(companyId, moduleKey) && (
+          (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
+          (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher'])) ||
+          (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
+        )
+      );
     }
 
     // =========================================================
@@ -124,10 +195,40 @@ service cloud.firestore {
       // =========================================================
       // MODULE: WAREHOUSE — /companies/{c}/warehouse/_root/*
       // =========================================================
-      match /warehouse/{document=**} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canWarehouseWrite(companyId);
+
+      // box_types: справочник типов коробок
+      match /warehouse/_root/box_types/{boxTypeId} {
+        allow read: if canUseModule(companyId, 'warehouse');
+        allow create, update: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
+        allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
+      }
+
+      // product_types: справочник типов товаров
+      match /warehouse/_root/product_types/{productTypeId} {
+        allow read: if canUseModule(companyId, 'warehouse');
+        allow create, update: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
+        allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
+      }
+
+      // inventory: текущие остатки (writable snapshot, set merge/update/delete)
+      match /warehouse/_root/inventory/{itemId} {
+        allow read: if canUseModule(companyId, 'warehouse');
+        allow create, update: if canWriteModule(companyId, 'warehouse');
+        allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
+      }
+
+      // inventory_counts: сессии инвентаризации (create + update, no delete)
+      match /warehouse/_root/inventory_counts/{countId} {
+        allow read: if canUseModule(companyId, 'warehouse');
+        allow create, update: if canWriteModule(companyId, 'warehouse');
         allow delete: if false;
+      }
+
+      // inventory_history: журнал изменений — append-only
+      match /warehouse/_root/inventory_history/{historyId} {
+        allow read: if canUseModule(companyId, 'warehouse');
+        allow create: if canWriteModule(companyId, 'warehouse');
+        allow update, delete: if false;
       }
 
       // =========================================================
@@ -136,18 +237,19 @@ service cloud.firestore {
 
       // clients: /companies/{c}/logistics/_root/clients/{clientId}
       match /logistics/_root/clients/{clientId} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow read: if canUseModule(companyId, 'logistics');
+        allow create, update: if canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId);
         allow delete: if false;
       }
 
       // delivery_points: /companies/{c}/logistics/_root/delivery_points/{pointId}
       match /logistics/_root/delivery_points/{pointId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow update: if isCompanyMember(companyId) && (
-          // dispatcher/admin: full update
-          canDispatcherWrite(companyId) ||
+        allow read: if canUseModule(companyId, 'logistics');
+        allow create: if canWriteModule(companyId, 'logistics')
+          && companyIdMatchesPath(companyId);
+        allow update: if canUseModule(companyId, 'logistics') && (
+          // dispatcher/admin: full update, but companyId must match path
+          (canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId)) ||
           // driver: only status-related fields, only assigned point
           (isRole('driver')
             && resource.data.driverId == request.auth.uid
@@ -162,24 +264,26 @@ service cloud.firestore {
 
       // cached_routes: /companies/{c}/logistics/_root/cached_routes/{routeId}
       match /logistics/_root/cached_routes/{routeId} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow delete: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow read: if canUseModule(companyId, 'logistics');
+        allow create, update: if canWriteModule(companyId, 'logistics');
+        allow delete: if canWriteModule(companyId, 'logistics');
       }
 
       // prices: /companies/{c}/logistics/_root/prices/{priceId}
       match /logistics/_root/prices/{priceId} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow delete: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow read: if canUseModule(companyId, 'logistics');
+        allow create, update: if canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId);
+        allow delete: if canWriteModule(companyId, 'logistics') && hasAnyRole(['admin', 'super_admin']);
       }
 
       // =========================================================
       // MODULE: DISPATCHER — /companies/{c}/dispatcher/_root/*
+      // Сейчас app использует глобальный driver_locations (top-level),
+      // но этот namespace зарезервирован для будущей миграции.
       // =========================================================
       match /dispatcher/{document=**} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canDriverWrite(companyId);
+        allow read: if canUseModule(companyId, 'dispatcher');
+        allow create, update: if canWriteModule(companyId, 'dispatcher');
         allow delete: if false;
       }
 
@@ -190,27 +294,53 @@ service cloud.firestore {
 
       // invoices (includes delivery note by documentType:'delivery')
       match /accounting/_root/invoices/{invoiceId} {
-        allow read: if isCompanyMember(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
         // create: admin/super_admin any; dispatcher only if documentType == 'delivery'
-        allow create: if isCompanyMember(companyId) && (
-          hasAnyRole(['admin', 'super_admin']) ||
-          (isRole('dispatcher') && request.resource.data.documentType == 'delivery')
-        );
-        // update: only admin/super_admin
-        allow update: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        // period lock: deliveryDate must be after accountingLockedUntil
+        allow create: if canWriteModule(companyId, 'accounting') && companyIdMatchesPath(companyId)
+          && isNewDocUnlocked(companyId, request.resource.data.deliveryDate)
+          && (
+            hasAnyRole(['admin', 'super_admin']) ||
+            (isRole('dispatcher') && request.resource.data.documentType == 'delivery')
+          );
+        // update: only admin/super_admin, immutable fields, period lock on existing doc
+        // Server-issued fields (sequentialNumber, finalizedAt, finalizedBy, immutableSnapshotHash)
+        // are also immutable from client — only Cloud Function (Admin SDK) can set them.
+        // unchanged() only checked if field exists in resource (to avoid undefined errors)
+        // Status transitions:
+        //   draft → (server only) → issued
+        //   issued → voided (admin only, client)
+        //   voided → nothing (frozen)
+        //   Client cannot set status to 'issued' — only server can
+        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']) && companyIdMatchesPath(companyId)
+          && unchanged('createdAt') && unchanged('createdBy') && unchanged('deliveryDate')
+          && (!('sequentialNumber' in resource.data) || unchanged('sequentialNumber'))
+          && (!('finalizedAt' in resource.data) || unchanged('finalizedAt'))
+          && (!('finalizedBy' in resource.data) || unchanged('finalizedBy'))
+          && (!('immutableSnapshotHash' in resource.data) || unchanged('immutableSnapshotHash'))
+          && isExistingDocUnlocked(companyId, resource.data.deliveryDate)
+          // Client cannot flip status to 'issued' — only server can
+          && (!('status' in request.resource.data) || request.resource.data.status != 'issued' || ('status' in resource.data && resource.data.status == 'issued'))
+          // Voided docs are frozen — no further updates
+          && (!('status' in resource.data) || resource.data.status != 'voided')
+          // When voiding (issued → voided): voidedBy must be the caller
+          && (
+            !('status' in request.resource.data) || request.resource.data.status != 'voided'
+            || ('voidedBy' in request.resource.data && request.resource.data.voidedBy == request.auth.uid)
+          );
         allow delete: if false;
 
         // audit log — append-only
         match /auditLog/{eventId} {
-          allow read: if isCompanyMember(companyId);
-          allow create: if isCompanyMember(companyId) && canAdminWrite(companyId);
+          allow read: if canUseModule(companyId, 'accounting');
+          allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']);
           allow update, delete: if false;
         }
 
         // print events — append-only
         match /printEvents/{eventId} {
-          allow read: if isCompanyMember(companyId);
-          allow create: if isCompanyMember(companyId)
+          allow read: if canUseModule(companyId, 'accounting');
+          allow create: if canWriteModule(companyId, 'accounting')
             && request.resource.data.printedBy == request.auth.uid;
           allow update, delete: if false;
         }
@@ -218,57 +348,104 @@ service cloud.firestore {
 
       // receipts
       match /accounting/_root/receipts/{receiptId} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
+        allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin'])
+          && companyIdMatchesPath(companyId)
+          && isNewDocUnlocked(companyId, request.resource.data.deliveryDate);
+        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin'])
+          && companyIdMatchesPath(companyId)
+          && unchanged('createdAt') && unchanged('createdBy') && unchanged('deliveryDate')
+          && isExistingDocUnlocked(companyId, resource.data.deliveryDate);
         allow delete: if false;
       }
 
       // credit notes
       match /accounting/_root/credit_notes/{creditId} {
-        allow read: if isCompanyMember(companyId);
-        allow create, update: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
+        // create: deliveryDate (creditNoteDate) must be after lockedUntil
+        // can reference old invoice in locked period — normal for accounting
+        allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin'])
+          && companyIdMatchesPath(companyId)
+          && isNewDocUnlocked(companyId, request.resource.data.deliveryDate);
+        // update: period lock on existing doc's deliveryDate
+        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin'])
+          && companyIdMatchesPath(companyId)
+          && unchanged('createdAt') && unchanged('createdBy') && unchanged('deliveryDate')
+          && isExistingDocUnlocked(companyId, resource.data.deliveryDate);
         allow delete: if false;
       }
 
-      // counters: строго +1, create nextNumber=1, delete forbidden
+      // counters: строго +1, create lastNumber=1, delete forbidden
       match /accounting/_root/counters/{counterId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId)
-          && canAdminWrite(companyId)
-          && request.resource.data.keys().hasOnly(['nextNumber', 'updatedAt', 'updatedBy'])
-          && request.resource.data.nextNumber == 1;
-        allow update: if isCompanyMember(companyId)
-          && canAdminWrite(companyId)
-          && request.resource.data.nextNumber == resource.data.nextNumber + 1;
+        allow read: if canUseModule(companyId, 'accounting');
+        allow create: if canWriteModule(companyId, 'accounting')
+          && request.resource.data.keys().hasOnly(['lastNumber'])
+          && request.resource.data.lastNumber == 1;
+        allow update: if canWriteModule(companyId, 'accounting')
+          && request.resource.data.lastNumber == resource.data.lastNumber + 1;
         allow delete: if false;
       }
 
       // integrity_chain (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_chain/{chainId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
+        allow create: if canWriteModule(companyId, 'accounting');
         allow update, delete: if false;
       }
 
       // integrity_anchors (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_anchors/{anchorId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
+        allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']);
         allow update, delete: if false;
       }
 
       // assignment_requests (lives in accounting/_root/)
       match /accounting/_root/assignment_requests/{reqId} {
-        allow read: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow create: if isCompanyMember(companyId) && canDispatcherWrite(companyId);
-        allow update: if isCompanyMember(companyId) && canAdminWrite(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
+        allow create: if canWriteModule(companyId, 'accounting');
+        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']);
         allow delete: if false;
       }
 
       // accounting catch-all: everything else under accounting/_root — server-only
       match /accounting/_root/{secColl}/{docId} {
-        allow read: if isCompanyMember(companyId);
+        allow read: if canUseModule(companyId, 'accounting');
         allow write: if false;
+      }
+
+      // =========================================================
+      // CROSS-MODULE AUDIT LOG — /companies/{c}/audit/{eventId}
+      // append-only, read by any company member, create gated by moduleKey
+      // =========================================================
+      match /audit/{eventId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if
+          // write gate по moduleKey документа
+          canWriteModule(companyId, request.resource.data.moduleKey)
+          // инварианты
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          // allowlists
+          && request.resource.data.moduleKey in ['dispatcher', 'logistics', 'warehouse', 'accounting']
+          && request.resource.data.type in [
+               'invoice_issued', 'invoice_printed', 'invoice_voided',
+               'receipt_created', 'credit_note_created',
+               'inventory_adjusted', 'inventory_count_completed', 'inventory_count_approved',
+               'route_published', 'delivery_point_status_changed', 'manual_assignment',
+               'billing_status_changed', 'trial_until_changed', 'accounting_locked_until_changed',
+               'payment_received', 'module_changed', 'plan_changed', 'backup_recorded', 'retention_checked'
+             ]
+          && request.resource.data.entity.collection in [
+               'invoices', 'receipts', 'credit_notes',
+               'inventory', 'inventory_counts',
+               'routes', 'delivery_points', 'assignments',
+               'users', 'billing',
+               'payment_events', 'checkout_sessions', 'export_presets', 'backups', 'retention_checks'
+             ]
+          && request.resource.data.entity.docId is string
+          && request.resource.data.entity.docId.size() > 0;
+        allow update, delete: if false;
       }
 
       // =========================================================
@@ -285,12 +462,26 @@ service cloud.firestore {
         allow write: if isCompanyMember(companyId) && (isDispatcherOrAbove() || isRole('warehouse_keeper'));
       }
 
+      // =========================================================
+      // NOTIFICATIONS (in-app inbox)
+      // Путь: companies/{companyId}/notifications/{notificationId}
+      //
+      // create: ТОЛЬКО сервер (billingEnforcer, webhook, onboarding CF)
+      //   Клиент НЕ может создавать — иначе можно спамить/подделывать billing-сообщения
+      // read: любой член компании (billing guard включён через isCompanyMember)
+      // update: пользователь может ТОЛЬКО пометить как прочитанное (read, readAt)
+      //   Все остальные поля (title, body, type, severity, metadata) — immutable
+      // delete: admin-only (для очистки inbox)
+      // =========================================================
       match /notifications/{notificationId} {
         allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId);
-        allow update, delete: if isCompanyMember(companyId) && (
-          isAdminOrAbove() || resource.data.userId == request.auth.uid
-        );
+        allow create: if false; // server-only via Admin SDK (billingEnforcer, webhook, onboarding)
+        allow update: if isCompanyMember(companyId)
+          // Можно менять ТОЛЬКО read и readAt — ничего больше
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+          // read может быть только true (нельзя "снять" прочитанность)
+          && request.resource.data.read == true;
+        allow delete: if isCompanyMember(companyId) && isAdminOrAbove();
       }
 
       // append-only audit collections (company-level, not namespaced)
@@ -324,6 +515,58 @@ service cloud.firestore {
         allow read: if canAdminWrite(companyId);
         allow create: if canAdminWrite(companyId);
         allow update, delete: if false;
+      }
+
+      // =========================================================
+      // DELIVERY TELEMETRY LOGS — push + email error tracking
+      // Пишутся ТОЛЬКО сервером (Cloud Functions)
+      // Читаются admin/super_admin для мониторинга
+      // =========================================================
+      match /push_delivery_logs/{logId} {
+        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow create, update, delete: if false; // server-only via Admin SDK
+      }
+      match /email_delivery_logs/{logId} {
+        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow create, update, delete: if false; // server-only via Admin SDK
+      }
+
+      // =========================================================
+      // PAYMENT & BILLING — новые коллекции
+      // =========================================================
+
+      // payment_events: append-only ledger, пишется ТОЛЬКО сервером (webhook CF)
+      // Путь: companies/{companyId}/payment_events/{eventId}
+      //
+      // Ключевой риск: клиент НЕ должен иметь возможность записать "оплата получена"
+      // read: admin/super_admin (содержит данные о платежах)
+      // create/update/delete: ЗАПРЕЩЕНО клиенту — только Admin SDK
+      match /payment_events/{eventId} {
+        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow create, update, delete: if false; // server-only via Admin SDK
+      }
+
+      // checkout_sessions: создаётся callable CF (createCheckoutSession)
+      // Путь: companies/{companyId}/checkout_sessions/{sessionId}
+      //
+      // Ключевой риск: клиент не должен менять status/paid/plan сессии
+      // read: admin/super_admin
+      // create/update/delete: ЗАПРЕЩЕНО клиенту — только Admin SDK
+      match /checkout_sessions/{sessionId} {
+        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow create, update, delete: if false; // server-only via Admin SDK
+      }
+
+      // export_presets: пользовательские пресеты экспорта бухгалтерии
+      // Путь: companies/{companyId}/export_presets/{presetId}
+      //
+      // Низкий риск, но всё равно ограничиваем admin-only
+      // read: admin/super_admin (только бухгалтерия)
+      // create/update/delete: admin/super_admin
+      match /export_presets/{presetId} {
+        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow create, update: if canAdminWrite(companyId);
+        allow delete: if canAdminWrite(companyId);
       }
 
     } // end /companies/{companyId}

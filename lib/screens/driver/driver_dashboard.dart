@@ -13,6 +13,7 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../widgets/delivery_map_widget.dart';
+import '../../widgets/notification_bell.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -185,19 +186,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
           if (!_isAutoCompleting) {
             _isAutoCompleting = true;
 
-            // Помечаем autoCompleted: true для единообразия с AutoCompleteService
-            await FirebaseFirestore.instance
-                .collection('companies')
-                .doc(_routeService!.companyId)
-                .collection('logistics')
-                .doc('_root')
-                .collection('delivery_points')
-                .doc(point.id)
-                .update({
-              'status': DeliveryPoint.statusCompleted,
-              'completedAt': FieldValue.serverTimestamp(),
-              'autoCompleted': true,
-            });
+            // Используем route_service для обновления статуса с аудитом
+            final authService = context.read<AuthService>();
+            final currentUid = authService.currentUser?.uid ?? '';
+            await _routeService!.updatePointStatus(
+              point.id,
+              DeliveryPoint.statusCompleted,
+              updatedByUid: currentUid,
+              autoCompleted: true,
+            );
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -240,6 +237,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.driver),
           actions: [
+            NotificationBell(companyId: companyId),
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () => authService.signOut(),

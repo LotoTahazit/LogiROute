@@ -6,6 +6,87 @@ admin.initializeApp();
 const db = admin.firestore();
 const storage = admin.storage();
 
+// === Callable Functions ===
+const { issueInvoice } = require('./issueInvoice');
+exports.issueInvoice = issueInvoice;
+
+const { verifyIntegrityChain } = require('./verifyIntegrityChain');
+exports.verifyIntegrityChain = verifyIntegrityChain;
+
+const { scheduledIntegrityCheck } = require('./scheduledIntegrityCheck');
+exports.scheduledIntegrityCheck = scheduledIntegrityCheck;
+
+// === Billing & Payment ===
+const { billingEnforcer } = require('./billingEnforcer');
+exports.billingEnforcer = billingEnforcer;
+
+const { processPaymentWebhook, registerManualPayment } = require('./processPaymentWebhook');
+exports.processPaymentWebhook = processPaymentWebhook;
+exports.registerManualPayment = registerManualPayment;
+
+const { createCheckoutSession } = require('./createCheckoutSession');
+exports.createCheckoutSession = createCheckoutSession;
+
+// === Push Notifications ===
+const { sendPushNotification } = require('./sendPushNotification');
+exports.sendPushNotification = sendPushNotification;
+
+// === Email Notifications ===
+const { sendEmailNotification } = require('./sendEmailNotification');
+exports.sendEmailNotification = sendEmailNotification;
+
+// === Company Lifecycle ===
+const { onCompanyCreated } = require('./onCompanyCreated');
+exports.onCompanyCreated = onCompanyCreated;
+
+/**
+ * Очистка старых delivery logs (push + email) — раз в неделю
+ * Удаляет логи старше 30 дней, чтобы не раздувать Firestore cost
+ */
+exports.cleanupDeliveryLogs = functions.pubsub
+  .schedule('0 3 * * 0') // каждое воскресенье в 03:00
+  .timeZone('Asia/Jerusalem')
+  .onRun(async (context) => {
+    console.log('🧹 Cleaning up old delivery logs...');
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffTs = admin.firestore.Timestamp.fromDate(cutoff);
+
+    let totalDeleted = 0;
+
+    try {
+      const companiesSnap = await db.collection('companies').get();
+
+      for (const companyDoc of companiesSnap.docs) {
+        const companyId = companyDoc.id;
+
+        for (const logCollection of ['push_delivery_logs', 'email_delivery_logs']) {
+          const logsSnap = await db
+            .collection('companies')
+            .doc(companyId)
+            .collection(logCollection)
+            .where('timestamp', '<', cutoffTs)
+            .limit(500)
+            .get();
+
+          if (!logsSnap.empty) {
+            const batch = db.batch();
+            logsSnap.forEach((doc) => batch.delete(doc.ref));
+            await batch.commit();
+            totalDeleted += logsSnap.size;
+            console.log(`🗑️ ${companyId}/${logCollection}: deleted ${logsSnap.size}`);
+          }
+        }
+      }
+
+      console.log(`✅ Delivery logs cleanup done: ${totalDeleted} deleted`);
+      return { deleted: totalDeleted };
+    } catch (err) {
+      console.error(`❌ Delivery logs cleanup error: ${err.message}`);
+      throw err;
+    }
+  });
+
 /**
  * Автоматическая архивация истории инвентаря
  * Запускается каждый месяц 1-го числа в 02:00

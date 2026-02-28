@@ -3,6 +3,10 @@
     "rules": "firestore.rules",
     "indexes": "firestore_indexes.json"
   },
+  "emulators": {
+    "firestore": { "port": 8080 },
+    "ui": { "enabled": true, "port": 4000 }
+  },
   "storage": [
     {
       "bucket": "logiroute-app.firebasestorage.app",
