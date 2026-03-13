@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Архивы - доступны для чтения админам и диспетчерам
+    match /archives/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'super_admin' ||
+        request.auth.token.role == 'admin'
+      );
+    }
+
+    // Company-scoped files: only company members can access
+    match /companies/{companyId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'super_admin' ||
+        request.auth.token.companyId == companyId
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'super_admin' ||
+        (request.auth.token.companyId == companyId && (
+          request.auth.token.role == 'admin' ||
+          request.auth.token.role == 'dispatcher' ||
+          request.auth.token.role == 'warehouse_keeper'
+        ))
+      );
+    }
+
+    // User profile pictures — own only
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.token.role == 'super_admin';
+    }
+  }
+}

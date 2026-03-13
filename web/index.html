@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogiRoute</title>
+
+  <!-- 🧭 App Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- 🖼️ Favicon -->
+  <link rel="icon" type="image/png" href="icons/Icon-192.png">
+
+  <!-- ✅ Google Maps API для веба (правильная асинхронная загрузка) -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAw65vr-ynlQjOWWJv-bqN6x9S0onAQGW8&libraries=places,geometry&language=he&region=IL&loading=async"
+    async
+    defer
+  ></script>
+
+  <!-- 🧩 Flutter Styles -->
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
+      font-family: Arial, sans-serif;
+      direction: rtl; /* по умолчанию иврит */
+    }
+    #flutter_loader {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+    }
+    .download-link {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #2196F3;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+      z-index: 9999;
+    }
+    .download-link:hover {
+      background: #1976D2;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transform: translateY(-2px);
+    }
+    .download-link::before {
+      content: '📱 ';
+    }
+  </style>
+</head>
+<body>
+  <!-- 💫 Preloader (до загрузки Flutter) -->
+  <div id="flutter_loader">
+    <img src="icons/Icon-192.png" alt="LogiRoute" width="96" height="96">
+  </div>
+
+  <script>
+    // Простая и надежная загрузка Flutter
+    window.addEventListener('load', function(ev) {
+      console.log('🚀 Loading Flutter with bootstrap...');
+      
+      // Проверяем доступность _flutter.loader
+      if (typeof _flutter !== 'undefined' && _flutter.loader) {
+        _flutter.loader.load().then(function(engineInitializer) {
+          console.log('✅ Flutter entrypoint loaded');
+          const loader = document.getElementById('flutter_loader');
+          if (loader) loader.remove();
+          
+          if (engineInitializer && typeof engineInitializer.initializeEngine === 'function') {
+            return engineInitializer.initializeEngine();
+          } else {
+            // Fallback для старых версий Flutter
+            console.log('🔄 Using fallback initialization');
+            return engineInitializer;
+          }
+        }).then(function(appRunner) {
+          console.log('✅ Flutter engine initialized');
+          if (appRunner && typeof appRunner.runApp === 'function') {
+            appRunner.runApp();
+          }
+        }).catch(function(error) {
+          console.error('❌ Flutter loading failed:', error);
+          showError('Loading Error', 'Failed to load Flutter app');
+        });
+      } else {
+        console.error('❌ Flutter loader not available');
+        showError('Bootstrap Error', 'Flutter bootstrap not found');
+      }
+    });
+
+    function showError(title, message) {
+      const loader = document.getElementById('flutter_loader');
+      if (loader) {
+        loader.innerHTML = '<div style="text-align: center;"><h3 style="color: #e74c3c;">' + title + '</h3><p>' + message + '</p><button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px;">Refresh Page</button></div>';
+      }
+    }
+
+    // Таймаут на случай зависания (30 секунд)
+    setTimeout(function() {
+      const loader = document.getElementById('flutter_loader');
+      if (loader && loader.innerHTML.indexOf('Loading timeout') === -1) {
+        console.error('❌ Application loading timeout (30s)');
+        showError('Loading timeout', 'The application is taking too long to load.');
+      }
+    }, 30000);
+  </script>
+  
+  <!-- Загружаем Flutter bootstrap -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

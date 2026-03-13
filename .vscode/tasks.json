@@ -1,0 +1,132 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build APK",
+			"type": "shell",
+			"command": "flutter build apk",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Deploy Web",
+			"type": "shell",
+			"command": "deploy_web.bat",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Deploy Web (sh)",
+			"type": "shell",
+			"command": "./deploy_web.sh",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Deploy Web",
+			"type": "shell",
+			"command": "deploy_web.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Flutter Build Web",
+			"type": "shell",
+			"command": "flutter build web",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

@@ -1,0 +1,52 @@
+name: Firestore Security Rules Tests
+
+on:
+  pull_request:
+    paths:
+      - 'firestore.rules'
+      - 'test/firestore.rules.test.js'
+      - 'functions/**'
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'test/firestore.rules.test.js'
+
+jobs:
+  rules-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Run Firestore rules tests
+        run: npx firebase emulators:exec --only firestore "node --test test/firestore.rules.test.js"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  functions-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Check functions syntax
+        run: node -c index.js && node -c billingEnforcer.js && node -c processPaymentWebhook.js && node -c sendPushNotification.js && node -c sendEmailNotification.js && node -c createCheckoutSession.js && node -c onCompanyCreated.js
+        working-directory: functions

@@ -1,0 +1,12 @@
+{
+  "name": "logiroute-scripts",
+  "version": "1.0.0",
+  "description": "Seed and admin scripts for LogiRoute Firestore",
+  "private": true,
+  "scripts": {
+    "seed:templates": "node seed_product_templates.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

@@ -1,0 +1,80 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Firebase
+firebase_options.dart
+google-services.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+GoogleService-Info.plist
+
+# Environment variables (API keys, secrets)
+.env
+
+
+# Java heap dumps (large files)
+**/*.hprof
+
+# Temporary and broken files
+temp_*.txt
+temp_*.dart
+fix_*.dart
+methods_to_insert.dart
+correct_*.txt
+VERSION_INFO.txt
+
+# Duplicate APK files (keep only in build/app/outputs/flutter-apk/)
+web/**/*.apk
+build/web/**/*.apk
+
+# Android build artifacts
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/key.properties
+android/build/
+android/app/build/
+
+# Node modules
+functions/node_modules/
+node_modules/
+
+# Kiro IDE
+.kiro/
