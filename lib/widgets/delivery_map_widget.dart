@@ -10,6 +10,11 @@ import '../services/smart_navigation_service.dart';
 import '../services/firestore_paths.dart';
 import '../utils/polyline_decoder.dart';
 
+/// Callback при drag & drop точки на водителя
+/// pointId, driverId, driverName
+typedef OnPointDragToDriver =
+    void Function(String pointId, String driverId, String driverName);
+
 class DeliveryMapWidget extends StatefulWidget {
   final List<DeliveryPoint> points;
   final String companyId;
@@ -17,6 +22,8 @@ class DeliveryMapWidget extends StatefulWidget {
   final Map<String, String> routePolylines; // routeId → encoded polyline
   final double warehouseLat;
   final double warehouseLng;
+  final bool enableDragDrop; // Включить drag & drop (только для диспетчера)
+  final OnPointDragToDriver? onPointDragToDriver; // Callback при drop
 
   const DeliveryMapWidget({
     super.key,
@@ -26,6 +33,8 @@ class DeliveryMapWidget extends StatefulWidget {
     this.routePolylines = const {},
     required this.warehouseLat,
     required this.warehouseLng,
+    this.enableDragDrop = false,
+    this.onPointDragToDriver,
   });
 
   @override
@@ -66,18 +75,25 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   final Map<String, List<LatLng>> _decodedPolylineCache =
       {}; // routeId → decoded points
 
+  // 🖐️ Drag & Drop state
+  String? _draggingPointId; // ID точки, которую тащат
+  Set<Circle> _driverZoneCircles = {}; // Зоны водителей при drag
+
   // Цвет маршрута по загрузке (паллеты / capacity)
   // 🟢 ≤80%  🟡 80–100%  🔴 >100%
   Color _getRouteLoadColor(String driverKey) {
-    final driverPoints =
-        widget.points.where((p) => p.driverId == driverKey).toList();
+    final driverPoints = widget.points
+        .where((p) => p.driverId == driverKey)
+        .toList();
     if (driverPoints.isEmpty) return Colors.blue;
 
     final capacity = driverPoints.first.driverCapacity ?? 0;
     if (capacity == 0) return Colors.blue;
 
-    final totalPallets =
-        driverPoints.fold(0, (runningTotal, p) => runningTotal + p.pallets);
+    final totalPallets = driverPoints.fold(
+      0,
+      (runningTotal, p) => runningTotal + p.pallets,
+    );
     final ratio = totalPallets / capacity;
 
     if (ratio > 1.0) return Colors.red;
@@ -215,13 +231,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     if (markers.isEmpty || _controller == null) return;
     final positions = markers
         .map((m) => m.position)
-        .where((p) =>
-            p.latitude != 0 &&
-            p.longitude != 0 &&
-            p.latitude >= 29.0 &&
-            p.latitude <= 34.0 &&
-            p.longitude >= 34.0 &&
-            p.longitude <= 36.5)
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude >= 29.0 &&
+              p.latitude <= 34.0 &&
+              p.longitude >= 34.0 &&
+              p.longitude <= 36.5,
+        )
         .toList();
     if (positions.length < 2) return;
 
@@ -236,13 +254,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
     try {
-      _controller!.animateCamera(CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
+      _controller!.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          50,
         ),
-        50,
-      ));
+      );
     } catch (e) {
       debugPrint('⚠️ [Map] Marker camera fit error: $e');
     }
@@ -253,13 +273,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   LatLngBounds _calculatePolylineBounds(List<LatLng> points) {
     // Фильтруем нулевые координаты И точки за пределами Израиля
     final valid = points
-        .where((p) =>
-            p.latitude != 0 &&
-            p.longitude != 0 &&
-            p.latitude >= 29.0 &&
-            p.latitude <= 34.0 &&
-            p.longitude >= 34.0 &&
-            p.longitude <= 36.5)
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude >= 29.0 &&
+              p.latitude <= 34.0 &&
+              p.longitude >= 34.0 &&
+              p.longitude <= 36.5,
+        )
         .toList();
     if (valid.isEmpty) {
       return LatLngBounds(
@@ -288,7 +310,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
   Set<Marker> _buildPointMarkers() {
     debugPrint(
-        '🗺️ [Map] Updating markers with ${widget.points.length} points');
+      '🗺️ [Map] Updating markers with ${widget.points.length} points',
+    );
     final l10n = AppLocalizations.of(context);
 
     final markers = <Marker>{};
@@ -317,8 +340,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       if (point.status == DeliveryPoint.statusCompleted ||
           point.status == DeliveryPoint.statusCancelled) {
         // Серый для завершенных/отмененных
-        markerColor =
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+        markerColor = BitmapDescriptor.defaultMarkerWithHue(
+          BitmapDescriptor.hueViolet,
+        );
       } else {
         // Цвет водителя для активных точек
         final driverKey = point.driverId ?? 'unknown';
@@ -333,16 +357,30 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         markerColor = BitmapDescriptor.defaultMarkerWithHue(hue);
       }
 
+      // Определяем, можно ли перетаскивать эту точку
+      final isDraggable =
+          widget.enableDragDrop &&
+          point.status != DeliveryPoint.statusCompleted &&
+          point.status != DeliveryPoint.statusCancelled;
+
       markers.add(
         Marker(
           markerId: MarkerId(point.id),
           position: LatLng(point.latitude, point.longitude),
           icon: markerColor,
+          draggable: isDraggable,
+          onDragStart: isDraggable
+              ? (position) => _onPointDragStart(point)
+              : null,
+          onDragEnd: isDraggable
+              ? (newPosition) => _onPointDragEnd(point, newPosition)
+              : null,
           infoWindow: InfoWindow(
             title: point.clientName,
             snippet: _buildMarkerSnippet(point, l10n),
           ),
-          alpha: (point.status == DeliveryPoint.statusCompleted ||
+          alpha:
+              (point.status == DeliveryPoint.statusCompleted ||
                   point.status == DeliveryPoint.statusCancelled)
               ? 0.5
               : 1.0, // Полупрозрачные для завершенных
@@ -351,13 +389,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     }
 
     debugPrint(
-        '🗺️ [Map] Created ${markers.length} markers (including warehouse)');
+      '🗺️ [Map] Created ${markers.length} markers (including warehouse)',
+    );
     return markers;
   }
 
   Future<Set<Polyline>> _buildRoutePolylines() async {
     debugPrint(
-        '🗺️ [Map] Updating polylines with ${widget.points.length} points');
+      '🗺️ [Map] Updating polylines with ${widget.points.length} points',
+    );
 
     // Если нет точек доставки, не строим маршрут
     if (widget.points.isEmpty) {
@@ -391,13 +431,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     }
     for (var p in validRoutePoints) {
       debugPrint(
-          '  - ${p.clientName}: driver=${p.driverName}, order=${p.orderInRoute}');
+        '  - ${p.clientName}: driver=${p.driverName}, order=${p.orderInRoute}',
+      );
     }
 
     // Если уже загружаем маршрут, возвращаем текущие полилинии (не пустые!)
     if (_isLoadingRoute) {
       debugPrint(
-          '⏳ [Map] Route loading in progress, keeping current polylines');
+        '⏳ [Map] Route loading in progress, keeping current polylines',
+      );
       return _polylines.isNotEmpty ? _polylines : {};
     }
     _isLoadingRoute = true;
@@ -426,18 +468,23 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
         // Разделяем на завершенные и активные точки
         final completedPoints = points
-            .where((p) =>
-                p.status == DeliveryPoint.statusCompleted ||
-                p.status == DeliveryPoint.statusCancelled)
+            .where(
+              (p) =>
+                  p.status == DeliveryPoint.statusCompleted ||
+                  p.status == DeliveryPoint.statusCancelled,
+            )
             .toList();
         final activePoints = points
-            .where((p) =>
-                p.status != DeliveryPoint.statusCompleted &&
-                p.status != DeliveryPoint.statusCancelled)
+            .where(
+              (p) =>
+                  p.status != DeliveryPoint.statusCompleted &&
+                  p.status != DeliveryPoint.statusCancelled,
+            )
             .toList();
 
         debugPrint(
-            '🏭 [Map] Driver $driverKey: ${completedPoints.length} completed, ${activePoints.length} active');
+          '🏭 [Map] Driver $driverKey: ${completedPoints.length} completed, ${activePoints.length} active',
+        );
 
         // 🏭 ВАЖНО: Маршрут ВСЕГДА начинается со склада!
         final warehouseLat = widget.warehouseLat;
@@ -445,24 +492,31 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
         // Строим серый маршрут для завершенных точек (прямые линии — OSRM не нужен)
         if (completedPoints.isNotEmpty) {
-          result.addAll(_fallbackPolyline(completedPoints,
-              driverIndex: driverIndex, isCompleted: true));
+          result.addAll(
+            _fallbackPolyline(
+              completedPoints,
+              driverIndex: driverIndex,
+              isCompleted: true,
+            ),
+          );
         }
 
         // Если все точки завершены — прямая линия возврата на склад
         if (activePoints.isEmpty && completedPoints.isNotEmpty) {
           final lastCompleted = completedPoints.last;
-          result.add(Polyline(
-            polylineId: PolylineId('route_${driverKey}_return'),
-            points: [
-              LatLng(lastCompleted.latitude, lastCompleted.longitude),
-              LatLng(warehouseLat, warehouseLng),
-            ],
-            width: 6,
-            color: Colors.grey.shade300,
-            patterns: [PatternItem.dash(12), PatternItem.gap(8)],
-            zIndex: 4,
-          ));
+          result.add(
+            Polyline(
+              polylineId: PolylineId('route_${driverKey}_return'),
+              points: [
+                LatLng(lastCompleted.latitude, lastCompleted.longitude),
+                LatLng(warehouseLat, warehouseLng),
+              ],
+              width: 6,
+              color: Colors.grey.shade300,
+              patterns: [PatternItem.dash(12), PatternItem.gap(8)],
+              zIndex: 4,
+            ),
+          );
         }
 
         // Строим цветной маршрут для активных точек
@@ -476,13 +530,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
               : warehouseLng;
 
           debugPrint(
-              '🏭 [Map] Building active route for driver $driverKey from ($startLat, $startLng)');
+            '🏭 [Map] Building active route for driver $driverKey from ($startLat, $startLng)',
+          );
 
           final driverColor = _getDriverColor(driverKey, driverIndex);
 
           // 🗺️ Используем polyline из routes коллекции (OSRM не нужен!)
-          final firstPoint =
-              activePoints.isNotEmpty ? activePoints.first : null;
+          final firstPoint = activePoints.isNotEmpty
+              ? activePoints.first
+              : null;
           final routeId = firstPoint?.routeId;
           final cachedPolyline = routeId != null
               ? widget.routePolylines[routeId]
@@ -508,14 +564,17 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             }
             if (decoded.isNotEmpty && PolylineDecoder.isValid(decoded)) {
               debugPrint(
-                  '✅ [Map] Using cached polyline for driver $driverKey (${cachedPolyline.length} chars)');
-              result.add(Polyline(
-                polylineId: PolylineId('route_${driverKey}_active'),
-                points: decoded,
-                width: 8,
-                color: driverColor,
-                zIndex: 10,
-              ));
+                '✅ [Map] Using cached polyline for driver $driverKey (${cachedPolyline.length} chars)',
+              );
+              result.add(
+                Polyline(
+                  polylineId: PolylineId('route_${driverKey}_active'),
+                  points: decoded,
+                  width: 8,
+                  color: driverColor,
+                  zIndex: 10,
+                ),
+              );
               driverIndex++;
               continue;
             }
@@ -524,9 +583,11 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           // ⚠️ Нет cached polyline — OSRM fallback (только для старых маршрутов)
 
           debugPrint(
-              '🏭 [Map] Start: Warehouse/Last completed ($startLat, $startLng)');
+            '🏭 [Map] Start: Warehouse/Last completed ($startLat, $startLng)',
+          );
           debugPrint(
-              '🎯 [Map] End: ${activePoints.last.clientName} (${activePoints.last.latitude}, ${activePoints.last.longitude})');
+            '🎯 [Map] End: ${activePoints.last.clientName} (${activePoints.last.latitude}, ${activePoints.last.longitude})',
+          );
 
           final end = activePoints.last;
           final waypoints = activePoints.sublist(0, activePoints.length - 1);
@@ -541,22 +602,30 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           );
 
           debugPrint(
-              '🧭 [Map] SmartNavigationService result for driver $driverKey:');
+            '🧭 [Map] SmartNavigationService result for driver $driverKey:',
+          );
           if (smartRoute != null) {}
 
           // Начальная точка для fallback: последняя завершённая или склад
           final fallbackStart = completedPoints.isNotEmpty
               ? LatLng(
-                  completedPoints.last.latitude, completedPoints.last.longitude)
+                  completedPoints.last.latitude,
+                  completedPoints.last.longitude,
+                )
               : null;
 
           if (smartRoute == null || smartRoute.polyline.isEmpty) {
             debugPrint(
-                '⚠️ [Map] No route from SmartNavigationService, using fallback');
-            result.addAll(_fallbackPolyline(activePoints,
+              '⚠️ [Map] No route from SmartNavigationService, using fallback',
+            );
+            result.addAll(
+              _fallbackPolyline(
+                activePoints,
                 driverIndex: driverIndex,
                 isCompleted: false,
-                customStart: fallbackStart));
+                customStart: fallbackStart,
+              ),
+            );
             driverIndex++;
             continue;
           }
@@ -565,16 +634,21 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           var decoded = PolylineDecoder.decode(rawPolyline, precision: 5);
 
           if (!PolylineDecoder.isValid(decoded)) {
-            result.addAll(_fallbackPolyline(activePoints,
+            result.addAll(
+              _fallbackPolyline(
+                activePoints,
                 driverIndex: driverIndex,
                 isCompleted: false,
-                customStart: fallbackStart));
+                customStart: fallbackStart,
+              ),
+            );
             driverIndex++;
             continue;
           }
 
           debugPrint(
-              '🎨 [Map] Driver $driverKey active route color: $driverColor');
+            '🎨 [Map] Driver $driverKey active route color: $driverColor',
+          );
 
           result.add(
             Polyline(
@@ -622,18 +696,23 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         : _getDriverColor(driverKey, driverIndex);
 
     debugPrint(
-        '🗺️ [Map] Created fallback polyline with ${routePoints.length} points (STRAIGHT LINES)');
+      '🗺️ [Map] Created fallback polyline with ${routePoints.length} points (STRAIGHT LINES)',
+    );
     debugPrint(
-        '🏭 [Map] Starting from warehouse: (${widget.warehouseLat}, ${widget.warehouseLng})');
+      '🏭 [Map] Starting from warehouse: (${widget.warehouseLat}, ${widget.warehouseLng})',
+    );
     debugPrint(
-        '⚠️ [Map] This means OSRM/Google routing failed - routes will be straight lines!');
+      '⚠️ [Map] This means OSRM/Google routing failed - routes will be straight lines!',
+    );
     debugPrint(
-        '🎨 [Map] Fallback color: $driverColor (completed: $isCompleted)');
+      '🎨 [Map] Fallback color: $driverColor (completed: $isCompleted)',
+    );
 
     return {
       Polyline(
         polylineId: PolylineId(
-            'route_${driverKey}_${isCompleted ? "completed" : "active"}'),
+          'route_${driverKey}_${isCompleted ? "completed" : "active"}',
+        ),
         points: routePoints,
         color: driverColor,
         width: 8,
@@ -649,19 +728,22 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     try {
       // Фильтруем точки с нулевыми координатами и за пределами Израиля
       final validPoints = widget.points
-          .where((p) =>
-              p.latitude != 0 &&
-              p.longitude != 0 &&
-              p.latitude >= 29.0 &&
-              p.latitude <= 34.0 &&
-              p.longitude >= 34.0 &&
-              p.longitude <= 36.5)
+          .where(
+            (p) =>
+                p.latitude != 0 &&
+                p.longitude != 0 &&
+                p.latitude >= 29.0 &&
+                p.latitude <= 34.0 &&
+                p.longitude >= 34.0 &&
+                p.longitude <= 36.5,
+          )
           .toList();
       if (validPoints.isEmpty) return;
 
       final bounds = _calculateBounds(validPoints);
-      await _controller!
-          .animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      await _controller!.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 50),
+      );
     } catch (e) {
       debugPrint('❌ [DeliveryMap] Error animating camera to bounds: $e');
     }
@@ -670,13 +752,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   LatLngBounds _calculateBounds(List<DeliveryPoint> points) {
     // Фильтруем нулевые координаты И точки за пределами Израиля
     final valid = points
-        .where((p) =>
-            p.latitude != 0 &&
-            p.longitude != 0 &&
-            p.latitude >= 29.0 &&
-            p.latitude <= 34.0 &&
-            p.longitude >= 34.0 &&
-            p.longitude <= 36.5)
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude >= 29.0 &&
+              p.latitude <= 34.0 &&
+              p.longitude >= 34.0 &&
+              p.longitude <= 36.5,
+        )
         .toList();
     if (valid.isEmpty) {
       // Fallback на склад
@@ -711,10 +795,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       children: [
         GoogleMap(
           initialCameraPosition: CameraPosition(
-            target: LatLng(
-              widget.warehouseLat,
-              widget.warehouseLng,
-            ),
+            target: LatLng(widget.warehouseLat, widget.warehouseLng),
             zoom: 12,
           ),
           markers: {..._deliveryMarkers, ..._driverMarkers},
@@ -722,6 +803,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             ..._polylines,
             if (widget.showDriverTracks) ..._trackPolylines,
           },
+          circles: _driverZoneCircles,
           myLocationEnabled: false,
           myLocationButtonEnabled: false,
           zoomControlsEnabled: true,
@@ -774,7 +856,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         .toList();
 
     debugPrint(
-        '🛤️ [Track] Found ${allDriverIds.length} drivers: $allDriverIds');
+      '🛤️ [Track] Found ${allDriverIds.length} drivers: $allDriverIds',
+    );
 
     if (allDriverIds.isEmpty) {
       debugPrint('🛤️ [Track] No drivers in current route, skipping tracks');
@@ -785,8 +868,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       final tracks = <Polyline>{};
 
       for (final driverId in allDriverIds) {
-        final driverRef =
-            FirestorePaths.driverLocationsOf(widget.companyId).doc(driverId);
+        final driverRef = FirestorePaths.driverLocationsOf(
+          widget.companyId,
+        ).doc(driverId);
 
         // Загружаем history с полуночи
         QuerySnapshot historySnap;
@@ -807,13 +891,15 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
                 .get();
           } catch (e2) {
             debugPrint(
-                '❌ [Track] Fallback query also failed for $driverId: $e2');
+              '❌ [Track] Fallback query also failed for $driverId: $e2',
+            );
             continue;
           }
         }
 
         debugPrint(
-            '🛤️ [Track] Driver $driverId: ${historySnap.docs.length} history docs');
+          '🛤️ [Track] Driver $driverId: ${historySnap.docs.length} history docs',
+        );
 
         if (historySnap.docs.length < 2) continue;
 
@@ -832,7 +918,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         }
 
         debugPrint(
-            '🛤️ [Track] Driver $driverId: ${rawPoints.length} valid points after filtering');
+          '🛤️ [Track] Driver $driverId: ${rawPoints.length} valid points after filtering',
+        );
 
         // Убираем GPS-прыжки: если расстояние между соседними точками > 2 км — пропускаем точку
         final gpsPoints = <Map<String, double>>[];
@@ -856,7 +943,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
         if (gpsPoints.length < 2) {
           debugPrint(
-              '🛤️ [Track] Driver $driverId: not enough points after jump filter (${gpsPoints.length})');
+            '🛤️ [Track] Driver $driverId: not enough points after jump filter (${gpsPoints.length})',
+          );
           continue;
         }
 
@@ -865,8 +953,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         final trackColor = baseColor.withOpacity(0.5);
 
         // ✅ GPS-треки — прямые линии по GPS точкам (OSRM не нужен для истории)
-        final trackPoints =
-            gpsPoints.map((p) => LatLng(p['lat']!, p['lng']!)).toList();
+        final trackPoints = gpsPoints
+            .map((p) => LatLng(p['lat']!, p['lng']!))
+            .toList();
 
         tracks.add(
           Polyline(
@@ -879,7 +968,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         );
 
         debugPrint(
-            '🛤️ [Track] Driver $driverId: ${trackPoints.length} track points added (direct GPS)');
+          '🛤️ [Track] Driver $driverId: ${trackPoints.length} track points added (direct GPS)',
+        );
       }
 
       if (!mounted) return;
@@ -898,8 +988,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     final dlng = (lng2 - lng1).abs() * 111.0 * 0.848; // cos(32°) ≈ 0.848
     return (dlat * dlat + dlng * dlng) > 0
         ? (dlat * dlat + dlng * dlng) < 1e10
-            ? _sqrtSimple(dlat * dlat + dlng * dlng)
-            : 0.0
+              ? _sqrtSimple(dlat * dlat + dlng * dlng)
+              : 0.0
         : 0.0;
   }
 
@@ -922,14 +1012,11 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     _driverLocationsSubscription = _locationService
         .getAllDriverLocationsStream(
-      driverIds: activeDriverIds.isNotEmpty ? activeDriverIds : null,
-    )
-        .listen(
-      (driverLocations) {
-        _updateDriverMarkers(driverLocations);
-      },
-      onError: (error) {},
-    );
+          driverIds: activeDriverIds.isNotEmpty ? activeDriverIds : null,
+        )
+        .listen((driverLocations) {
+          _updateDriverMarkers(driverLocations);
+        }, onError: (error) {});
   }
 
   /// Запускает таймер плавной анимации маркеров (60fps → ~16ms)
@@ -939,15 +1026,12 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       (_) => _interpolateDriverPositions(),
     );
     // Батчинг setState — не чаще 1 раза в 200ms
-    _markerBatchTimer = Timer.periodic(
-      const Duration(milliseconds: 200),
-      (_) {
-        if (_markersDirty && mounted) {
-          _markersDirty = false;
-          _rebuildDriverMarkers();
-        }
-      },
-    );
+    _markerBatchTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (_markersDirty && mounted) {
+        _markersDirty = false;
+        _rebuildDriverMarkers();
+      }
+    });
   }
 
   /// Интерполяция позиций водителей к целевым координатам
@@ -1040,10 +1124,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Пересчитываем ETA для всех водителей (с debounce — не чаще раз в 5 сек)
     _etaDebounce?.cancel();
-    _etaDebounce = Timer(
-      const Duration(seconds: 5),
-      () => _calculateETAs(),
-    );
+    _etaDebounce = Timer(const Duration(seconds: 5), () => _calculateETAs());
 
     for (final driverLocation in driverLocations) {
       final driverId = driverLocation['driverId']?.toString() ?? '';
@@ -1057,8 +1138,9 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       // Проверяем свежесть данных (не старше 60 минут)
       if (timestamp != null) {
         try {
-          final locationTime =
-              (timestamp is Timestamp) ? timestamp.toDate() : DateTime.now();
+          final locationTime = (timestamp is Timestamp)
+              ? timestamp.toDate()
+              : DateTime.now();
           final now = DateTime.now();
           final diffMinutes = now.difference(locationTime).inMinutes;
           if (diffMinutes > 60) continue;
@@ -1073,12 +1155,14 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       // 🛡️ GPS фильтр: игнорируем прыжки > 5 км (ошибка GPS)
       final currentPos = _driverCurrentPositions[driverId];
       if (currentPos != null) {
-        final jumpDist = (latitude - currentPos.latitude).abs() +
+        final jumpDist =
+            (latitude - currentPos.latitude).abs() +
             (longitude - currentPos.longitude).abs();
         if (jumpDist > 0.05) {
           // ~5 км
           debugPrint(
-              '⚠️ [Map] GPS jump filtered for $driverId: ${jumpDist.toStringAsFixed(4)}');
+            '⚠️ [Map] GPS jump filtered for $driverId: ${jumpDist.toStringAsFixed(4)}',
+          );
           continue;
         }
       }
@@ -1147,16 +1231,151 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     }
   }
 
+  // =========================================================================
+  // 🖐️ DRAG & DROP — перетаскивание точек на водителей
+  // =========================================================================
+
+  /// При начале перетаскивания — показываем зоны водителей
+  void _onPointDragStart(DeliveryPoint point) {
+    _draggingPointId = point.id;
+    _showDriverZones();
+    debugPrint('🖐️ [DragDrop] Started dragging: ${point.clientName}');
+  }
+
+  /// При отпускании — ищем ближайшего водителя и назначаем
+  void _onPointDragEnd(DeliveryPoint point, LatLng newPosition) {
+    _draggingPointId = null;
+
+    // Убираем зоны водителей
+    setState(() {
+      _driverZoneCircles = {};
+    });
+
+    // Ищем ближайшего водителя
+    final nearest = _findNearestDriver(newPosition);
+    if (nearest == null) {
+      debugPrint('⚠️ [DragDrop] No driver found near drop position');
+      // Перестраиваем маркеры чтобы вернуть точку на место
+      _updateMapData();
+      return;
+    }
+
+    final driverId = nearest['driverId'] as String;
+    final driverName = nearest['driverName'] as String;
+    final distKm = nearest['distKm'] as double;
+
+    debugPrint(
+      '🖐️ [DragDrop] Dropped ${point.clientName} near $driverName (${distKm.toStringAsFixed(1)} km)',
+    );
+
+    // Показываем подтверждение через SnackBar
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '📦 ${point.clientName} → 🚛 $driverName',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.blue.shade700,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: l10n?.confirm ?? 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            // Вызываем callback
+            widget.onPointDragToDriver?.call(point.id, driverId, driverName);
+          },
+        ),
+      ),
+    );
+
+    // Перестраиваем маркеры (точка вернётся на оригинальную позицию,
+    // обновится через stream после Firestore write)
+    _updateMapData();
+  }
+
+  /// Ищем ближайшего водителя к позиции drop
+  /// Возвращает {driverId, driverName, distKm} или null
+  Map<String, dynamic>? _findNearestDriver(LatLng position) {
+    if (_driverCurrentPositions.isEmpty) return null;
+
+    String? nearestId;
+    String? nearestName;
+    double minDist = double.infinity;
+
+    for (final entry in _driverCurrentPositions.entries) {
+      final driverId = entry.key;
+      final driverPos = entry.value;
+      final name = _driverNames[driverId] ?? 'Driver';
+
+      final dist = _gpsDistanceKm(
+        position.latitude,
+        position.longitude,
+        driverPos.latitude,
+        driverPos.longitude,
+      );
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearestId = driverId;
+        nearestName = name;
+      }
+    }
+
+    // Максимальное расстояние для привязки — 50 км (вся территория Израиля)
+    if (nearestId == null || minDist > 50.0) return null;
+
+    return {
+      'driverId': nearestId,
+      'driverName': nearestName ?? 'Driver',
+      'distKm': minDist,
+    };
+  }
+
+  /// Показываем полупрозрачные круги вокруг водителей при drag
+  void _showDriverZones() {
+    if (_driverCurrentPositions.isEmpty) return;
+
+    final circles = <Circle>{};
+    final driverIds = _driverCurrentPositions.keys.toList();
+
+    for (int i = 0; i < driverIds.length; i++) {
+      final driverId = driverIds[i];
+      final pos = _driverCurrentPositions[driverId];
+      if (pos == null) continue;
+
+      final color = _getRouteLoadColor(driverId);
+
+      circles.add(
+        Circle(
+          circleId: CircleId('zone_$driverId'),
+          center: pos,
+          radius: 3000, // 3 км радиус зоны
+          fillColor: color.withOpacity(0.15),
+          strokeColor: color.withOpacity(0.5),
+          strokeWidth: 2,
+        ),
+      );
+    }
+
+    setState(() {
+      _driverZoneCircles = circles;
+    });
+  }
+
   String _buildMarkerSnippet(DeliveryPoint point, AppLocalizations? l10n) {
     final buffer = StringBuffer();
 
     buffer.write(
-        '${point.pallets} ${l10n?.pallets ?? ''} • ${l10n?.order ?? 'Order'}: ${point.orderInRoute + 1}');
+      '${point.pallets} ${l10n?.pallets ?? ''} • ${l10n?.order ?? 'Order'}: ${point.orderInRoute + 1}',
+    );
 
     final displayAddress =
         (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty)
-            ? point.temporaryAddress!
-            : point.address;
+        ? point.temporaryAddress!
+        : point.address;
 
     buffer.write('\n📍 $displayAddress');
 

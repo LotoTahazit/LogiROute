@@ -53,8 +53,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     _pendingPointsStream = routeService.getAllPendingPoints();
     _mapRoutesStream = routeService.getTodayRoutes();
     _routeDocsFuture = routeService.getTodayRoutesForMap();
-    _routesStream =
-        routeService.getTodayRoutes(includeCompleted: false).map((routes) {
+    _routesStream = routeService.getTodayRoutes(includeCompleted: false).map((
+      routes,
+    ) {
       if (routes.isNotEmpty) {
         _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
         _lastNonEmptyRoutesDate = DateTime.now();
@@ -155,8 +156,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 labelText: l10n.latitudeWarehouse,
                 hintText: '32.48698',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -165,8 +167,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 labelText: l10n.longitudeWarehouse,
                 hintText: '34.982121',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
           ],
         ),
@@ -194,11 +197,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             .collection('settings')
             .doc('warehouse_location')
             .set({
-          'latitude': latitude,
-          'longitude': longitude,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': uid,
-        });
+              'latitude': latitude,
+              'longitude': longitude,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedBy': uid,
+            });
 
         if (mounted) {
           SnackbarHelper.showSuccess(
@@ -263,10 +266,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
       final invoice = await showDialog<Invoice>(
         context: context,
-        builder: (context) => CreateInvoiceDialog(
-          point: point,
-          driver: driver,
-        ),
+        builder: (context) => CreateInvoiceDialog(point: point, driver: driver),
       );
 
       if (invoice == null) {
@@ -307,7 +307,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         );
         if (mounted) {
           SnackbarHelper.showSuccess(
-              context, l10n.invoicesPrintedSuccess(invoices.length));
+            context,
+            l10n.invoicesPrintedSuccess(invoices.length),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -318,7 +320,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   }
 
   Future<void> _createRoute(
-      String companyId, List<DeliveryPoint> points) async {
+    String companyId,
+    List<DeliveryPoint> points,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     if (points.isEmpty) {
       SnackbarHelper.showWarning(context, l10n.noPointsForRoute);
@@ -335,10 +339,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             children: _drivers
                 .map(
                   (d) => ListTile(
-                    title: Text(d.name,
-                        style: const TextStyle(color: Colors.black)),
-                    subtitle: Text('${d.palletCapacity} ${l10n.pallets}',
-                        style: const TextStyle(color: Colors.black)),
+                    title: Text(
+                      d.name,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    subtitle: Text(
+                      '${d.palletCapacity} ${l10n.pallets}',
+                      style: const TextStyle(color: Colors.black),
+                    ),
                     onTap: () => Navigator.pop(context, d),
                   ),
                 )
@@ -364,7 +372,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   }
 
   Future<void> _cancelRoute(
-      String companyId, String driverId, String? routeId) async {
+    String companyId,
+    String driverId,
+    String? routeId,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await DialogHelper.showConfirmation(
       context: context,
@@ -413,10 +424,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 .where((d) => d.uid != currentDriverId)
                 .map(
                   (driver) => ListTile(
-                    title: Text(driver.name,
-                        style: const TextStyle(color: Colors.black)),
-                    subtitle: Text('${driver.palletCapacity} ${l10n.pallets}',
-                        style: const TextStyle(color: Colors.black)),
+                    title: Text(
+                      driver.name,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    subtitle: Text(
+                      '${driver.palletCapacity} ${l10n.pallets}',
+                      style: const TextStyle(color: Colors.black),
+                    ),
                     onTap: () => Navigator.pop(context, driver),
                   ),
                 )
@@ -443,13 +458,17 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       );
       if (mounted) {
         SnackbarHelper.showSuccess(
-            context, l10n.driverChangedTo(newDriver.name));
+          context,
+          l10n.driverChangedTo(newDriver.name),
+        );
       }
     }
   }
 
-  Future<void> _createInvoiceForPoint(DeliveryPoint point,
-      {InvoiceDocumentType documentType = InvoiceDocumentType.invoice}) async {
+  Future<void> _createInvoiceForPoint(
+    DeliveryPoint point, {
+    InvoiceDocumentType documentType = InvoiceDocumentType.invoice,
+  }) async {
     final driver = _drivers.firstWhere(
       (d) => d.uid == point.driverId,
       orElse: () => UserModel(
@@ -502,12 +521,17 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   }
 
   Future<void> _createDeliveryNoteForPoint(DeliveryPoint point) async {
-    await _createInvoiceForPoint(point,
-        documentType: InvoiceDocumentType.delivery);
+    await _createInvoiceForPoint(
+      point,
+      documentType: InvoiceDocumentType.delivery,
+    );
   }
 
   Future<void> _deletePoint(
-      String companyId, String pointId, String clientName) async {
+    String companyId,
+    String pointId,
+    String clientName,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
 
     final confirmed = await DialogHelper.showDeleteConfirmation(
@@ -522,7 +546,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         await routeService.deletePoint(pointId);
         if (mounted) {
           SnackbarHelper.showSuccess(
-              context, '${l10n.pointDeleted}: $clientName');
+            context,
+            '${l10n.pointDeleted}: $clientName',
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -533,7 +559,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   }
 
   Future<void> _removePointFromRoute(
-      String companyId, DeliveryPoint point) async {
+    String companyId,
+    DeliveryPoint point,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
 
     final confirmed = await DialogHelper.showDeleteConfirmation(
@@ -548,7 +576,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         await routeService.removePointFromRoute(point.id);
         if (mounted) {
           SnackbarHelper.showSuccess(
-              context, '${l10n.pointRemovedFromRoute}: ${point.clientName}');
+            context,
+            '${l10n.pointRemovedFromRoute}: ${point.clientName}',
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -573,7 +603,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           await routeService.cancelPoint(point.id);
           if (mounted) {
             SnackbarHelper.showWarning(
-                context, '${l10n.pointCancelled}: ${point.clientName}');
+              context,
+              '${l10n.pointCancelled}: ${point.clientName}',
+            );
           }
           return;
         }
@@ -596,7 +628,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   }
 
   Future<void> _assignDriverToPoint(
-      String companyId, DeliveryPoint point) async {
+    String companyId,
+    DeliveryPoint point,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final authService = context.read<AuthService>();
     final allUsers = await authService.getAllUsers();
@@ -640,10 +674,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         final routeService = RouteService(companyId: companyId);
 
         // ✅ Проверяем текущую загрузку водителя
-        final driverRoutes =
-            await routeService.getDriverPointsSnapshot(selectedDriver.uid);
+        final driverRoutes = await routeService.getDriverPointsSnapshot(
+          selectedDriver.uid,
+        );
         final currentLoad = driverRoutes.fold<int>(
-            0, (runningTotal, p) => runningTotal + p.pallets);
+          0,
+          (runningTotal, p) => runningTotal + p.pallets,
+        );
         final newLoad = point.pallets;
         final totalLoad = currentLoad + newLoad;
         final capacity = selectedDriver.palletCapacity ?? 0;
@@ -651,7 +688,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         // ⚠️ Если превышает вместимость - показываем предупреждение
         bool shouldContinue = true;
         if (totalLoad > capacity && mounted) {
-          shouldContinue = await showDialog<bool>(
+          shouldContinue =
+              await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: Text(l10n.overloadWarning),
@@ -717,6 +755,47 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     } catch (e) {
       if (mounted) {
         SnackbarHelper.showError(context, '❌ שגיאה: $e');
+      }
+    }
+  }
+
+  /// 🖐️ Drag & Drop: назначить точку водителю через перетаскивание на карте
+  Future<void> _handleDragAssign(
+    String companyId,
+    String pointId,
+    String driverId,
+    String driverName,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      // Находим capacity водителя
+      final driver = _drivers.firstWhere(
+        (d) => d.uid == driverId,
+        orElse: () => UserModel(
+          uid: driverId,
+          email: '',
+          name: driverName,
+          role: 'driver',
+        ),
+      );
+
+      final routeService = RouteService(companyId: companyId);
+      await routeService.assignPointToDriver(
+        pointId,
+        driverId,
+        driverName,
+        driver.palletCapacity ?? 0,
+      );
+
+      if (mounted) {
+        SnackbarHelper.showSuccess(
+          context,
+          '✅ ${l10n.pointAssigned}: → $driverName',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '${l10n.error}: $e');
       }
     }
   }
@@ -822,9 +901,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
     // Если companyId ещё не загружен — показываем loader
     if (effectiveCompanyId.isEmpty || _pendingPointsStream == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Directionality(
@@ -851,8 +928,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                   authService.viewAsRole == 'dispatcher')
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade100,
                     border: Border(
@@ -868,8 +947,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.visibility,
-                              color: Colors.blue.shade900, size: 20),
+                          Icon(
+                            Icons.visibility,
+                            color: Colors.blue.shade900,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
@@ -891,7 +973,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ],
@@ -917,18 +1001,24 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 ConnectionState.waiting &&
                             !snapshot.hasData) {
                           return const Center(
-                              child: CircularProgressIndicator());
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         return PendingPointsTab(
                           points: snapshot.data ?? const [],
                           companyId: effectiveCompanyId,
                           isLoadingMap: _isLoadingMap,
                           onCreateRoute: () => _createRoute(
-                              effectiveCompanyId, snapshot.data ?? const []),
+                            effectiveCompanyId,
+                            snapshot.data ?? const [],
+                          ),
                           onAutoDistribute: () =>
                               _autoDistributePallets(effectiveCompanyId),
                           onDeletePoint: (pointId, clientName) => _deletePoint(
-                              effectiveCompanyId, pointId, clientName),
+                            effectiveCompanyId,
+                            pointId,
+                            clientName,
+                          ),
                           onEditPoint: (point) =>
                               _editPoint(effectiveCompanyId, point),
                           onAssignDriver: (point) =>
@@ -942,7 +1032,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
                           return Center(
-                              child: Text('Error: ${snapshot.error}'));
+                            child: Text('Error: ${snapshot.error}'),
+                          );
                         }
                         return StreamBuilder<List<DeliveryPoint>>(
                           stream: _autoCompletedStream,
@@ -953,11 +1044,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               lastNonEmptyRoutes: _lastNonEmptyRoutes,
                               autoCompletedPoints: autoSnapshot.data ?? [],
                               onChangeDriver: (driverId, driverName, routeId) =>
-                                  _changeDriver(effectiveCompanyId, driverId,
-                                      driverName, routeId),
+                                  _changeDriver(
+                                    effectiveCompanyId,
+                                    driverId,
+                                    driverName,
+                                    routeId,
+                                  ),
                               onCancelRoute: (driverId, routeId) =>
                                   _cancelRoute(
-                                      effectiveCompanyId, driverId, routeId),
+                                    effectiveCompanyId,
+                                    driverId,
+                                    routeId,
+                                  ),
                               onPrintRoute: _printDriverRoute,
                               onReorderPoints: _reorderRoutePoints,
                               onCreateInvoice: _createInvoiceForPoint,
@@ -966,7 +1064,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               onEditPoint: (point) =>
                                   _editPoint(effectiveCompanyId, point),
                               onRemovePoint: (point) => _removePointFromRoute(
-                                  effectiveCompanyId, point),
+                                effectiveCompanyId,
+                                point,
+                              ),
                               onReopenPoint: (point) =>
                                   _reopenPoint(effectiveCompanyId, point),
                               onBalanceRoutes: _balanceRoutes,
@@ -981,10 +1081,12 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       builder: (context, pointsSnapshot) {
                         if (pointsSnapshot.hasError) {
                           return Center(
-                              child: Text('Error: ${pointsSnapshot.error}'));
+                            child: Text('Error: ${pointsSnapshot.error}'),
+                          );
                         }
                         return FutureBuilder<List<Map<String, dynamic>>>(
-                          future: _routeDocsFuture ??
+                          future:
+                              _routeDocsFuture ??
                               Future.value(<Map<String, dynamic>>[]),
                           initialData: const [],
                           builder: (context, routesSnapshot) {
@@ -1004,14 +1106,22 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               selectedDriverId: _selectedDriverId,
                               routePolylines: polylines,
                               companyId: effectiveCompanyId,
-                              warehouseLat:
-                                  CompanyCache.instance(effectiveCompanyId)
-                                      .warehouseLat,
-                              warehouseLng:
-                                  CompanyCache.instance(effectiveCompanyId)
-                                      .warehouseLng,
+                              warehouseLat: CompanyCache.instance(
+                                effectiveCompanyId,
+                              ).warehouseLat,
+                              warehouseLng: CompanyCache.instance(
+                                effectiveCompanyId,
+                              ).warehouseLng,
                               onDriverFilterChanged: (driverId) =>
                                   setState(() => _selectedDriverId = driverId),
+                              onPointDragToDriver:
+                                  (pointId, driverId, driverName) =>
+                                      _handleDragAssign(
+                                        effectiveCompanyId,
+                                        pointId,
+                                        driverId,
+                                        driverName,
+                                      ),
                             );
                           },
                         );

@@ -16,6 +16,8 @@ class MapTab extends StatefulWidget {
   final String companyId;
   final double warehouseLat;
   final double warehouseLng;
+  final void Function(String pointId, String driverId, String driverName)?
+  onPointDragToDriver;
 
   const MapTab({
     super.key,
@@ -28,6 +30,7 @@ class MapTab extends StatefulWidget {
     required this.companyId,
     required this.warehouseLat,
     required this.warehouseLng,
+    this.onPointDragToDriver,
   });
 
   @override
@@ -111,8 +114,9 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child:
-                          Text('${l10n.allDrivers} (${displayPoints.length})'),
+                      child: Text(
+                        '${l10n.allDrivers} (${displayPoints.length})',
+                      ),
                     ),
                     ...widget.drivers.map((driver) {
                       final isActive = activeDriverIds.contains(driver.uid);
@@ -166,8 +170,9 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                 child: IconButton(
                   icon: Icon(
                     _clearMap ? Icons.layers : Icons.layers_clear,
-                    color:
-                        _clearMap ? Colors.red.shade700 : Colors.grey.shade600,
+                    color: _clearMap
+                        ? Colors.red.shade700
+                        : Colors.grey.shade600,
                   ),
                   onPressed: () {
                     setState(() => _clearMap = !_clearMap);
@@ -177,8 +182,9 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               const SizedBox(width: 4),
               // Toggle GPS-треков
               Tooltip(
-                message:
-                    _showDriverTracks ? l10n.hideGpsTracks : l10n.showGpsTracks,
+                message: _showDriverTracks
+                    ? l10n.hideGpsTracks
+                    : l10n.showGpsTracks,
                 child: Container(
                   decoration: BoxDecoration(
                     color: _showDriverTracks
@@ -216,8 +222,11 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             color: Colors.orange.shade50,
             child: Row(
               children: [
-                Icon(Icons.info_outline,
-                    size: 16, color: Colors.orange.shade700),
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.orange.shade700,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -240,6 +249,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             routePolylines: _clearMap ? {} : widget.routePolylines,
             warehouseLat: widget.warehouseLat,
             warehouseLng: widget.warehouseLng,
+            enableDragDrop: widget.onPointDragToDriver != null,
+            onPointDragToDriver: widget.onPointDragToDriver,
           ),
         ),
       ],
