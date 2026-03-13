@@ -72,6 +72,7 @@ class DeliveryPoint {
   final String? routePolyline; // Кешированная полилиния маршрута (encoded)
   final String? updatedByUid; // Аудит: кто последний обновил статус
   final DateTime? updatedAt; // Аудит: когда последний раз обновлён статус
+  final DateTime? createdAt; // Когда создана точка
 
   DeliveryPoint({
     required this.id,
@@ -101,6 +102,7 @@ class DeliveryPoint {
     this.routePolyline,
     this.updatedByUid,
     this.updatedAt,
+    this.createdAt,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -167,6 +169,9 @@ class DeliveryPoint {
         updatedAt: map['updatedAt'] != null && map['updatedAt'] is Timestamp
             ? (map['updatedAt'] as Timestamp).toDate()
             : null,
+        createdAt: map['createdAt'] != null && map['createdAt'] is Timestamp
+            ? (map['createdAt'] as Timestamp).toDate()
+            : null,
       );
     } catch (e) {
       print('❌ DeliveryPoint.fromMap error: $e');
@@ -213,7 +218,11 @@ class DeliveryPoint {
       if (routeId != null) 'routeId': routeId,
       if (routePolyline != null) 'routePolyline': routePolyline,
       if (updatedByUid != null) 'updatedByUid': updatedByUid,
-      if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
+      // Timestamps: createdAt fallback to server, updatedAt always refreshed
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 
@@ -255,6 +264,7 @@ class DeliveryPoint {
       routePolyline: routePolyline,
       updatedByUid: updatedByUid ?? this.updatedByUid,
       updatedAt: updatedAt ?? this.updatedAt,
+      createdAt: createdAt,
     );
   }
 

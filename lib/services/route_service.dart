@@ -45,6 +45,12 @@ class RouteService {
         .collection('routes');
   }
 
+  /// Helper: обновляет точку доставки, автоматически добавляя updatedAt
+  Future<void> _updatePoint(String pointId, Map<String, dynamic> data) async {
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    await _deliveryPointsCollection().doc(pointId).update(data);
+  }
+
   /// 🚚 Автоматически распределяет все pending точки между всеми водителями по palletCapacity
   Future<void> autoDistributePalletsToDrivers(List<UserModel> drivers) async {
     // Prevent concurrent distribution
@@ -156,7 +162,7 @@ class RouteService {
         // ETA = абсолютное время прибытия от 07:00
         final eta = TimeFormatter.formatArrivalTime(cumulativeTimeMinutes);
 
-        await _deliveryPointsCollection().doc(point.id).update({
+        await _updatePoint(point.id, {
           'driverId': driver.uid,
           'driverName': driver.name,
           'driverCapacity': driver.palletCapacity,
@@ -167,7 +173,6 @@ class RouteService {
           'routeId': routeId,
           'routeDate': Timestamp.fromDate(DateTime(
               DateTime.now().year, DateTime.now().month, DateTime.now().day)),
-          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     }
@@ -524,7 +529,6 @@ class RouteService {
 
     final updateData = <String, dynamic>{
       'urgency': urgency,
-      'updatedAt': FieldValue.serverTimestamp(),
     };
 
     if (orderInRoute != null) {
@@ -550,7 +554,7 @@ class RouteService {
     }
 
     try {
-      await _deliveryPointsCollection().doc(pointId).update(updateData);
+      await _updatePoint(pointId, updateData);
       print('✅ [RouteService] Point $pointId updated successfully');
     } catch (e) {
       print('❌ [RouteService] Error updating point $pointId: $e');
@@ -701,10 +705,8 @@ class RouteService {
 
   /// Добавить новую точку доставки
   Future<void> addDeliveryPoint(DeliveryPoint point) async {
-    final data = point.toMap();
-    data['createdAt'] = FieldValue.serverTimestamp();
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    await _deliveryPointsCollection().add(data);
+    // toMap() автоматически добавляет createdAt и updatedAt
+    await _deliveryPointsCollection().add(point.toMap());
     print('✅ Delivery point added: ${point.clientName}');
   }
 
@@ -718,7 +720,6 @@ class RouteService {
   }) async {
     final Map<String, dynamic> patch = {
       'status': newStatus,
-      'updatedAt': FieldValue.serverTimestamp(),
     };
     if (updatedByUid != null) {
       patch['updatedByUid'] = updatedByUid;
@@ -727,7 +728,7 @@ class RouteService {
       patch['completedAt'] = FieldValue.serverTimestamp();
       patch['autoCompleted'] = autoCompleted;
     }
-    await _deliveryPointsCollection().doc(pointId).update(patch);
+    await _updatePoint(pointId, patch);
     print('✅ Point $pointId status updated to $newStatus');
 
     // Самообучение: записываем GPS и service_time при завершении
@@ -896,6 +897,7 @@ class RouteService {
           'routePolyline': null,
           'routeId': null,
           'routeDate': null,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         clearedCount++;
       }
@@ -1028,18 +1030,17 @@ class RouteService {
       final eta = TimeFormatter.formatArrivalTime(cumulativeTimeMinutes);
 
       try {
-        await _deliveryPointsCollection().doc(point.id).update({
+        await _updatePoint(point.id, {
           'driverId': driverId,
           'driverName': driverName,
           'driverCapacity': driverCapacity,
-          'orderInRoute': startOrder + i, // Нумерация с 0 (в UI будет +1)
+          'orderInRoute': startOrder + i,
           'status': 'assigned',
           'eta': eta,
           'distanceKm': double.parse(distanceKm.toStringAsFixed(1)),
-          'routeId': routeId, // Добавляем routeId
+          'routeId': routeId,
           'routeDate': Timestamp.fromDate(DateTime(
               DateTime.now().year, DateTime.now().month, DateTime.now().day)),
-          'updatedAt': FieldValue.serverTimestamp(),
         });
         print(
             '✅ [RouteService] Point ${point.clientName} assigned to $driverName (order: ${startOrder + i}, ETA: $eta)');
@@ -1128,12 +1129,11 @@ class RouteService {
       final Map<String, dynamic> patch = {
         'status': DeliveryPoint.statusInProgress,
         'autoCompleted': false,
-        'updatedAt': FieldValue.serverTimestamp(),
       };
       if (updatedByUid != null) {
         patch['updatedByUid'] = updatedByUid;
       }
-      await _deliveryPointsCollection().doc(pointId).update(patch);
+      await _updatePoint(pointId, patch);
       print('✅ [RouteService] Point $pointId reopened');
     } catch (e) {
       print('❌ [RouteService] Error reopening point $pointId: $e');
@@ -1144,7 +1144,7 @@ class RouteService {
   /// 🔙 Убрать точку из маршрута (вернуть в ожидающие)
   Future<void> removePointFromRoute(String pointId) async {
     try {
-      await _deliveryPointsCollection().doc(pointId).update({
+      await _updatePoint(pointId, {
         'status': DeliveryPoint.statusPending,
         'driverId': null,
         'driverName': null,
@@ -1153,7 +1153,6 @@ class RouteService {
         'routeId': null,
         'routeDate': null,
         'eta': null,
-        'updatedAt': FieldValue.serverTimestamp(),
       });
       print('🔙 [RouteService] Point $pointId removed from route → pending');
     } catch (e) {
@@ -1167,7 +1166,6 @@ class RouteService {
     try {
       final Map<String, dynamic> patch = {
         'status': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
         'driverId': null,
         'driverName': null,
         'orderInRoute': null,
@@ -1175,7 +1173,7 @@ class RouteService {
       if (updatedByUid != null) {
         patch['updatedByUid'] = updatedByUid;
       }
-      await _deliveryPointsCollection().doc(pointId).update(patch);
+      await _updatePoint(pointId, patch);
 
       print('❌ [RouteService] Point $pointId cancelled');
     } catch (e) {
