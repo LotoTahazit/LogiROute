@@ -167,6 +167,7 @@ class RouteService {
           'routeId': routeId,
           'routeDate': Timestamp.fromDate(DateTime(
               DateTime.now().year, DateTime.now().month, DateTime.now().day)),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     }
@@ -300,7 +301,7 @@ class RouteService {
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
     return _deliveryPointsCollection()
         .where('status', whereIn: DeliveryPoint.pendingStatuses)
-        .orderBy('updatedAt', descending: true)
+        .orderBy('createdAt', descending: true)
         .limit(50)
         .snapshots(includeMetadataChanges: false)
         .map((snapshot) {
@@ -523,6 +524,7 @@ class RouteService {
 
     final updateData = <String, dynamic>{
       'urgency': urgency,
+      'updatedAt': FieldValue.serverTimestamp(),
     };
 
     if (orderInRoute != null) {
@@ -666,6 +668,7 @@ class RouteService {
         'driverId': newDriverId,
         'driverName': newDriverName,
         'driverCapacity': capacity,
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
 
@@ -698,7 +701,10 @@ class RouteService {
 
   /// Добавить новую точку доставки
   Future<void> addDeliveryPoint(DeliveryPoint point) async {
-    await _deliveryPointsCollection().add(point.toMap());
+    final data = point.toMap();
+    data['createdAt'] = FieldValue.serverTimestamp();
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    await _deliveryPointsCollection().add(data);
     print('✅ Delivery point added: ${point.clientName}');
   }
 
@@ -1033,6 +1039,7 @@ class RouteService {
           'routeId': routeId, // Добавляем routeId
           'routeDate': Timestamp.fromDate(DateTime(
               DateTime.now().year, DateTime.now().month, DateTime.now().day)),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         print(
             '✅ [RouteService] Point ${point.clientName} assigned to $driverName (order: ${startOrder + i}, ETA: $eta)');
