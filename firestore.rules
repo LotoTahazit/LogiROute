@@ -221,6 +221,26 @@ service cloud.firestore {
       }
 
       // =========================================================
+      // DRIVER LOCATIONS (company-scoped, SaaS multi-tenant)
+      // companies/{companyId}/driver_locations/{driverId}
+      // =========================================================
+      match /driver_locations/{driverId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if signedIn() && (
+          request.auth.uid == driverId ||
+          canDispatcherWrite(companyId)
+        );
+        match /history/{entryId} {
+          allow read: if isCompanyMember(companyId);
+          allow create: if signedIn() && request.auth.uid == driverId;
+          allow delete: if signedIn() && (
+            request.auth.uid == driverId || canAdminWrite(companyId)
+          );
+          allow update: if false;
+        }
+      }
+
+      // =========================================================
       // OWNER DASHBOARD: Members
       // =========================================================
       match /members/{uid} {

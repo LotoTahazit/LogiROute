@@ -22,6 +22,7 @@ import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
 import 'widgets/map_tab.dart';
+import 'widgets/driver_workload_panel.dart';
 import '../../widgets/notification_bell.dart';
 import '../../services/company_cache.dart';
 
@@ -981,6 +982,16 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                     ],
                   ),
                 ),
+              // 🚛 Driver Workload Panel — горизонтальная полоса загрузки водителей
+              StreamBuilder<List<DeliveryPoint>>(
+                stream: _routesStream,
+                initialData: _lastNonEmptyRoutes,
+                builder: (context, snapshot) {
+                  final routes = snapshot.data ?? [];
+                  if (routes.isEmpty) return const SizedBox.shrink();
+                  return DriverWorkloadPanel(routes: routes, drivers: _drivers);
+                },
+              ),
               TabBar(
                 onTap: (index) => setState(() => _currentTabIndex = index),
                 tabs: [

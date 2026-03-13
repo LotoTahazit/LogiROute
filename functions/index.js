@@ -64,6 +64,13 @@ exports.archiveOldRoutes = archiveOldRoutes;
 const { cleanupDriverHistory } = require('./cleanupDriverHistory');
 exports.cleanupDriverHistory = cleanupDriverHistory;
 
+// === Delivery Point Triggers (push + route stats) ===
+const { onPointAssigned } = require('./onPointAssigned');
+exports.onPointAssigned = onPointAssigned;
+
+const { onRoutePointChanged } = require('./onRoutePointChanged');
+exports.onRoutePointChanged = onRoutePointChanged;
+
 /**
  * Очистка старых delivery logs (push + email) — раз в неделю
  * Удаляет логи старше 30 дней, чтобы не раздувать Firestore cost
