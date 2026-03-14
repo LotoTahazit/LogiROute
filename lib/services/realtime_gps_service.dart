@@ -41,7 +41,7 @@ class RealtimeGpsService {
   }
 
   void _connect() {
-    if (_disposed) return;
+    if (_disposed || _wsUrl.isEmpty) return;
     try {
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
       _isConnected = true;
