@@ -16,6 +16,7 @@ import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/box_type_selector.dart';
 import '../shared/dialogs/create_client_dialog.dart';
+import '../../services/firestore_paths.dart';
 
 class AddPointDialog extends StatefulWidget {
   const AddPointDialog({super.key});
@@ -68,16 +69,20 @@ class _AddPointDialogState extends State<AddPointDialog> {
       int totalBoxes = 0;
 
       for (final boxType in _selectedBoxTypes) {
-        // Находим товар в инвентаре
-        final inventoryItem = inventory.firstWhere(
+        // Находим товар в инвентаре (fallback: 20 шт на миштах)
+        final inventoryMatch = inventory.where(
           (item) => item.type == boxType.type && item.number == boxType.number,
-          orElse: () => throw Exception(
-            'ITEM_NOT_FOUND:${boxType.type}:${boxType.number}',
-          ),
         );
 
         final quantity = boxType.quantity;
-        final perPallet = inventoryItem.quantityPerPallet;
+        final perPallet = inventoryMatch.isNotEmpty
+            ? inventoryMatch.first.quantityPerPallet
+            : 20; // default: 20 boxes per pallet
+        if (inventoryMatch.isEmpty) {
+          debugPrint(
+            '⚠️ [Calc] Item not in inventory: ${boxType.type} ${boxType.number}, using default perPallet=20',
+          );
+        }
 
         if (perPallet > 0) {
           fullPallets += quantity ~/ perPallet;
@@ -111,6 +116,21 @@ class _AddPointDialogState extends State<AddPointDialog> {
       }
     } catch (e) {
       debugPrint('❌ [Calculation] Error calculating fields: $e');
+      // Fallback: считаем миштахи по умолчанию (20 шт на миштах)
+      if (mounted && _selectedBoxTypes.isNotEmpty) {
+        int totalBoxes = 0;
+        for (final boxType in _selectedBoxTypes) {
+          totalBoxes += boxType.quantity;
+        }
+        final fallbackPallets = totalBoxes > 0 ? (totalBoxes / 20).ceil() : 0;
+        debugPrint(
+          '⚠️ [Calc] Fallback: totalBoxes=$totalBoxes, pallets=$fallbackPallets (20 per pallet default)',
+        );
+        setState(() {
+          _palletsController.text = fallbackPallets.toString();
+          _boxesController.text = totalBoxes.toString();
+        });
+      }
     }
   }
 
@@ -142,13 +162,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
   /// Возвращает список совпадающих точек или пустой список
   Future<List<DeliveryPoint>> _checkForDuplicates(
       String clientNumber, String companyId) async {
-    final firestore = FirebaseFirestore.instance;
-    final collection = firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points');
+    final collection = FirestorePaths.deliveryPointsOf(companyId);
 
     final List<DeliveryPoint> duplicates = [];
 
@@ -242,10 +256,21 @@ class _AddPointDialogState extends State<AddPointDialog> {
       double longitude = 0;
 
       // Если у клиента уже есть координаты — используем их
+      final addressFieldTrimmed = _addressController.text.trim();
+      final clientAddressTrimmed = _selectedClient?.address.trim() ?? '';
+      final addressMatch = addressFieldTrimmed == clientAddressTrimmed;
+
+      debugPrint(
+        '🔍 [Coords] client=${_selectedClient?.name}, '
+        'lat=${_selectedClient?.latitude}, lng=${_selectedClient?.longitude}, '
+        'addressMatch=$addressMatch, '
+        'field="$addressFieldTrimmed", client="$clientAddressTrimmed"',
+      );
+
       if (_selectedClient != null &&
           _selectedClient!.latitude != 0 &&
           _selectedClient!.longitude != 0 &&
-          _addressController.text.trim() == _selectedClient!.address) {
+          addressMatch) {
         latitude = _selectedClient!.latitude;
         longitude = _selectedClient!.longitude;
         debugPrint(
@@ -411,7 +436,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
           final hasExactMatch = exactMatches.isNotEmpty;
 
           if (mounted) {
-            final proceed = await showDialog<bool>(
+            final l10n = AppLocalizations.of(context)!;
+            // 'delete' = user chose to delete duplicates and continue
+            final result = await showDialog<String>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: Row(
@@ -421,7 +448,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       color: hasExactMatch ? Colors.red : Colors.orange,
                     ),
                     const SizedBox(width: 8),
-                    const Text('⚠️ הזמנה כפולה אפשרית'),
+                    Text('⚠️ ${l10n.possibleDuplicateOrder}'),
                   ],
                 ),
                 content: SizedBox(
@@ -432,8 +459,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     children: [
                       Text(
                         hasExactMatch
-                            ? 'נמצאה הזמנה זהה לחלוטין עבור ${client.name}!'
-                            : 'נמצאו הזמנות קיימות עבור ${client.name}:',
+                            ? l10n.exactDuplicateFound(client.name)
+                            : l10n.existingOrdersFound(client.name),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: hasExactMatch
@@ -443,8 +470,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       ),
                       const SizedBox(height: 8),
                       ...duplicates.take(5).map((d) {
-                        final statusText =
-                            d.status == 'completed' ? 'הושלם' : 'פעיל';
+                        final statusText = d.status == 'completed'
+                            ? l10n.statusCompleted
+                            : l10n.statusActive;
                         final products = d.boxTypes
                                 ?.map((b) =>
                                     '${b.type} ${b.number} x${b.quantity}')
@@ -464,32 +492,45 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         );
                       }),
                       const SizedBox(height: 12),
-                      const Text(
-                        'בדוק שזו לא הזמנה כפולה!',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      Text(
+                        l10n.checkNotDuplicate,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('ביטול'),
+                    onPressed: () => Navigator.pop(ctx, 'cancel'),
+                    child: Text(l10n.cancel),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'delete'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    child: Text(l10n.deleteDuplicates),
                   ),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
+                    onPressed: () => Navigator.pop(ctx, 'continue'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           hasExactMatch ? Colors.red : Colors.orange,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('המשך בכל זאת'),
+                    child: Text(l10n.continueAnyway),
                   ),
                 ],
               ),
             );
 
-            if (proceed != true) {
+            if (result == 'delete') {
+              // Delete orphaned duplicates and continue
+              final collection = FirestorePaths.deliveryPointsOf(companyId);
+              for (final d in duplicates) {
+                await collection.doc(d.id).delete();
+              }
+            } else if (result != 'continue') {
               setState(() => _isLoading = false);
               return;
             }
@@ -575,12 +616,16 @@ class _AddPointDialogState extends State<AddPointDialog> {
         }
       }
 
+      final deliveryAddress = _addressController.text.trim();
+      final isTemporaryAddress = _selectedClient != null &&
+          deliveryAddress != (_selectedClient!.address.trim());
+
       final point = DeliveryPoint(
         id: '',
         companyId: companyId,
         clientName: client.name,
         clientNumber: client.clientNumber,
-        address: client.address,
+        address: deliveryAddress,
         latitude: latitude,
         longitude: longitude,
         pallets: int.tryParse(_palletsController.text) ?? 0,
@@ -590,6 +635,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
         driverId: null,
         driverName: null,
         driverCapacity: null,
+        temporaryAddress: isTemporaryAddress ? deliveryAddress : null,
         boxTypes: _selectedBoxTypes.isNotEmpty ? _selectedBoxTypes : null,
         eta: null,
       );
@@ -610,7 +656,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
 
       if (mounted) {
         navigator.pop();
-        messenger.showSnackBar(SnackBar(content: Text('✅ ${l10n.pointAdded}')));
+        messenger.showSnackBar(SnackBar(content: Text(l10n.pointAdded)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

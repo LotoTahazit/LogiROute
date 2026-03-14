@@ -365,6 +365,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routePointsReordered => 'Route order and ETA updated';
 
   @override
+  String get optimizeTime => 'Optimize time';
+
+  @override
+  String get routeAlreadyOptimal => 'Route is already optimal';
+
+  @override
+  String get routeOptimized => 'Route optimized';
+
+  @override
+  String get routeOptimizationFailed => 'Optimization failed';
+
+  @override
   String get selectNewDriver => 'Select a new driver';
 
   @override
@@ -3899,4 +3911,155 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hintOther => 'Describe the exact location';
+
+  @override
+  String get paymentMethodLabel => 'Payment method';
+
+  @override
+  String get cash => 'Cash';
+
+  @override
+  String get cheque => 'Cheque';
+
+  @override
+  String get bankTransfer => 'Bank transfer';
+
+  @override
+  String get creditCard => 'Credit card';
+
+  @override
+  String get notSelected => 'Not selected';
+
+  @override
+  String get paidStatus => 'Paid';
+
+  @override
+  String get totalToPay => 'Total to pay';
+
+  @override
+  String get paymentReceivedCheckbox =>
+      'Payment received (Tax Invoice/Receipt)';
+
+  @override
+  String get paymentReceivedHint =>
+      'Check if customer paid — document becomes tax invoice-receipt';
+
+  @override
+  String get createDeliveryNoteTitle => 'Create Delivery Note';
+
+  @override
+  String get createInvoiceTitle => 'Create Invoice';
+
+  @override
+  String get creatingDoc => 'Creating...';
+
+  @override
+  String get createAndPrint => 'Create and print';
+
+  @override
+  String get createDeliveryNoteBtn => 'Create delivery note';
+
+  @override
+  String get deliveryDateLabel => 'Delivery date:';
+
+  @override
+  String get paymentTermsLabel => 'Payment terms:';
+
+  @override
+  String get days30 => '30 days';
+
+  @override
+  String get days60 => '60 days';
+
+  @override
+  String get days90 => '90 days';
+
+  @override
+  String get manualEntry => 'Manual';
+
+  @override
+  String get payUntilLabel => 'Pay until:';
+
+  @override
+  String get itemLabel => 'Item';
+
+  @override
+  String get cartonsLabel => 'Cartons';
+
+  @override
+  String get pricePerUnitLabel => 'Price/unit';
+
+  @override
+  String get totalLabel => 'Total';
+
+  @override
+  String get discountLabel => 'Discount:';
+
+  @override
+  String get clientLabelColon => 'Client:';
+
+  @override
+  String get addressLabelColon => 'Address:';
+
+  @override
+  String get driverLabelColon => 'Driver:';
+
+  @override
+  String get truckLabelColon => 'Truck:';
+
+  @override
+  String get notSpecified => 'Not specified';
+
+  @override
+  String get departureTimeValue => 'Departure: 07:00';
+
+  @override
+  String get userNotLoggedIn => 'User not logged in — cannot create document';
+
+  @override
+  String get serverIssuanceError => 'Error issuing document from server';
+
+  @override
+  String deliveryNoteAlreadyExists(int docNum) {
+    return 'Delivery note already exists (#$docNum)';
+  }
+
+  @override
+  String deliveryNoteCreatedSuccess(int docNum) {
+    return '✅ Delivery note created (#$docNum)';
+  }
+
+  @override
+  String taxInvoiceReceiptCreatedSuccess(int docNum) {
+    return '✅ Tax invoice/receipt created (#$docNum)';
+  }
+
+  @override
+  String invoiceCreatedSuccess(int docNum) {
+    return '✅ Invoice created (#$docNum)';
+  }
+
+  @override
+  String invoicePeriodLockedError(String date, String lockedUntil) {
+    return 'Date $date is in a closed accounting period (until $lockedUntil). Choose a later date.';
+  }
+
+  @override
+  String get possibleDuplicateOrder => 'Possible duplicate order';
+
+  @override
+  String exactDuplicateFound(String name) {
+    return 'Exact duplicate found for $name!';
+  }
+
+  @override
+  String existingOrdersFound(String name) {
+    return 'Existing orders found for $name:';
+  }
+
+  @override
+  String get checkNotDuplicate => 'Make sure this is not a duplicate order!';
+
+  @override
+  String get deleteDuplicates => 'Delete duplicates';
 }

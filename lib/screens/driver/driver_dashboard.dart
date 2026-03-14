@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
@@ -89,8 +91,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
     final notificationService = NotificationService();
     await notificationService.initialize();
     await notificationService.scheduleDailyWorkReminder();
-    // Инициализируем фоновый сервис
-    await BackgroundLocationService.initialize();
+    // Инициализируем фоновый сервис (только на мобильных платформах)
+    if (!kIsWeb) {
+      await BackgroundLocationService.initialize();
+    }
     debugPrint('✅ [Driver] Notifications + BGService initialized');
   }
 
@@ -110,8 +114,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
       userRole: userRole,
     );
 
-    // Background foreground-service (когда приложение свёрнуто)
-    BackgroundLocationService.start(driverId, driverName, companyId);
+    // Background foreground-service (когда приложение свёрнуто, только мобильные)
+    if (!kIsWeb) {
+      BackgroundLocationService.start(driverId, driverName, companyId);
+    }
 
     // WebSocket GPS для live-карты диспетчера
     _realtimeGps.connectAsDriver();
@@ -122,7 +128,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   void _stopTracking() {
     _locationService?.stopTracking();
-    BackgroundLocationService.stop();
+    if (!kIsWeb) BackgroundLocationService.stop();
     _realtimeGps.dispose();
     setState(() => _isTrackingActive = false);
     debugPrint('🛑 [Driver] Tracking stopped');
@@ -279,7 +285,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                             '${l10n.viewingAs} ${l10n.driver}',
                             style: TextStyle(
                               color: Colors.orange.shade900,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
                           ),
@@ -333,7 +339,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                             color: _isTrackingActive
                                 ? Colors.green.shade900
                                 : Colors.grey.shade700,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
                         ),
@@ -393,17 +399,21 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                         return Column(
                           children: [
-                            // Карта — основной элемент экрана водителя
+                            // 📱 Android fallback: карта или альтернативный UI
                             Expanded(
-                              child: DeliveryMapWidget(
-                                points: points,
-                                companyId: companyId,
-                                showDriverTracks: true,
-                                warehouseLat: CompanyCache.instance(companyId)
-                                    .warehouseLat,
-                                warehouseLng: CompanyCache.instance(companyId)
-                                    .warehouseLng,
-                              ),
+                              child: (!kIsWeb && Platform.isAndroid)
+                                  ? _buildAndroidMapFallback(points, l10n)
+                                  : DeliveryMapWidget(
+                                      points: points,
+                                      companyId: companyId,
+                                      showDriverTracks: true,
+                                      warehouseLat:
+                                          CompanyCache.instance(companyId)
+                                              .warehouseLat,
+                                      warehouseLng:
+                                          CompanyCache.instance(companyId)
+                                              .warehouseLng,
+                                    ),
                             ),
                             // Большая кнопка навигации убрана - никто не пользуется Google Maps
                             // Компактный список точек — максимум 25% экрана
@@ -416,7 +426,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                         style: TextStyle(
                                             color: Colors.grey.shade700,
                                             fontSize: 14,
-                                            fontWeight: FontWeight.w600),
+                                            fontWeight: FontWeight.w700),
                                       ),
                                     )
                                   : ListView.builder(
@@ -512,7 +522,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                                           style: TextStyle(
                                                             fontSize: 13,
                                                             fontWeight:
-                                                                FontWeight.w600,
+                                                                FontWeight.w700,
                                                             color: isCompleted
                                                                 ? Colors.grey
                                                                     .shade700
@@ -677,5 +687,260 @@ class _DriverDashboardState extends State<DriverDashboard> {
         ),
       ],
     );
+  }
+
+  /// Android fallback UI when Google Maps is not available
+  Widget _buildAndroidMapFallback(
+      List<DeliveryPoint> points, AppLocalizations l10n) {
+    final completedCount =
+        points.where((p) => p.status == DeliveryPoint.statusCompleted).length;
+    final totalCount = points.length;
+    final remainingCount = totalCount - completedCount;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Заголовок
+            Row(
+              children: [
+                Icon(Icons.map_outlined, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Text(
+                  'Маршрут водителя',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const Spacer(),
+                if (remainingCount > 0)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$remainingCount${_getPlural(remainingCount, ' точка', ' точки', ' точек')}',
+                      style: TextStyle(
+                        color: Colors.blue.shade800,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Статистика
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.shade200,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem('Всего', totalCount, Colors.blue),
+                      _buildStatItem('Выполнено', completedCount, Colors.green),
+                      _buildStatItem('Осталось', remainingCount, Colors.orange),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Прогресс-бар
+                  LinearProgressIndicator(
+                    value: totalCount > 0 ? completedCount / totalCount : 0,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${(totalCount > 0 ? (completedCount / totalCount * 100) : 0).toInt()}% выполнено',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Список следующих точек
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: points.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.route,
+                                size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.noActivePoints,
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: points.length,
+                        itemBuilder: (context, index) {
+                          final point = points[index];
+                          final isCompleted =
+                              point.status == DeliveryPoint.statusCompleted;
+                          final isNext = !isCompleted &&
+                              index ==
+                                  points.indexWhere((p) =>
+                                      p.status !=
+                                      DeliveryPoint.statusCompleted);
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? Colors.green.shade50
+                                  : (isNext
+                                      ? Colors.blue.shade50
+                                      : Colors.white),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isCompleted
+                                    ? Colors.green.shade200
+                                    : (isNext
+                                        ? Colors.blue.shade200
+                                        : Colors.grey.shade200),
+                              ),
+                            ),
+                            child: ListTile(
+                              dense: true,
+                              leading: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: isCompleted
+                                    ? Colors.green
+                                    : (isNext ? Colors.blue : Colors.grey),
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                point.clientName,
+                                style: TextStyle(
+                                  fontWeight: isNext
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isCompleted
+                                      ? Colors.grey.shade600
+                                      : Colors.black,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    point.address,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  if (point.eta != null)
+                                    Text(
+                                      'ETA: ${point.eta}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue.shade700,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: isCompleted
+                                  ? const Icon(Icons.check_circle,
+                                      color: Colors.green, size: 20)
+                                  : (isNext
+                                      ? Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: const Icon(Icons.navigation,
+                                              color: Colors.white, size: 16),
+                                        )
+                                      : null),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, int value, Color color) {
+    return Column(
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getPlural(int count, String one, String few, String many) {
+    if (count == 1) return one;
+    if (count >= 2 && count <= 4) return few;
+    return many;
   }
 }

@@ -190,7 +190,7 @@ class _BillingSectionState extends State<BillingSection> {
                   graceMsg,
                   style: TextStyle(
                     color: Colors.orange.shade800,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -221,7 +221,7 @@ class _BillingSectionState extends State<BillingSection> {
                     l10n.billingTrialRemaining(remaining),
                     style: TextStyle(
                       color: Colors.blue.shade700,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -659,7 +659,7 @@ class _InvoiceTile extends StatelessWidget {
           Text(
             '${invoice.amount.toStringAsFixed(2)} ${invoice.currency}',
             style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(width: 12),
           Container(

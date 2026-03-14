@@ -460,7 +460,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                           '👁️ ${l10n.viewModeWarehouse}',
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             color: Colors.blue,
                           ),
                         ),

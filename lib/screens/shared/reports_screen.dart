@@ -4,6 +4,7 @@ import '../../l10n/app_localizations.dart';
 import '../../services/company_context.dart';
 import '../../models/delivery_point.dart';
 import '../../models/invoice.dart';
+import '../../services/firestore_paths.dart';
 
 /// מסך דוחות — סטטיסטיקות משלוחים, חשבוניות וביצועי נהגים
 /// Module: reports (gated via ModuleGuard)
@@ -62,7 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen>
               child: Row(
                 children: [
                   Text(l10n.periodLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _pickDate(true),
@@ -164,12 +165,7 @@ class _DeliveryReport extends StatelessWidget {
   }
 
   Future<_DeliveryStats> _fetchDeliveryStats(String companyId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points')
+    final snap = await FirestorePaths.deliveryPointsOf(companyId)
         .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
         .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(to))
         .get();
@@ -391,12 +387,7 @@ class _DriverReport extends StatelessWidget {
   }
 
   Future<List<_DriverPerf>> _fetchDriverPerf(String companyId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points')
+    final snap = await FirestorePaths.deliveryPointsOf(companyId)
         .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
         .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(to))
         .get();
@@ -460,7 +451,7 @@ class _StatRow extends StatelessWidget {
           Text(value,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+                fontWeight: bold ? FontWeight.bold : FontWeight.w700,
                 color: color ?? Colors.black87,
               )),
         ],

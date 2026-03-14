@@ -1,5 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:async';
-import 'package:flutter/foundation.dart' show debugPrint, listEquals;
+import 'package:flutter/foundation.dart' show debugPrint, listEquals, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,8 +13,8 @@ import '../utils/polyline_decoder.dart';
 
 /// Callback при drag & drop точки на водителя
 /// pointId, driverId, driverName
-typedef OnPointDragToDriver =
-    void Function(String pointId, String driverId, String driverName);
+typedef OnPointDragToDriver = void Function(
+    String pointId, String driverId, String driverName);
 
 class DeliveryMapWidget extends StatefulWidget {
   final List<DeliveryPoint> points;
@@ -82,9 +83,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
   // Цвет маршрута по загрузке (паллеты / capacity)
   // 🟢 ≤80%  🟡 80–100%  🔴 >100%
   Color _getRouteLoadColor(String driverKey) {
-    final driverPoints = widget.points
-        .where((p) => p.driverId == driverKey)
-        .toList();
+    final driverPoints =
+        widget.points.where((p) => p.driverId == driverKey).toList();
     if (driverPoints.isEmpty) return Colors.blue;
 
     final capacity = driverPoints.first.driverCapacity ?? 0;
@@ -133,9 +133,19 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     final oldSignature = _buildPointSignature(oldWidget.points);
     final newSignature = _buildPointSignature(widget.points);
+    final polylinesChanged =
+        oldWidget.routePolylines.length != widget.routePolylines.length ||
+            oldWidget.routePolylines.entries.any(
+              (e) => widget.routePolylines[e.key] != e.value,
+            );
 
     // Обновляем карту только при реальных изменениях (с debounce)
-    if (!listEquals(oldSignature, newSignature)) {
+    if (!listEquals(oldSignature, newSignature) || polylinesChanged) {
+      if (polylinesChanged) {
+        _decodedPolylineCache.clear();
+        _lastRouteSignature = null;
+        debugPrint('🔄 [Map] Route polylines changed, invalidating cache');
+      }
       _debounceTimer?.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 800), () {
         if (mounted) _updateMapData();
@@ -156,7 +166,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
   List<String> _buildPointSignature(List<DeliveryPoint> points) {
     return points
-        .map((p) => '${p.id}|${p.driverId}|${p.orderInRoute}|${p.status}')
+        .map((p) =>
+            '${p.id}|${p.driverId}|${p.orderInRoute}|${p.status}|${p.latitude}|${p.longitude}')
         .toList();
   }
 
@@ -358,8 +369,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       }
 
       // Определяем, можно ли перетаскивать эту точку
-      final isDraggable =
-          widget.enableDragDrop &&
+      final isDraggable = widget.enableDragDrop &&
           point.status != DeliveryPoint.statusCompleted &&
           point.status != DeliveryPoint.statusCancelled;
 
@@ -369,9 +379,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           position: LatLng(point.latitude, point.longitude),
           icon: markerColor,
           draggable: isDraggable,
-          onDragStart: isDraggable
-              ? (position) => _onPointDragStart(point)
-              : null,
+          onDragStart:
+              isDraggable ? (position) => _onPointDragStart(point) : null,
           onDragEnd: isDraggable
               ? (newPosition) => _onPointDragEnd(point, newPosition)
               : null,
@@ -379,8 +388,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             title: point.clientName,
             snippet: _buildMarkerSnippet(point, l10n),
           ),
-          alpha:
-              (point.status == DeliveryPoint.statusCompleted ||
+          alpha: (point.status == DeliveryPoint.statusCompleted ||
                   point.status == DeliveryPoint.statusCancelled)
               ? 0.5
               : 1.0, // Полупрозрачные для завершенных
@@ -422,13 +430,19 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     // Создаем сигнатуру маршрута для кеширования
     final routeSignature = validRoutePoints
-        .map((p) => '${p.driverId}:${p.orderInRoute}:${p.status}')
+        .map((p) =>
+            '${p.driverId}:${p.orderInRoute}:${p.status}:${p.latitude}:${p.longitude}')
         .join('|');
 
     // Если маршрут не изменился, возвращаем текущие полилинии
     if (_lastRouteSignature == routeSignature && _polylines.isNotEmpty) {
       return _polylines;
     }
+
+    // Маршрут изменился — очищаем кеш декодированных полилиний
+    _decodedPolylineCache.clear();
+    debugPrint('🔄 [Map] Route signature changed, clearing polyline cache');
+
     for (var p in validRoutePoints) {
       debugPrint(
         '  - ${p.clientName}: driver=${p.driverName}, order=${p.orderInRoute}',
@@ -536,9 +550,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
           final driverColor = _getDriverColor(driverKey, driverIndex);
 
           // 🗺️ Используем polyline из routes коллекции (OSRM не нужен!)
-          final firstPoint = activePoints.isNotEmpty
-              ? activePoints.first
-              : null;
+          final firstPoint =
+              activePoints.isNotEmpty ? activePoints.first : null;
           final routeId = firstPoint?.routeId;
           final cachedPolyline = routeId != null
               ? widget.routePolylines[routeId]
@@ -586,18 +599,16 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
             '🏭 [Map] Start: Warehouse/Last completed ($startLat, $startLng)',
           );
           debugPrint(
-            '🎯 [Map] End: ${activePoints.last.clientName} (${activePoints.last.latitude}, ${activePoints.last.longitude})',
+            '🏭 [Map] End: Warehouse (return leg)',
           );
 
-          final end = activePoints.last;
-          final waypoints = activePoints.sublist(0, activePoints.length - 1);
-
+          // Маршрут кольцевой: старт → все точки → махсан
           final smartRoute = await _smartNavigationService.getMultiPointRoute(
             startLat: startLat,
             startLng: startLng,
-            waypoints: waypoints,
-            endLat: end.latitude,
-            endLng: end.longitude,
+            waypoints: activePoints,
+            endLat: widget.warehouseLat,
+            endLng: widget.warehouseLng,
             language: 'he',
           );
 
@@ -681,11 +692,12 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     LatLng? customStart,
   }) {
     // 🏭 Маршрут начинается со склада или с указанной точки (последняя завершённая)
-    final start =
-        customStart ?? LatLng(widget.warehouseLat, widget.warehouseLng);
+    final warehousePos = LatLng(widget.warehouseLat, widget.warehouseLng);
+    final start = customStart ?? warehousePos;
     final routePoints = <LatLng>[
       start,
       ...points.map((p) => LatLng(p.latitude, p.longitude)),
+      warehousePos,
     ];
 
     final driverKey = points.isNotEmpty && points.first.driverId != null
@@ -790,6 +802,77 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // 📱 Android fallback: если Google Maps не доступен, показываем альтернативу
+    // В вебе всегда показываем карту
+    if (!kIsWeb && Platform.isAndroid) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.map_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Карта недоступна на Android',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Используйте веб-версию для просмотра карты',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '📍 Точек в маршруте: ${widget.points.length}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                  if (widget.points.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '🚚 Водителей: ${widget.points.map((p) => p.driverId).toSet().length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // ✅ ВСЕГДА показываем карту (даже без точек - чтобы видеть склад и водителей)
     return Stack(
       children: [
@@ -953,9 +1036,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
         final trackColor = baseColor.withOpacity(0.5);
 
         // ✅ GPS-треки — прямые линии по GPS точкам (OSRM не нужен для истории)
-        final trackPoints = gpsPoints
-            .map((p) => LatLng(p['lat']!, p['lng']!))
-            .toList();
+        final trackPoints =
+            gpsPoints.map((p) => LatLng(p['lat']!, p['lng']!)).toList();
 
         tracks.add(
           Polyline(
@@ -988,8 +1070,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
     final dlng = (lng2 - lng1).abs() * 111.0 * 0.848; // cos(32°) ≈ 0.848
     return (dlat * dlat + dlng * dlng) > 0
         ? (dlat * dlat + dlng * dlng) < 1e10
-              ? _sqrtSimple(dlat * dlat + dlng * dlng)
-              : 0.0
+            ? _sqrtSimple(dlat * dlat + dlng * dlng)
+            : 0.0
         : 0.0;
   }
 
@@ -1012,11 +1094,11 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     _driverLocationsSubscription = _locationService
         .getAllDriverLocationsStream(
-          driverIds: activeDriverIds.isNotEmpty ? activeDriverIds : null,
-        )
+      driverIds: activeDriverIds.isNotEmpty ? activeDriverIds : null,
+    )
         .listen((driverLocations) {
-          _updateDriverMarkers(driverLocations);
-        }, onError: (error) {});
+      _updateDriverMarkers(driverLocations);
+    }, onError: (error) {});
   }
 
   /// Запускает таймер плавной анимации маркеров (60fps → ~16ms)
@@ -1138,9 +1220,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       // Проверяем свежесть данных (не старше 60 минут)
       if (timestamp != null) {
         try {
-          final locationTime = (timestamp is Timestamp)
-              ? timestamp.toDate()
-              : DateTime.now();
+          final locationTime =
+              (timestamp is Timestamp) ? timestamp.toDate() : DateTime.now();
           final now = DateTime.now();
           final diffMinutes = now.difference(locationTime).inMinutes;
           if (diffMinutes > 60) continue;
@@ -1155,8 +1236,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       // 🛡️ GPS фильтр: игнорируем прыжки > 5 км (ошибка GPS)
       final currentPos = _driverCurrentPositions[driverId];
       if (currentPos != null) {
-        final jumpDist =
-            (latitude - currentPos.latitude).abs() +
+        final jumpDist = (latitude - currentPos.latitude).abs() +
             (longitude - currentPos.longitude).abs();
         if (jumpDist > 0.05) {
           // ~5 км
@@ -1251,11 +1331,11 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       _driverZoneCircles = {};
     });
 
-    // Ищем ближайшего водителя
-    final nearest = _findNearestDriver(newPosition);
+    // Ищем ближайшего водителя (исключаем текущего водителя точки)
+    final nearest =
+        _findNearestDriver(newPosition, excludeDriverId: point.driverId);
     if (nearest == null) {
       debugPrint('⚠️ [DragDrop] No driver found near drop position');
-      // Перестраиваем маркеры чтобы вернуть точку на место
       _updateMapData();
       return;
     }
@@ -1268,45 +1348,36 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       '🖐️ [DragDrop] Dropped ${point.clientName} near $driverName (${distKm.toStringAsFixed(1)} km)',
     );
 
-    // Показываем подтверждение через SnackBar
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
+    // Сразу назначаем точку водителю
+    widget.onPointDragToDriver?.call(point.id, driverId, driverName);
 
+    // Показываем уведомление
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           '📦 ${point.clientName} → 🚛 $driverName',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        backgroundColor: Colors.blue.shade700,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: l10n?.confirm ?? 'OK',
-          textColor: Colors.white,
-          onPressed: () {
-            // Вызываем callback
-            widget.onPointDragToDriver?.call(point.id, driverId, driverName);
-          },
-        ),
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 3),
       ),
     );
-
-    // Перестраиваем маркеры (точка вернётся на оригинальную позицию,
-    // обновится через stream после Firestore write)
-    _updateMapData();
   }
 
   /// Ищем ближайшего водителя к позиции drop
+  /// Сначала по GPS-позициям водителей, затем по точкам маршрутов на карте
   /// Возвращает {driverId, driverName, distKm} или null
-  Map<String, dynamic>? _findNearestDriver(LatLng position) {
-    if (_driverCurrentPositions.isEmpty) return null;
-
+  Map<String, dynamic>? _findNearestDriver(LatLng position,
+      {String? excludeDriverId}) {
     String? nearestId;
     String? nearestName;
     double minDist = double.infinity;
 
+    // 1️⃣ Ищем по GPS-позициям водителей (если доступны)
     for (final entry in _driverCurrentPositions.entries) {
       final driverId = entry.key;
+      if (driverId == excludeDriverId) continue;
       final driverPos = entry.value;
       final name = _driverNames[driverId] ?? 'Driver';
 
@@ -1324,8 +1395,31 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
       }
     }
 
+    // 2️⃣ Ищем по точкам маршрутов (для случаев когда GPS недоступен)
+    for (final point in widget.points) {
+      if (point.driverId == null || point.driverId!.isEmpty) continue;
+      if (point.driverId == excludeDriverId) continue;
+
+      final dist = _gpsDistanceKm(
+        position.latitude,
+        position.longitude,
+        point.latitude,
+        point.longitude,
+      );
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearestId = point.driverId;
+        nearestName = point.driverName ?? 'Driver';
+      }
+    }
+
     // Максимальное расстояние для привязки — 50 км (вся территория Израиля)
     if (nearestId == null || minDist > 50.0) return null;
+
+    debugPrint(
+      '🎯 [DragDrop] Nearest driver: $nearestName ($nearestId), dist: ${minDist.toStringAsFixed(1)} km',
+    );
 
     return {
       'driverId': nearestId,
@@ -1374,8 +1468,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
     final displayAddress =
         (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty)
-        ? point.temporaryAddress!
-        : point.address;
+            ? point.temporaryAddress!
+            : point.address;
 
     buffer.write('\n📍 $displayAddress');
 

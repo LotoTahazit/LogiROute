@@ -3,12 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/delivery_point.dart';
 import '../models/user_model.dart';
+import '../models/box_type.dart';
 import '../config/app_config.dart';
 import 'api_config_service.dart';
 import 'client_learning_service.dart';
 import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
 import 'route_safety_service.dart';
+import 'route_balance_service.dart';
 import 'osrm_navigation_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -17,6 +19,7 @@ import 'firestore_paths.dart';
 class RouteService {
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestorePaths _paths = FirestorePaths();
   static bool _isDistributing = false;
 
   RouteService({required this.companyId}) {
@@ -25,24 +28,14 @@ class RouteService {
     }
   }
 
-  /// Хелпер: возвращает ссылку на вложенную коллекцию точек доставки компании
+  /// Централизованный доступ к коллекции точек доставки через FirestorePaths
   CollectionReference<Map<String, dynamic>> _deliveryPointsCollection() {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points');
+    return _paths.deliveryPoints(companyId);
   }
 
-  /// Коллекция маршрутов (1 документ = 1 маршрут водителя за день)
+  /// Централизованный доступ к коллекции маршрутов через FirestorePaths
   CollectionReference<Map<String, dynamic>> _routesCollection() {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('routes');
+    return _paths.routes(companyId);
   }
 
   /// Helper: обновляет точку доставки, автоматически добавляя updatedAt
@@ -77,65 +70,171 @@ class RouteService {
         .toList();
     if (pendingPoints.isEmpty || drivers.isEmpty) return;
 
-    // Сортируем водителей по palletCapacity (по убыванию)
-    final sortedDrivers = List<UserModel>.from(drivers)
-      ..sort(
-          (a, b) => (b.palletCapacity ?? 0).compareTo(a.palletCapacity ?? 0));
+    // Фильтруем только водителей с capacity > 0
+    final activeDrivers =
+        drivers.where((d) => (d.palletCapacity ?? 0) > 0).toList();
+    if (activeDrivers.isEmpty) return;
 
-    // Копируем список точек для распределения
-    final pointsToAssign = List<DeliveryPoint>.from(pendingPoints);
+    // === Балансировка загрузки с учётом ближайших точек ===
+    final totalPallets = pendingPoints.fold<int>(0, (s, p) => s + p.pallets);
+    final targetPerDriver = totalPallets / activeDrivers.length;
+    print(
+      '📊 [AutoDist] ${pendingPoints.length} points, $totalPallets pallets, '
+      '${activeDrivers.length} drivers, target ~${targetPerDriver.toStringAsFixed(1)} pallets/driver',
+    );
 
-    int pointIndex = 0;
-    for (final driver in sortedDrivers) {
-      int capacity = driver.palletCapacity ?? 0;
-      int used = 0;
-      List<DeliveryPoint> assigned = [];
-      while (pointIndex < pointsToAssign.length &&
-          used + pointsToAssign[pointIndex].pallets <= capacity) {
-        assigned.add(pointsToAssign[pointIndex]);
-        used += pointsToAssign[pointIndex].pallets;
-        pointIndex++;
+    // Текущая загрузка каждого водителя (уже назначенные сегодня)
+    final Map<String, int> driverCurrentLoad = {};
+    for (final driver in activeDrivers) {
+      final existing = await _deliveryPointsCollection()
+          .where('driverId', isEqualTo: driver.uid)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
+      final load = existing.docs.fold<int>(
+        0,
+        (sum, doc) => sum + ((doc.data()['pallets'] as num?)?.toInt() ?? 0),
+      );
+      driverCurrentLoad[driver.uid] = load;
+    }
+
+    // Распределяем точки: nearest-neighbor + балансировка
+    final unassigned = List<DeliveryPoint>.from(pendingPoints);
+    final Map<String, List<DeliveryPoint>> assignments = {
+      for (final d in activeDrivers) d.uid: [],
+    };
+    final Map<String, int> driverPallets = Map.from(driverCurrentLoad);
+
+    final warehouseLat = AppConfig.defaultWarehouseLat;
+    final warehouseLng = AppConfig.defaultWarehouseLng;
+
+    // Для каждого водителя отслеживаем последнюю позицию (начинаем со склада)
+    final Map<String, double> lastLat = {
+      for (final d in activeDrivers) d.uid: warehouseLat,
+    };
+    final Map<String, double> lastLng = {
+      for (final d in activeDrivers) d.uid: warehouseLng,
+    };
+
+    // Round-robin: каждый водитель по очереди берёт ближайшую к себе точку
+    while (unassigned.isNotEmpty) {
+      // Сортируем водителей по текущей загрузке (менее загруженные первые)
+      final driversByLoad = List<UserModel>.from(activeDrivers)
+        ..sort((a, b) =>
+            (driverPallets[a.uid] ?? 0).compareTo(driverPallets[b.uid] ?? 0));
+
+      bool anyAssigned = false;
+
+      for (final driver in driversByLoad) {
+        if (unassigned.isEmpty) break;
+        final capacity = driver.palletCapacity ?? 0;
+        final currentLoad = driverPallets[driver.uid] ?? 0;
+
+        // Пропускаем если водитель уже перегружен
+        if (currentLoad >= capacity) continue;
+
+        // Ищем ближайшую к текущей позиции водителя точку, которая влезает
+        final dLat = lastLat[driver.uid]!;
+        final dLng = lastLng[driver.uid]!;
+
+        DeliveryPoint? nearest;
+        double nearestDist = double.infinity;
+        for (final point in unassigned) {
+          if (point.latitude == 0 && point.longitude == 0) continue;
+          if (currentLoad + point.pallets > capacity) continue;
+          final dist = _calculateDistance(
+            dLat,
+            dLng,
+            point.latitude,
+            point.longitude,
+          );
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = point;
+          }
+        }
+
+        if (nearest == null) {
+          // Если не нашли с учётом capacity — попробуем без проверки (overflow)
+          // чтобы не оставить точки без назначения
+          double minDist = double.infinity;
+          for (final point in unassigned) {
+            if (point.latitude == 0 && point.longitude == 0) continue;
+            final dist = _calculateDistance(
+              dLat,
+              dLng,
+              point.latitude,
+              point.longitude,
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              nearest = point;
+            }
+          }
+        }
+
+        if (nearest != null) {
+          assignments[driver.uid]!.add(nearest);
+          driverPallets[driver.uid] =
+              (driverPallets[driver.uid] ?? 0) + nearest.pallets;
+          lastLat[driver.uid] = nearest.latitude;
+          lastLng[driver.uid] = nearest.longitude;
+          unassigned.remove(nearest);
+          anyAssigned = true;
+        }
       }
 
-      if (assigned.isEmpty) {
-        continue; // Пропускаем если нет точек для назначения
+      // Защита от бесконечного цикла
+      if (!anyAssigned) {
+        print(
+            '⚠️ [AutoDist] ${unassigned.length} points could not be assigned');
+        break;
       }
+    }
 
-      // Генерируем уникальный routeId для этого маршрута
-      final now = DateTime.now();
+    // Логируем результат балансировки
+    for (final driver in activeDrivers) {
+      final pts = assignments[driver.uid]!;
+      final load = driverPallets[driver.uid] ?? 0;
+      print(
+        '🚚 [AutoDist] ${driver.name}: ${pts.length} points, '
+        '$load pallets (capacity: ${driver.palletCapacity})',
+      );
+    }
+
+    // === Сохраняем назначения в Firestore ===
+    const double avgSpeedKmh = 38.0;
+    const double serviceTimeMinutes = 7.0;
+    const double parkingTimeMinutes = 2.0;
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+
+    for (final driver in activeDrivers) {
+      final assigned = assignments[driver.uid]!;
+      if (assigned.isEmpty) continue;
+
       final routeId = '${driver.uid}_${now.year}_${now.month}_${now.day}';
 
-      // Получаем текущее количество точек у водителя
+      // Получаем текущее количество точек у водителя для orderInRoute
       final existingPoints = await _deliveryPointsCollection()
           .where('driverId', isEqualTo: driver.uid)
           .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
           .get();
-
       final startOrder = existingPoints.docs.length;
 
-      // Рассчитываем ETA для каждой точки
-      // ETA = drive_time + service_time(7мин) + parking_time(2мин)
       double cumulativeTimeMinutes = 0;
-      const double avgSpeedKmh = 38.0;
-      const double serviceTimeMinutes = 7.0;
-      const double parkingTimeMinutes = 2.0;
 
-      // Назначаем найденные точки этому водителю
       for (int i = 0; i < assigned.length; i++) {
         final point = assigned[i];
 
-        // Рассчитываем расстояние от предыдущей точки
-        double distanceKm = 0;
+        double distanceKm;
         if (i == 0 && existingPoints.docs.isEmpty) {
-          // Первая точка - расстояние от склада (Mishmarot)
           distanceKm = _calculateDistance(
-            32.48698,
-            34.982121,
+            warehouseLat,
+            warehouseLng,
             point.latitude,
             point.longitude,
           );
         } else if (i == 0 && existingPoints.docs.isNotEmpty) {
-          // Первая новая точка - расстояние от последней существующей точки
           final lastExisting = existingPoints.docs.last.data();
           distanceKm = _calculateDistance(
             (lastExisting['latitude'] ?? 0).toDouble(),
@@ -144,7 +243,6 @@ class RouteService {
             point.longitude,
           );
         } else {
-          // Расстояние от предыдущей точки в списке
           final prevPoint = assigned[i - 1];
           distanceKm = _calculateDistance(
             prevPoint.latitude,
@@ -154,12 +252,9 @@ class RouteService {
           );
         }
 
-        // Время в пути (минуты) = расстояние / скорость * 60
         final travelTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
         cumulativeTimeMinutes +=
             travelTimeMinutes + serviceTimeMinutes + parkingTimeMinutes;
-
-        // ETA = абсолютное время прибытия от 07:00
         final eta = TimeFormatter.formatArrivalTime(cumulativeTimeMinutes);
 
         await _updatePoint(point.id, {
@@ -171,8 +266,7 @@ class RouteService {
           'eta': eta,
           'distanceKm': double.parse(distanceKm.toStringAsFixed(1)),
           'routeId': routeId,
-          'routeDate': Timestamp.fromDate(DateTime(
-              DateTime.now().year, DateTime.now().month, DateTime.now().day)),
+          'routeDate': Timestamp.fromDate(todayMidnight),
         });
       }
     }
@@ -312,6 +406,16 @@ class RouteService {
         .map((snapshot) {
       return snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+          .where((p) {
+            final normalized = DeliveryPoint.normalizeStatus(p.status);
+            final isPending =
+                normalized == DeliveryPoint.statusPending ||
+                DeliveryPoint.pendingStatuses.contains(normalized);
+            final isUnassigned =
+                (p.driverId == null || p.driverId!.isEmpty) &&
+                (p.routeId == null || p.routeId!.isEmpty);
+            return isPending && isUnassigned;
+          })
           .toList();
     });
   }
@@ -491,7 +595,7 @@ class RouteService {
   /// 🚛 Получает тоннаж грузовика водителя из Firestore
   Future<double> _getDriverTruckWeight(String driverId) async {
     try {
-      final doc = await _firestore.collection('users').doc(driverId).get();
+      final doc = await _paths.users().doc(driverId).get();
 
       if (doc.exists) {
         final data = doc.data()!;
@@ -562,12 +666,63 @@ class RouteService {
     }
   }
 
-  /// 🌍 Геокодирование адреса (внутренний метод)
-  Future<Map<String, double>?> _geocodeAddress(String address) async {
+  /// 📦 Обновить товары (boxTypes) в точке доставки
+  Future<void> updatePointBoxTypes(
+      String pointId, List<dynamic> boxTypes) async {
+    print(
+        '📦 [RouteService] Updating boxTypes for point $pointId: ${boxTypes.length} items');
     try {
+      final boxes = boxTypes.whereType<BoxType>().toList();
+      final boxMaps = boxes.map((bt) => bt.toMap()).toList();
+      final totalBoxes = boxes.fold<int>(0, (s, bt) => s + bt.quantity);
+      await _updatePoint(pointId, {
+        'boxTypes': boxMaps,
+        'boxes': totalBoxes,
+      });
+      print('✅ [RouteService] BoxTypes updated for point $pointId');
+    } catch (e) {
+      print('❌ [RouteService] Error updating boxTypes for $pointId: $e');
+      rethrow;
+    }
+  }
+
+  /// 🌍 Геокодирование адреса (внутренний метод)
+  /// Сначала пытается Google Geocoding, затем Nominatim (OpenStreetMap) как fallback
+  Future<Map<String, double>?> _geocodeAddress(String address) async {
+    // 1. Сначала пробуем Google Geocoding
+    final googleResult = await _geocodeWithGoogle(address);
+    if (googleResult != null) {
+      print('✅ [RouteService] Google geocoding successful for: $address');
+      return googleResult;
+    }
+
+    // 2. Fallback на Nominatim (OpenStreetMap)
+    print(
+        '⚠️ [RouteService] Google geocoding failed, trying Nominatim fallback');
+    final nominatimResult = await _geocodeWithNominatim(address);
+    if (nominatimResult != null) {
+      print('✅ [RouteService] Nominatim geocoding successful for: $address');
+      return nominatimResult;
+    }
+
+    print('❌ [RouteService] All geocoding methods failed for: $address');
+    return null;
+  }
+
+  /// Google Geocoding API
+  Future<Map<String, double>?> _geocodeWithGoogle(String address) async {
+    try {
+      final apiKey = ApiConfigService.googleMapsApiKey;
+      if (apiKey.isEmpty) {
+        print('⚠️ [RouteService] Google Maps API key is empty');
+        return null;
+      }
+
       final encodedAddress = Uri.encodeComponent(address);
       final url =
-          '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress&key=${ApiConfigService.googleMapsApiKey}';
+          '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress&key=$apiKey';
+
+      print('🔍 [RouteService] Google geocoding URL: $url');
 
       final response = await http.get(Uri.parse(url)).timeout(
         AppConfig.geocodingTimeout,
@@ -575,6 +730,10 @@ class RouteService {
           throw Exception('Timeout');
         },
       );
+
+      print(
+          '🔍 [RouteService] Google geocoding response: ${response.statusCode}');
+      print('🔍 [RouteService] Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -587,15 +746,149 @@ class RouteService {
             'latitude': location['lat'].toDouble(),
             'longitude': location['lng'].toDouble(),
           };
+        } else {
+          print(
+              '❌ [RouteService] Google geocoding API status: ${data['status']}');
+          if (data['error_message'] != null) {
+            print(
+                '❌ [RouteService] Google API error: ${data['error_message']}');
+          }
         }
+      } else {
+        print(
+            '❌ [RouteService] HTTP error ${response.statusCode}: ${response.body}');
       }
 
-      print('❌ [RouteService] Geocoding failed for: $address');
+      print('❌ [RouteService] Google geocoding failed for: $address');
       return null;
     } catch (e) {
-      print('❌ [RouteService] Geocoding error for $address: $e');
+      print('❌ [RouteService] Google geocoding error for $address: $e');
       return null;
     }
+  }
+
+  /// Nominatim (OpenStreetMap) Geocoding API - бесплатный fallback
+  Future<Map<String, double>?> _geocodeWithNominatim(String address) async {
+    try {
+      // Добавляем "Israel" для лучших результатов по израильским адресам
+      final searchAddress = '$address, Israel';
+      final encodedAddress = Uri.encodeComponent(searchAddress);
+      final url =
+          'https://nominatim.openstreetmap.org/search?q=$encodedAddress&format=json&limit=1&countrycodes=il';
+
+      print('🔍 [RouteService] Nominatim URL: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent': 'LogiRoute/1.0 (geocoding fallback)',
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Timeout');
+        },
+      );
+
+      print('🔍 [RouteService] Nominatim response: ${response.statusCode}');
+      print('🔍 [RouteService] Nominatim body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data.isNotEmpty) {
+          final result = data[0];
+          final lat = double.tryParse(result['lat'] as String);
+          final lon = double.tryParse(result['lon'] as String);
+
+          if (lat != null && lon != null) {
+            print(
+                '🗺️ [RouteService] Nominatim result: ($lat, $lon) for: $address');
+            return {
+              'latitude': lat,
+              'longitude': lon,
+            };
+          } else {
+            print(
+                '❌ [RouteService] Nominatim invalid coordinates: lat=${result['lat']}, lon=${result['lon']}');
+          }
+        } else {
+          print('❌ [RouteService] Nominatim empty results array');
+        }
+      } else {
+        print(
+            '❌ [RouteService] Nominatim HTTP error ${response.statusCode}: ${response.body}');
+      }
+
+      print('❌ [RouteService] Nominatim geocoding failed for: $address');
+      return null;
+    } catch (e) {
+      print('❌ [RouteService] Nominatim geocoding error for $address: $e');
+      return null;
+    }
+  }
+
+  /// Оптимизация порядка точек в маршруте по времени через OSRM Trip API.
+  /// Возвращает true если порядок был изменён.
+  Future<bool> optimizeRouteByTime(
+      String driverId, String? routeId, List<DeliveryPoint> points) async {
+    if (points.length < 2) return false;
+
+    final activePoints = points
+        .where((p) =>
+            p.status != 'completed' &&
+            p.status != 'cancelled' &&
+            p.status != 'delivered')
+        .toList()
+      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+
+    if (activePoints.length < 2) return false;
+
+    final osrm = OsrmNavigationService();
+    final waypoints = activePoints
+        .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+        .toList();
+
+    final result = await osrm.getOptimizedTripOrder(
+      warehouseLat: AppConfig.defaultWarehouseLat,
+      warehouseLng: AppConfig.defaultWarehouseLng,
+      waypoints: waypoints,
+    );
+
+    if (result == null) return false;
+
+    // Проверяем, изменился ли порядок
+    bool changed = false;
+    if (result.waypointOrder.length == activePoints.length) {
+      for (int i = 0; i < result.waypointOrder.length; i++) {
+        if (result.waypointOrder[i] != i) {
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    if (!changed) {
+      debugPrint('✅ [RouteService] Route already optimal');
+      return false;
+    }
+
+    // Применяем новый порядок
+    final reordered = <DeliveryPoint>[];
+    for (final idx in result.waypointOrder) {
+      if (idx >= 0 && idx < activePoints.length) {
+        reordered.add(activePoints[idx]);
+      }
+    }
+
+    // Обновляем orderInRoute + ETA через RouteBalanceService
+    final balanceService =
+        RouteBalanceService(companyId: companyId);
+    await balanceService.recalculateETAsForPoints(reordered);
+
+    debugPrint(
+        '✅ [RouteService] Route optimized: new order=${result.waypointOrder}');
+    return true;
   }
 
   /// ✅ Отмена маршрута - удаляем все точки конкретного маршрута
@@ -684,6 +977,7 @@ class RouteService {
     return _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .limit(100)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
@@ -906,6 +1200,35 @@ class RouteService {
     print(
         '🧹 [RouteService] Cleared $clearedCount old completed points for driver $driverName');
 
+    // 🧹 Очищаем осиротевшие assigned/in_progress точки от СТАРЫХ маршрутов
+    // Возвращаем их в pending чтобы диспетчер мог перераспределить
+    final orphanedPoints = await _deliveryPointsCollection()
+        .where('driverId', isEqualTo: driverId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+
+    int orphanedCount = 0;
+    for (final doc in orphanedPoints.docs) {
+      final data = doc.data();
+      final oldRouteId = data['routeId'] as String?;
+      // Если routeId отличается от нового — это осиротевшая точка
+      if (oldRouteId != null && oldRouteId != routeId) {
+        await doc.reference.update({
+          'status': DeliveryPoint.statusPending,
+          'driverId': null,
+          'driverName': null,
+          'routeId': null,
+          'orderInRoute': 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        orphanedCount++;
+      }
+    }
+    if (orphanedCount > 0) {
+      print(
+          '🧹 [RouteService] Returned $orphanedCount orphaned points to pending for driver $driverName');
+    }
+
     // Получаем активные точки водителя (незавершенные)
     final existingPoints = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
@@ -942,10 +1265,8 @@ class RouteService {
       final cn = point.clientNumber ?? '';
       if (cn.isEmpty || clientServiceTimes.containsKey(cn)) continue;
       try {
-        final clientSnap = await _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('clients')
+        final clientSnap = await _paths
+            .clients(companyId)
             .where('clientNumber', isEqualTo: cn)
             .limit(1)
             .get();
@@ -1065,22 +1386,23 @@ class RouteService {
         });
       }
 
+      // Маршрут: махсан → все точки → махсан (кольцевой)
       OsrmRoute? osrmRoute;
-      if (waypoints.length <= 1) {
-        osrmRoute = await osrm.getRoute(
-          startLat: warehouseLat,
-          startLng: warehouseLng,
-          endLat: waypoints.first['lat']!,
-          endLng: waypoints.first['lng']!,
-        );
-      } else {
-        final endWp = waypoints.removeLast();
+      if (waypoints.length == 1) {
         osrmRoute = await osrm.getOptimizedRoute(
           startLat: warehouseLat,
           startLng: warehouseLng,
           waypoints: waypoints,
-          endLat: endWp['lat']!,
-          endLng: endWp['lng']!,
+          endLat: warehouseLat,
+          endLng: warehouseLng,
+        );
+      } else {
+        osrmRoute = await osrm.getOptimizedRoute(
+          startLat: warehouseLat,
+          startLng: warehouseLng,
+          waypoints: waypoints,
+          endLat: warehouseLat,
+          endLng: warehouseLng,
         );
       }
 

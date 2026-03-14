@@ -28,6 +28,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
   bool _manualCoordinates = false;
   late List<String> _selectedZones;
   bool _zonesError = false;
+  late String? _paymentMethod;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
     _longitudeController =
         TextEditingController(text: widget.client.longitude.toString());
     _selectedZones = List<String>.from(widget.client.zones);
+    _paymentMethod = widget.client.paymentMethod;
   }
 
   @override
@@ -84,7 +86,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
         longitude = widget.client.longitude;
 
         // Геокодируем ТОЛЬКО если адрес изменился
-        final addressChanged = addressToGeocode != widget.client.address;
+        final addressChanged = addressToGeocode != widget.client.address.trim();
 
         if (addressChanged) {
           debugPrint(
@@ -158,6 +160,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
         vatId: _vatIdController.text.isEmpty ? null : _vatIdController.text,
         companyId: widget.client.companyId,
         zones: _selectedZones,
+        paymentMethod: _paymentMethod,
       );
 
       if (mounted) {
@@ -219,6 +222,19 @@ class _EditClientDialogState extends State<EditClientDialog> {
                   validator: (value) =>
                       value?.isEmpty ?? true ? l10n.required : null,
                 ),
+                if (widget.client.latitude != 0 &&
+                    widget.client.longitude != 0 &&
+                    !_manualCoordinates)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '📍 ${widget.client.latitude.toStringAsFixed(6)}, ${widget.client.longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _phoneController,
@@ -242,6 +258,26 @@ class _EditClientDialogState extends State<EditClientDialog> {
                     labelText: l10n.contactPerson,
                     border: const OutlineInputBorder(),
                   ),
+                ),
+                const SizedBox(height: 16),
+                // אופן תשלום
+                DropdownButtonFormField<String>(
+                  value: _paymentMethod,
+                  decoration: InputDecoration(
+                    labelText: l10n.paymentMethodLabel,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                        value: null, child: Text(l10n.notSelected)),
+                    DropdownMenuItem(value: 'מזומן', child: Text(l10n.cash)),
+                    DropdownMenuItem(value: "צ'ק", child: Text(l10n.cheque)),
+                    DropdownMenuItem(
+                        value: 'העברה בנקאית', child: Text(l10n.bankTransfer)),
+                    DropdownMenuItem(
+                        value: 'כרטיס אשראי', child: Text(l10n.creditCard)),
+                  ],
+                  onChanged: (val) => setState(() => _paymentMethod = val),
                 ),
                 const SizedBox(height: 16),
                 // אזורי חלוקה

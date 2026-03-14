@@ -53,7 +53,7 @@ class CompanySelectorWidget extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
               ),
               items: companyService.availableCompanies.map((company) {
                 return DropdownMenuItem(

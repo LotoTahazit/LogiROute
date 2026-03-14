@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/product_type.dart';
+import 'firestore_paths.dart';
 
 /// Сервис управления типами товаров
 class ProductTypeService {
@@ -114,12 +115,7 @@ class ProductTypeService {
       throw Exception('PRODUCT_NOT_FOUND');
     }
 
-    final ordersSnap = await _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points')
+    final ordersSnap = await FirestorePaths.deliveryPointsOf(companyId)
         .where('status', whereIn: ['pending', 'assigned', 'in_progress'])
         .limit(500)
         .get();

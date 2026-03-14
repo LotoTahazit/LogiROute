@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,10 @@ import '../../services/invoice_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../services/issuance_service.dart';
+import '../../services/box_type_service.dart';
+import '../../services/inventory_service.dart';
+import '../../services/company_cache.dart';
+import '../../l10n/app_localizations.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
   final DeliveryPoint point;
@@ -108,12 +113,32 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         // Не блокируем загрузку если не удалось прочитать lock
       }
 
+      // Автозаполнение paymentMethod из клиента
+      try {
+        final cache = CompanyCache.instance(companyId);
+        final clientNumber = widget.point.clientNumber;
+        if (clientNumber != null && clientNumber.isNotEmpty) {
+          final client = cache.clients.where(
+            (c) => c.clientNumber == clientNumber,
+          );
+          if (client.isNotEmpty &&
+              client.first.paymentMethod != null &&
+              client.first.paymentMethod!.isNotEmpty) {
+            _paymentMethod = client.first.paymentMethod!;
+          }
+        }
+      } catch (_) {}
+
       if (widget.point.boxTypes == null || widget.point.boxTypes!.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
       final priceService = PriceService(companyId: companyId);
+      final boxTypeService = BoxTypeService(companyId: companyId);
+      final inventoryService = InventoryService(companyId: companyId);
+      final allBoxTypes = await boxTypeService.getAllBoxTypes();
+      final inventory = await inventoryService.getInventory();
       final items = <InvoiceItem>[];
 
       for (final boxType in widget.point.boxTypes!) {
@@ -124,6 +149,28 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         );
         final pricePerUnit = price?.priceBeforeVAT ?? 0.0;
 
+        // Загружаем piecesPerBox: 1) box_types  2) inventory  3) default 1
+        int piecesPerBox = 1;
+        final match = allBoxTypes.where(
+          (bt) => bt['productCode'] == boxType.productCode,
+        );
+        if (match.isNotEmpty && match.first['piecesPerBox'] != null) {
+          piecesPerBox = ((match.first['piecesPerBox']) as num).toInt();
+        } else {
+          // Fallback: ищем piecesPerBox в инвентаре по type+number
+          final invMatch = inventory.where(
+            (inv) => inv.type == boxType.type && inv.number == boxType.number,
+          );
+          if (invMatch.isNotEmpty && invMatch.first.piecesPerBox != null) {
+            piecesPerBox = invMatch.first.piecesPerBox!;
+          }
+        }
+        debugPrint(
+          '📋 [Invoice] ${boxType.type} ${boxType.number} (${boxType.productCode}): '
+          'piecesPerBox=$piecesPerBox, qty=${boxType.quantity}, '
+          'totalUnits=${boxType.quantity * piecesPerBox}',
+        );
+
         items.add(
           InvoiceItem(
             productCode:
@@ -131,6 +178,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
             type: boxType.type,
             number: boxType.number,
             quantity: boxType.quantity,
+            piecesPerBox: piecesPerBox,
             pricePerUnit: pricePerUnit,
           ),
         );
@@ -159,6 +207,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         type: _items[index].type,
         number: _items[index].number,
         quantity: _items[index].quantity,
+        piecesPerBox: _items[index].piecesPerBox,
         pricePerUnit: newPrice,
       );
     });
@@ -168,8 +217,11 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   void _validatePeriodLock() {
     if (_accountingLockedUntil != null &&
         !_deliveryDate.isAfter(_accountingLockedUntil!)) {
-      _periodLockError =
-          'תאריך ${DateFormat('dd/MM/yyyy').format(_deliveryDate)} נמצא בתקופה חשבונאית סגורה (עד ${DateFormat('dd/MM/yyyy').format(_accountingLockedUntil!)}). בחר תאריך מאוחר יותר.';
+      final l10n = AppLocalizations.of(context)!;
+      _periodLockError = l10n.invoicePeriodLockedError(
+        DateFormat('dd/MM/yyyy').format(_deliveryDate),
+        DateFormat('dd/MM/yyyy').format(_accountingLockedUntil!),
+      );
     } else {
       _periodLockError = null;
     }
@@ -197,7 +249,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       final userName = user?.name ?? 'Unknown';
       final userUid = authService.currentUser?.uid ?? '';
       if (userUid.isEmpty) {
-        throw Exception('משתמש לא מחובר — לא ניתן ליצור חשבונית');
+        throw Exception(AppLocalizations.of(context)!.userNotLoggedIn);
       }
 
       // Время выезда всегда 7:00
@@ -231,7 +283,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         createdBy: userName,
         documentType: _effectiveDocumentType,
         deliveryPointId: widget.point.id,
-        paymentMethod: _paymentReceived ? _paymentMethod : null,
+        paymentMethod: _paymentMethod,
         status: InvoiceStatus.draft,
       );
 
@@ -257,7 +309,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         );
 
         if (!issuanceResult.ok) {
-          throw Exception('שגיאה בהנפקת מסמך מהשרת');
+          throw Exception(AppLocalizations.of(context)!.serverIssuanceError);
         }
       }
 
@@ -274,14 +326,16 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
             : (issuanceResult?.docNumber ?? 0);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(alreadyIssued
-                ? 'תעודת משלוח כבר קיימת (#$docNum)'
-                : _effectiveDocumentType == InvoiceDocumentType.delivery
-                    ? '✅ תעודת משלוח נוצרה בהצלחה (#$docNum)'
-                    : _effectiveDocumentType ==
-                            InvoiceDocumentType.taxInvoiceReceipt
-                        ? '✅ חשבונית מס / קבלה נוצרה בהצלחה (#$docNum)'
-                        : '✅ חשבונית נוצרה בהצלחה (#$docNum)'),
+            content: Text(() {
+              final l10n = AppLocalizations.of(context)!;
+              if (alreadyIssued) return l10n.deliveryNoteAlreadyExists(docNum);
+              if (_effectiveDocumentType == InvoiceDocumentType.delivery)
+                return l10n.deliveryNoteCreatedSuccess(docNum);
+              if (_effectiveDocumentType ==
+                  InvoiceDocumentType.taxInvoiceReceipt)
+                return l10n.taxInvoiceReceiptCreatedSuccess(docNum);
+              return l10n.invoiceCreatedSuccess(docNum);
+            }()),
             backgroundColor: alreadyIssued ? Colors.orange : Colors.green,
           ),
         );
@@ -298,10 +352,11 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       title: Text(widget.documentType == InvoiceDocumentType.delivery
-          ? 'יצירת תעודת משלוח'
-          : 'יצירת חשבונית'),
+          ? l10n.createDeliveryNoteTitle
+          : l10n.createInvoiceTitle),
       content: SizedBox(
         width: 600,
         child: _isLoading
@@ -355,7 +410,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
           onPressed: _items.isEmpty || _isCreating || _periodLockError != null
@@ -369,41 +424,44 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                 )
               : const Icon(Icons.print),
           label: Text(_isCreating
-              ? 'יוצר...'
+              ? l10n.creatingDoc
               : widget.documentType == InvoiceDocumentType.delivery
-                  ? 'צור תעודת משלוח'
-                  : 'צור והדפס'),
+                  ? l10n.createDeliveryNoteBtn
+                  : l10n.createAndPrint),
         ),
       ],
     );
   }
 
   Widget _buildInfoSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'לקוח: ${widget.point.clientName}',
+          '${l10n.clientLabelColon} ${widget.point.clientName}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text('כתובת: ${widget.point.address}'),
-        Text('נהג: ${widget.driver.name}'),
-        Text('משאית: ${widget.driver.vehicleNumber ?? "לא צוין"}'),
-        const Text('שעת יציאה: 07:00'),
+        Text('${l10n.addressLabelColon} ${widget.point.address}'),
+        Text('${l10n.driverLabelColon} ${widget.driver.name}'),
+        Text(
+            '${l10n.truckLabelColon} ${widget.driver.vehicleNumber ?? l10n.notSpecified}'),
+        Text(l10n.departureTimeValue),
       ],
     );
   }
 
   Widget _buildDatePicker() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text(
-              'תאריך אספקה: ',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              l10n.deliveryDateLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             TextButton.icon(
               onPressed: () async {
@@ -412,6 +470,25 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                   initialDate: _deliveryDate,
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
+                  builder: (context, child) {
+                    // Use Material date picker for better Android experience
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: Theme.of(context).colorScheme.copyWith(
+                              primary: Theme.of(context).primaryColor,
+                              onPrimary: Colors.white,
+                              surface: Colors.white,
+                              onSurface: Colors.black,
+                            ),
+                        textButtonTheme: TextButtonThemeData(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
                 if (picked != null) {
                   setState(() {
@@ -446,23 +523,24 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   }
 
   Widget _buildPaymentTermSelector() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'תנאי תשלום:',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        Text(
+          l10n.paymentTermsLabel,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 30, label: Text('30 ימים')),
-                  ButtonSegment(value: 60, label: Text('60 ימים')),
-                  ButtonSegment(value: 90, label: Text('90 ימים')),
-                  ButtonSegment(value: -1, label: Text('ידני')),
+                segments: [
+                  ButtonSegment(value: 30, label: Text(l10n.days30)),
+                  ButtonSegment(value: 60, label: Text(l10n.days60)),
+                  ButtonSegment(value: 90, label: Text(l10n.days90)),
+                  ButtonSegment(value: -1, label: Text(l10n.manualEntry)),
                 ],
                 selected: {_customPaymentDate ? -1 : _paymentTermDays},
                 onSelectionChanged: (Set<int> selected) {
@@ -485,7 +563,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         if (_customPaymentDate)
           Row(
             children: [
-              const Text('תשלום עד: '),
+              Text('${l10n.payUntilLabel} '),
               TextButton.icon(
                 onPressed: () async {
                   final picked = await showDatePicker(
@@ -494,9 +572,29 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                         _deliveryDate.add(const Duration(days: 30)),
                     firstDate: _deliveryDate,
                     lastDate: _deliveryDate.add(const Duration(days: 365)),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: Theme.of(context).colorScheme.copyWith(
+                                primary: Theme.of(context).primaryColor,
+                                onPrimary: Colors.white,
+                                surface: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                          textButtonTheme: TextButtonThemeData(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
                   );
                   if (picked != null) {
-                    setState(() => _manualPaymentDate = picked);
+                    setState(() {
+                      _manualPaymentDate = picked;
+                    });
                   }
                 },
                 icon: const Icon(Icons.calendar_today, size: 16),
@@ -509,7 +607,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           )
         else
           Text(
-            'תשלום עד: ${DateFormat('dd/MM/yyyy').format(_effectivePaymentDueDate)}',
+            '${l10n.payUntilLabel} ${DateFormat('dd/MM/yyyy').format(_effectivePaymentDueDate)}',
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
       ],
@@ -517,12 +615,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   }
 
   Widget _buildItemsTable() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'פריטים:',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          '${l10n.items}:',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Table(
@@ -537,33 +636,33 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
             // Заголовок
             TableRow(
               decoration: BoxDecoration(color: Colors.grey[200]),
-              children: const [
+              children: [
                 Padding(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   child: Text(
-                    'פריט',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    l10n.itemLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   child: Text(
-                    'קרטונים',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    l10n.cartonsLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   child: Text(
-                    'מחיר ליח\'',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    l10n.pricePerUnitLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   child: Text(
-                    'סה"כ',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    l10n.totalLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -614,9 +713,11 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   }
 
   Widget _buildDiscountField() {
+    final l10n = AppLocalizations.of(context)!;
     return Row(
       children: [
-        const Text('הנחה: ', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(l10n.discountLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(width: 8),
         SizedBox(
           width: 120,
@@ -636,58 +737,60 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   }
 
   Widget _buildPaymentReceivedSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Способ оплаты — всегда видим
+        Row(
+          children: [
+            Text('${l10n.paymentMethodLabel}: ',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: _paymentMethod,
+              items: [
+                DropdownMenuItem(value: 'מזומן', child: Text(l10n.cash)),
+                DropdownMenuItem(value: "צ'ק", child: Text(l10n.cheque)),
+                DropdownMenuItem(
+                    value: 'העברה בנקאית', child: Text(l10n.bankTransfer)),
+                DropdownMenuItem(
+                    value: 'כרטיס אשראי', child: Text(l10n.creditCard)),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _paymentMethod = val);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Чекбокс "תשלום התקבל" — отдельно
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text(
-            'תשלום התקבל (חשבונית מס / קבלה)',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          title: Text(
+            l10n.paymentReceivedCheckbox,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          subtitle: const Text(
-            'סמן אם הלקוח שילם — המסמך יהפוך לחשבונית מס-קבלה',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          subtitle: Text(
+            l10n.paymentReceivedHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           value: _paymentReceived,
           onChanged: (val) => setState(() => _paymentReceived = val ?? false),
         ),
-        if (_paymentReceived) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('אופן תשלום: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _paymentMethod,
-                items: const [
-                  DropdownMenuItem(value: 'מזומן', child: Text('מזומן')),
-                  DropdownMenuItem(
-                      value: 'כרטיס אשראי', child: Text('כרטיס אשראי')),
-                  DropdownMenuItem(
-                      value: 'העברה בנקאית', child: Text('העברה בנקאית')),
-                  DropdownMenuItem(value: 'צ\'ק', child: Text('צ\'ק')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _paymentMethod = val);
-                },
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
 
   Widget _buildTotals() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('סה"כ לפני מע"מ:', style: TextStyle(fontSize: 16)),
+            Text('${l10n.netBeforeVat}:', style: const TextStyle(fontSize: 16)),
             Text(
               '₪${_subtotalBeforeVAT.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -698,7 +801,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('מע"מ (18%):', style: TextStyle(fontSize: 16)),
+            Text('${l10n.vatLabelCalc} (18%):',
+                style: const TextStyle(fontSize: 16)),
             Text(
               '₪${_vatAmount.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 16),
@@ -710,9 +814,9 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'סה"כ לתשלום:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              '${l10n.totalToPay}:',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(
               '₪${_totalWithVAT.toStringAsFixed(2)}',

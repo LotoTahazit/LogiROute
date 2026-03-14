@@ -189,14 +189,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: l10n.email,
                   labelStyle: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
                   border: const OutlineInputBorder(),
                 ),
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: Colors.black,
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -208,14 +208,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: l10n.password,
                   labelStyle: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
                   border: const OutlineInputBorder(),
                 ),
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: Colors.black,
                 ),
                 obscureText: true,

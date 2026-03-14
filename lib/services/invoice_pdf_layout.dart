@@ -431,19 +431,19 @@ pw.Widget buildItemsTable(
               align: pw.Alignment.centerRight,
             ),
             buildTableCell(
+              '${item.totalUnits}',
+              fontLatin,
+              fontHebrew,
+              align: pw.Alignment.center,
+            ),
+            buildTableCell(
+              '${item.piecesPerBox}',
+              fontLatin,
+              fontHebrew,
+              align: pw.Alignment.center,
+            ),
+            buildTableCell(
               '${item.quantity}',
-              fontLatin,
-              fontHebrew,
-              align: pw.Alignment.center,
-            ),
-            buildTableCell(
-              '1500',
-              fontLatin,
-              fontHebrew,
-              align: pw.Alignment.center,
-            ),
-            buildTableCell(
-              '30.00',
               fontLatin,
               fontHebrew,
               align: pw.Alignment.center,
@@ -635,7 +635,11 @@ pw.Widget buildTotals(
                   ),
                 ),
                 smartText(
-                  'סה״כ לתשלום',
+                  (invoice.documentType ==
+                              InvoiceDocumentType.taxInvoiceReceipt ||
+                          invoice.documentType == InvoiceDocumentType.receipt)
+                      ? 'שולם'
+                      : 'סה״כ לתשלום',
                   fontHebrewBold,
                   fontLatin,
                   fontSize: 9,
@@ -643,10 +647,8 @@ pw.Widget buildTotals(
                 ),
               ],
             ),
-            if ((invoice.documentType ==
-                        InvoiceDocumentType.taxInvoiceReceipt ||
-                    invoice.documentType == InvoiceDocumentType.receipt) &&
-                invoice.paymentMethod != null) ...[
+            if (invoice.paymentMethod != null &&
+                invoice.paymentMethod!.isNotEmpty) ...[
               pw.SizedBox(height: 5),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

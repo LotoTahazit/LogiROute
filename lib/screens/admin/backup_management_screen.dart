@@ -493,7 +493,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
           SizedBox(
               width: 180,
               child: Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w600))),
+                  style: const TextStyle(fontWeight: FontWeight.w700))),
           Expanded(child: Text(value)),
         ],
       ),

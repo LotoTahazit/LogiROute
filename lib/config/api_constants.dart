@@ -68,6 +68,10 @@ class ApiConstants {
   static String get osrmTripParams =>
       'source=first&destination=last&roundtrip=false&$osrmOverviewFull&$osrmGeometriesPolyline';
 
+  /// Параметры для OSRM trip с кольцевым маршрутом (склад→точки→склад)
+  static String get osrmTripRoundtripParams =>
+      'source=first&roundtrip=true&$osrmOverviewFull&$osrmGeometriesPolyline';
+
   // ========== Precision для polyline ==========
 
   /// Precision для OSRM polyline (всегда 5)

@@ -29,7 +29,13 @@ void main() async {
   };
 
   // 🔐 Загрузка переменных окружения из .env файла
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+    debugPrint('✅ [dotenv] Loaded ${dotenv.env.length} vars: ${dotenv.env.keys.toList()}');
+    debugPrint('✅ [dotenv] GOOGLE_MAPS_WEB_KEY=${dotenv.env['GOOGLE_MAPS_WEB_KEY']?.isNotEmpty == true ? '***set***' : 'EMPTY'}');
+  } catch (e) {
+    debugPrint('❌ [dotenv] Failed to load .env: $e');
+  }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -79,62 +85,54 @@ class LogiRouteApp extends StatelessWidget {
               primarySwatch: Colors.blue,
               fontFamily: 'NotoSansHebrew',
               fontFamilyFallback: const ['NotoSans'],
-              // Глобальное улучшение видимости ВСЕХ цифр и текста
               textTheme: const TextTheme(
                 bodyLarge: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w500,
-                ),
+                    color: Colors.black, fontWeight: FontWeight.w700),
                 bodyMedium: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w500,
-                ),
-                // Улучшенная видимость для вторичного текста и цифр
+                    color: Colors.black, fontWeight: FontWeight.w700),
                 bodySmall: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                displayLarge: TextStyle(color: Colors.black),
-                displayMedium: TextStyle(color: Colors.black),
-                displaySmall: TextStyle(color: Colors.black),
-                headlineLarge: TextStyle(color: Colors.black),
-                headlineMedium: TextStyle(color: Colors.black),
-                headlineSmall: TextStyle(color: Colors.black),
-                titleLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-                titleMedium:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-                titleSmall:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13),
+                displayLarge: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                displayMedium: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                displaySmall: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                headlineLarge: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                headlineMedium: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                headlineSmall: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                titleLarge: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                titleMedium: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
+                titleSmall: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700),
                 labelLarge: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w600,
-                ),
+                    color: Colors.black, fontWeight: FontWeight.w700),
                 labelMedium: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                // Улучшенная видимость для маленьких меток и цифр
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13),
                 labelSmall: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13),
               ),
-              // Улучшенная видимость для ListTile subtitle
               listTileTheme: ListTileThemeData(
                 subtitleTextStyle: TextStyle(
                   color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
               ),
-              // Улучшенная видимость для Chip
-              chipTheme: ChipThemeData(
+              chipTheme: const ChipThemeData(
                 labelStyle: TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
               ),

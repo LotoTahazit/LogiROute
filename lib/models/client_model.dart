@@ -12,6 +12,7 @@ class ClientModel {
   final String companyId; // ID компании
   final List<String>
       zones; // אזורי חלוקה (center, south, north, jerusalem, sharon)
+  final String? paymentMethod; // אופן תשלום ברירת מחדל
 
   ClientModel({
     required this.id,
@@ -25,6 +26,7 @@ class ClientModel {
     this.vatId,
     required this.companyId,
     this.zones = const [],
+    this.paymentMethod,
   });
 
   factory ClientModel.fromMap(Map<String, dynamic> map, String id) {
@@ -40,6 +42,7 @@ class ClientModel {
       vatId: map['vatId'],
       companyId: map['companyId'] ?? '',
       zones: List<String>.from(map['zones'] ?? []),
+      paymentMethod: map['paymentMethod'],
     );
   }
 
@@ -55,6 +58,8 @@ class ClientModel {
       if (vatId != null && vatId!.isNotEmpty) 'vatId': vatId,
       'companyId': companyId,
       'zones': zones,
+      if (paymentMethod != null && paymentMethod!.isNotEmpty)
+        'paymentMethod': paymentMethod,
     };
   }
 }

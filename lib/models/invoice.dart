@@ -75,7 +75,8 @@ class InvoiceItem {
       productCode; // מק"ט - артикул товара (ОБЯЗАТЕЛЬНОЕ) - ПЕРВОЕ ПОЛЕ
   final String type; // "בביע", "מכסה", "כוס"
   final String number; // "100", "200", etc.
-  final int quantity; // Количество единиц
+  final int quantity; // Количество картонов
+  final int piecesPerBox; // Штук в картоне
   final double pricePerUnit; // Цена за единицу (до НДС)
 
   InvoiceItem({
@@ -83,9 +84,11 @@ class InvoiceItem {
     required this.type,
     required this.number,
     required this.quantity,
+    this.piecesPerBox = 1,
     required this.pricePerUnit,
   });
 
+  int get totalUnits => quantity * piecesPerBox;
   double get totalBeforeVAT => quantity * pricePerUnit;
 
   Map<String, dynamic> toMap() {
@@ -94,6 +97,7 @@ class InvoiceItem {
       'type': type,
       'number': number,
       'quantity': quantity,
+      'piecesPerBox': piecesPerBox,
       'pricePerUnit': pricePerUnit,
     };
   }
@@ -104,6 +108,7 @@ class InvoiceItem {
       type: map['type'] ?? '',
       number: map['number'] ?? '',
       quantity: ((map['quantity'] ?? 0) as num).toInt(),
+      piecesPerBox: ((map['piecesPerBox'] ?? 1) as num).toInt(),
       pricePerUnit: (map['pricePerUnit'] is num)
           ? (map['pricePerUnit'] as num).toDouble()
           : 0.0,

@@ -8,9 +8,24 @@ import 'api_config_service.dart';
 /// Checks road safety constraints (bridge heights, weight limits)
 /// for delivery routes via Google Roads/Places APIs.
 class RouteSafetyService {
+  static bool _roadsKeyWarningShown = false;
+
+  static String? _readRoadsApiKey() {
+    final key = ApiConfigService.googleMapsApiKey.trim();
+    if (key.isNotEmpty) return key;
+    if (!_roadsKeyWarningShown) {
+      _roadsKeyWarningShown = true;
+      print(
+          '⚠️ [RouteSafety] GOOGLE_MAPS key is empty. Skipping Roads/Places safety checks.');
+    }
+    return null;
+  }
+
   /// Checks bridge heights along the route
   static Future<bool> checkBridgeHeights(List<DeliveryPoint> route) async {
     try {
+      final apiKey = _readRoadsApiKey();
+      if (apiKey == null) return true;
       final List<String> coordinates = [];
       for (final point in route) {
         coordinates.add('${point.latitude},${point.longitude}');
@@ -18,7 +33,7 @@ class RouteSafetyService {
       final String path = coordinates.join('|');
 
       final String url =
-          '${ApiConfigService.googleRoadsApiUrl}?path=$path&interpolate=true&key=${ApiConfigService.googleMapsApiKey}';
+          '${ApiConfigService.googleRoadsApiUrl}?path=$path&interpolate=true&key=$apiKey';
 
       final response = await http.get(Uri.parse(url));
 
@@ -30,7 +45,7 @@ class RouteSafetyService {
             final placeId = point['placeId'];
             if (placeId != null) {
               final hasLowBridge = await _checkPlaceForLowBridge(
-                  placeId, ApiConfigService.googleMapsApiKey);
+                  placeId, apiKey);
               if (hasLowBridge) {
                 print(
                     '🚧 [RouteSafety] Low bridge detected! Height < ${AppConfig.minBridgeHeight}m');
@@ -39,6 +54,9 @@ class RouteSafetyService {
             }
           }
         }
+      } else if (response.statusCode == 403) {
+        print('⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
+        return true;
       }
 
       return true;
@@ -52,6 +70,8 @@ class RouteSafetyService {
   static Future<bool> checkRoadWeightLimits(
       List<DeliveryPoint> route, double truckWeight) async {
     try {
+      final apiKey = _readRoadsApiKey();
+      if (apiKey == null) return true;
       print(
           '⚖️ [RouteSafety] Checking weight restrictions for truck: ${truckWeight.toStringAsFixed(1)}t');
 
@@ -67,7 +87,7 @@ class RouteSafetyService {
       final String path = coordinates.join('|');
 
       final String url =
-          '${ApiConfigService.googleRoadsApiUrl}?path=$path&interpolate=true&key=${ApiConfigService.googleMapsApiKey}';
+          '${ApiConfigService.googleRoadsApiUrl}?path=$path&interpolate=true&key=$apiKey';
 
       final response = await http.get(Uri.parse(url));
 
@@ -81,7 +101,7 @@ class RouteSafetyService {
               final hasWeightRestriction =
                   await _checkPlaceForWeightRestriction(
                 placeId,
-                ApiConfigService.googleMapsApiKey,
+                apiKey,
                 truckWeight,
               );
               if (hasWeightRestriction) {
@@ -92,6 +112,9 @@ class RouteSafetyService {
             }
           }
         }
+      } else if (response.statusCode == 403) {
+        print('⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
+        return true;
       }
 
       return true;

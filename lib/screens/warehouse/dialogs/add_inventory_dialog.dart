@@ -268,7 +268,7 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
                           color: _selectedProductCode != null
                               ? Colors.green.shade700
                               : Colors.red.shade700,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),

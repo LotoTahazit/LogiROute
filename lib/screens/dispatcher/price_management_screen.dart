@@ -322,7 +322,7 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
                                                 .toStringAsFixed(2)),
                                             style: const TextStyle(
                                               color: Colors.green,
-                                              fontWeight: FontWeight.w500,
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           )
                                         : Text(

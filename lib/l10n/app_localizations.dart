@@ -808,6 +808,30 @@ abstract class AppLocalizations {
   /// **'Route order and ETA updated'**
   String get routePointsReordered;
 
+  /// No description provided for @optimizeTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimize time'**
+  String get optimizeTime;
+
+  /// No description provided for @routeAlreadyOptimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Route is already optimal'**
+  String get routeAlreadyOptimal;
+
+  /// No description provided for @routeOptimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Route optimized'**
+  String get routeOptimized;
+
+  /// No description provided for @routeOptimizationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimization failed'**
+  String get routeOptimizationFailed;
+
   /// No description provided for @selectNewDriver.
   ///
   /// In en, this message translates to:
@@ -7350,6 +7374,276 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Describe the exact location'**
   String get hintOther;
+
+  /// No description provided for @paymentMethodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment method'**
+  String get paymentMethodLabel;
+
+  /// No description provided for @cash.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash'**
+  String get cash;
+
+  /// No description provided for @cheque.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheque'**
+  String get cheque;
+
+  /// No description provided for @bankTransfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank transfer'**
+  String get bankTransfer;
+
+  /// No description provided for @creditCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit card'**
+  String get creditCard;
+
+  /// No description provided for @notSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected'**
+  String get notSelected;
+
+  /// No description provided for @paidStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paidStatus;
+
+  /// No description provided for @totalToPay.
+  ///
+  /// In en, this message translates to:
+  /// **'Total to pay'**
+  String get totalToPay;
+
+  /// No description provided for @paymentReceivedCheckbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment received (Tax Invoice/Receipt)'**
+  String get paymentReceivedCheckbox;
+
+  /// No description provided for @paymentReceivedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check if customer paid — document becomes tax invoice-receipt'**
+  String get paymentReceivedHint;
+
+  /// No description provided for @createDeliveryNoteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Delivery Note'**
+  String get createDeliveryNoteTitle;
+
+  /// No description provided for @createInvoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Invoice'**
+  String get createInvoiceTitle;
+
+  /// No description provided for @creatingDoc.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating...'**
+  String get creatingDoc;
+
+  /// No description provided for @createAndPrint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and print'**
+  String get createAndPrint;
+
+  /// No description provided for @createDeliveryNoteBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Create delivery note'**
+  String get createDeliveryNoteBtn;
+
+  /// No description provided for @deliveryDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery date:'**
+  String get deliveryDateLabel;
+
+  /// No description provided for @paymentTermsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment terms:'**
+  String get paymentTermsLabel;
+
+  /// No description provided for @days30.
+  ///
+  /// In en, this message translates to:
+  /// **'30 days'**
+  String get days30;
+
+  /// No description provided for @days60.
+  ///
+  /// In en, this message translates to:
+  /// **'60 days'**
+  String get days60;
+
+  /// No description provided for @days90.
+  ///
+  /// In en, this message translates to:
+  /// **'90 days'**
+  String get days90;
+
+  /// No description provided for @manualEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get manualEntry;
+
+  /// No description provided for @payUntilLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay until:'**
+  String get payUntilLabel;
+
+  /// No description provided for @itemLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Item'**
+  String get itemLabel;
+
+  /// No description provided for @cartonsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cartons'**
+  String get cartonsLabel;
+
+  /// No description provided for @pricePerUnitLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Price/unit'**
+  String get pricePerUnitLabel;
+
+  /// No description provided for @totalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get totalLabel;
+
+  /// No description provided for @discountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Discount:'**
+  String get discountLabel;
+
+  /// No description provided for @clientLabelColon.
+  ///
+  /// In en, this message translates to:
+  /// **'Client:'**
+  String get clientLabelColon;
+
+  /// No description provided for @addressLabelColon.
+  ///
+  /// In en, this message translates to:
+  /// **'Address:'**
+  String get addressLabelColon;
+
+  /// No description provided for @driverLabelColon.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver:'**
+  String get driverLabelColon;
+
+  /// No description provided for @truckLabelColon.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck:'**
+  String get truckLabelColon;
+
+  /// No description provided for @notSpecified.
+  ///
+  /// In en, this message translates to:
+  /// **'Not specified'**
+  String get notSpecified;
+
+  /// No description provided for @departureTimeValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Departure: 07:00'**
+  String get departureTimeValue;
+
+  /// No description provided for @userNotLoggedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'User not logged in — cannot create document'**
+  String get userNotLoggedIn;
+
+  /// No description provided for @serverIssuanceError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error issuing document from server'**
+  String get serverIssuanceError;
+
+  /// No description provided for @deliveryNoteAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery note already exists (#{docNum})'**
+  String deliveryNoteAlreadyExists(int docNum);
+
+  /// No description provided for @deliveryNoteCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Delivery note created (#{docNum})'**
+  String deliveryNoteCreatedSuccess(int docNum);
+
+  /// No description provided for @taxInvoiceReceiptCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Tax invoice/receipt created (#{docNum})'**
+  String taxInvoiceReceiptCreatedSuccess(int docNum);
+
+  /// No description provided for @invoiceCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Invoice created (#{docNum})'**
+  String invoiceCreatedSuccess(int docNum);
+
+  /// No description provided for @invoicePeriodLockedError.
+  ///
+  /// In en, this message translates to:
+  /// **'Date {date} is in a closed accounting period (until {lockedUntil}). Choose a later date.'**
+  String invoicePeriodLockedError(String date, String lockedUntil);
+
+  /// No description provided for @possibleDuplicateOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Possible duplicate order'**
+  String get possibleDuplicateOrder;
+
+  /// No description provided for @exactDuplicateFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact duplicate found for {name}!'**
+  String exactDuplicateFound(String name);
+
+  /// No description provided for @existingOrdersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing orders found for {name}:'**
+  String existingOrdersFound(String name);
+
+  /// No description provided for @checkNotDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure this is not a duplicate order!'**
+  String get checkNotDuplicate;
+
+  /// No description provided for @deleteDuplicates.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete duplicates'**
+  String get deleteDuplicates;
 }
 
 class _AppLocalizationsDelegate

@@ -152,7 +152,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             if (info.price > 0) ...[
               Text(l10n.promoMonthlyPrice(info.promoPrice, 3),
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
+                      fontSize: 16, fontWeight: FontWeight.w700)),
               Text(l10n.thenMonthlyPrice(info.price),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
               Text(l10n.setupAndIntegration(info.setupFee),

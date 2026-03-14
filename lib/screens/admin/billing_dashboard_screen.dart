@@ -491,7 +491,7 @@ class _InfoChip extends StatelessWidget {
         Text(value,
             style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: warn ? Colors.red : Colors.black87)),
       ],
     );
@@ -523,7 +523,7 @@ class _ActionBtn extends StatelessWidget {
             const SizedBox(width: 4),
             Text(label,
                 style: TextStyle(
-                    fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+                    fontSize: 11, color: color, fontWeight: FontWeight.w700)),
           ],
         ),
       ),

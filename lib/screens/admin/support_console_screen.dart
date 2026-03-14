@@ -493,7 +493,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
   Widget _chip(String label, String value, Color color) {
     return Chip(
       label: Text('$label: $value',
-          style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          style: TextStyle(color: color, fontWeight: FontWeight.w700)),
       backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color.withValues(alpha: 0.3)),
     );
@@ -507,7 +507,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
           SizedBox(
               width: 180,
               child: Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w500))),
+                  style: const TextStyle(fontWeight: FontWeight.w700))),
           Expanded(
               child:
                   Text(value, style: TextStyle(color: Colors.grey.shade700))),

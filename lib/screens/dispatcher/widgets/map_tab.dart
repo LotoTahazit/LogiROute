@@ -108,7 +108,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   ),
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black,
                   ),
                   items: [
@@ -234,7 +234,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade800,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),

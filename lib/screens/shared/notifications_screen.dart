@@ -173,7 +173,7 @@ class _NotificationTile extends StatelessWidget {
                             notification.title,
                             style: TextStyle(
                               fontWeight:
-                                  isUnread ? FontWeight.bold : FontWeight.w500,
+                                  isUnread ? FontWeight.bold : FontWeight.w700,
                               fontSize: 14,
                             ),
                           ),

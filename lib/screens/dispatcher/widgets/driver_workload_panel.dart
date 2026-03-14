@@ -155,7 +155,7 @@ class _DriverCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   color: loadColor,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
@@ -171,7 +171,7 @@ class _DriverCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 color: Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
               ),
             ),
         ],

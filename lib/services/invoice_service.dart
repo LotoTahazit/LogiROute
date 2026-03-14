@@ -349,6 +349,44 @@ class InvoiceService {
     }
   }
 
+  /// Find existing issued invoice for a delivery point + document type
+  /// Used to prevent duplicate מקור printing
+  /// Uses compound index (deliveryPointId, documentType, status)
+  Future<Invoice?> getInvoiceForDeliveryPoint(
+    String deliveryPointId,
+    InvoiceDocumentType documentType,
+  ) async {
+    try {
+      final snapshot = await _invoicesCollection()
+          .where('deliveryPointId', isEqualTo: deliveryPointId)
+          .where('documentType', isEqualTo: documentType.name)
+          .where('status', whereIn: [InvoiceStatus.active.name, 'issued'])
+          .limit(1)
+          .get();
+
+      print(
+        '🔍 [Invoice] getInvoiceForDeliveryPoint: '
+        'deliveryPointId=$deliveryPointId, docType=${documentType.name}, '
+        'found ${snapshot.docs.length} docs',
+      );
+
+      if (snapshot.docs.isNotEmpty) {
+        final doc = snapshot.docs.first;
+        final data = doc.data();
+        print(
+          '✅ [Invoice] Found existing: id=${doc.id}, '
+          'status=${data['status']}, originalPrinted=${data['originalPrinted']}',
+        );
+        return Invoice.fromMap(data, doc.id);
+      }
+      print('ℹ️ [Invoice] No matching invoice found for deliveryPoint');
+      return null;
+    } catch (e) {
+      print('❌ [Invoice] Error finding invoice for deliveryPoint: $e');
+      return null;
+    }
+  }
+
   /// Get חשבוניות for client
   Future<List<Invoice>> getInvoicesForClient(
     String clientNumber, {

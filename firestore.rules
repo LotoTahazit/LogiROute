@@ -417,6 +417,13 @@ service cloud.firestore {
         allow delete: if canWriteModule(companyId, 'logistics');
       }
 
+      // routes: /companies/{c}/logistics/_root/routes/{routeId}
+      match /logistics/_root/routes/{routeId} {
+        allow read: if canUseModule(companyId, 'logistics');
+        allow create, update: if canWriteModule(companyId, 'logistics');
+        allow delete: if canWriteModule(companyId, 'logistics');
+      }
+
       // cached_routes: /companies/{c}/logistics/_root/cached_routes/{routeId}
       match /logistics/_root/cached_routes/{routeId} {
         allow read: if canUseModule(companyId, 'logistics');
@@ -450,13 +457,13 @@ service cloud.firestore {
       // invoices (includes delivery note by documentType:'delivery')
       match /accounting/_root/invoices/{invoiceId} {
         allow read: if canUseModule(companyId, 'accounting');
-        // create: admin/super_admin any; dispatcher only if documentType == 'delivery'
+        // create: admin/super_admin any; dispatcher: delivery, invoice, taxInvoiceReceipt
         // period lock: deliveryDate must be after accountingLockedUntil
         allow create: if canWriteModule(companyId, 'accounting') && companyIdMatchesPath(companyId)
           && isNewDocUnlocked(companyId, request.resource.data.deliveryDate)
           && (
             hasAnyRole(['admin', 'super_admin']) ||
-            (isRole('dispatcher') && request.resource.data.documentType == 'delivery')
+            (isRole('dispatcher') && request.resource.data.documentType in ['delivery', 'invoice', 'taxInvoiceReceipt'])
           );
         // update: only admin/super_admin, immutable fields, period lock on existing doc
         // Server-issued fields (sequentialNumber, finalizedAt, finalizedBy, immutableSnapshotHash)

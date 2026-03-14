@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'firestore_paths.dart';
 
 class ArchiveService {
   final String companyId;
@@ -107,12 +108,7 @@ class ArchiveService {
       print('📅 [Archive] Cutoff date: ${cutoffDate.toIso8601String()}');
 
       // Получаем старые завершенные заказы
-      final snapshot = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points')
+      final snapshot = await FirestorePaths.deliveryPointsOf(companyId)
           .where('status', isEqualTo: 'completed')
           .where('completedAt', isLessThan: Timestamp.fromDate(cutoffDate))
           .orderBy('completedAt')

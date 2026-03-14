@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/client_model.dart';
 import '../../services/client_service.dart';
+import '../../services/firestore_paths.dart';
 import '../../services/client_import_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
@@ -84,6 +85,30 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
     if (result != null) {
       try {
         await _clientService.updateClient(client.id, result);
+
+        // Если координаты или адрес изменились — обновить все активные точки доставки
+        final coordsChanged = client.latitude != result.latitude ||
+            client.longitude != result.longitude;
+        final addressChanged = client.address != result.address;
+        if ((coordsChanged || addressChanged) &&
+            result.clientNumber.isNotEmpty) {
+          final companyCtx = CompanyContext.of(context);
+          final companyId = companyCtx.effectiveCompanyId ?? '';
+          final points = await FirestorePaths.deliveryPointsOf(companyId)
+              .where('clientNumber', isEqualTo: result.clientNumber)
+              .where('status',
+                  whereIn: ['pending', 'assigned', 'in_progress']).get();
+          for (final doc in points.docs) {
+            await doc.reference.update({
+              'latitude': result.latitude,
+              'longitude': result.longitude,
+              'address': result.address,
+            });
+          }
+          debugPrint(
+              '\ud83d\udccd [Client] Updated ${points.docs.length} active points: coords=($coordsChanged) address=($addressChanged)');
+        }
+
         if (mounted) {
           SnackbarHelper.showSuccess(context, l10n.clientUpdated);
           _loadClients();

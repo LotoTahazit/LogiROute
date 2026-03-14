@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
+import '../../services/firestore_paths.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -11,15 +12,9 @@ class AnalyticsScreen extends StatelessWidget {
       BuildContext context, AppLocalizations l10n) async {
     final companyCtx = CompanyContext.of(context);
     final companyId = companyCtx.effectiveCompanyId ?? '';
-    final firestore = FirebaseFirestore.instance;
 
-    final pointsSnapshot = await firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('delivery_points')
-        .get();
+    final pointsSnapshot =
+        await FirestorePaths.deliveryPointsOf(companyId).get();
 
     final points = pointsSnapshot.docs
         .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))

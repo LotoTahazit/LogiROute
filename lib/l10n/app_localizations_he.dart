@@ -364,6 +364,18 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routePointsReordered => 'סדר הנקודות וה-ETA עודכנו';
 
   @override
+  String get optimizeTime => 'אופטימיזציית זמן';
+
+  @override
+  String get routeAlreadyOptimal => 'המסלול כבר אופטימלי';
+
+  @override
+  String get routeOptimized => 'המסלול עודכן';
+
+  @override
+  String get routeOptimizationFailed => 'האופטימיזציה נכשלה';
+
+  @override
   String get selectNewDriver => 'בחר נהג חדש';
 
   @override
@@ -3888,4 +3900,154 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get hintOther => 'תאר את המיקום המדויק';
+
+  @override
+  String get paymentMethodLabel => 'אופן תשלום';
+
+  @override
+  String get cash => 'מזומן';
+
+  @override
+  String get cheque => 'צ\'ק';
+
+  @override
+  String get bankTransfer => 'העברה בנקאית';
+
+  @override
+  String get creditCard => 'כרטיס אשראי';
+
+  @override
+  String get notSelected => 'לא נבחר';
+
+  @override
+  String get paidStatus => 'שולם';
+
+  @override
+  String get totalToPay => 'סה״כ לתשלום';
+
+  @override
+  String get paymentReceivedCheckbox => 'תשלום התקבל (חשבונית מס / קבלה)';
+
+  @override
+  String get paymentReceivedHint =>
+      'סמן אם הלקוח שילם — המסמך יהפוך לחשבונית מס-קבלה';
+
+  @override
+  String get createDeliveryNoteTitle => 'יצירת תעודת משלוח';
+
+  @override
+  String get createInvoiceTitle => 'יצירת חשבונית';
+
+  @override
+  String get creatingDoc => 'יוצר...';
+
+  @override
+  String get createAndPrint => 'צור והדפס';
+
+  @override
+  String get createDeliveryNoteBtn => 'צור תעודת משלוח';
+
+  @override
+  String get deliveryDateLabel => 'תאריך אספקה:';
+
+  @override
+  String get paymentTermsLabel => 'תנאי תשלום:';
+
+  @override
+  String get days30 => '30 ימים';
+
+  @override
+  String get days60 => '60 ימים';
+
+  @override
+  String get days90 => '90 ימים';
+
+  @override
+  String get manualEntry => 'ידני';
+
+  @override
+  String get payUntilLabel => 'תשלום עד:';
+
+  @override
+  String get itemLabel => 'פריט';
+
+  @override
+  String get cartonsLabel => 'קרטונים';
+
+  @override
+  String get pricePerUnitLabel => 'מחיר ליח\'';
+
+  @override
+  String get totalLabel => 'סה״כ';
+
+  @override
+  String get discountLabel => 'הנחה:';
+
+  @override
+  String get clientLabelColon => 'לקוח:';
+
+  @override
+  String get addressLabelColon => 'כתובת:';
+
+  @override
+  String get driverLabelColon => 'נהג:';
+
+  @override
+  String get truckLabelColon => 'משאית:';
+
+  @override
+  String get notSpecified => 'לא צוין';
+
+  @override
+  String get departureTimeValue => 'שעת יציאה: 07:00';
+
+  @override
+  String get userNotLoggedIn => 'משתמש לא מחובר — לא ניתן ליצור מסמך';
+
+  @override
+  String get serverIssuanceError => 'שגיאה בהנפקת מסמך מהשרת';
+
+  @override
+  String deliveryNoteAlreadyExists(int docNum) {
+    return 'תעודת משלוח כבר קיימת (#$docNum)';
+  }
+
+  @override
+  String deliveryNoteCreatedSuccess(int docNum) {
+    return '✅ תעודת משלוח נוצרה בהצלחה (#$docNum)';
+  }
+
+  @override
+  String taxInvoiceReceiptCreatedSuccess(int docNum) {
+    return '✅ חשבונית מס / קבלה נוצרה בהצלחה (#$docNum)';
+  }
+
+  @override
+  String invoiceCreatedSuccess(int docNum) {
+    return '✅ חשבונית נוצרה בהצלחה (#$docNum)';
+  }
+
+  @override
+  String invoicePeriodLockedError(String date, String lockedUntil) {
+    return 'תאריך $date נמצא בתקופה חשבונאית סגורה (עד $lockedUntil). בחר תאריך מאוחר יותר.';
+  }
+
+  @override
+  String get possibleDuplicateOrder => 'הזמנה כפולה אפשרית';
+
+  @override
+  String exactDuplicateFound(String name) {
+    return 'נמצאה הזמנה זהה לחלוטין עבור $name!';
+  }
+
+  @override
+  String existingOrdersFound(String name) {
+    return 'נמצאו הזמנות קיימות עבור $name:';
+  }
+
+  @override
+  String get checkNotDuplicate => 'בדוק שזו לא הזמנה כפולה!';
+
+  @override
+  String get deleteDuplicates => 'מחק כפילויות';
 }

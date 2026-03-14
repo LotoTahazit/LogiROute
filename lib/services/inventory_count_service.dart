@@ -3,6 +3,7 @@ import '../models/inventory_count.dart';
 import '../models/count_item.dart';
 import '../models/suspicious_order.dart';
 import '../models/inventory_item.dart';
+import 'firestore_paths.dart';
 
 class InventoryCountService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -200,12 +201,7 @@ class InventoryCountService {
       // Ищем точки доставки за последние 14 дней
       final fromDate = countDate.subtract(const Duration(days: 14));
 
-      final pointsSnapshot = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points')
+      final pointsSnapshot = await FirestorePaths.deliveryPointsOf(companyId)
           .where('createdAt',
               isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
           .where('createdAt',

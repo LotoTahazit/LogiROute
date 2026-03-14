@@ -21,6 +21,8 @@ class ActiveRoutesTab extends StatelessWidget {
   final Function(DeliveryPoint point) onRemovePoint;
   final Function(DeliveryPoint point)? onReopenPoint;
   final VoidCallback? onBalanceRoutes;
+  final Function(String driverId, String? routeId, List<DeliveryPoint> points)?
+      onOptimizeRoute;
 
   const ActiveRoutesTab({
     super.key,
@@ -38,6 +40,7 @@ class ActiveRoutesTab extends StatelessWidget {
     required this.onRemovePoint,
     this.onReopenPoint,
     this.onBalanceRoutes,
+    this.onOptimizeRoute,
   });
 
   String _getDisplayAddress(DeliveryPoint point) {
@@ -312,6 +315,20 @@ class ActiveRoutesTab extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (onOptimizeRoute != null &&
+                    routePoints
+                            .where((p) =>
+                                p.status != 'completed' &&
+                                p.status != 'cancelled')
+                            .length >=
+                        2)
+                  IconButton(
+                    icon: Icon(Icons.timer_outlined,
+                        color: Colors.orange.shade700),
+                    tooltip: l10n.optimizeTime,
+                    onPressed: () =>
+                        onOptimizeRoute!(driverId, routeId, routePoints),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
                   tooltip: l10n.changeDriver,
@@ -360,26 +377,46 @@ class ActiveRoutesTab extends StatelessWidget {
                           style: const TextStyle(color: Colors.white),
                         ),
                       ),
-                      title: Text(r.clientName),
+                      title: Text(
+                        r.clientName,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          const SizedBox(height: 2),
                           Text(
-                            '${r.pallets} ${l10n.pallets} • ${_getDisplayAddress(r)}',
+                            '${r.pallets} ${l10n.pallets}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _getDisplayAddress(r),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
                           ),
                           if (r.eta != null && r.eta!.isNotEmpty ||
                               r.distanceKm != null && r.distanceKm! > 0)
-                            Text(
-                              [
-                                if (r.distanceKm != null && r.distanceKm! > 0)
-                                  '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
-                                if (r.eta != null && r.eta!.isNotEmpty)
-                                  'ETA: ${r.eta}',
-                              ].join(' • '),
-                              style: TextStyle(
-                                color: Colors.blue.shade900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                [
+                                  if (r.distanceKm != null && r.distanceKm! > 0)
+                                    '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
+                                  if (r.eta != null && r.eta!.isNotEmpty)
+                                    'ETA: ${r.eta}',
+                                ].join(' • '),
+                                style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                         ],

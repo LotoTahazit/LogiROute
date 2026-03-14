@@ -8,6 +8,7 @@ import '../../services/route_balance_service.dart';
 import '../../services/locale_service.dart';
 import '../../services/print_service.dart';
 import '../../services/invoice_print_service.dart';
+import '../../services/invoice_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/dialog_helper.dart';
@@ -17,6 +18,7 @@ import '../../models/user_model.dart';
 import '../../models/invoice.dart';
 import 'add_point_dialog.dart';
 import 'edit_point_dialog.dart';
+import 'add_product_to_point_dialog.dart';
 import 'create_invoice_dialog.dart';
 import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
@@ -198,11 +200,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             .collection('settings')
             .doc('warehouse_location')
             .set({
-              'latitude': latitude,
-              'longitude': longitude,
-              'updatedAt': FieldValue.serverTimestamp(),
-              'updatedBy': uid,
-            });
+          'latitude': latitude,
+          'longitude': longitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        });
 
         if (mounted) {
           SnackbarHelper.showSuccess(
@@ -249,11 +251,27 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Future<void> _printAllRouteInvoices(List<DeliveryPoint> routePoints) async {
     if (routePoints.isEmpty) return;
     final l10n = AppLocalizations.of(context)!;
+    final auth = context.read<AuthService>();
+    final companyId = auth.userModel?.companyId ?? '';
 
     // Создаём счета для всех точек маршрута
     final invoices = <Invoice>[];
+    int skippedMakor = 0;
 
     for (final point in routePoints) {
+      // === Проверка: מקור уже напечатан для этой точки? ===
+      if (companyId.isNotEmpty && point.id.isNotEmpty) {
+        final invoiceService = InvoiceService(companyId: companyId);
+        final existing = await invoiceService.getInvoiceForDeliveryPoint(
+          point.id,
+          InvoiceDocumentType.invoice,
+        );
+        if (existing != null && existing.originalPrinted) {
+          skippedMakor++;
+          continue; // מקור כבר הודפס — пропускаем
+        }
+      }
+
       final driver = _drivers.firstWhere(
         (d) => d.uid == point.driverId,
         orElse: () => UserModel(
@@ -295,6 +313,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         continue;
       }
       invoices.add(invoice);
+    }
+
+    if (skippedMakor > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ דולגו $skippedMakor חשבוניות — מקור כבר הודפס. להדפסה חוזרת השתמש בניהול חשבוניות.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
 
     if (invoices.isNotEmpty && mounted) {
@@ -391,6 +421,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       final routeService = RouteService(companyId: companyId);
       await routeService.cancelRoute(driverId, routeId);
       if (mounted) {
+        setState(() {
+          _lastNonEmptyRoutes = [];
+          _lastNonEmptyRoutesDate = null;
+        });
         SnackbarHelper.showSuccess(context, l10n.routeCancelled);
       }
     }
@@ -481,6 +515,37 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       ),
     );
 
+    final auth = context.read<AuthService>();
+    final companyId = auth.userModel?.companyId ?? '';
+
+    // === УРОВЕНЬ 1: Pre-check — существует ли уже документ для этой точки ===
+    if (companyId.isNotEmpty && point.id.isNotEmpty) {
+      try {
+        final invoiceService = InvoiceService(companyId: companyId);
+        final existing = await invoiceService.getInvoiceForDeliveryPoint(
+          point.id,
+          documentType,
+        );
+        debugPrint(
+          '🔍 [Makor] Pre-check: deliveryPoint=${point.id}, '
+          'type=${documentType.name}, existing=${existing?.id}, '
+          'originalPrinted=${existing?.originalPrinted}',
+        );
+
+        if (existing != null && mounted) {
+          // Документ уже существует — показываем диалог повторной печати
+          final result = await _showReprintDialog(existing);
+          if (result != null && mounted) {
+            await _executeReprint(existing, result, auth);
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Makor] Pre-check failed: $e — proceeding to dialog');
+      }
+    }
+
+    // === Документ не найден — создаём через CreateInvoiceDialog ===
     final invoice = await showDialog<Invoice>(
       context: context,
       builder: (context) => CreateInvoiceDialog(
@@ -490,33 +555,82 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       ),
     );
 
-    if (invoice != null && mounted) {
-      final auth = context.read<AuthService>();
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        await InvoicePrintService.printFirstTime(
-          invoice,
-          actorUid: auth.currentUser?.uid,
-          actorName: auth.userModel?.name,
-        );
-        // הצגת אזהרה אם הודפסו עותקים בלבד (ממתין למספר הקצאה)
-        if (mounted &&
-            invoice.requiresAssignment &&
-            invoice.assignmentStatus != AssignmentStatus.approved) {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text(
-                '⚠️ הודפסו עותקים בלבד — ממתין למספר הקצאה. המקור יודפס לאחר אישור רשות המסים.',
-              ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 6),
+    if (invoice == null || !mounted) return;
+
+    // === УРОВЕНЬ 2: Post-check — если CreateInvoiceDialog вернул существующий документ ===
+    debugPrint(
+      '🔍 [Makor] Post-check: invoice=${invoice.id}, '
+      'originalPrinted=${invoice.originalPrinted}, '
+      'seq=${invoice.sequentialNumber}, status=${invoice.status.name}',
+    );
+
+    if (invoice.originalPrinted) {
+      // מקור כבר הודפס — НЕ вызываем printFirstTime!
+      debugPrint(
+          '🛡️ [Makor] Post-check caught: originalPrinted=true, showing reprint dialog');
+      final result = await _showReprintDialog(invoice);
+      if (result != null && mounted) {
+        await _executeReprint(invoice, result, auth);
+      }
+      return;
+    }
+
+    // === Новый документ — печатаем впервые ===
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await InvoicePrintService.printFirstTime(
+        invoice,
+        actorUid: auth.currentUser?.uid,
+        actorName: auth.userModel?.name,
+      );
+      // הצגת אזהרה אם הודפסו עותקים בלבד (ממתין למספר הקצאה)
+      if (mounted &&
+          invoice.requiresAssignment &&
+          invoice.assignmentStatus != AssignmentStatus.approved) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              '⚠️ הודפסו עותקים בלבד — ממתין למספר הקצאה. המקור יודפס לאחר אישור רשות המסים.',
             ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
-        }
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
+      }
+    }
+  }
+
+  /// Показать диалог повторной печати (только העתק / נאמן למקור)
+  Future<Map<String, dynamic>?> _showReprintDialog(Invoice invoice) {
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _MakorExistsReprintDialog(invoice: invoice),
+    );
+  }
+
+  /// Выполнить повторную печать
+  Future<void> _executeReprint(
+    Invoice invoice,
+    Map<String, dynamic> result,
+    AuthService auth,
+  ) async {
+    try {
+      final copyType = result['copyType'] as InvoiceCopyType;
+      final copies = result['copies'] as int;
+      await InvoicePrintService.printInvoice(
+        invoice,
+        copyType: copyType,
+        copies: copies,
+        actorUid: auth.currentUser?.uid,
+        actorName: auth.userModel?.name,
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
       }
     }
   }
@@ -628,6 +742,34 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
+  Future<void> _addProductToPoint(
+    String companyId,
+    DeliveryPoint point,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await showDialog<List<dynamic>>(
+      context: context,
+      builder: (context) => AddProductToPointDialog(point: point),
+    );
+
+    if (result != null) {
+      try {
+        final routeService = RouteService(companyId: companyId);
+        await routeService.updatePointBoxTypes(point.id, result);
+        if (mounted) {
+          SnackbarHelper.showSuccess(
+            context,
+            '${l10n.productAdded}: ${point.clientName}',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackbarHelper.showError(context, '${l10n.error}: $e');
+        }
+      }
+    }
+  }
+
   Future<void> _assignDriverToPoint(
     String companyId,
     DeliveryPoint point,
@@ -689,8 +831,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         // ⚠️ Если превышает вместимость - показываем предупреждение
         bool shouldContinue = true;
         if (totalLoad > capacity && mounted) {
-          shouldContinue =
-              await showDialog<bool>(
+          shouldContinue = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: Text(l10n.overloadWarning),
@@ -834,6 +975,53 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
   /// Автоматическая балансировка маршрутов
   /// Переносит точки с перегруженных маршрутов на лёгкие
+  Future<void> _optimizeRouteByTime(
+    String companyId,
+    String driverId,
+    String? routeId,
+    List<DeliveryPoint> points,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white)),
+          const SizedBox(width: 12),
+          Text(l10n.optimizeTime),
+        ]),
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final routeService = RouteService(companyId: companyId);
+      final changed =
+          await routeService.optimizeRouteByTime(driverId, routeId, points);
+
+      messenger.hideCurrentSnackBar();
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(changed ? l10n.routeOptimized : l10n.routeAlreadyOptimal),
+          backgroundColor: changed ? Colors.green : null,
+        ));
+      }
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.routeOptimizationFailed),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
   Future<void> _balanceRoutes() async {
     final l10n = AppLocalizations.of(context)!;
     final companyCtx = CompanyContext.watch(context);
@@ -959,7 +1147,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               '${l10n.viewingAs} ${l10n.dispatcher}',
                               style: TextStyle(
                                 color: Colors.blue.shade900,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 14,
                               ),
                             ),
@@ -1034,6 +1222,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               _editPoint(effectiveCompanyId, point),
                           onAssignDriver: (point) =>
                               _assignDriverToPoint(effectiveCompanyId, point),
+                          onAddProduct: (point) =>
+                              _addProductToPoint(effectiveCompanyId, point),
                         );
                       },
                     ),
@@ -1056,17 +1246,17 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               autoCompletedPoints: autoSnapshot.data ?? [],
                               onChangeDriver: (driverId, driverName, routeId) =>
                                   _changeDriver(
-                                    effectiveCompanyId,
-                                    driverId,
-                                    driverName,
-                                    routeId,
-                                  ),
+                                effectiveCompanyId,
+                                driverId,
+                                driverName,
+                                routeId,
+                              ),
                               onCancelRoute: (driverId, routeId) =>
                                   _cancelRoute(
-                                    effectiveCompanyId,
-                                    driverId,
-                                    routeId,
-                                  ),
+                                effectiveCompanyId,
+                                driverId,
+                                routeId,
+                              ),
                               onPrintRoute: _printDriverRoute,
                               onReorderPoints: _reorderRoutePoints,
                               onCreateInvoice: _createInvoiceForPoint,
@@ -1081,6 +1271,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               onReopenPoint: (point) =>
                                   _reopenPoint(effectiveCompanyId, point),
                               onBalanceRoutes: _balanceRoutes,
+                              onOptimizeRoute: (driverId, routeId, points) =>
+                                  _optimizeRouteByTime(
+                                effectiveCompanyId,
+                                driverId,
+                                routeId,
+                                points,
+                              ),
                             );
                           },
                         );
@@ -1096,8 +1293,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           );
                         }
                         return FutureBuilder<List<Map<String, dynamic>>>(
-                          future:
-                              _routeDocsFuture ??
+                          future: _routeDocsFuture ??
                               Future.value(<Map<String, dynamic>>[]),
                           initialData: const [],
                           builder: (context, routesSnapshot) {
@@ -1128,11 +1324,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               onPointDragToDriver:
                                   (pointId, driverId, driverName) =>
                                       _handleDragAssign(
-                                        effectiveCompanyId,
-                                        pointId,
-                                        driverId,
-                                        driverName,
-                                      ),
+                                effectiveCompanyId,
+                                pointId,
+                                driverId,
+                                driverName,
+                              ),
                             );
                           },
                         );
@@ -1157,6 +1353,126 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
               )
             : null,
       ),
+    );
+  }
+}
+
+/// Диалог: מקור уже напечатан — только נאמן למקור или העתק
+class _MakorExistsReprintDialog extends StatefulWidget {
+  final Invoice invoice;
+  const _MakorExistsReprintDialog({required this.invoice});
+
+  @override
+  State<_MakorExistsReprintDialog> createState() =>
+      _MakorExistsReprintDialogState();
+}
+
+class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
+  InvoiceCopyType _selectedType = InvoiceCopyType.copy;
+  int _copies = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final docTypeLabel = widget.invoice.documentType ==
+            InvoiceDocumentType.delivery
+        ? 'תעודת משלוח'
+        : widget.invoice.documentType == InvoiceDocumentType.taxInvoiceReceipt
+            ? 'חשבונית מס / קבלה'
+            : 'חשבונית מס';
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: Colors.orange, size: 28),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'מקור כבר הודפס',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$docTypeLabel מס\' ${widget.invoice.sequentialNumber}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text('לקוח: ${widget.invoice.clientName}'),
+                const SizedBox(height: 8),
+                const Text(
+                  'לפי חוק ניהול ספרים — לא ניתן להדפיס מקור נוסף.\n'
+                  'ניתן להדפיס העתק או נאמן למקור בלבד.',
+                  style: TextStyle(fontSize: 13, color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('בחר סוג הדפסה:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          RadioListTile<InvoiceCopyType>(
+            value: InvoiceCopyType.copy,
+            groupValue: _selectedType,
+            title: const Text('העתק'),
+            subtitle: Text('עותק מספר ${widget.invoice.copiesPrinted + 1}'),
+            onChanged: (v) => setState(() => _selectedType = v!),
+          ),
+          RadioListTile<InvoiceCopyType>(
+            value: InvoiceCopyType.replacesOriginal,
+            groupValue: _selectedType,
+            title: const Text('נאמן למקור'),
+            subtitle: const Text('מחליף את המקור'),
+            onChanged: (v) => setState(() => _selectedType = v!),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('כמות עותקים: '),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
+              ),
+              Text('$_copies',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 18)),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _copies < 5 ? () => setState(() => _copies++) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ביטול'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.pop(context, {
+            'copyType': _selectedType,
+            'copies': _copies,
+          }),
+          icon: const Icon(Icons.print),
+          label: const Text('הדפס'),
+        ),
+      ],
     );
   }
 }

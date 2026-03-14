@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/daily_summary.dart';
 import '../models/invoice.dart';
 import '../models/delivery_point.dart';
+import 'firestore_paths.dart';
 
 /// Service for managing daily summaries
 /// ⚡ OPTIMIZATION: Aggregates data to reduce reads
@@ -276,12 +277,7 @@ class SummaryService {
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
       // Query all delivery points for this date
-      final snapshot = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points')
+      final snapshot = await FirestorePaths.deliveryPointsOf(companyId)
           .where('deliveryDate',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('deliveryDate', isLessThan: Timestamp.fromDate(endOfDay))

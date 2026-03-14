@@ -126,6 +126,16 @@ class FirestorePaths {
         .collection('delivery_points');
   }
 
+  /// Коллекция маршрутов компании (1 документ = 1 маршрут водителя за день)
+  CollectionReference<Map<String, dynamic>> routes(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('routes');
+  }
+
   /// Коллекция кешированных маршрутов компании
   CollectionReference<Map<String, dynamic>> cachedRoutes(String companyId) {
     return _firestore
@@ -180,6 +190,27 @@ class FirestorePaths {
   }
 
   // --- Static shortcuts (для сервисов без инстанса FirestorePaths) ---
+
+  /// Static: коллекция delivery_points компании
+  static CollectionReference<Map<String, dynamic>> deliveryPointsOf(
+      String companyId) {
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('delivery_points');
+  }
+
+  /// Static: коллекция routes компании
+  static CollectionReference<Map<String, dynamic>> routesOf(String companyId) {
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('routes');
+  }
 
   /// Static: коллекция driver_locations компании
   static CollectionReference<Map<String, dynamic>> driverLocationsOf(

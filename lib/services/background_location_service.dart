@@ -246,7 +246,6 @@ class BackgroundLocationService {
           return;
         }
 
-        final db = FirebaseFirestore.instance;
         final now = DateTime.now();
 
         // 1. Сохраняем координаты водителя
@@ -277,12 +276,7 @@ class BackgroundLocationService {
         }
 
         // 2. Проверяем все незавершённые точки водителя
-        final pointsSnap = await db
-            .collection('companies')
-            .doc(companyId)
-            .collection('logistics')
-            .doc('_root')
-            .collection('delivery_points')
+        final pointsSnap = await FirestorePaths.deliveryPointsOf(companyId!)
             .where('driverId', isEqualTo: driverId)
             .where('status', whereIn: ['assigned', 'in_progress']).get();
 

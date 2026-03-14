@@ -5,6 +5,7 @@ import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
 import 'osrm_navigation_service.dart';
 import '../config/app_config.dart';
+import 'firestore_paths.dart';
 
 /// Service for balancing delivery routes across drivers.
 /// Moves points from overloaded routes to underloaded ones.
@@ -14,12 +15,7 @@ class RouteBalanceService {
   RouteBalanceService({required this.companyId});
 
   CollectionReference<Map<String, dynamic>> get _pointsRef =>
-      FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points');
+      FirestorePaths.deliveryPointsOf(companyId);
 
   /// Balances routes by moving points from overloaded to underloaded drivers.
   /// Returns the number of moved points.

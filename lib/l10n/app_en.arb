@@ -119,6 +119,10 @@
   "cancelRouteDescription": "All points will return to 'pending'. Continue?",
   "routeCancelled": "Route cancelled, points returned to pending",
   "routePointsReordered": "Route order and ETA updated",
+  "optimizeTime": "Optimize time",
+  "routeAlreadyOptimal": "Route is already optimal",
+  "routeOptimized": "Route optimized",
+  "routeOptimizationFailed": "Optimization failed",
   "selectNewDriver": "Select a new driver",
   "noAvailableDrivers": "No available drivers",
   "driverChangedTo": "Driver changed to {name}",
@@ -1480,5 +1484,76 @@
   "hintFirebase": "Project name (logiroute-app)",
   "hintLocalServer": "Server name and path (/srv/backups/logiroute)",
   "hintFtp": "Server address (ftp://server.com/backups/)",
-  "hintOther": "Describe the exact location"
+  "hintOther": "Describe the exact location",
+
+  "paymentMethodLabel": "Payment method",
+  "cash": "Cash",
+  "cheque": "Cheque",
+  "bankTransfer": "Bank transfer",
+  "creditCard": "Credit card",
+  "notSelected": "Not selected",
+  "paidStatus": "Paid",
+  "totalToPay": "Total to pay",
+  "paymentReceivedCheckbox": "Payment received (Tax Invoice/Receipt)",
+  "paymentReceivedHint": "Check if customer paid — document becomes tax invoice-receipt",
+  "createDeliveryNoteTitle": "Create Delivery Note",
+  "createInvoiceTitle": "Create Invoice",
+  "creatingDoc": "Creating...",
+  "createAndPrint": "Create and print",
+  "createDeliveryNoteBtn": "Create delivery note",
+  "deliveryDateLabel": "Delivery date:",
+  "paymentTermsLabel": "Payment terms:",
+  "days30": "30 days",
+  "days60": "60 days",
+  "days90": "90 days",
+  "manualEntry": "Manual",
+  "payUntilLabel": "Pay until:",
+  "itemLabel": "Item",
+  "cartonsLabel": "Cartons",
+  "pricePerUnitLabel": "Price/unit",
+  "totalLabel": "Total",
+  "discountLabel": "Discount:",
+  "clientLabelColon": "Client:",
+  "addressLabelColon": "Address:",
+  "driverLabelColon": "Driver:",
+  "truckLabelColon": "Truck:",
+  "notSpecified": "Not specified",
+  "departureTimeValue": "Departure: 07:00",
+  "userNotLoggedIn": "User not logged in — cannot create document",
+  "serverIssuanceError": "Error issuing document from server",
+  "deliveryNoteAlreadyExists": "Delivery note already exists (#{docNum})",
+  "@deliveryNoteAlreadyExists": {
+    "placeholders": { "docNum": { "type": "int" } }
+  },
+  "deliveryNoteCreatedSuccess": "✅ Delivery note created (#{docNum})",
+  "@deliveryNoteCreatedSuccess": {
+    "placeholders": { "docNum": { "type": "int" } }
+  },
+  "taxInvoiceReceiptCreatedSuccess": "✅ Tax invoice/receipt created (#{docNum})",
+  "@taxInvoiceReceiptCreatedSuccess": {
+    "placeholders": { "docNum": { "type": "int" } }
+  },
+  "invoiceCreatedSuccess": "✅ Invoice created (#{docNum})",
+  "@invoiceCreatedSuccess": {
+    "placeholders": { "docNum": { "type": "int" } }
+  },
+  "invoicePeriodLockedError": "Date {date} is in a closed accounting period (until {lockedUntil}). Choose a later date.",
+  "@invoicePeriodLockedError": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "lockedUntil": { "type": "String" }
+    }
+  },
+
+  "possibleDuplicateOrder": "Possible duplicate order",
+  "exactDuplicateFound": "Exact duplicate found for {name}!",
+  "@exactDuplicateFound": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "existingOrdersFound": "Existing orders found for {name}:",
+  "@existingOrdersFound": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "checkNotDuplicate": "Make sure this is not a duplicate order!",
+  "deleteDuplicates": "Delete duplicates"
 }

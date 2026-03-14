@@ -72,60 +72,35 @@ class CompanyCache {
     }
   }
 
-  /// Загрузка конфигурации компании из Firestore
-  /// Путь: companies/{companyId}/settings/config
-  /// Fallback: пробует старый путь settings/warehouse для миграции
   Future<void> _loadCompanyConfig(String companyId) async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final settingsRef = FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
-          .collection('settings')
-          .doc('config')
-          .get();
+          .collection('settings');
 
+      final doc = await settingsRef.doc('config').get();
       if (doc.exists) {
         _config = CompanyConfig.fromMap(doc.data()!);
         debugPrint(
-            '🏭 [CompanyCache] Config from Firestore: warehouse=(${_config.warehouseLat}, ${_config.warehouseLng})');
+            '🏭 [CompanyCache] Config loaded: warehouse=(${_config.warehouseLat}, ${_config.warehouseLng})');
         return;
       }
 
-      // Fallback: старый формат settings/warehouse → мигрируем в settings/config
-      final oldDoc = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('warehouse')
-          .get();
-
+      final oldDoc = await settingsRef.doc('warehouse').get();
       if (oldDoc.exists) {
-        final oldData = oldDoc.data()!;
+        final d = oldDoc.data()!;
         _config = CompanyConfig(
-          warehouseLat: (oldData['lat'] as num?)?.toDouble() ?? 32.48698,
-          warehouseLng: (oldData['lng'] as num?)?.toDouble() ?? 34.982121,
-          warehouseAddress: oldData['address']?.toString() ?? '',
+          warehouseLat: (d['lat'] as num?)?.toDouble() ?? 32.48698,
+          warehouseLng: (d['lng'] as num?)?.toDouble() ?? 34.982121,
+          warehouseAddress: d['address']?.toString() ?? '',
         );
-        // Мигрируем в новый формат
-        await FirebaseFirestore.instance
-            .collection('companies')
-            .doc(companyId)
-            .collection('settings')
-            .doc('config')
-            .set(_config.toMap());
-        debugPrint('🏭 [CompanyCache] Migrated warehouse → config');
+        debugPrint('🏭 [CompanyCache] Config from legacy warehouse doc');
         return;
       }
 
-      // Нет ни config, ни warehouse — создаём дефолтный
       _config = CompanyConfig.defaults;
-      await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('config')
-          .set(_config.toMap());
-      debugPrint('🏭 [CompanyCache] Default config saved to Firestore');
+      debugPrint('🏭 [CompanyCache] No config found, using defaults');
     } catch (e) {
       debugPrint('⚠️ [CompanyCache] Config load error (using defaults): $e');
       _config = CompanyConfig.defaults;

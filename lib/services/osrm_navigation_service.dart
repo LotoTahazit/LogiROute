@@ -152,6 +152,67 @@ class OsrmNavigationService {
     return _tryTripUrls(coordinates.toString(), ApiConstants.osrmTripParams, waypoints);
   }
 
+  /// Оптимизирует порядок точек через OSRM Trip API (кольцевой маршрут).
+  /// Возвращает оптимальный порядок waypoint-индексов и общее время.
+  Future<TripOptimizationResult?> getOptimizedTripOrder({
+    required double warehouseLat,
+    required double warehouseLng,
+    required List<Map<String, double>> waypoints,
+  }) async {
+    if (waypoints.length < 2) return null;
+
+    final coordinates = StringBuffer();
+    coordinates.write('$warehouseLng,$warehouseLat');
+    for (final wp in waypoints) {
+      coordinates.write(';${wp['lng']},${wp['lat']}');
+    }
+
+    for (final baseUrl in ApiConstants.osrmTripUrls) {
+      final url =
+          '$baseUrl/${coordinates.toString()}?${ApiConstants.osrmTripRoundtripParams}';
+      try {
+        debugPrint('🧭 [OSRM] Trip optimize: $url');
+        final response =
+            await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        if (response.statusCode != 200) continue;
+
+        final data = json.decode(response.body);
+        if (data['code'] != 'Ok') continue;
+
+        final trips = data['trips'] as List?;
+        final wpData = data['waypoints'] as List?;
+        if (trips == null || trips.isEmpty || wpData == null) continue;
+
+        final trip = trips[0];
+        final duration = (trip['duration'] as num) / 60;
+        final distance = (trip['distance'] as num) / 1000;
+        final polyline = trip['geometry'] as String? ?? '';
+
+        // waypoint_index: оптимальный порядок посещения
+        // Индекс 0 — склад, пропускаем его; остальные сдвигаем на -1
+        final order = <int>[];
+        for (final wp in wpData) {
+          final idx = wp['waypoint_index'] as int;
+          if (idx == 0) continue; // склад
+          order.add(idx - 1); // индекс в исходном списке waypoints
+        }
+
+        debugPrint(
+            '✅ [OSRM] Trip optimized: ${distance.toStringAsFixed(1)}km, '
+            '${duration.toStringAsFixed(1)}min, order=$order');
+        return TripOptimizationResult(
+          waypointOrder: order,
+          durationMinutes: duration,
+          distanceKm: distance,
+          polyline: polyline,
+        );
+      } catch (e) {
+        debugPrint('⚠️ [OSRM] Trip optimize error: $e');
+      }
+    }
+    return null;
+  }
+
   /// Snap-to-road: привязывает GPS-точки к дорогам через OSRM Match API
   /// Возвращает список LatLng-пар (decoded), привязанных к дорожной сети.
   /// OSRM ограничивает ~100 координат за запрос, поэтому разбиваем на чанки.
@@ -281,4 +342,19 @@ class OsrmRoute {
       return '$hoursש $minutesד'; // Hebrew: ש = שעות (hours), ד = דקות (minutes)
     }
   }
+}
+
+/// Результат оптимизации порядка точек через OSRM Trip API
+class TripOptimizationResult {
+  final List<int> waypointOrder;
+  final double durationMinutes;
+  final double distanceKm;
+  final String polyline;
+
+  const TripOptimizationResult({
+    required this.waypointOrder,
+    required this.durationMinutes,
+    required this.distanceKm,
+    required this.polyline,
+  });
 }

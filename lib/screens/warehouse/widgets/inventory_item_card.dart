@@ -59,7 +59,7 @@ class InventoryItemCard extends StatelessWidget {
               'מק"ט: ${item.productCode}',
               style: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: Colors.blue,
               ),
             ),
@@ -190,7 +190,7 @@ class InventoryItemCard extends StatelessWidget {
                   '⚠️ ${l10n.remainingUnitsOnly(item.quantity)}',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     color: Colors.orange.shade700,
                   ),
                 ),
@@ -202,7 +202,7 @@ class InventoryItemCard extends StatelessWidget {
                   '🚨 ${l10n.urgentOrderStock}',
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     color: Colors.red,
                   ),
                 ),
@@ -217,7 +217,7 @@ class InventoryItemCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
           ],

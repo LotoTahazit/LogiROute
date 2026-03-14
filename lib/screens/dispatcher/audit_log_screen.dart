@@ -121,7 +121,7 @@ class _AuditEventTile extends StatelessWidget {
         ),
         title: Text(
           event.localizedDescription,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
           '${event.actorName ?? event.actorUid} • $timeStr',

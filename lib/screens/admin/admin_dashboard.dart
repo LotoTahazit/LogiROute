@@ -431,7 +431,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 leading: const Icon(Icons.local_shipping, color: Colors.blue),
                 title: Text(
                   driver.name,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

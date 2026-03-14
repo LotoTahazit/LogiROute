@@ -72,13 +72,8 @@ class InvoicePrintService {
 
     final pdf = pw.Document();
     for (int i = 0; i < copies; i++) {
-      pdf.addPage(buildInvoicePage(
-          invoice,
-          hebFont,
-          hebBoldFont,
-          latFont,
-          actualCopyType,
-          companySettings));
+      pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+          actualCopyType, companySettings));
     }
 
     await Printing.layoutPdf(
@@ -108,6 +103,42 @@ class InvoicePrintService {
 
     final pdf = pw.Document();
 
+    // 🛡️ Safety: if original already printed, downgrade to copy (Israeli law)
+    if (invoice.originalPrinted) {
+      print(
+        '⚠️ [Print] printFirstTime called but original already printed for '
+        '${invoice.documentType.name} #${invoice.sequentialNumber} — downgrading to copy',
+      );
+      if (actorUid != null && invoice.id.isNotEmpty) {
+        await _logPrintEvent(
+          invoice,
+          actorUid,
+          actorName,
+          InvoiceCopyType.copy,
+          3,
+          metadata: {
+            'copyType': 'copy_original_exists',
+            'isFirstPrint': false,
+            'note': 'original already printed — downgraded to copy',
+          },
+        );
+      }
+      for (int i = 0; i < 3; i++) {
+        pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+            InvoiceCopyType.copy, companySettings));
+      }
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdf.save(),
+        name:
+            'Invoice_${invoice.clientName}_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      if (invoice.id.isNotEmpty) {
+        await _updatePrintCounters(
+            invoice.id, invoice.companyId, InvoiceCopyType.copy);
+      }
+      return;
+    }
+
     // Block original without assignment — print as copy instead
     if (actorUid != null && invoice.id.isNotEmpty) {
       if (invoice.requiresAssignment &&
@@ -125,13 +156,8 @@ class InvoicePrintService {
           },
         );
         for (int i = 0; i < 3; i++) {
-          pdf.addPage(buildInvoicePage(
-              invoice,
-              hebFont,
-              hebBoldFont,
-              latFont,
-              InvoiceCopyType.copy,
-              companySettings));
+          pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+              InvoiceCopyType.copy, companySettings));
         }
         await Printing.layoutPdf(
           onLayout: (format) async => pdf.save(),
@@ -150,21 +176,11 @@ class InvoicePrintService {
       );
     }
 
-    pdf.addPage(buildInvoicePage(
-        invoice,
-        hebFont,
-        hebBoldFont,
-        latFont,
-        InvoiceCopyType.original,
-        companySettings));
+    pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+        InvoiceCopyType.original, companySettings));
     for (int i = 0; i < 2; i++) {
-      pdf.addPage(buildInvoicePage(
-          invoice,
-          hebFont,
-          hebBoldFont,
-          latFont,
-          InvoiceCopyType.copy,
-          companySettings));
+      pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+          InvoiceCopyType.copy, companySettings));
     }
 
     await Printing.layoutPdf(
@@ -233,21 +249,11 @@ class InvoicePrintService {
         continue;
       }
       final settings = settingsCache[invoice.companyId]!;
-      pdf.addPage(buildInvoicePage(
-          invoice,
-          hebFont,
-          hebBoldFont,
-          latFont,
-          InvoiceCopyType.original,
-          settings));
+      pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+          InvoiceCopyType.original, settings));
       for (int i = 0; i < 2; i++) {
-        pdf.addPage(buildInvoicePage(
-            invoice,
-            hebFont,
-            hebBoldFont,
-            latFont,
-            InvoiceCopyType.copy,
-            settings));
+        pdf.addPage(buildInvoicePage(invoice, hebFont, hebBoldFont, latFont,
+            InvoiceCopyType.copy, settings));
       }
     }
 

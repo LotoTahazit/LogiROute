@@ -13,6 +13,7 @@ class PendingPointsTab extends StatelessWidget {
   final Function(String pointId, String clientName) onDeletePoint;
   final Function(DeliveryPoint point) onEditPoint;
   final Function(DeliveryPoint point) onAssignDriver;
+  final Function(DeliveryPoint point) onAddProduct;
 
   const PendingPointsTab({
     super.key,
@@ -24,6 +25,7 @@ class PendingPointsTab extends StatelessWidget {
     required this.onDeletePoint,
     required this.onEditPoint,
     required this.onAssignDriver,
+    required this.onAddProduct,
   });
 
   String _getDisplayAddress(DeliveryPoint point) {
@@ -177,6 +179,36 @@ class PendingPointsTab extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // Товары (boxTypes)
+                            if (point.boxTypes != null &&
+                                point.boxTypes!.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: point.boxTypes!.map((bt) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.green.shade200),
+                                    ),
+                                    child: Text(
+                                      bt.toShortString(),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -186,6 +218,15 @@ class PendingPointsTab extends StatelessWidget {
                                       color: Colors.blue, size: 20),
                                   tooltip: l10n.assignDriver,
                                   onPressed: () => onAssignDriver(point),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.add_shopping_cart,
+                                      color: Colors.green, size: 20),
+                                  tooltip: l10n.addProduct,
+                                  onPressed: () => onAddProduct(point),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                 ),

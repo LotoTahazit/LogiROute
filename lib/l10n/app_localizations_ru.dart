@@ -365,6 +365,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routePointsReordered => 'Порядок точек и ETA обновлены';
 
   @override
+  String get optimizeTime => 'Оптимизация времени';
+
+  @override
+  String get routeAlreadyOptimal => 'Маршрут уже оптимален';
+
+  @override
+  String get routeOptimized => 'Маршрут оптимизирован';
+
+  @override
+  String get routeOptimizationFailed => 'Ошибка оптимизации';
+
+  @override
   String get selectNewDriver => 'Выберите нового водителя';
 
   @override
@@ -3911,4 +3923,156 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get hintOther => 'Опишите точное расположение';
+
+  @override
+  String get paymentMethodLabel => 'Способ оплаты';
+
+  @override
+  String get cash => 'Наличные';
+
+  @override
+  String get cheque => 'Чек';
+
+  @override
+  String get bankTransfer => 'Банковский перевод';
+
+  @override
+  String get creditCard => 'Кредитная карта';
+
+  @override
+  String get notSelected => 'Не выбрано';
+
+  @override
+  String get paidStatus => 'Оплачено';
+
+  @override
+  String get totalToPay => 'Итого к оплате';
+
+  @override
+  String get paymentReceivedCheckbox =>
+      'Оплата получена (Счёт-фактура/Квитанция)';
+
+  @override
+  String get paymentReceivedHint =>
+      'Отметьте если клиент оплатил — документ станет счёт-фактурой';
+
+  @override
+  String get createDeliveryNoteTitle => 'Создание накладной';
+
+  @override
+  String get createInvoiceTitle => 'Создание счёта';
+
+  @override
+  String get creatingDoc => 'Создаётся...';
+
+  @override
+  String get createAndPrint => 'Создать и распечатать';
+
+  @override
+  String get createDeliveryNoteBtn => 'Создать накладную';
+
+  @override
+  String get deliveryDateLabel => 'Дата доставки:';
+
+  @override
+  String get paymentTermsLabel => 'Условия оплаты:';
+
+  @override
+  String get days30 => '30 дней';
+
+  @override
+  String get days60 => '60 дней';
+
+  @override
+  String get days90 => '90 дней';
+
+  @override
+  String get manualEntry => 'Вручную';
+
+  @override
+  String get payUntilLabel => 'Оплата до:';
+
+  @override
+  String get itemLabel => 'Товар';
+
+  @override
+  String get cartonsLabel => 'Картоны';
+
+  @override
+  String get pricePerUnitLabel => 'Цена/ед.';
+
+  @override
+  String get totalLabel => 'Итого';
+
+  @override
+  String get discountLabel => 'Скидка:';
+
+  @override
+  String get clientLabelColon => 'Клиент:';
+
+  @override
+  String get addressLabelColon => 'Адрес:';
+
+  @override
+  String get driverLabelColon => 'Водитель:';
+
+  @override
+  String get truckLabelColon => 'Грузовик:';
+
+  @override
+  String get notSpecified => 'Не указано';
+
+  @override
+  String get departureTimeValue => 'Время выезда: 07:00';
+
+  @override
+  String get userNotLoggedIn =>
+      'Пользователь не авторизован — невозможно создать документ';
+
+  @override
+  String get serverIssuanceError => 'Ошибка выпуска документа с сервера';
+
+  @override
+  String deliveryNoteAlreadyExists(int docNum) {
+    return 'Накладная уже существует (#$docNum)';
+  }
+
+  @override
+  String deliveryNoteCreatedSuccess(int docNum) {
+    return '✅ Накладная создана (#$docNum)';
+  }
+
+  @override
+  String taxInvoiceReceiptCreatedSuccess(int docNum) {
+    return '✅ Счёт-фактура/квитанция создана (#$docNum)';
+  }
+
+  @override
+  String invoiceCreatedSuccess(int docNum) {
+    return '✅ Счёт создан (#$docNum)';
+  }
+
+  @override
+  String invoicePeriodLockedError(String date, String lockedUntil) {
+    return 'Дата $date в закрытом бухгалтерском периоде (до $lockedUntil). Выберите более позднюю дату.';
+  }
+
+  @override
+  String get possibleDuplicateOrder => 'Возможный дубликат заказа';
+
+  @override
+  String exactDuplicateFound(String name) {
+    return 'Найден точный дубликат для $name!';
+  }
+
+  @override
+  String existingOrdersFound(String name) {
+    return 'Найдены существующие заказы для $name:';
+  }
+
+  @override
+  String get checkNotDuplicate => 'Убедитесь, что это не дубликат!';
+
+  @override
+  String get deleteDuplicates => 'Удалить дубликаты';
 }

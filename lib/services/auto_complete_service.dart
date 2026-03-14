@@ -69,12 +69,7 @@ class AutoCompleteService {
   Future<void> _checkPoints() async {
     try {
       // Получаем все активные точки (assigned или in_progress)
-      final pointsSnapshot = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points')
+      final pointsSnapshot = await FirestorePaths.deliveryPointsOf(companyId)
           .where('status', whereIn: ['assigned', 'in_progress']).get();
 
       if (pointsSnapshot.docs.isEmpty) {
@@ -226,14 +221,7 @@ class AutoCompleteService {
   /// Автоматически завершает точку
   Future<void> _completePoint(DeliveryPoint point) async {
     try {
-      await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('logistics')
-          .doc('_root')
-          .collection('delivery_points')
-          .doc(point.id)
-          .update({
+      await FirestorePaths.deliveryPointsOf(companyId).doc(point.id).update({
         'status': 'completed',
         'completedAt': FieldValue.serverTimestamp(),
         'autoCompleted': true, // Помечаем что завершено автоматически

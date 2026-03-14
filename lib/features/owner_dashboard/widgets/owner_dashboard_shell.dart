@@ -272,7 +272,7 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                   '${l10n.viewingAs} $roleLabel',
                   style: TextStyle(
                       color: Colors.blue.shade900,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 14),
                 ),
               ),

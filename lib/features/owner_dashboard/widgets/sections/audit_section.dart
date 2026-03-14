@@ -410,7 +410,7 @@ class _AuditEventTile extends StatelessWidget {
                       _AuditSectionState._typeLabel(
                           event.type, AppLocalizations.of(context)!),
                       style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(width: 8),
                     Container(
@@ -467,7 +467,7 @@ class _AuditEventTile extends StatelessWidget {
                     timeStr,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -485,7 +485,7 @@ class _AuditEventTile extends StatelessWidget {
                         : event.createdBy,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],

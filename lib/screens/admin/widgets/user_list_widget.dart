@@ -62,7 +62,7 @@ class UserListWidget extends StatelessWidget {
             ),
             title: Text(
               user.name,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             subtitle: Text(
               '${user.email} • ${_getLocalizedRole(user.role, l10n)}${user.role == 'driver' && user.vehicleNumber != null ? ' • 🚗 ${user.vehicleNumber}' : ''}',
