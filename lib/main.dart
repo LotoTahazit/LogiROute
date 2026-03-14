@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -53,6 +54,7 @@ void main() async {
   //   appleProvider: AppleProvider.deviceCheck,
   // );
 
+  usePathUrlStrategy();
   registerDocuments();
   runApp(const LogiRouteApp());
 }
@@ -142,27 +144,44 @@ class LogiRouteApp extends StatelessWidget {
                 ),
               ),
             ),
-            routes: {
-              '/': (context) => const AuthWrapper(),
-            },
-            onGenerateRoute: (settings) {
-              final uri = Uri.parse(settings.name ?? '');
-              // Deep-link: /doc?id=xxx&company=yyy&col=invoices
+            onGenerateInitialRoutes: (String initialRoute) {
+              final uri = Uri.parse(initialRoute);
               if (uri.path == '/doc') {
                 final docId = uri.queryParameters['id'] ?? '';
                 final companyId = uri.queryParameters['company'] ?? '';
-                final collection = uri.queryParameters['col'] ?? 'invoices';
+                final col = uri.queryParameters['col'] ?? 'invoices';
+                if (docId.isNotEmpty && companyId.isNotEmpty) {
+                  return [
+                    MaterialPageRoute(
+                      builder: (_) => InvoiceDeepLinkViewer(
+                        companyId: companyId,
+                        docId: docId,
+                        collection: col,
+                      ),
+                    ),
+                  ];
+                }
+              }
+              return [
+                MaterialPageRoute(builder: (_) => const AuthWrapper()),
+              ];
+            },
+            onGenerateRoute: (settings) {
+              final uri = Uri.parse(settings.name ?? '');
+              if (uri.path == '/doc') {
+                final docId = uri.queryParameters['id'] ?? '';
+                final companyId = uri.queryParameters['company'] ?? '';
+                final col = uri.queryParameters['col'] ?? 'invoices';
                 if (docId.isNotEmpty && companyId.isNotEmpty) {
                   return MaterialPageRoute(
                     builder: (_) => InvoiceDeepLinkViewer(
                       companyId: companyId,
                       docId: docId,
-                      collection: collection,
+                      collection: col,
                     ),
                   );
                 }
               }
-              // Fallback: unknown routes → home
               return MaterialPageRoute(builder: (_) => const AuthWrapper());
             },
           );

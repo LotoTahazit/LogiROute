@@ -133,7 +133,7 @@ class AuditRepository {
       final details =
           event.extra.entries.map((e) => '${e.key}=${e.value}').join('; ');
       final link =
-          '$baseUrl/#/doc?id=${event.entity.docId}&company=$companyId&col=${event.entity.collection}';
+          '$baseUrl/doc?id=${event.entity.docId}&company=$companyId&col=${event.entity.collection}';
       buffer.writeln('$date$t$module$t$type$t$user$t$entity$t$details$t$link');
     }
     return buffer.toString();

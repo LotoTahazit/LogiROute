@@ -29,7 +29,7 @@ class DocumentRouter {
 
   /// Построить deep-link URL.
   static String buildUrl(String companyId, String docId, String collection) =>
-      '$_baseUrl/#/doc?id=$docId&company=$companyId&col=$collection';
+      '$_baseUrl/doc?id=$docId&company=$companyId&col=$collection';
 
   /// Построить виджет для документа.
   static Widget build(String collection, String companyId, String docId) =>
