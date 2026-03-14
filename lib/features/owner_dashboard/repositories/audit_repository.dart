@@ -112,32 +112,97 @@ class AuditRepository {
     return result;
   }
 
-  /// Формирует CSV-строку из списка событий.
+  /// Формирует tab-separated строку из списка событий.
   String _buildCsv(List<CrossModuleAuditEvent> events) {
+    const t = '\t';
     final buffer = StringBuffer();
-    buffer.writeln('תאריך,מודול,סוג אירוע,משתמש,ישות,פרטים');
+    buffer.writeln('תאריך${t}מודול${t}סוג אירוע${t}משתמש${t}ישות${t}פרטים');
 
     for (final event in events) {
-      final date = event.createdAt?.toIso8601String() ?? '';
-      final module = _escapeCsv(event.moduleKey);
-      final type = _escapeCsv(event.type);
-      final user = _escapeCsv(event.createdBy);
+      final date = event.createdAt != null
+          ? '${event.createdAt!.day.toString().padLeft(2, '0')}/${event.createdAt!.month.toString().padLeft(2, '0')}/${event.createdAt!.year} ${event.createdAt!.hour.toString().padLeft(2, '0')}:${event.createdAt!.minute.toString().padLeft(2, '0')}'
+          : '';
+      final module = _moduleLabel(event.moduleKey);
+      final type = _eventTypeLabel(event.type);
+      final user = event.createdBy == 'system' ? 'מערכת' : event.createdBy;
       final entity =
-          _escapeCsv('${event.entity.collection}/${event.entity.docId}');
-      final details = _escapeCsv(
-        event.extra.entries.map((e) => '${e.key}=${e.value}').join('; '),
-      );
-      buffer.writeln('$date,$module,$type,$user,$entity,$details');
+          '${_collectionLabel(event.entity.collection)}/${event.entity.docId}';
+      final details =
+          event.extra.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      buffer.writeln('$date$t$module$t$type$t$user$t$entity$t$details');
     }
     return buffer.toString();
   }
 
-  /// Экранирует значение для CSV (оборачивает в кавычки при наличии спецсимволов).
-  String _escapeCsv(String value) {
-    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-      return '"${value.replaceAll('"', '""')}"';
+  static String _moduleLabel(String key) {
+    switch (key) {
+      case 'accounting':
+        return 'הנהלת חשבונות';
+      case 'inventory':
+        return 'מלאי';
+      case 'routes':
+        return 'מסלולים';
+      case 'clients':
+        return 'לקוחות';
+      case 'drivers':
+        return 'נהגים';
+      case 'company':
+        return 'חברה';
+      default:
+        return key;
     }
-    return value;
+  }
+
+  static String _eventTypeLabel(String type) {
+    switch (type) {
+      case 'invoice_issued':
+        return 'הנפקת חשבונית';
+      case 'invoice_cancelled':
+        return 'ביטול חשבונית';
+      case 'credit_note_issued':
+        return 'הנפקת זיכוי';
+      case 'receipt_issued':
+        return 'הנפקת קבלה';
+      case 'delivery_note_issued':
+        return 'הנפקת תעודת משלוח';
+      case 'created':
+        return 'נוצר';
+      case 'updated':
+        return 'עודכן';
+      case 'deleted':
+        return 'נמחק';
+      case 'exported':
+        return 'יוצא';
+      case 'chain_invoice':
+        return 'שרשור חשבונית';
+      case 'chain_taxInvoiceReceipt':
+        return 'שרשור חשבונית מס קבלה';
+      case 'chain_delivery':
+        return 'שרשור תעודת משלוח';
+      default:
+        return type;
+    }
+  }
+
+  static String _collectionLabel(String collection) {
+    switch (collection) {
+      case 'invoices':
+        return 'חשבוניות';
+      case 'creditNotes':
+        return 'זיכויים';
+      case 'deliveryNotes':
+        return 'תעודות משלוח';
+      case 'receipts':
+        return 'קבלות';
+      case 'inventory':
+        return 'מלאי';
+      case 'clients':
+        return 'לקוחות';
+      case 'routes':
+        return 'מסלולים';
+      default:
+        return collection;
+    }
   }
 
   void _validateCompanyId() {

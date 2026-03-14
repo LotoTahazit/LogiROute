@@ -1,30 +1,18 @@
-import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import '../models/inventory_item.dart';
 import '../utils/file_download_stub.dart'
     if (dart.library.html) '../utils/file_download_web.dart';
 
 class ExportService {
-  /// Экспорт инвентаря в CSV
+  /// Экспорт инвентаря в CSV (tab-separated для Excel)
   static void exportInventoryToCSV(List<InventoryItem> items) {
-    // Заголовки
-    final List<List<dynamic>> rows = [
-      [
-        'מק"ט',
-        'סוג',
-        'מספר',
-        'כמות',
-        'כמות במשטחים',
-        'קוטר',
-        'נפח',
-        'ארוז',
-        'מידע נוסף',
-      ],
-    ];
+    const t = '\t';
+    final buffer = StringBuffer();
+    buffer.writeln(
+        'מק"ט${t}סוג${t}מספר${t}כמות${t}כמות במשטחים${t}קוטר${t}נפח${t}ארוז${t}מידע נוסף');
 
-    // Данные
     for (final item in items) {
-      rows.add([
+      buffer.writeln([
         item.productCode,
         item.type,
         item.number,
@@ -34,38 +22,25 @@ class ExportService {
         item.volume ?? '',
         item.piecesPerBox ?? '',
         item.additionalInfo ?? '',
-      ]);
+      ].join(t));
     }
 
-    // Конвертируем в CSV
-    final String csv = const ListToCsvConverter().convert(rows);
-
-    downloadCsv(csv,
+    downloadCsv(buffer.toString(),
         'inventory_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
   }
 
-  /// Экспорт истории изменений в CSV
+  /// Экспорт истории изменений в CSV (tab-separated для Excel)
   static void exportInventoryHistoryToCSV(
     List<Map<String, dynamic>> changes,
   ) {
-    // Заголовки
-    final List<List<dynamic>> rows = [
-      [
-        'תאריך',
-        'שעה',
-        'מק"ט',
-        'סוג',
-        'מספר',
-        'שינוי',
-        'כמות אחרי',
-        'משתמש',
-      ],
-    ];
+    const t = '\t';
+    final buffer = StringBuffer();
+    buffer.writeln(
+        'תאריך${t}שעה${t}מק"ט${t}סוג${t}מספר${t}שינוי${t}כמות אחרי${t}משתמש');
 
-    // Данные
     for (final change in changes) {
       final timestamp = change['timestamp'] as DateTime?;
-      rows.add([
+      buffer.writeln([
         timestamp != null ? DateFormat('dd/MM/yyyy').format(timestamp) : '',
         timestamp != null ? DateFormat('HH:mm:ss').format(timestamp) : '',
         change['productCode'] ?? '',
@@ -74,13 +49,10 @@ class ExportService {
         change['quantityChange'] ?? 0,
         change['quantityAfter'] ?? 0,
         change['userName'] ?? '',
-      ]);
+      ].join(t));
     }
 
-    // Конвертируем в CSV
-    final String csv = const ListToCsvConverter().convert(rows);
-
-    downloadCsv(csv,
+    downloadCsv(buffer.toString(),
         'inventory_history_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
   }
 }

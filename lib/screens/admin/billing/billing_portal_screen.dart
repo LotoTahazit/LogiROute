@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -684,11 +685,10 @@ class _PaymentEventTile extends StatelessWidget {
           : ReceiptExporter.toCsv(eventData);
 
       if (kIsWeb) {
-        final ext = format == 'json' ? 'json' : 'csv';
         if (format == 'csv') {
-          downloadCsv(content, 'receipt.$ext');
+          downloadCsv(content, 'receipt.csv');
         } else {
-          downloadCsv(content, 'receipt.$ext');
+          downloadFile(utf8.encode(content), 'receipt.json');
         }
       } else {
         await Clipboard.setData(ClipboardData(text: content));

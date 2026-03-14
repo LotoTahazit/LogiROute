@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +9,27 @@ import '../../../../utils/file_download_stub.dart'
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
-import '../../models/accounting_doc.dart';
-import '../../repositories/accounting_docs_repository.dart';
+
+/// Lightweight data class for report aggregation (from invoices collection)
+class _ReportDoc {
+  final DateTime? date;
+  final double net;
+  final double vat;
+  final double gross;
+  final String customerName;
+  final String? customerTaxId;
+  final String status;
+
+  const _ReportDoc({
+    this.date,
+    this.net = 0,
+    this.vat = 0,
+    this.gross = 0,
+    this.customerName = '',
+    this.customerTaxId,
+    this.status = '',
+  });
+}
 
 class ReportsSection extends StatefulWidget {
   final String companyId;
@@ -22,14 +42,54 @@ class ReportsSection extends StatefulWidget {
 
 class _ReportsSectionState extends State<ReportsSection>
     with SingleTickerProviderStateMixin {
-  late final AccountingDocsRepository _docsRepo;
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _docsRepo = AccountingDocsRepository(companyId: widget.companyId);
     _tabController = TabController(length: 3, vsync: this);
+  }
+
+  /// Stream invoices from the actual collection where dispatcher creates them
+  Stream<List<_ReportDoc>> _watchInvoices() {
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(widget.companyId)
+        .collection('accounting')
+        .doc('_root')
+        .collection('invoices')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final d = doc.data();
+              // Compute amounts from items
+              final items = d['items'] as List<dynamic>? ?? [];
+              double totalBefore = 0;
+              for (final item in items) {
+                final m = item as Map<String, dynamic>;
+                totalBefore += ((m['quantity'] ?? 0) as num).toDouble() *
+                    ((m['pricePerUnit'] ?? 0) as num).toDouble();
+              }
+              final discount = ((d['discount'] ?? 0) as num).toDouble();
+              final vatRate = ((d['vatRate'] ?? 0.17) as num).toDouble();
+              final net = totalBefore * (1 - discount / 100);
+              final vatAmt = net * vatRate;
+              final gross = net + vatAmt;
+
+              DateTime? date;
+              if (d['createdAt'] != null) {
+                date = (d['createdAt'] as Timestamp).toDate();
+              }
+
+              return _ReportDoc(
+                date: date,
+                net: net,
+                vat: vatAmt,
+                gross: gross,
+                customerName: d['clientName'] as String? ?? '',
+                customerTaxId: d['clientNumber'] as String?,
+                status: d['status'] as String? ?? '',
+              );
+            }).toList());
   }
 
   @override
@@ -61,8 +121,8 @@ class _ReportsSectionState extends State<ReportsSection>
           Tab(icon: const Icon(Icons.people), text: l10n.clientReport),
         ]),
         Expanded(
-          child: StreamBuilder<List<AccountingDoc>>(
-            stream: _docsRepo.watchDocs(),
+          child: StreamBuilder<List<_ReportDoc>>(
+            stream: _watchInvoices(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -74,9 +134,7 @@ class _ReportsSectionState extends State<ReportsSection>
               }
               final allDocs = snapshot.data ?? [];
               final docs = allDocs
-                  .where((d) =>
-                      d.status != AccountingDocStatus.draft &&
-                      d.status != AccountingDocStatus.voidedBeforeDelivery)
+                  .where((d) => d.status != 'draft' && d.status != 'cancelled')
                   .toList();
               return TabBarView(controller: _tabController, children: [
                 _MonthlyReport(docs: docs),
@@ -105,22 +163,21 @@ class _MonthData {
 }
 
 class _MonthlyReport extends StatelessWidget {
-  final List<AccountingDoc> docs;
+  final List<_ReportDoc> docs;
   const _MonthlyReport({required this.docs});
 
-  Map<String, _MonthData> _groupByMonth(List<AccountingDoc> docs) {
+  Map<String, _MonthData> _groupByMonth(List<_ReportDoc> docs) {
     final map = <String, _MonthData>{};
     final fmt = DateFormat('yyyy-MM');
     for (final doc in docs) {
-      final date = doc.issuedAt ?? doc.createdAt;
-      if (date == null) continue;
-      final key = fmt.format(date);
+      if (doc.date == null) continue;
+      final key = fmt.format(doc.date!);
       final e = map[key] ?? const _MonthData();
       map[key] = _MonthData(
           count: e.count + 1,
-          net: e.net + doc.totals.net,
-          vat: e.vat + doc.totals.vat,
-          gross: e.gross + doc.totals.gross);
+          net: e.net + doc.net,
+          vat: e.vat + doc.vat,
+          gross: e.gross + doc.gross);
     }
     return map;
   }
@@ -202,11 +259,12 @@ class _MonthlyReport extends StatelessWidget {
 
   void _csv(
       BuildContext ctx, List<String> months, Map<String, _MonthData> data) {
-    final b = StringBuffer('חודש,מסמכים,נטו,מע"מ,ברוטו\n');
+    const t = '\t';
+    final b = StringBuffer('חודש${t}מסמכים${t}נטו${t}מע"מ${t}ברוטו\n');
     for (final m in months) {
       final d = data[m]!;
       b.writeln(
-          '$m,${d.count},${d.net.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)},${d.gross.toStringAsFixed(2)}');
+          '$m$t${d.count}$t${d.net.toStringAsFixed(2)}$t${d.vat.toStringAsFixed(2)}$t${d.gross.toStringAsFixed(2)}');
     }
     if (kIsWeb) {
       downloadCsv(b.toString(),
@@ -232,19 +290,17 @@ class _VatData {
 }
 
 class _VatReport extends StatelessWidget {
-  final List<AccountingDoc> docs;
+  final List<_ReportDoc> docs;
   const _VatReport({required this.docs});
 
-  Map<String, _VatData> _group(List<AccountingDoc> docs) {
+  Map<String, _VatData> _group(List<_ReportDoc> docs) {
     final map = <String, _VatData>{};
     final fmt = DateFormat('yyyy-MM');
     for (final doc in docs) {
-      final date = doc.issuedAt ?? doc.createdAt;
-      if (date == null) continue;
-      final key = fmt.format(date);
+      if (doc.date == null) continue;
+      final key = fmt.format(doc.date!);
       final e = map[key] ?? const _VatData();
-      map[key] =
-          _VatData(base: e.base + doc.totals.net, vat: e.vat + doc.totals.vat);
+      map[key] = _VatData(base: e.base + doc.net, vat: e.vat + doc.vat);
     }
     return map;
   }
@@ -316,10 +372,12 @@ class _VatReport extends StatelessWidget {
   }
 
   void _csv(BuildContext ctx, List<String> months, Map<String, _VatData> data) {
-    final b = StringBuffer('חודש,בסיס מס,מע"מ\n');
+    const t = '\t';
+    final b = StringBuffer('חודש${t}בסיס מס${t}מע"מ\n');
     for (final m in months) {
       final d = data[m]!;
-      b.writeln('$m,${d.base.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)}');
+      b.writeln(
+          '$m$t${d.base.toStringAsFixed(2)}$t${d.vat.toStringAsFixed(2)}');
     }
     if (kIsWeb) {
       downloadCsv(b.toString(),
@@ -349,11 +407,11 @@ class _ClientData {
 }
 
 class _ClientReport extends StatelessWidget {
-  final List<AccountingDoc> docs;
+  final List<_ReportDoc> docs;
   const _ClientReport({required this.docs});
 
   Map<String, _ClientData> _groupByClient(
-      List<AccountingDoc> docs, AppLocalizations l10n) {
+      List<_ReportDoc> docs, AppLocalizations l10n) {
     final map = <String, _ClientData>{};
     for (final doc in docs) {
       final name =
@@ -362,9 +420,9 @@ class _ClientReport extends StatelessWidget {
       map[name] = _ClientData(
           taxId: e.taxId ?? doc.customerTaxId,
           count: e.count + 1,
-          net: e.net + doc.totals.net,
-          vat: e.vat + doc.totals.vat,
-          gross: e.gross + doc.totals.gross);
+          net: e.net + doc.net,
+          vat: e.vat + doc.vat,
+          gross: e.gross + doc.gross);
     }
     return map;
   }
@@ -423,11 +481,13 @@ class _ClientReport extends StatelessWidget {
 
   void _csv(
       BuildContext ctx, List<String> clients, Map<String, _ClientData> data) {
-    final b = StringBuffer('לקוח,ח.פ./ע.מ.,מסמכים,נטו,מע"מ,ברוטו\n');
+    const t = '\t';
+    final b =
+        StringBuffer('לקוח${t}ח.פ./ע.מ.${t}מסמכים${t}נטו${t}מע"מ${t}ברוטו\n');
     for (final c in clients) {
       final d = data[c]!;
       b.writeln(
-          '$c,${d.taxId ?? ""},${d.count},${d.net.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)},${d.gross.toStringAsFixed(2)}');
+          '$c$t${d.taxId ?? ""}$t${d.count}$t${d.net.toStringAsFixed(2)}$t${d.vat.toStringAsFixed(2)}$t${d.gross.toStringAsFixed(2)}');
     }
     if (kIsWeb) {
       downloadCsv(b.toString(),

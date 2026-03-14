@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/company_context.dart';
@@ -504,8 +505,13 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: () {
-                            downloadCsv(
-                                _lastResult!.content, _lastResult!.fileName);
+                            final bytes = [
+                              0xEF,
+                              0xBB,
+                              0xBF,
+                              ...utf8.encode(_lastResult!.content)
+                            ];
+                            downloadFile(bytes, _lastResult!.fileName);
                           },
                           icon: const Icon(Icons.download),
                           label: const Text('הורד קובץ'),
