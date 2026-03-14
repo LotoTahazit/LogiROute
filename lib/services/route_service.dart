@@ -15,6 +15,7 @@ import 'osrm_navigation_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'firestore_paths.dart';
+import 'inventory_service.dart';
 
 class RouteService {
   final String companyId;
@@ -407,16 +408,13 @@ class RouteService {
       return snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
           .where((p) {
-            final normalized = DeliveryPoint.normalizeStatus(p.status);
-            final isPending =
-                normalized == DeliveryPoint.statusPending ||
-                DeliveryPoint.pendingStatuses.contains(normalized);
-            final isUnassigned =
-                (p.driverId == null || p.driverId!.isEmpty) &&
-                (p.routeId == null || p.routeId!.isEmpty);
-            return isPending && isUnassigned;
-          })
-          .toList();
+        final normalized = DeliveryPoint.normalizeStatus(p.status);
+        final isPending = normalized == DeliveryPoint.statusPending ||
+            DeliveryPoint.pendingStatuses.contains(normalized);
+        final isUnassigned = (p.driverId == null || p.driverId!.isEmpty) &&
+            (p.routeId == null || p.routeId!.isEmpty);
+        return isPending && isUnassigned;
+      }).toList();
     });
   }
 
@@ -667,6 +665,7 @@ class RouteService {
   }
 
   /// 📦 Обновить товары (boxTypes) в точке доставки
+  /// Пересчитывает boxes И pallets на основе инвентаря (quantityPerPallet)
   Future<void> updatePointBoxTypes(
       String pointId, List<dynamic> boxTypes) async {
     print(
@@ -675,11 +674,58 @@ class RouteService {
       final boxes = boxTypes.whereType<BoxType>().toList();
       final boxMaps = boxes.map((bt) => bt.toMap()).toList();
       final totalBoxes = boxes.fold<int>(0, (s, bt) => s + bt.quantity);
+
+      // Пересчитываем миштахи по данным инвентаря
+      int totalPallets = 0;
+      try {
+        final inventoryService = InventoryService(companyId: companyId);
+        final inventory = await inventoryService.getInventory();
+
+        int fullPallets = 0;
+        int remainderBoxes = 0;
+
+        for (final box in boxes) {
+          final match = inventory.where(
+            (item) => item.type == box.type && item.number == box.number,
+          );
+          final perPallet =
+              match.isNotEmpty ? match.first.quantityPerPallet : 20;
+
+          if (perPallet > 0) {
+            fullPallets += box.quantity ~/ perPallet;
+            remainderBoxes += box.quantity % perPallet;
+          } else {
+            remainderBoxes += box.quantity;
+          }
+
+          debugPrint(
+            '🔍 [Calc] ${box.type} ${box.number}: qty=${box.quantity}, perPallet=$perPallet, full=${box.quantity ~/ (perPallet > 0 ? perPallet : 1)}, rem=${perPallet > 0 ? box.quantity % perPallet : box.quantity}',
+          );
+        }
+
+        // Остатки от всех типов группируются по 20 шт на миштах
+        final remainderPallets =
+            remainderBoxes > 0 ? (remainderBoxes / 20).ceil() : 0;
+        totalPallets = fullPallets + remainderPallets;
+
+        debugPrint(
+          '📊 [Calc] totalBoxes=$totalBoxes, fullPallets=$fullPallets, remainderBoxes=$remainderBoxes, totalPallets=$totalPallets',
+        );
+      } catch (e) {
+        // Fallback: 20 коробок на миштах
+        totalPallets = totalBoxes > 0 ? (totalBoxes / 20).ceil() : 0;
+        debugPrint(
+          '⚠️ [Calc] Fallback pallet calc: totalBoxes=$totalBoxes, pallets=$totalPallets. Error: $e',
+        );
+      }
+
       await _updatePoint(pointId, {
         'boxTypes': boxMaps,
         'boxes': totalBoxes,
+        'pallets': totalPallets,
       });
-      print('✅ [RouteService] BoxTypes updated for point $pointId');
+      print(
+          '✅ [RouteService] BoxTypes updated for point $pointId: $totalBoxes boxes, $totalPallets pallets');
     } catch (e) {
       print('❌ [RouteService] Error updating boxTypes for $pointId: $e');
       rethrow;
@@ -856,8 +902,7 @@ class RouteService {
     );
     if (currentRoute == null) return false;
 
-    final optimized =
-        await osrm.getOptimizedTripOrder(
+    final optimized = await osrm.getOptimizedTripOrder(
       warehouseLat: whLat,
       warehouseLng: whLng,
       waypoints: waypoints,
@@ -924,8 +969,7 @@ class RouteService {
     }
 
     // Обновляем orderInRoute + ETA через RouteBalanceService
-    final balanceService =
-        RouteBalanceService(companyId: companyId);
+    final balanceService = RouteBalanceService(companyId: companyId);
     await balanceService.recalculateETAsForPoints(reordered);
 
     debugPrint(
