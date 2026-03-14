@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../../utils/file_download_web.dart';
 
+import '../../../../core/navigation/document_router.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
 import '../../../../services/cross_module_audit_service.dart';
@@ -382,6 +383,7 @@ class _AuditSectionState extends State<AuditSection> {
           itemBuilder: (context, index) => _AuditEventTile(
             event: events[index],
             userNames: userNames,
+            companyId: widget.companyId,
           ),
         );
       },
@@ -448,7 +450,12 @@ class _AuditSectionState extends State<AuditSection> {
 class _AuditEventTile extends StatelessWidget {
   final CrossModuleAuditEvent event;
   final Map<String, String> userNames;
-  const _AuditEventTile({required this.event, required this.userNames});
+  final String companyId;
+  const _AuditEventTile({
+    required this.event,
+    required this.userNames,
+    required this.companyId,
+  });
 
   static final _timeFmt = DateFormat('dd/MM/yyyy HH:mm:ss');
   static final _dateFmt = DateFormat('dd/MM/yyyy');
@@ -550,13 +557,14 @@ class _AuditEventTile extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _showDetailDialog(context),
+        mouseCursor: SystemMouseCursors.click,
+        onTap: () => _openDocument(context),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: type + module badge
+              // Row 1: type + module badge + info button
               Row(
                 children: [
                   _moduleIcon(event.moduleKey, theme),
@@ -580,6 +588,29 @@ class _AuditEventTile extends StatelessWidget {
                       moduleLbl,
                       style: theme.textTheme.labelSmall,
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  if (DocumentRouter.isSupported(event.entity.collection)) ...[
+                    IconButton(
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      tooltip: 'פתח בלשונית חדשה',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => DocumentRouter.openInNewTab(
+                        context,
+                        companyId: companyId,
+                        collection: event.entity.collection,
+                        docId: event.entity.docId,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, size: 16),
+                    tooltip: 'פרטים',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showDetailDialog(context),
                   ),
                   const SizedBox(width: 4),
                   Icon(Icons.chevron_right,
@@ -755,6 +786,22 @@ class _AuditEventTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Open the referenced document via DocumentRouter.
+  void _openDocument(BuildContext context) {
+    if (event.entity.docId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('אין מזהה מסמך')),
+      );
+      return;
+    }
+    DocumentRouter.open(
+      context,
+      companyId: companyId,
+      collection: event.entity.collection,
+      docId: event.entity.docId,
     );
   }
 

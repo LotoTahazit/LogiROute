@@ -113,10 +113,13 @@ class AuditRepository {
   }
 
   /// Формирует tab-separated строку из списка событий.
+  /// Включает колонку «קישור» с deep-link URL для открытия документа в приложении.
   String _buildCsv(List<CrossModuleAuditEvent> events) {
     const t = '\t';
+    const baseUrl = 'https://logiroute-app.web.app';
     final buffer = StringBuffer();
-    buffer.writeln('תאריך${t}מודול${t}סוג אירוע${t}משתמש${t}ישות${t}פרטים');
+    buffer.writeln(
+        'תאריך${t}מודול${t}סוג אירוע${t}משתמש${t}ישות${t}פרטים${t}קישור');
 
     for (final event in events) {
       final date = event.createdAt != null
@@ -129,7 +132,9 @@ class AuditRepository {
           '${_collectionLabel(event.entity.collection)}/${event.entity.docId}';
       final details =
           event.extra.entries.map((e) => '${e.key}=${e.value}').join('; ');
-      buffer.writeln('$date$t$module$t$type$t$user$t$entity$t$details');
+      final link =
+          '$baseUrl/#/doc?id=${event.entity.docId}&company=$companyId&col=${event.entity.collection}';
+      buffer.writeln('$date$t$module$t$type$t$user$t$entity$t$details$t$link');
     }
     return buffer.toString();
   }

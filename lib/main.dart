@@ -9,6 +9,8 @@ import 'services/auth_service.dart';
 import 'services/locale_service.dart';
 import 'services/company_selection_service.dart';
 import 'widgets/role_router.dart';
+import 'widgets/invoice_deep_link_viewer.dart';
+import 'core/navigation/register_documents.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -31,8 +33,10 @@ void main() async {
   // 🔐 Загрузка переменных окружения из .env файла
   try {
     await dotenv.load(fileName: ".env");
-    debugPrint('✅ [dotenv] Loaded ${dotenv.env.length} vars: ${dotenv.env.keys.toList()}');
-    debugPrint('✅ [dotenv] GOOGLE_MAPS_WEB_KEY=${dotenv.env['GOOGLE_MAPS_WEB_KEY']?.isNotEmpty == true ? '***set***' : 'EMPTY'}');
+    debugPrint(
+        '✅ [dotenv] Loaded ${dotenv.env.length} vars: ${dotenv.env.keys.toList()}');
+    debugPrint(
+        '✅ [dotenv] GOOGLE_MAPS_WEB_KEY=${dotenv.env['GOOGLE_MAPS_WEB_KEY']?.isNotEmpty == true ? '***set***' : 'EMPTY'}');
   } catch (e) {
     debugPrint('❌ [dotenv] Failed to load .env: $e');
   }
@@ -49,6 +53,7 @@ void main() async {
   //   appleProvider: AppleProvider.deviceCheck,
   // );
 
+  registerDocuments();
   runApp(const LogiRouteApp());
 }
 
@@ -86,34 +91,34 @@ class LogiRouteApp extends StatelessWidget {
               fontFamily: 'NotoSansHebrew',
               fontFamilyFallback: const ['NotoSans'],
               textTheme: const TextTheme(
-                bodyLarge: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                bodyMedium: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
+                bodyLarge:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                bodyMedium:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
                 bodySmall: TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w700,
                     fontSize: 13),
-                displayLarge: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                displayMedium: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                displaySmall: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                headlineLarge: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                headlineMedium: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                headlineSmall: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                titleLarge: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                titleMedium: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                titleSmall: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
-                labelLarge: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.w700),
+                displayLarge:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                displayMedium:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                displaySmall:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                headlineLarge:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                headlineMedium:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                headlineSmall:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                titleLarge:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                titleMedium:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                titleSmall:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+                labelLarge:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
                 labelMedium: TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w700,
@@ -137,7 +142,29 @@ class LogiRouteApp extends StatelessWidget {
                 ),
               ),
             ),
-            home: const AuthWrapper(),
+            routes: {
+              '/': (context) => const AuthWrapper(),
+            },
+            onGenerateRoute: (settings) {
+              final uri = Uri.parse(settings.name ?? '');
+              // Deep-link: /doc?id=xxx&company=yyy&col=invoices
+              if (uri.path == '/doc') {
+                final docId = uri.queryParameters['id'] ?? '';
+                final companyId = uri.queryParameters['company'] ?? '';
+                final collection = uri.queryParameters['col'] ?? 'invoices';
+                if (docId.isNotEmpty && companyId.isNotEmpty) {
+                  return MaterialPageRoute(
+                    builder: (_) => InvoiceDeepLinkViewer(
+                      companyId: companyId,
+                      docId: docId,
+                      collection: collection,
+                    ),
+                  );
+                }
+              }
+              // Fallback: unknown routes → home
+              return MaterialPageRoute(builder: (_) => const AuthWrapper());
+            },
           );
         },
       ),

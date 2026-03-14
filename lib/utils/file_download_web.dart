@@ -37,7 +37,12 @@ void downloadCsv(String tsvContent, String filename) {
           .replaceAll('&', '&amp;')
           .replaceAll('<', '&lt;')
           .replaceAll('>', '&gt;');
-      sb.write('<$tag>$escaped</$tag>');
+      // Render URLs as clickable hyperlinks in Excel
+      if (i > 0 && cell.startsWith('http')) {
+        sb.write('<$tag><a href="$cell">פתח מסמך</a></$tag>');
+      } else {
+        sb.write('<$tag>$escaped</$tag>');
+      }
     }
     sb.writeln('</tr>');
   }
