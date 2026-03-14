@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+
+import '../../../../utils/file_download_stub.dart'
+    if (dart.library.html) '../../../../utils/file_download_web.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
@@ -204,7 +208,12 @@ class _MonthlyReport extends StatelessWidget {
       b.writeln(
           '$m,${d.count},${d.net.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)},${d.gross.toStringAsFixed(2)}');
     }
-    Clipboard.setData(ClipboardData(text: b.toString()));
+    if (kIsWeb) {
+      downloadCsv(b.toString(),
+          'monthly_report_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
+    } else {
+      Clipboard.setData(ClipboardData(text: b.toString()));
+    }
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
           content: Text(AppLocalizations.of(ctx)!.csvCopiedToClipboard)));
@@ -312,7 +321,12 @@ class _VatReport extends StatelessWidget {
       final d = data[m]!;
       b.writeln('$m,${d.base.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)}');
     }
-    Clipboard.setData(ClipboardData(text: b.toString()));
+    if (kIsWeb) {
+      downloadCsv(b.toString(),
+          'vat_report_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
+    } else {
+      Clipboard.setData(ClipboardData(text: b.toString()));
+    }
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
           content: Text(AppLocalizations.of(ctx)!.csvCopiedToClipboard)));
@@ -415,7 +429,12 @@ class _ClientReport extends StatelessWidget {
       b.writeln(
           '$c,${d.taxId ?? ""},${d.count},${d.net.toStringAsFixed(2)},${d.vat.toStringAsFixed(2)},${d.gross.toStringAsFixed(2)}');
     }
-    Clipboard.setData(ClipboardData(text: b.toString()));
+    if (kIsWeb) {
+      downloadCsv(b.toString(),
+          'client_report_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
+    } else {
+      Clipboard.setData(ClipboardData(text: b.toString()));
+    }
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
           content: Text(AppLocalizations.of(ctx)!.csvCopiedToClipboard)));

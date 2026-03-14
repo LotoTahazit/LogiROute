@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,6 +6,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/company_context.dart';
 import '../../../services/plan_limits_service.dart';
 import '../../../services/checkout_service.dart';
+import '../../../utils/file_download_stub.dart'
+    if (dart.library.html) '../../../utils/file_download_web.dart';
 import 'billing_helpers.dart';
 import 'receipt_exporter.dart';
 
@@ -680,7 +683,16 @@ class _PaymentEventTile extends StatelessWidget {
           ? ReceiptExporter.toJson(eventData)
           : ReceiptExporter.toCsv(eventData);
 
-      await Clipboard.setData(ClipboardData(text: content));
+      if (kIsWeb) {
+        final ext = format == 'json' ? 'json' : 'csv';
+        if (format == 'csv') {
+          downloadCsv(content, 'receipt.$ext');
+        } else {
+          downloadCsv(content, 'receipt.$ext');
+        }
+      } else {
+        await Clipboard.setData(ClipboardData(text: content));
+      }
 
       if (context.mounted) {
         final l10n = AppLocalizations.of(context)!;

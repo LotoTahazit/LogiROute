@@ -6,6 +6,8 @@ import '../../services/accounting_export_service.dart';
 import '../../services/export_preset_service.dart';
 import '../../models/invoice.dart';
 import '../../models/export_preset.dart';
+import '../../utils/file_download_stub.dart'
+    if (dart.library.html) '../../utils/file_download_web.dart';
 
 /// מסך ייצוא לתוכנות הנהלת חשבונות
 /// תומך: חשבשבת, Priority, CSV אוניברסלי
@@ -499,6 +501,15 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                         Text('קובץ: ${_lastResult!.fileName}'),
                         Text('רשומות: ${_lastResult!.recordCount}'),
                         Text('פורמט: ${_formatLabels[_lastResult!.format]}'),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () {
+                            downloadCsv(
+                                _lastResult!.content, _lastResult!.fileName);
+                          },
+                          icon: const Icon(Icons.download),
+                          label: const Text('הורד קובץ'),
+                        ),
                         const SizedBox(height: 12),
                         // Preview first lines
                         Container(

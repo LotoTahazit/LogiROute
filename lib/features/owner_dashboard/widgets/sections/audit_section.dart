@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+
+import '../../../../utils/file_download_stub.dart'
+    if (dart.library.html) '../../../../utils/file_download_web.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
@@ -284,7 +288,13 @@ class _AuditSectionState extends State<AuditSection> {
     setState(() => _isExporting = true);
     try {
       final csv = await _auditRepository.exportToCsv(_currentFilter);
-      await Clipboard.setData(ClipboardData(text: csv));
+      if (kIsWeb) {
+        final filename =
+            'audit_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv';
+        downloadCsv(csv, filename);
+      } else {
+        await Clipboard.setData(ClipboardData(text: csv));
+      }
       if (context.mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(

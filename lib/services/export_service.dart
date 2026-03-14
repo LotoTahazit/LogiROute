@@ -1,10 +1,8 @@
-import 'dart:convert';
-import 'dart:js_interop';
-import 'dart:typed_data';
-import 'package:web/web.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import '../models/inventory_item.dart';
+import '../utils/file_download_stub.dart'
+    if (dart.library.html) '../utils/file_download_web.dart';
 
 class ExportService {
   /// Экспорт инвентаря в CSV
@@ -42,25 +40,8 @@ class ExportService {
     // Конвертируем в CSV
     final String csv = const ListToCsvConverter().convert(rows);
 
-    // Добавляем BOM для правильного отображения в Excel
-    final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);
-
-    // Создаем Blob из сырых байтов (не из строки — иначе ломается multi-byte UTF-8)
-    final blobParts = ([bytes] as dynamic) as JSArray<BlobPart>;
-    final blob =
-        Blob(blobParts, BlobPropertyBag(type: 'text/csv;charset=utf-8'));
-    final url = URL.createObjectURL(blob);
-    try {
-      final anchor = HTMLAnchorElement()
-        ..href = url
-        ..download =
-            'inventory_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv';
-      document.body?.append(anchor);
-      anchor.click();
-      anchor.remove();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    downloadCsv(csv,
+        'inventory_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
   }
 
   /// Экспорт истории изменений в CSV
@@ -99,24 +80,7 @@ class ExportService {
     // Конвертируем в CSV
     final String csv = const ListToCsvConverter().convert(rows);
 
-    // Добавляем BOM для правильного отображения в Excel
-    final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);
-
-    // Создаем Blob из сырых байтов (не из строки — иначе ломается multi-byte UTF-8)
-    final blobParts = ([bytes] as dynamic) as JSArray<BlobPart>;
-    final blob =
-        Blob(blobParts, BlobPropertyBag(type: 'text/csv;charset=utf-8'));
-    final url = URL.createObjectURL(blob);
-    try {
-      final anchor = HTMLAnchorElement()
-        ..href = url
-        ..download =
-            'inventory_history_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv';
-      document.body?.append(anchor);
-      anchor.click();
-      anchor.remove();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    downloadCsv(csv,
+        'inventory_history_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
   }
 }
