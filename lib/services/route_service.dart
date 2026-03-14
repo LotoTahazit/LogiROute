@@ -1576,7 +1576,11 @@ class RouteService {
         'status': 'cancelled',
         'driverId': null,
         'driverName': null,
+        'driverCapacity': null,
         'orderInRoute': null,
+        'routeId': null,
+        'routeDate': null,
+        'eta': null,
       };
       if (updatedByUid != null) {
         patch['updatedByUid'] = updatedByUid;

@@ -173,7 +173,12 @@ class ActiveRoutesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final allRoutes = routes.isNotEmpty ? routes : lastNonEmptyRoutes;
+    // Use live routes; fallback to cached only if live is empty.
+    // Filter cached routes to exclude removed/cancelled points.
+    final filteredCache = lastNonEmptyRoutes
+        .where((p) => DeliveryPoint.activeRouteStatuses.contains(p.status))
+        .toList();
+    final allRoutes = routes.isNotEmpty ? routes : filteredCache;
 
     // Группируем по driverId (один водитель = один маршрут)
     final Map<String, List<DeliveryPoint>> routesByRouteId = {};
