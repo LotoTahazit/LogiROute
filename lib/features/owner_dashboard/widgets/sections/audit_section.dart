@@ -359,12 +359,20 @@ class _AuditSectionState extends State<AuditSection> {
           );
         }
 
+        // Build UID → display name map for human-readable user names
+        final userNames = <String, String>{};
+        for (final m in _auditableMembers) {
+          userNames[m.uid] = m.displayName;
+        }
+
         return ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           itemCount: events.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) =>
-              _AuditEventTile(event: events[index]),
+          itemBuilder: (context, index) => _AuditEventTile(
+            event: events[index],
+            userNames: userNames,
+          ),
         );
       },
     );
@@ -426,19 +434,102 @@ class _AuditSectionState extends State<AuditSection> {
 ///
 /// Immutable поля (createdAt, createdBy) выделены цветом и иконкой замка (Req 8.4).
 /// Кликабельна — показывает диалог с полными деталями события.
+/// [userNames] — map UID → отображаемое имя пользователя.
 class _AuditEventTile extends StatelessWidget {
   final CrossModuleAuditEvent event;
-  const _AuditEventTile({required this.event});
+  final Map<String, String> userNames;
+  const _AuditEventTile({required this.event, required this.userNames});
 
   static final _timeFmt = DateFormat('dd/MM/yyyy HH:mm:ss');
+  static final _dateFmt = DateFormat('dd/MM/yyyy');
+  static final _timeOnlyFmt = DateFormat('HH:mm:ss');
+
+  /// Resolve UID → human-readable name, fallback to "system" or short UID.
+  String _resolveUser(String uid) {
+    if (uid == 'system') return 'מערכת';
+    if (userNames.containsKey(uid)) return userNames[uid]!;
+    // Show shortened UID as last resort
+    return uid.length > 10 ? '${uid.substring(0, 6)}…' : uid;
+  }
+
+  /// Translate entity collection to human-readable label.
+  String _collectionLabel(String collection, AppLocalizations l10n) {
+    switch (collection) {
+      case 'invoices':
+        return l10n.invoicesTab;
+      case 'creditNotes':
+        return l10n.creditNotes;
+      case 'deliveryNotes':
+        return l10n.deliveryNotesReport;
+      case 'receipts':
+        return l10n.receiptsReport;
+      case 'inventory':
+        return l10n.warehouseInventory;
+      case 'routes':
+        return l10n.routes;
+      case 'deliveryPoints':
+        return l10n.deliveryPoints;
+      default:
+        return collection;
+    }
+  }
+
+  /// Translate module key to human-readable label.
+  String _moduleLabel(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'logistics':
+        return l10n.moduleLogistics;
+      case 'warehouse':
+        return l10n.moduleWarehouse;
+      case 'accounting':
+        return l10n.moduleAccounting;
+      case 'dispatcher':
+        return l10n.moduleDispatcher;
+      default:
+        return key;
+    }
+  }
+
+  /// Translate extra field keys to readable labels.
+  String _extraKeyLabel(String key) {
+    switch (key) {
+      case 'docNumber':
+        return 'מס׳ מסמך';
+      case 'customerName':
+        return 'לקוח';
+      case 'amount':
+      case 'gross':
+        return 'סכום';
+      case 'reason':
+        return 'סיבה';
+      case 'status':
+        return 'סטטוס';
+      case 'oldStatus':
+        return 'סטטוס קודם';
+      case 'newStatus':
+        return 'סטטוס חדש';
+      case 'driverName':
+        return 'נהג';
+      case 'pointCount':
+        return 'נקודות';
+      default:
+        return key;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final timeStr =
-        event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
     final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
+    final userName = _resolveUser(event.createdBy);
+    final moduleLbl = _moduleLabel(event.moduleKey, l10n);
+    final collectionLbl = _collectionLabel(event.entity.collection, l10n);
+
+    final dateStr =
+        event.createdAt != null ? _dateFmt.format(event.createdAt!) : '—';
+    final timeStr =
+        event.createdAt != null ? _timeOnlyFmt.format(event.createdAt!) : '';
 
     return Card(
       elevation: 0,
@@ -476,7 +567,7 @@ class _AuditEventTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      event.moduleKey,
+                      moduleLbl,
                       style: theme.textTheme.labelSmall,
                     ),
                   ),
@@ -486,23 +577,21 @@ class _AuditEventTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              // Row 2: entity
+              // Row 2: collection label (human-readable)
               Text(
-                '${event.entity.collection}/${event.entity.docId}',
+                collectionLbl,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              // Row 3: immutable fields — time + user
+              // Row 3: immutable fields — date/time + user name
               Row(
                 children: [
                   Icon(Icons.lock_outline,
                       size: 12, color: theme.colorScheme.tertiary),
                   const SizedBox(width: 4),
                   Text(
-                    timeStr,
+                    '$dateStr $timeStr',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.tertiary,
                       fontWeight: FontWeight.w600,
@@ -515,7 +604,7 @@ class _AuditEventTile extends StatelessWidget {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      event.createdBy,
+                      userName,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.tertiary,
                         fontWeight: FontWeight.w600,
@@ -536,9 +625,12 @@ class _AuditEventTile extends StatelessWidget {
   void _showDetailDialog(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final timeStr =
+    final fullTimeStr =
         event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
     final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
+    final userName = _resolveUser(event.createdBy);
+    final moduleLbl = _moduleLabel(event.moduleKey, l10n);
+    final collectionLbl = _collectionLabel(event.entity.collection, l10n);
 
     showDialog<void>(
       context: context,
@@ -573,21 +665,22 @@ class _AuditEventTile extends StatelessWidget {
                   ),
                   const Divider(),
                   // Module
-                  _detailRow(theme, l10n.moduleFilter, event.moduleKey),
-                  // Entity
-                  _detailRow(theme, l10n.eventTypeFilter,
-                      '${event.entity.collection}/${event.entity.docId}'),
+                  _labelValue(theme, l10n.moduleFilter, moduleLbl),
+                  // Collection (entity type)
+                  _labelValue(theme, l10n.eventTypeFilter, collectionLbl),
+                  const SizedBox(height: 8),
                   // Created at (immutable)
-                  _immutableRow(theme, l10n.dateRange, timeStr),
+                  _immutableLabelValue(theme, l10n.dateRange, fullTimeStr),
                   // Created by (immutable)
-                  _immutableRow(theme, l10n.userFilter, event.createdBy),
+                  _immutableLabelValue(theme, l10n.userFilter, userName),
                   // Extra details
                   if (event.extra.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     const Divider(),
                     const SizedBox(height: 4),
                     ...event.extra.entries.map(
-                      (e) => _detailRow(theme, e.key, '${e.value}'),
+                      (e) => _labelValue(
+                          theme, _extraKeyLabel(e.key), '${e.value}'),
                     ),
                   ],
                 ],
@@ -599,64 +692,55 @@ class _AuditEventTile extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(ThemeData theme, String label, String value) {
+  /// Label above value — vertical layout for narrow screens.
+  Widget _labelValue(ThemeData theme, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-                fontWeight: FontWeight.w600,
-              ),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          Expanded(
-            child: Text(value, style: theme.textTheme.bodyMedium),
-          ),
+          const SizedBox(height: 2),
+          Text(value, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
   }
 
-  Widget _immutableRow(ThemeData theme, String label, String value) {
+  /// Immutable field — with lock icon, vertical layout.
+  Widget _immutableLabelValue(ThemeData theme, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline,
-                    size: 12, color: theme.colorScheme.tertiary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline,
+                  size: 12, color: theme.colorScheme.tertiary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.tertiary,
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.tertiary,
-                fontWeight: FontWeight.w600,
               ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.tertiary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
