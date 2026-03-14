@@ -115,7 +115,7 @@ class AuditRepository {
   /// Формирует CSV-строку из списка событий.
   String _buildCsv(List<CrossModuleAuditEvent> events) {
     final buffer = StringBuffer();
-    buffer.writeln('дата,модуль,тип события,пользователь,сущность,детали');
+    buffer.writeln('תאריך,מודול,סוג אירוע,משתמש,ישות,פרטים');
 
     for (final event in events) {
       final date = event.createdAt?.toIso8601String() ?? '';

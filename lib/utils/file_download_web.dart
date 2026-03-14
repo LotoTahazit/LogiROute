@@ -15,10 +15,11 @@ void downloadFile(List<int> bytes, String filename) {
   URL.revokeObjectURL(url);
 }
 
-/// Скачивание CSV с UTF-8 BOM (для корректного отображения в Excel)
+/// Скачивание CSV с UTF-8 BOM + sep=, (для корректного отображения в Excel)
 void downloadCsv(String csvContent, String filename) {
-  final bytes =
-      Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csvContent)]);
+  // sep=, — директива Excel: использовать запятую как разделитель (для локалей с ;)
+  final withSep = 'sep=,\n$csvContent';
+  final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(withSep)]);
   final blobParts = ([bytes] as dynamic) as JSArray<BlobPart>;
   final blob = Blob(blobParts, BlobPropertyBag(type: 'text/csv;charset=utf-8'));
   final url = URL.createObjectURL(blob);
