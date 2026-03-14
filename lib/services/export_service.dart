@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:typed_data';
 import 'package:web/web.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
@@ -42,13 +43,12 @@ class ExportService {
     final String csv = const ListToCsvConverter().convert(rows);
 
     // Добавляем BOM для правильного отображения в Excel
-    final bom = [0xEF, 0xBB, 0xBF];
-    final bytes = [...bom, ...utf8.encode(csv)];
-    final csvWithBom = String.fromCharCodes(bytes);
+    final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);
 
-    // Создаем Blob с правильным синтаксисом package:web
-    final blobParts = ([csvWithBom] as dynamic) as JSArray<BlobPart>;
-    final blob = Blob(blobParts, BlobPropertyBag(type: 'text/csv'));
+    // Создаем Blob из сырых байтов (не из строки — иначе ломается multi-byte UTF-8)
+    final blobParts = ([bytes] as dynamic) as JSArray<BlobPart>;
+    final blob =
+        Blob(blobParts, BlobPropertyBag(type: 'text/csv;charset=utf-8'));
     final url = URL.createObjectURL(blob);
     try {
       final anchor = HTMLAnchorElement()
@@ -100,13 +100,12 @@ class ExportService {
     final String csv = const ListToCsvConverter().convert(rows);
 
     // Добавляем BOM для правильного отображения в Excel
-    final bom = [0xEF, 0xBB, 0xBF];
-    final bytes = [...bom, ...utf8.encode(csv)];
-    final csvWithBom = String.fromCharCodes(bytes);
+    final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);
 
-    // Создаем Blob с правильным синтаксисом package:web
-    final blobParts = ([csvWithBom] as dynamic) as JSArray<BlobPart>;
-    final blob = Blob(blobParts, BlobPropertyBag(type: 'text/csv'));
+    // Создаем Blob из сырых байтов (не из строки — иначе ломается multi-byte UTF-8)
+    final blobParts = ([bytes] as dynamic) as JSArray<BlobPart>;
+    final blob =
+        Blob(blobParts, BlobPropertyBag(type: 'text/csv;charset=utf-8'));
     final url = URL.createObjectURL(blob);
     try {
       final anchor = HTMLAnchorElement()
