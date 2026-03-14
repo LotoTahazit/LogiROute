@@ -388,16 +388,22 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     );
 
     if (driver != null) {
-      final routeService = RouteService(companyId: companyId);
-      await routeService.createOptimizedRoute(
-        driver.uid,
-        driver.name,
-        points,
-        driver.palletCapacity ?? 0,
-        useDispatcherLocation: true,
-      );
-      if (mounted) {
-        SnackbarHelper.showSuccess(context, l10n.routeCreated);
+      try {
+        final routeService = RouteService(companyId: companyId);
+        await routeService.createOptimizedRoute(
+          driver.uid,
+          driver.name,
+          points,
+          driver.palletCapacity ?? 0,
+          useDispatcherLocation: true,
+        );
+        if (mounted) {
+          SnackbarHelper.showSuccess(context, l10n.routeCreated);
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackbarHelper.showError(context, '${l10n.error}: $e');
+        }
       }
     }
   }
@@ -1007,7 +1013,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       messenger.hideCurrentSnackBar();
       if (mounted) {
         messenger.showSnackBar(SnackBar(
-          content: Text(changed ? l10n.routeOptimized : l10n.routeAlreadyOptimal),
+          content:
+              Text(changed ? l10n.routeOptimized : l10n.routeAlreadyOptimal),
           backgroundColor: changed ? Colors.green : null,
         ));
       }

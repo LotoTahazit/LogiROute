@@ -1251,7 +1251,7 @@ class RouteService {
     final newPallets = points.fold<int>(0, (sum, p) => sum + p.pallets);
     if (driverCapacity > 0 && currentPallets + newPallets > driverCapacity) {
       throw Exception(
-          'Driver $driverName overloaded: ${currentPallets + newPallets}/$driverCapacity pallets');
+          'עומס יתר: $driverName — ${currentPallets + newPallets} משטחים מתוך $driverCapacity מותרים');
     }
 
     // Генерируем routeId для этого маршрута
