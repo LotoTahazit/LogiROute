@@ -124,109 +124,143 @@ class _AuditSectionState extends State<AuditSection> {
 
   Widget _buildFiltersBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.of(context).size.width < 400;
+    final padding = EdgeInsets.symmetric(
+        horizontal: narrow ? 12 : 16, vertical: narrow ? 8 : 12);
+
+    final moduleDropdown = DropdownButtonFormField<String>(
+      value: _selectedModule,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.moduleFilter,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      items: [
+        DropdownMenuItem(value: null, child: Text(l10n.all)),
+        ..._moduleOptions.map((m) => DropdownMenuItem(
+              value: m,
+              child:
+                  Text(_moduleLabel(m, l10n), overflow: TextOverflow.ellipsis),
+            )),
+      ],
+      onChanged: (v) => setState(() => _selectedModule = v),
+    );
+
+    final typeDropdown = DropdownButtonFormField<String>(
+      value: _selectedType,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.eventTypeFilter,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      items: [
+        DropdownMenuItem(value: null, child: Text(l10n.all)),
+        ...CrossModuleAuditService.allTypes.map((t) => DropdownMenuItem(
+              value: t,
+              child: Text(_typeLabel(t, l10n), overflow: TextOverflow.ellipsis),
+            )),
+      ],
+      onChanged: (v) => setState(() => _selectedType = v),
+    );
+
+    final userDropdown = DropdownButtonFormField<String>(
+      value: _selectedUser,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.userFilter,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      items: [
+        DropdownMenuItem(value: null, child: Text(l10n.all)),
+        ..._auditableMembers.map((m) => DropdownMenuItem(
+              value: m.uid,
+              child: Text(
+                m.displayName.isNotEmpty ? m.displayName : m.email,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )),
+      ],
+      onChanged: (v) => setState(() => _selectedUser = v),
+    );
+
+    final dateChip = ActionChip(
+      avatar: const Icon(Icons.date_range, size: 18),
+      label: Text(
+        _dateRange != null
+            ? '${DateFormat('dd/MM').format(_dateRange!.start)} — ${DateFormat('dd/MM').format(_dateRange!.end)}'
+            : l10n.dateRange,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onPressed: () => _pickDateRange(context),
+    );
+
+    final exportBtn = FilledButton.icon(
+      onPressed: _isExporting ? null : () => _exportCsv(context),
+      icon: _isExporting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download, size: 18),
+      label: Text(_isExporting ? l10n.exporting : l10n.exportCsv),
+    );
+
+    if (narrow) {
+      return Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            moduleDropdown,
+            const SizedBox(height: 8),
+            typeDropdown,
+            const SizedBox(height: 8),
+            userDropdown,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: dateChip),
+                if (_dateRange != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    tooltip: l10n.clearDateRange,
+                    onPressed: () => setState(() => _dateRange = null),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            exportBtn,
+          ],
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: padding,
       child: Wrap(
         spacing: 12,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // Module filter
-          SizedBox(
-            width: 160,
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedModule,
-              decoration: InputDecoration(
-                labelText: l10n.moduleFilter,
-                isDense: true,
-                border: const OutlineInputBorder(),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(l10n.all)),
-                ..._moduleOptions.map((m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(_moduleLabel(m, l10n)),
-                    )),
-              ],
-              onChanged: (v) => setState(() => _selectedModule = v),
-            ),
-          ),
-          // Event type filter
-          SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedType,
-              decoration: InputDecoration(
-                labelText: l10n.eventTypeFilter,
-                isDense: true,
-                border: const OutlineInputBorder(),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(l10n.all)),
-                ...CrossModuleAuditService.allTypes.map((t) => DropdownMenuItem(
-                      value: t,
-                      child: Text(_typeLabel(t, l10n)),
-                    )),
-              ],
-              onChanged: (v) => setState(() => _selectedType = v),
-            ),
-          ),
-          // User filter — dropdown with auditable members only
-          SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedUser,
-              decoration: InputDecoration(
-                labelText: l10n.userFilter,
-                isDense: true,
-                border: const OutlineInputBorder(),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(l10n.all)),
-                ..._auditableMembers.map((m) => DropdownMenuItem(
-                      value: m.uid,
-                      child: Text(
-                        m.displayName.isNotEmpty ? m.displayName : m.email,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )),
-              ],
-              onChanged: (v) => setState(() => _selectedUser = v),
-            ),
-          ),
-          // Date range picker
-          ActionChip(
-            avatar: const Icon(Icons.date_range, size: 18),
-            label: Text(_dateRange != null
-                ? '${DateFormat('dd/MM').format(_dateRange!.start)} — ${DateFormat('dd/MM').format(_dateRange!.end)}'
-                : l10n.dateRange),
-            onPressed: () => _pickDateRange(context),
-          ),
+          SizedBox(width: 160, child: moduleDropdown),
+          SizedBox(width: 200, child: typeDropdown),
+          SizedBox(width: 200, child: userDropdown),
+          dateChip,
           if (_dateRange != null)
             IconButton(
               icon: const Icon(Icons.clear, size: 18),
               tooltip: l10n.clearDateRange,
               onPressed: () => setState(() => _dateRange = null),
             ),
-          const Spacer(),
-          // Export CSV button — Requirement 8.5
-          FilledButton.icon(
-            onPressed: _isExporting ? null : () => _exportCsv(context),
-            icon: _isExporting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.download, size: 18),
-            label: Text(_isExporting ? l10n.exporting : l10n.exportCsv),
-          ),
+          exportBtn,
         ],
       ),
     );
@@ -308,7 +342,20 @@ class _AuditSectionState extends State<AuditSection> {
 
         if (events.isEmpty) {
           return Center(
-            child: Text(l10n.noAuditRecords),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.assignment_outlined,
+                      size: 56, color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(height: 12),
+                  Text(l10n.noAuditRecords,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge),
+                ],
+              ),
+            ),
           );
         }
 
@@ -378,6 +425,7 @@ class _AuditSectionState extends State<AuditSection> {
 /// Строка аудит-лога с визуальным выделением immutable-полей.
 ///
 /// Immutable поля (createdAt, createdBy) выделены цветом и иконкой замка (Req 8.4).
+/// Кликабельна — показывает диалог с полными деталями события.
 class _AuditEventTile extends StatelessWidget {
   final CrossModuleAuditEvent event;
   const _AuditEventTile({required this.event});
@@ -387,78 +435,68 @@ class _AuditEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final timeStr =
         event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
+    final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Module icon
-          _moduleIcon(event.moduleKey, theme),
-          const SizedBox(width: 12),
-          // Main content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Type + module
-                Row(
-                  children: [
-                    Text(
-                      _AuditSectionState._typeLabel(
-                          event.type, AppLocalizations.of(context)!),
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showDetailDialog(context),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: type + module badge
+              Row(
+                children: [
+                  _moduleIcon(event.moduleKey, theme),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      typeLabel,
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        event.moduleKey,
-                        style: theme.textTheme.labelSmall,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                // Entity
-                Text(
-                  '${event.entity.collection}/${event.entity.docId}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // Extra details (Req 8.6)
-                if (event.extra.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    event.extra.entries
-                        .map((e) => '${e.key}: ${e.value}')
-                        .join(' · '),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      event.moduleKey,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right,
+                      size: 20, color: theme.colorScheme.outline),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Immutable fields: createdAt, createdBy — highlighted (Req 8.4)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+              ),
+              const SizedBox(height: 6),
+              // Row 2: entity
+              Text(
+                '${event.entity.collection}/${event.entity.docId}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              // Row 3: immutable fields — time + user
               Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.lock_outline,
                       size: 12, color: theme.colorScheme.tertiary),
@@ -467,30 +505,159 @@ class _AuditEventTile extends StatelessWidget {
                     timeStr,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock_outline,
+                  const SizedBox(width: 12),
+                  Icon(Icons.person_outline,
                       size: 12, color: theme.colorScheme.tertiary),
                   const SizedBox(width: 4),
-                  Text(
-                    event.createdBy.length > 8
-                        ? '${event.createdBy.substring(0, 8)}…'
-                        : event.createdBy,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Text(
+                      event.createdBy,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.tertiary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetailDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final timeStr =
+        event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
+    final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      _moduleIcon(event.moduleKey, theme),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          typeLabel,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  // Module
+                  _detailRow(theme, l10n.moduleFilter, event.moduleKey),
+                  // Entity
+                  _detailRow(theme, l10n.eventTypeFilter,
+                      '${event.entity.collection}/${event.entity.docId}'),
+                  // Created at (immutable)
+                  _immutableRow(theme, l10n.dateRange, timeStr),
+                  // Created by (immutable)
+                  _immutableRow(theme, l10n.userFilter, event.createdBy),
+                  // Extra details
+                  if (event.extra.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    const SizedBox(height: 4),
+                    ...event.extra.entries.map(
+                      (e) => _detailRow(theme, e.key, '${e.value}'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(ThemeData theme, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value, style: theme.textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _immutableRow(ThemeData theme, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 12, color: theme.colorScheme.tertiary),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.tertiary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.tertiary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),

@@ -367,95 +367,131 @@ class ActiveRoutesTab extends StatelessWidget {
             ReorderableListView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
               onReorder: (oldIndex, newIndex) async {
                 await onReorderPoints(routePoints, oldIndex, newIndex);
               },
-              children: routePoints
-                  .map(
-                    (r) => ListTile(
-                      key: ValueKey(r.id),
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue,
-                        child: Text(
-                          '${r.orderInRoute + 1}',
-                          style: const TextStyle(color: Colors.white),
+              children: routePoints.asMap().entries.map(
+                (entry) {
+                  final idx = entry.key;
+                  final r = entry.value;
+                  return Padding(
+                    key: ValueKey(r.id),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle — явная иконка для перетягивания
+                        ReorderableDragStartListener(
+                          index: idx,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 8),
+                              child: Icon(Icons.drag_handle,
+                                  color: Colors.grey.shade400, size: 24),
+                            ),
+                          ),
                         ),
-                      ),
-                      title: Text(
-                        r.clientName,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 2),
-                          Text(
-                            '${r.pallets} ${l10n.pallets}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
+                        CircleAvatar(
+                          backgroundColor: Colors.blue,
+                          child: Text(
+                            '${r.orderInRoute + 1}',
+                            style: const TextStyle(color: Colors.white),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _getDisplayAddress(r),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (r.eta != null && r.eta!.isNotEmpty ||
-                              r.distanceKm != null && r.distanceKm! > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                [
-                                  if (r.distanceKm != null && r.distanceKm! > 0)
-                                    '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
-                                  if (r.eta != null && r.eta!.isNotEmpty)
-                                    'ETA: ${r.eta}',
-                                ].join(' • '),
-                                style: TextStyle(
-                                  color: Colors.blue.shade900,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                r.clientName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
+                                textDirection: TextDirection.rtl,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${r.pallets} ${l10n.pallets}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                ),
+                                textDirection: TextDirection.rtl,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _getDisplayAddress(r),
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                                textDirection: TextDirection.rtl,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
+                              ),
+                              if (r.eta != null && r.eta!.isNotEmpty ||
+                                  r.distanceKm != null && r.distanceKm! > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    [
+                                      if (r.distanceKm != null &&
+                                          r.distanceKm! > 0)
+                                        '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
+                                      if (r.eta != null && r.eta!.isNotEmpty)
+                                        'ETA: ${r.eta}',
+                                    ].join(' • '),
+                                    style: TextStyle(
+                                      color: Colors.blue.shade900,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    textDirection: TextDirection.ltr,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.receipt,
+                                  color: Colors.green),
+                              tooltip: l10n.createInvoiceTooltip,
+                              onPressed: () => onCreateInvoice(r),
                             ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon:
-                                const Icon(Icons.receipt, color: Colors.green),
-                            tooltip: l10n.createInvoiceTooltip,
-                            onPressed: () => onCreateInvoice(r),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.local_shipping,
-                                color: Colors.blue),
-                            tooltip: l10n.createDeliveryNoteTooltip,
-                            onPressed: () => onCreateDeliveryNote(r),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.orange),
-                            tooltip: l10n.edit,
-                            onPressed: () => onEditPoint(r),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline,
-                                color: Colors.red),
-                            tooltip: l10n.removeFromRoute,
-                            onPressed: () => onRemovePoint(r),
-                          ),
-                        ],
-                      ),
+                            IconButton(
+                              icon: const Icon(Icons.local_shipping,
+                                  color: Colors.blue),
+                              tooltip: l10n.createDeliveryNoteTooltip,
+                              onPressed: () => onCreateDeliveryNote(r),
+                            ),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.edit, color: Colors.orange),
+                              tooltip: l10n.edit,
+                              onPressed: () => onEditPoint(r),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline,
+                                  color: Colors.red),
+                              tooltip: l10n.removeFromRoute,
+                              onPressed: () => onRemovePoint(r),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  )
-                  .toList(),
+                  );
+                },
+              ).toList(),
             ),
           ],
         ),

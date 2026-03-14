@@ -984,6 +984,7 @@
   "operationsSection": "תפעול",
   "accountingSection": "הנהלת חשבונות",
   "userMenu": "תפריט משתמש",
+  "menuLabel": "תפריט",
   "companyDataNotFound": "לא נמצאו נתוני חברה",
   "noSectionsAvailable": "אין חלקים זמינים",
   "unknownRoleError": "תפקיד לא ידוע: {role}",

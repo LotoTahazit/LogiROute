@@ -1373,13 +1373,8 @@ class AppLocalizationsHe extends AppLocalizations {
   String get overloadWarning => 'אזהרת עומס יתר';
 
   @override
-  String overloadWarningMessage(
-    String driverName,
-    int currentLoad,
-    int newLoad,
-    int totalLoad,
-    int capacity,
-  ) {
+  String overloadWarningMessage(String driverName, int currentLoad, int newLoad,
+      int totalLoad, int capacity) {
     return 'הנהג $driverName כבר נושא $currentLoad משטחים, והוספת $newLoad משטחים תעלה את הסה\"כ ל-$totalLoad משטחים (קיבולת: $capacity משטחים). האם להמשיך?';
   }
 
@@ -2574,6 +2569,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get userMenu => 'תפריט משתמש';
 
   @override
+  String get menuLabel => 'תפריט';
+
+  @override
   String get companyDataNotFound => 'לא נמצאו נתוני חברה';
 
   @override
@@ -3340,14 +3338,8 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String changePlanConfirmBody(
-    String name,
-    int promoPrice,
-    int promoMonths,
-    int price,
-    int setupFee,
-    int minMonths,
-  ) {
+  String changePlanConfirmBody(String name, int promoPrice, int promoMonths,
+      int price, int setupFee, int minMonths) {
     return 'התוכנית תשתנה ל$name.\n₪$promoPrice/חודש ($promoMonths חודשים ראשונים), לאחר מכן ₪$price/חודש.\nהתקנה: ₪$setupFee. מינימום $minMonths חודשים.\nהשינוי ייכנס לתוקף מיד.';
   }
 
@@ -3572,11 +3564,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String importClientResultUpdated(
-    int added,
-    int updated,
-    int skipped,
-    int errors,
-  ) {
+      int added, int updated, int skipped, int errors) {
     return 'נוספו $added | עודכנו $updated | דולגו $skipped | שגיאות $errors';
   }
 

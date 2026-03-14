@@ -46,11 +46,12 @@ class _OverviewSectionState extends State<OverviewSection> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return StreamBuilder<DailyMetrics>(
       stream: _metricsService.watchTodayMetrics(),
       builder: (context, metricsSnapshot) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 12 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -83,40 +84,56 @@ class _OverviewSectionState extends State<OverviewSection> {
 
     final metrics = snapshot.data ?? DailyMetrics(date: '');
     final l10n = AppLocalizations.of(context)!;
-
+    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final cards = [
+      _KpiCard(
+        icon: Icons.local_shipping_outlined,
+        label: l10n.deliveriesToday,
+        value: metrics.deliveriesToday.toString(),
+        moduleKey: 'logistics',
+        modules: widget.companySettings.modules,
+        fullWidth: narrow,
+      ),
+      _KpiCard(
+        icon: Icons.receipt_long_outlined,
+        label: l10n.invoicesThisMonth,
+        value: metrics.invoicesThisMonth.toString(),
+        moduleKey: 'accounting',
+        modules: widget.companySettings.modules,
+        fullWidth: narrow,
+      ),
+      _KpiCard(
+        icon: Icons.warehouse_outlined,
+        label: l10n.warehouseMovements,
+        value: metrics.warehouseMovements.toString(),
+        moduleKey: 'warehouse',
+        modules: widget.companySettings.modules,
+        fullWidth: narrow,
+      ),
+      _KpiCard(
+        icon: Icons.person_pin_outlined,
+        label: l10n.activeDriversKpi,
+        value: metrics.activeDrivers.toString(),
+        moduleKey: 'dispatcher',
+        modules: widget.companySettings.modules,
+        fullWidth: narrow,
+      ),
+    ];
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: cards
+            .map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: c,
+                ))
+            .toList(),
+      );
+    }
     return Wrap(
       spacing: 16,
       runSpacing: 16,
-      children: [
-        _KpiCard(
-          icon: Icons.local_shipping_outlined,
-          label: l10n.deliveriesToday,
-          value: metrics.deliveriesToday.toString(),
-          moduleKey: 'logistics',
-          modules: widget.companySettings.modules,
-        ),
-        _KpiCard(
-          icon: Icons.receipt_long_outlined,
-          label: l10n.invoicesThisMonth,
-          value: metrics.invoicesThisMonth.toString(),
-          moduleKey: 'accounting',
-          modules: widget.companySettings.modules,
-        ),
-        _KpiCard(
-          icon: Icons.warehouse_outlined,
-          label: l10n.warehouseMovements,
-          value: metrics.warehouseMovements.toString(),
-          moduleKey: 'warehouse',
-          modules: widget.companySettings.modules,
-        ),
-        _KpiCard(
-          icon: Icons.person_pin_outlined,
-          label: l10n.activeDriversKpi,
-          value: metrics.activeDrivers.toString(),
-          moduleKey: 'dispatcher',
-          modules: widget.companySettings.modules,
-        ),
-      ],
+      children: cards,
     );
   }
 
@@ -275,6 +292,7 @@ class _KpiCard extends StatelessWidget {
   final String value;
   final String? moduleKey;
   final ModuleEntitlements modules;
+  final bool fullWidth;
 
   const _KpiCard({
     required this.icon,
@@ -282,18 +300,18 @@ class _KpiCard extends StatelessWidget {
     required this.value,
     this.moduleKey,
     required this.modules,
+    this.fullWidth = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Hide card if module is disabled
     if (moduleKey != null && !modules[moduleKey!]) {
       return const SizedBox.shrink();
     }
 
     final theme = Theme.of(context);
     return SizedBox(
-      width: 200,
+      width: fullWidth ? double.infinity : 200,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -309,7 +327,12 @@ class _KpiCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(label, style: theme.textTheme.bodySmall),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
             ],
           ),
         ),
@@ -361,27 +384,53 @@ class _EventTile extends StatelessWidget {
     final theme = Theme.of(context);
     final timeStr =
         event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
+    final entityStr = '${event.entity.collection}/${event.entity.docId}';
+    final byStr = event.createdBy.length > 12
+        ? '${event.createdBy.substring(0, 12)}…'
+        : event.createdBy;
 
-    return ListTile(
-      dense: true,
-      leading: _moduleIcon(event.moduleKey, theme),
-      title: Text(event.type),
-      subtitle: Text(
-        '${event.entity.collection}/${event.entity.docId}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(timeStr, style: theme.textTheme.bodySmall),
+          _moduleIcon(event.moduleKey, theme),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  event.type,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entityStr,
+                  style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  byStr,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
-              event.createdBy.length > 8
-                  ? '${event.createdBy.substring(0, 8)}…'
-                  : event.createdBy,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline)),
+            timeStr,
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
     );

@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, listEquals, kIsWeb;
 import 'package:flutter/material.dart';
@@ -802,78 +801,7 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 📱 Android fallback: если Google Maps не доступен, показываем альтернативу
-    // В вебе всегда показываем карту
-    if (!kIsWeb && Platform.isAndroid) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.map_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Карта недоступна на Android',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Используйте веб-версию для просмотра карты',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '📍 Точек в маршруте: ${widget.points.length}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade800,
-                    ),
-                  ),
-                  if (widget.points.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '🚚 Водителей: ${widget.points.map((p) => p.driverId).toSet().length}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade600,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // ✅ ВСЕГДА показываем карту (даже без точек - чтобы видеть склад и водителей)
+    // ✅ Показываем карту на всех платформах (Web и Android)
     return Stack(
       children: [
         GoogleMap(

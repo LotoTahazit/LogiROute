@@ -1002,6 +1002,7 @@
   "operationsSection": "Operations",
   "accountingSection": "Accounting",
   "userMenu": "User menu",
+  "menuLabel": "Menu",
   "companyDataNotFound": "Company data not found",
   "noSectionsAvailable": "No sections available",
   "unknownRoleError": "Unknown role: {role}",

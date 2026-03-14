@@ -970,6 +970,7 @@
   "operationsSection": "Операции",
   "accountingSection": "Бухгалтерия",
   "userMenu": "Меню пользователя",
+  "menuLabel": "Меню",
   "companyDataNotFound": "Данные компании не найдены",
   "noSectionsAvailable": "Нет доступных разделов",
   "unknownRoleError": "Неизвестная роль: {role}",

@@ -165,49 +165,81 @@ class _BoxTypesManagerDialogState extends State<BoxTypesManagerDialog> {
                             final id = boxType['id'] as String;
 
                             return Card(
-                              child: ListTile(
-                                leading: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade100,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    productCode,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                ),
-                                title: Text('$type $number'),
-                                subtitle: volumeMl != null
-                                    ? Text('$volumeMl ${l10n.ml}')
-                                    : Text(l10n.volumeMlLabel),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 12),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit,
-                                          color: Colors.blue),
-                                      onPressed: () => _editBoxType(
-                                        id,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
                                         productCode,
-                                        type,
-                                        number,
-                                        volumeMl ?? 0,
-                                        quantityPerPallet,
-                                        diameter,
-                                        piecesPerBox,
-                                        additionalInfo,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue,
+                                        ),
+                                        textDirection: TextDirection.rtl,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete,
-                                          color: Colors.red),
-                                      onPressed: () => _deleteBoxType(
-                                          id, productCode, type, number),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '$type $number',
+                                            textDirection: TextDirection.rtl,
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            volumeMl != null
+                                                ? '$volumeMl ${l10n.ml}'
+                                                : l10n.volumeMlLabel,
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade700),
+                                            textDirection: TextDirection.rtl,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit,
+                                              color: Colors.blue),
+                                          onPressed: () => _editBoxType(
+                                            id,
+                                            productCode,
+                                            type,
+                                            number,
+                                            volumeMl ?? 0,
+                                            quantityPerPallet,
+                                            diameter,
+                                            piecesPerBox,
+                                            additionalInfo,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Colors.red),
+                                          onPressed: () => _deleteBoxType(
+                                              id, productCode, type, number),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

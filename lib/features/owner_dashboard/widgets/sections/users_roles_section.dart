@@ -69,8 +69,9 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
       userCompanyId: userModel.companyId ?? '',
     );
 
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(narrow ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -326,82 +327,106 @@ class _MemberTile extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final info = _statusInfo(member.status, l10n);
+    final displayName =
+        member.displayName.isNotEmpty ? member.displayName : member.email;
+    final subtitle = '${_roleDisplayName(member.role, l10n)}'
+        '${member.email.isNotEmpty ? ' · ${member.email}' : ''}'
+        '${member.phone.isNotEmpty ? ' · ${member.phone}' : ''}';
 
-    // Assignable roles for the role-change dropdown (Task 10.2)
     final assignableRoles =
         AppRole.values.where((r) => permissions.canAssignRole(r)).toList();
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: theme.colorScheme.primaryContainer,
-        child: Text(
-          member.displayName.isNotEmpty
-              ? member.displayName[0].toUpperCase()
-              : '?',
-          style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-        ),
-      ),
-      title: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Flexible(
+          CircleAvatar(
+            backgroundColor: theme.colorScheme.primaryContainer,
             child: Text(
-              member.displayName.isNotEmpty ? member.displayName : member.email,
-              overflow: TextOverflow.ellipsis,
+              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+              style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: info.color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              info.label,
-              style: theme.textTheme.labelSmall?.copyWith(color: info.color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: info.color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        info.label,
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: info.color),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-      subtitle: Text(
-        '${_roleDisplayName(member.role, l10n)}'
-        '${member.email.isNotEmpty ? ' · ${member.email}' : ''}'
-        '${member.phone.isNotEmpty ? ' · ${member.phone}' : ''}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Change role dropdown — Requirements 5.5–5.8, 5.11
           if (assignableRoles.isNotEmpty &&
               permissions.canWrite('members', 'update'))
-            PopupMenuButton<AppRole>(
-              icon: const Icon(Icons.swap_horiz, size: 20),
-              tooltip: l10n.changeRole,
-              onSelected: onChangeRole,
-              itemBuilder: (context) => assignableRoles.map((role) {
-                return PopupMenuItem(
-                  value: role,
-                  child: Row(
-                    children: [
-                      if (role == member.role)
-                        Icon(Icons.check,
-                            size: 16, color: theme.colorScheme.primary),
-                      if (role == member.role) const SizedBox(width: 8),
-                      Text(_roleDisplayName(role, l10n)),
-                    ],
-                  ),
-                );
-              }).toList(),
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: PopupMenuButton<AppRole>(
+                icon: const Icon(Icons.swap_horiz, size: 22),
+                tooltip: l10n.changeRole,
+                padding: EdgeInsets.zero,
+                onSelected: onChangeRole,
+                itemBuilder: (context) => assignableRoles.map((role) {
+                  return PopupMenuItem(
+                    value: role,
+                    child: Row(
+                      children: [
+                        if (role == member.role)
+                          Icon(Icons.check,
+                              size: 16, color: theme.colorScheme.primary),
+                        if (role == member.role) const SizedBox(width: 8),
+                        Flexible(
+                            child: Text(_roleDisplayName(role, l10n),
+                                overflow: TextOverflow.ellipsis)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          // Remove member — Requirement 5.11
           if (permissions.canWrite('members', 'delete'))
-            IconButton(
-              icon: Icon(Icons.person_remove_outlined,
-                  size: 20, color: theme.colorScheme.error),
-              tooltip: l10n.removeUser,
-              onPressed: onRemove,
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                icon: Icon(Icons.person_remove_outlined,
+                    size: 22, color: theme.colorScheme.error),
+                tooltip: l10n.removeUser,
+                onPressed: onRemove,
+              ),
             ),
         ],
       ),

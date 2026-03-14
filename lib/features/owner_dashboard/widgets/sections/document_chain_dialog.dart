@@ -41,12 +41,16 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: narrow ? MediaQuery.sizeOf(context).height * 0.85 : 500,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 12 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -162,6 +166,37 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
     final isOriginal = doc.type != AccountingDocType.creditNote &&
         (doc.references?.creditNoteIds?.isNotEmpty ?? false);
 
+    final badges = <Widget>[
+      if (isOriginal)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            AppLocalizations.of(context)!.originalDocBadge,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      if (isCurrent)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.tertiaryContainer,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            AppLocalizations.of(context)!.currentDocBadge,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+          ),
+        ),
+    ];
+
     return Card(
       elevation: isCurrent ? 3 : 1,
       shape: RoundedRectangleBorder(
@@ -172,85 +207,35 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: statusClr.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                doc.type == AccountingDocType.creditNote
-                    ? Icons.note_add_outlined
-                    : Icons.receipt_long_outlined,
-                color: statusClr,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        typeLbl,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (isOriginal) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            AppLocalizations.of(context)!.originalDocBadge,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (isCurrent) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            AppLocalizations.of(context)!.currentDocBadge,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onTertiaryContainer,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${doc.docNumber != null ? "#${doc.docNumber}" : AppLocalizations.of(context)!.draftStatus}'
-                    ' · ${doc.customerName}'
-                    ' · ₪${doc.totals.gross.toStringAsFixed(2)}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Row(
               children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: statusClr.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    doc.type == AccountingDocType.creditNote
+                        ? Icons.note_add_outlined
+                        : Icons.receipt_long_outlined,
+                    color: statusClr,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    typeLbl,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -263,8 +248,30 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
                     style: TextStyle(color: statusClr, fontSize: 12),
                   ),
                 ),
-                const SizedBox(height: 4),
+              ],
+            ),
+            if (badges.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 4, children: badges),
+            ],
+            const SizedBox(height: 6),
+            Text(
+              '${doc.docNumber != null ? "#${doc.docNumber}" : AppLocalizations.of(context)!.draftStatus}'
+              ' · ${doc.customerName}',
+              style: theme.textTheme.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
                 Text(dateStr, style: theme.textTheme.bodySmall),
+                Text(
+                  '₪${doc.totals.gross.toStringAsFixed(2)}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ],

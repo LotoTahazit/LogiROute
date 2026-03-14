@@ -53,11 +53,12 @@ class _AccountingSectionState extends State<AccountingSection> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return StreamBuilder<List<AccountingDoc>>(
       stream: _docsRepo.watchDocs(filter: _currentFilter),
       builder: (context, snapshot) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 12 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -111,39 +112,57 @@ class _AccountingSectionState extends State<AccountingSection> {
         final creditTotal =
             creditNotes.fold<double>(0, (sum, d) => sum + d.totals.gross);
 
+        final narrow = MediaQuery.sizeOf(context).width < 500;
+        final cardWidth = narrow ? double.infinity : 220.0;
+        final cards = [
+          _SummaryCard(
+            width: cardWidth,
+            icon: Icons.receipt_long,
+            iconColor: Colors.blue,
+            title: l10n.issuedDocuments,
+            value: '${issuedDocs.length}',
+            subtitle: l10n.draftsCount(draftCount),
+          ),
+          _SummaryCard(
+            width: cardWidth,
+            icon: Icons.payments,
+            iconColor: Colors.green,
+            title: l10n.totalRevenueGross,
+            value: '\u20AA${formatCurrency(totalRevenue)}',
+            subtitle: l10n.netLabel(formatCurrency(totalNet)),
+          ),
+          _SummaryCard(
+            width: cardWidth,
+            icon: Icons.account_balance,
+            iconColor: Colors.orange,
+            title: l10n.vatPercent,
+            value: '\u20AA${formatCurrency(totalVat)}',
+            subtitle: l10n.forTaxAuthorities,
+          ),
+          _SummaryCard(
+            width: cardWidth,
+            icon: Icons.note_add,
+            iconColor: Colors.red,
+            title: l10n.creditNotes,
+            value: '${creditNotes.length}',
+            subtitle: '\u20AA${formatCurrency(creditTotal)}',
+          ),
+        ];
+        if (narrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: cards
+                .map((c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: c,
+                    ))
+                .toList(),
+          );
+        }
         return Wrap(
           spacing: 16,
           runSpacing: 16,
-          children: [
-            _SummaryCard(
-              icon: Icons.receipt_long,
-              iconColor: Colors.blue,
-              title: l10n.issuedDocuments,
-              value: '${issuedDocs.length}',
-              subtitle: l10n.draftsCount(draftCount),
-            ),
-            _SummaryCard(
-              icon: Icons.payments,
-              iconColor: Colors.green,
-              title: l10n.totalRevenueGross,
-              value: '\u20AA${formatCurrency(totalRevenue)}',
-              subtitle: l10n.netLabel(formatCurrency(totalNet)),
-            ),
-            _SummaryCard(
-              icon: Icons.account_balance,
-              iconColor: Colors.orange,
-              title: l10n.vatPercent,
-              value: '\u20AA${formatCurrency(totalVat)}',
-              subtitle: l10n.forTaxAuthorities,
-            ),
-            _SummaryCard(
-              icon: Icons.note_add,
-              iconColor: Colors.red,
-              title: l10n.creditNotes,
-              value: '${creditNotes.length}',
-              subtitle: '\u20AA${formatCurrency(creditTotal)}',
-            ),
-          ],
+          children: cards,
         );
       },
     );
@@ -156,6 +175,34 @@ class _AccountingSectionState extends State<AccountingSection> {
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long_outlined,
+                  size: 24, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.accountingDocuments,
+                  style: theme.textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => _showCreateDocDialog(context),
+            icon: const Icon(Icons.add, size: 20),
+            label: Text(l10n.createDocument),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Icon(Icons.receipt_long_outlined,
@@ -178,52 +225,63 @@ class _AccountingSectionState extends State<AccountingSection> {
 
   Widget _buildFilters(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final typeDropdown = DropdownButtonFormField<AccountingDocType?>(
+      value: _filterType,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.documentType,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: [
+        DropdownMenuItem(value: null, child: Text(l10n.allFilter)),
+        ...AccountingDocType.values.map(
+          (t) => DropdownMenuItem(
+            value: t,
+            child:
+                Text(docTypeLabel(context, t), overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (value) => setState(() => _filterType = value),
+    );
+    final statusDropdown = DropdownButtonFormField<AccountingDocStatus?>(
+      value: _filterStatus,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.columnStatus,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: [
+        DropdownMenuItem(value: null, child: Text(l10n.allFilter)),
+        ...AccountingDocStatus.values.map(
+          (s) => DropdownMenuItem(
+            value: s,
+            child: Text(docStatusLabel(context, s),
+                overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (value) => setState(() => _filterStatus = value),
+    );
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          typeDropdown,
+          const SizedBox(height: 8),
+          statusDropdown,
+        ],
+      );
+    }
     return Wrap(
       spacing: 16,
       runSpacing: 8,
       children: [
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<AccountingDocType?>(
-            initialValue: _filterType,
-            decoration: InputDecoration(
-              labelText: l10n.documentType,
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: [
-              DropdownMenuItem(value: null, child: Text(l10n.allFilter)),
-              ...AccountingDocType.values.map(
-                (t) => DropdownMenuItem(
-                  value: t,
-                  child: Text(docTypeLabel(context, t)),
-                ),
-              ),
-            ],
-            onChanged: (value) => setState(() => _filterType = value),
-          ),
-        ),
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<AccountingDocStatus?>(
-            initialValue: _filterStatus,
-            decoration: InputDecoration(
-              labelText: l10n.columnStatus,
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: [
-              DropdownMenuItem(value: null, child: Text(l10n.allFilter)),
-              ...AccountingDocStatus.values.map(
-                (s) => DropdownMenuItem(
-                  value: s,
-                  child: Text(docStatusLabel(context, s)),
-                ),
-              ),
-            ],
-            onChanged: (value) => setState(() => _filterStatus = value),
-          ),
-        ),
+        SizedBox(width: 200, child: typeDropdown),
+        SizedBox(width: 200, child: statusDropdown),
       ],
     );
   }
@@ -268,6 +326,16 @@ class _AccountingSectionState extends State<AccountingSection> {
     }
 
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
+    if (narrow) {
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: docs.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, i) => _buildDocCard(context, docs[i]),
+      );
+    }
     return Card(
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -284,6 +352,100 @@ class _AccountingSectionState extends State<AccountingSection> {
             DataColumn(label: Text(l10n.columnActions)),
           ],
           rows: docs.map((doc) => _buildDocRow(context, doc)).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocCard(BuildContext context, AccountingDoc doc) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final dateFmt = DateFormat('dd/MM/yyyy');
+    final dateStr =
+        doc.createdAt != null ? dateFmt.format(doc.createdAt!) : '\u2014';
+    final statusColor = docStatusColor(doc.status);
+    final isClickable = doc.id != null;
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap:
+            isClickable ? () => _showDocumentChainDialog(context, doc) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            docTypeLabel(context, doc.type),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            docStatusLabel(context, doc.status),
+                            style: TextStyle(color: statusColor, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      doc.customerName,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          doc.docNumber != null
+                              ? '#${doc.docNumber}'
+                              : l10n.draftStatus,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        Text(
+                          '₪${doc.totals.gross.toStringAsFixed(2)}',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    Text(dateStr, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              if (isClickable)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.outline,
+                    size: 24,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -572,6 +734,7 @@ class _AccountingSectionState extends State<AccountingSection> {
 // =============================================================================
 
 class _SummaryCard extends StatelessWidget {
+  final double width;
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -579,6 +742,7 @@ class _SummaryCard extends StatelessWidget {
   final String subtitle;
 
   const _SummaryCard({
+    this.width = 220,
     required this.icon,
     required this.iconColor,
     required this.title,
@@ -590,7 +754,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: 220,
+      width: width,
       child: Card(
         elevation: 1,
         child: Padding(
@@ -624,6 +788,8 @@ class _SummaryCard extends StatelessWidget {
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
               const SizedBox(height: 2),
               Text(
@@ -631,6 +797,8 @@ class _SummaryCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ],
           ),

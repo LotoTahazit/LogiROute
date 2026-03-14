@@ -48,8 +48,9 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(narrow ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -73,6 +74,7 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
   Widget _buildRetryStats(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return FutureBuilder<Map<String, dynamic>>(
       future: _systemEventsRepo.getRetryStats(),
       builder: (context, snapshot) {
@@ -88,40 +90,49 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
               'successRate': 0.0,
             };
 
+        final cards = [
+          _StatCard(
+            icon: Icons.replay,
+            label: l10n.retryAttempts,
+            value: '${stats['totalRetries']}',
+            theme: theme,
+          ),
+          _StatCard(
+            icon: Icons.event_note,
+            label: l10n.totalEventsKpi,
+            value: '${stats['totalEvents']}',
+            theme: theme,
+          ),
+          _StatCard(
+            icon: Icons.check_circle_outline,
+            label: l10n.successRate,
+            value: '${(stats['successRate'] as double).toStringAsFixed(1)}%',
+            color: (stats['successRate'] as double) >= 90
+                ? Colors.green
+                : (stats['successRate'] as double) >= 70
+                    ? Colors.orange
+                    : Colors.red,
+            theme: theme,
+          ),
+        ];
+
+        if (narrow) {
+          return Column(
+            children: cards
+                .map((c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: c,
+                    ))
+                .toList(),
+          );
+        }
         return Row(
           children: [
-            Expanded(
-              child: _StatCard(
-                icon: Icons.replay,
-                label: l10n.retryAttempts,
-                value: '${stats['totalRetries']}',
-                theme: theme,
-              ),
-            ),
+            Expanded(child: cards[0]),
             const SizedBox(width: 16),
-            Expanded(
-              child: _StatCard(
-                icon: Icons.event_note,
-                label: l10n.totalEventsKpi,
-                value: '${stats['totalEvents']}',
-                theme: theme,
-              ),
-            ),
+            Expanded(child: cards[1]),
             const SizedBox(width: 16),
-            Expanded(
-              child: _StatCard(
-                icon: Icons.check_circle_outline,
-                label: l10n.successRate,
-                value:
-                    '${(stats['successRate'] as double).toStringAsFixed(1)}%',
-                color: (stats['successRate'] as double) >= 90
-                    ? Colors.green
-                    : (stats['successRate'] as double) >= 70
-                        ? Colors.orange
-                        : Colors.red,
-                theme: theme,
-              ),
-            ),
+            Expanded(child: cards[2]),
           ],
         );
       },
@@ -138,22 +149,22 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        Text(l10n.printEvents, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
           children: [
-            Text(l10n.printEvents, style: theme.textTheme.titleMedium),
-            const Spacer(),
             ChoiceChip(
               label: Text(l10n.filterAll),
               selected: _printStatusFilter == null,
               onSelected: (_) => setState(() => _printStatusFilter = null),
             ),
-            const SizedBox(width: 8),
             ChoiceChip(
               label: Text(l10n.filterSuccess),
               selected: _printStatusFilter == 'success',
               onSelected: (_) => setState(() => _printStatusFilter = 'success'),
             ),
-            const SizedBox(width: 8),
             ChoiceChip(
               label: Text(l10n.filterError),
               selected: _printStatusFilter == 'error',
@@ -219,28 +230,27 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        Text(l10n.systemEvents, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
           children: [
-            Text(l10n.systemEvents, style: theme.textTheme.titleMedium),
-            const Spacer(),
             ChoiceChip(
               label: Text(l10n.filterAll),
               selected: _systemStatusFilter == null,
               onSelected: (_) => setState(() => _systemStatusFilter = null),
             ),
-            const SizedBox(width: 8),
             ChoiceChip(
               label: Text(l10n.filterError),
               selected: _systemStatusFilter == 'error',
               onSelected: (_) => setState(() => _systemStatusFilter = 'error'),
             ),
-            const SizedBox(width: 8),
             ChoiceChip(
               label: Text(l10n.filterFailed),
               selected: _systemStatusFilter == 'failed',
               onSelected: (_) => setState(() => _systemStatusFilter = 'failed'),
             ),
-            const SizedBox(width: 8),
             ChoiceChip(
               label: Text(l10n.filterSuccess),
               selected: _systemStatusFilter == 'success',
