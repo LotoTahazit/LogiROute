@@ -64,7 +64,7 @@ import 'app_localizations_ru.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('he'),
-    Locale('ru')
+    Locale('ru'),
   ];
 
   /// No description provided for @autoDistributePallets.
@@ -831,6 +831,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Optimization failed'**
   String get routeOptimizationFailed;
+
+  /// No description provided for @routeTimeNotOptimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Route time is not optimal'**
+  String get routeTimeNotOptimal;
 
   /// No description provided for @selectNewDriver.
   ///
@@ -2726,8 +2732,13 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Driver {driverName} is already carrying {currentLoad} pallets, adding {newLoad} pallets will increase the total to {totalLoad} pallets (capacity: {capacity} pallets). Continue?'**
-  String overloadWarningMessage(String driverName, int currentLoad, int newLoad,
-      int totalLoad, int capacity);
+  String overloadWarningMessage(
+    String driverName,
+    int currentLoad,
+    int newLoad,
+    int totalLoad,
+    int capacity,
+  );
 
   /// No description provided for @continueAnyway.
   ///
@@ -6321,8 +6332,14 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Plan will change to {name}.\n₪{promoPrice}/month (first {promoMonths} months), then ₪{price}/month.\nSetup: ₪{setupFee}. Minimum {minMonths} months.\nChange takes effect immediately.'**
-  String changePlanConfirmBody(String name, int promoPrice, int promoMonths,
-      int price, int setupFee, int minMonths);
+  String changePlanConfirmBody(
+    String name,
+    int promoPrice,
+    int promoMonths,
+    int price,
+    int setupFee,
+    int minMonths,
+  );
 
   /// No description provided for @cancelButton.
   ///
@@ -6719,7 +6736,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Added {added} | Updated {updated} | Skipped {skipped} | Errors {errors}'**
   String importClientResultUpdated(
-      int added, int updated, int skipped, int errors);
+    int added,
+    int updated,
+    int skipped,
+    int errors,
+  );
 
   /// No description provided for @importFromFile.
   ///
@@ -7675,8 +7696,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

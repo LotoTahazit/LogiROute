@@ -377,6 +377,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeOptimizationFailed => 'Optimization failed';
 
   @override
+  String get routeTimeNotOptimal => 'Route time is not optimal';
+
+  @override
   String get selectNewDriver => 'Select a new driver';
 
   @override
@@ -1376,8 +1379,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get overloadWarning => 'Overload Warning';
 
   @override
-  String overloadWarningMessage(String driverName, int currentLoad, int newLoad,
-      int totalLoad, int capacity) {
+  String overloadWarningMessage(
+    String driverName,
+    int currentLoad,
+    int newLoad,
+    int totalLoad,
+    int capacity,
+  ) {
     return 'Driver $driverName is already carrying $currentLoad pallets, adding $newLoad pallets will increase the total to $totalLoad pallets (capacity: $capacity pallets). Continue?';
   }
 
@@ -3342,8 +3350,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String changePlanConfirmBody(String name, int promoPrice, int promoMonths,
-      int price, int setupFee, int minMonths) {
+  String changePlanConfirmBody(
+    String name,
+    int promoPrice,
+    int promoMonths,
+    int price,
+    int setupFee,
+    int minMonths,
+  ) {
     return 'Plan will change to $name.\n₪$promoPrice/month (first $promoMonths months), then ₪$price/month.\nSetup: ₪$setupFee. Minimum $minMonths months.\nChange takes effect immediately.';
   }
 
@@ -3569,7 +3583,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importClientResultUpdated(
-      int added, int updated, int skipped, int errors) {
+    int added,
+    int updated,
+    int skipped,
+    int errors,
+  ) {
     return 'Added $added | Updated $updated | Skipped $skipped | Errors $errors';
   }
 

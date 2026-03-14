@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
+import '../../../services/route_service.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Вкладка с активными маршрутами
 class ActiveRoutesTab extends StatelessWidget {
+  final String companyId;
   final List<DeliveryPoint> routes;
   final List<DeliveryPoint> lastNonEmptyRoutes;
   final List<DeliveryPoint> autoCompletedPoints;
@@ -26,6 +28,7 @@ class ActiveRoutesTab extends StatelessWidget {
 
   const ActiveRoutesTab({
     super.key,
+    required this.companyId,
     required this.routes,
     required this.lastNonEmptyRoutes,
     this.autoCompletedPoints = const [],
@@ -322,12 +325,13 @@ class ActiveRoutesTab extends StatelessWidget {
                                 p.status != 'cancelled')
                             .length >=
                         2)
-                  IconButton(
-                    icon: Icon(Icons.timer_outlined,
-                        color: Colors.orange.shade700),
-                    tooltip: l10n.optimizeTime,
-                    onPressed: () =>
-                        onOptimizeRoute!(driverId, routeId, routePoints),
+                  _OptimizeTimeButton(
+                    companyId: companyId,
+                    routePoints: routePoints,
+                    driverId: driverId,
+                    routeId: routeId,
+                    onOptimizeRoute: onOptimizeRoute!,
+                    l10n: l10n,
                   ),
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
@@ -510,6 +514,112 @@ class ActiveRoutesTab extends StatelessWidget {
             ),
           ),
         ...routeCards,
+      ],
+    );
+  }
+}
+
+/// Кнопка «Оптимизировать время»: подсвечивается только при неоптимальном порядке.
+class _OptimizeTimeButton extends StatefulWidget {
+  final String companyId;
+  final List<DeliveryPoint> routePoints;
+  final String driverId;
+  final String? routeId;
+  final void Function(String, String?, List<DeliveryPoint>) onOptimizeRoute;
+  final AppLocalizations l10n;
+
+  const _OptimizeTimeButton({
+    required this.companyId,
+    required this.routePoints,
+    required this.driverId,
+    required this.routeId,
+    required this.onOptimizeRoute,
+    required this.l10n,
+  });
+
+  @override
+  State<_OptimizeTimeButton> createState() => _OptimizeTimeButtonState();
+}
+
+class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
+  bool? _isSuboptimal;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  @override
+  void didUpdateWidget(_OptimizeTimeButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.routePoints != widget.routePoints ||
+        oldWidget.driverId != widget.driverId) {
+      _isSuboptimal = null;
+      _check();
+    }
+  }
+
+  Future<void> _check() async {
+    final suboptimal = await RouteService(companyId: widget.companyId)
+        .isRouteOrderSuboptimal(widget.routePoints);
+    if (mounted) setState(() => _isSuboptimal = suboptimal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = _isSuboptimal == true;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (highlight)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              widget.l10n.routeTimeNotOptimal,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.orange.shade800,
+              ),
+            ),
+          ),
+        Material(
+          color: highlight ? Colors.orange.shade100 : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => widget.onOptimizeRoute(
+                widget.driverId, widget.routeId, widget.routePoints),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    color: highlight
+                        ? Colors.orange.shade800
+                        : Colors.grey.shade700,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.l10n.optimizeTime,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: highlight
+                          ? Colors.orange.shade800
+                          : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

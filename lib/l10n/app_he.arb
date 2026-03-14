@@ -124,6 +124,7 @@
   "routeAlreadyOptimal": "המסלול כבר אופטימלי",
   "routeOptimized": "המסלול עודכן",
   "routeOptimizationFailed": "האופטימיזציה נכשלה",
+  "routeTimeNotOptimal": "זמן המסלול לא אופטימלי",
   "selectNewDriver": "בחר נהג חדש",
   "noAvailableDrivers": "אין נהגים זמינים",
   "driverChangedTo": "הנהג שונה ל {name}",

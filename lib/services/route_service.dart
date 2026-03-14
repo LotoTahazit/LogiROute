@@ -828,6 +828,48 @@ class RouteService {
     }
   }
 
+  /// Проверяет, является ли текущий порядок точек неоптимальным по времени.
+  /// Сравнивает длительность текущего маршрута с OSRM-оптимальным порядком.
+  Future<bool> isRouteOrderSuboptimal(List<DeliveryPoint> points) async {
+    final activePoints = points
+        .where((p) =>
+            p.status != 'completed' &&
+            p.status != 'cancelled' &&
+            p.status != 'delivered')
+        .toList()
+      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+    if (activePoints.length < 2) return false;
+
+    final osrm = OsrmNavigationService();
+    final waypoints = activePoints
+        .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+        .toList();
+    final whLat = AppConfig.defaultWarehouseLat;
+    final whLng = AppConfig.defaultWarehouseLng;
+
+    final currentRoute = await osrm.getOptimizedRoute(
+      startLat: whLat,
+      startLng: whLng,
+      waypoints: waypoints,
+      endLat: whLat,
+      endLng: whLng,
+    );
+    if (currentRoute == null) return false;
+
+    final optimized =
+        await osrm.getOptimizedTripOrder(
+      warehouseLat: whLat,
+      warehouseLng: whLng,
+      waypoints: waypoints,
+    );
+    if (optimized == null) return false;
+
+    final savedMinutes = currentRoute.duration - optimized.durationMinutes;
+    return savedMinutes > 2.0 ||
+        (currentRoute.duration > 0 &&
+            savedMinutes / currentRoute.duration > 0.05);
+  }
+
   /// Оптимизация порядка точек в маршруте по времени через OSRM Trip API.
   /// Возвращает true если порядок был изменён.
   Future<bool> optimizeRouteByTime(

@@ -377,6 +377,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeOptimizationFailed => 'Ошибка оптимизации';
 
   @override
+  String get routeTimeNotOptimal => 'Время маршрута не оптимально';
+
+  @override
   String get selectNewDriver => 'Выберите нового водителя';
 
   @override
@@ -1378,8 +1381,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get overloadWarning => 'Предупреждение о перегрузке';
 
   @override
-  String overloadWarningMessage(String driverName, int currentLoad, int newLoad,
-      int totalLoad, int capacity) {
+  String overloadWarningMessage(
+    String driverName,
+    int currentLoad,
+    int newLoad,
+    int totalLoad,
+    int capacity,
+  ) {
     return 'Водитель $driverName уже везёт $currentLoad паллет, добавление $newLoad паллет увеличит общую нагрузку до $totalLoad паллет (вместимость: $capacity паллет). Продолжить?';
   }
 
@@ -3352,8 +3360,14 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String changePlanConfirmBody(String name, int promoPrice, int promoMonths,
-      int price, int setupFee, int minMonths) {
+  String changePlanConfirmBody(
+    String name,
+    int promoPrice,
+    int promoMonths,
+    int price,
+    int setupFee,
+    int minMonths,
+  ) {
     return 'Тариф изменится на $name.\n₪$promoPrice/мес (первые $promoMonths мес), далее ₪$price/мес.\nУстановка: ₪$setupFee. Минимум $minMonths месяцев.\nИзменение вступит в силу немедленно.';
   }
 
@@ -3579,7 +3593,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String importClientResultUpdated(
-      int added, int updated, int skipped, int errors) {
+    int added,
+    int updated,
+    int skipped,
+    int errors,
+  ) {
     return 'Добавлено $added | Обновлено $updated | Пропущено $skipped | Ошибки $errors';
   }
 

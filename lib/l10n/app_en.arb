@@ -123,6 +123,7 @@
   "routeAlreadyOptimal": "Route is already optimal",
   "routeOptimized": "Route optimized",
   "routeOptimizationFailed": "Optimization failed",
+  "routeTimeNotOptimal": "Route time is not optimal",
   "selectNewDriver": "Select a new driver",
   "noAvailableDrivers": "No available drivers",
   "driverChangedTo": "Driver changed to {name}",

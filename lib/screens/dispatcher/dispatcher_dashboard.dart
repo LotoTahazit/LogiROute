@@ -1241,6 +1241,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           initialData: const [],
                           builder: (context, autoSnapshot) {
                             return ActiveRoutesTab(
+                              companyId: effectiveCompanyId,
                               routes: snapshot.data ?? [],
                               lastNonEmptyRoutes: _lastNonEmptyRoutes,
                               autoCompletedPoints: autoSnapshot.data ?? [],

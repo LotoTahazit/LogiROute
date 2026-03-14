@@ -123,6 +123,7 @@
   "routeAlreadyOptimal": "Маршрут уже оптимален",
   "routeOptimized": "Маршрут оптимизирован",
   "routeOptimizationFailed": "Ошибка оптимизации",
+  "routeTimeNotOptimal": "Время маршрута не оптимально",
   "selectNewDriver": "Выберите нового водителя",
   "noAvailableDrivers": "Нет доступных водителей",
   "driverChangedTo": "Водитель изменён на {name}",
