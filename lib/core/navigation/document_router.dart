@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:web/web.dart' as web;
+
+import 'open_url_stub.dart' if (dart.library.html) 'open_url_web.dart';
 
 /// Фабрика виджета для просмотра документа.
 typedef DocumentWidgetFactory = Widget Function(String companyId, String docId);
@@ -68,7 +69,7 @@ class DocumentRouter {
       return;
     }
     if (kIsWeb) {
-      web.window.open(buildUrl(companyId, docId, collection), '_blank');
+      openUrlInNewTab(buildUrl(companyId, docId, collection));
     } else {
       open(context, companyId: companyId, collection: collection, docId: docId);
     }

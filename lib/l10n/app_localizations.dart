@@ -7656,6 +7656,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete duplicates'**
   String get deleteDuplicates;
+
+  /// No description provided for @driverRouteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver route'**
+  String get driverRouteTitle;
+
+  /// No description provided for @wazeOpenError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error opening Waze: {error}'**
+  String wazeOpenError(String error);
+
+  /// No description provided for @remainingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining'**
+  String get remainingLabel;
+
+  /// No description provided for @percentCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% completed'**
+  String percentCompleted(Object percent);
+
+  /// No description provided for @nPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String nPoints(Object count);
 }
 
 class _AppLocalizationsDelegate

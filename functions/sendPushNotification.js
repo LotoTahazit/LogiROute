@@ -28,11 +28,19 @@ exports.sendPushNotification = functions.firestore
     console.log(`📱 Sending push for ${companyId}/${notifId}: ${data.title}`);
 
     try {
-      // Find all users of this company with FCM tokens
-      const usersSnap = await db
-        .collection("users")
-        .where("companyId", "==", companyId)
-        .get();
+      // Find target user(s) — if driverId specified, send only to that driver
+      let usersSnap;
+      if (data.driverId) {
+        const driverDoc = await db.collection("users").doc(data.driverId).get();
+        usersSnap = driverDoc.exists ? { docs: [driverDoc] } : { docs: [] };
+        console.log(`📱 Targeting driver ${data.driverId}`);
+      } else {
+        // Broadcast to all company users (e.g. system-wide notifications)
+        usersSnap = await db
+          .collection("users")
+          .where("companyId", "==", companyId)
+          .get();
+      }
 
       // Collect tokens: support both new map format and legacy string/array
       const tokenUserMap = new Map(); // token → { userRef, uid }

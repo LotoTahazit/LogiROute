@@ -4068,4 +4068,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deleteDuplicates => 'Delete duplicates';
+
+  @override
+  String get driverRouteTitle => 'Driver route';
+
+  @override
+  String wazeOpenError(String error) {
+    return 'Error opening Waze: $error';
+  }
+
+  @override
+  String get remainingLabel => 'Remaining';
+
+  @override
+  String percentCompleted(Object percent) {
+    return '$percent% completed';
+  }
+
+  @override
+  String nPoints(Object count) {
+    return '$count points';
+  }
 }

@@ -106,6 +106,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
     final companyId = authService.userModel?.companyId ?? '';
     final driverId = authService.currentUser!.uid;
 
+    // Ensure services are initialized (may be called before build())
+    if (companyId.isNotEmpty && _locationService == null) {
+      _routeService ??= RouteService(companyId: companyId);
+      _locationService = OptimizedLocationService(companyId);
+      CompanyCache.instance(companyId).preload(companyId, authService);
+      debugPrint('🚛 [Driver] Services lazy-initialized in _startTracking');
+    }
+
     // Foreground GPS (пока приложение открыто)
     _locationService?.startTracking(
       driverId,
@@ -639,7 +647,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка открытия Waze: $e')),
+                    SnackBar(content: Text(l10n.wazeOpenError(e.toString()))),
                   );
                 }
               }
@@ -713,7 +721,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 Icon(Icons.map_outlined, color: Colors.grey.shade600),
                 const SizedBox(width: 8),
                 Text(
-                  'Маршрут водителя',
+                  l10n.driverRouteTitle,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -730,7 +738,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '$remainingCount${_getPlural(remainingCount, ' точка', ' точки', ' точек')}',
+                      l10n.nPoints(remainingCount),
                       style: TextStyle(
                         color: Colors.blue.shade800,
                         fontWeight: FontWeight.w700,
@@ -761,9 +769,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildStatItem('Всего', totalCount, Colors.blue),
-                      _buildStatItem('Выполнено', completedCount, Colors.green),
-                      _buildStatItem('Осталось', remainingCount, Colors.orange),
+                      _buildStatItem(l10n.totalLabel, totalCount, Colors.blue),
+                      _buildStatItem(
+                          l10n.completedLabel, completedCount, Colors.green),
+                      _buildStatItem(
+                          l10n.remainingLabel, remainingCount, Colors.orange),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -775,7 +785,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${(totalCount > 0 ? (completedCount / totalCount * 100) : 0).toInt()}% выполнено',
+                    l10n.percentCompleted((totalCount > 0
+                            ? (completedCount / totalCount * 100)
+                            : 0)
+                        .toInt()),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -936,11 +949,5 @@ class _DriverDashboardState extends State<DriverDashboard> {
         ),
       ],
     );
-  }
-
-  String _getPlural(int count, String one, String few, String many) {
-    if (count == 1) return one;
-    if (count >= 2 && count <= 4) return few;
-    return many;
   }
 }

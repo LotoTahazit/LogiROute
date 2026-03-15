@@ -1487,5 +1487,14 @@
   "exactDuplicateFound": "Найден точный дубликат для {name}!",
   "existingOrdersFound": "Найдены существующие заказы для {name}:",
   "checkNotDuplicate": "Убедитесь, что это не дубликат!",
-  "deleteDuplicates": "Удалить дубликаты"
+  "deleteDuplicates": "Удалить дубликаты",
+
+  "driverRouteTitle": "Маршрут водителя",
+  "wazeOpenError": "Ошибка открытия Waze: {error}",
+  "@wazeOpenError": { "placeholders": { "error": { "type": "String" } } },
+  "remainingLabel": "Осталось",
+  "percentCompleted": "{percent}% выполнено",
+  "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
+  "nPoints": "{count} точек",
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
 }

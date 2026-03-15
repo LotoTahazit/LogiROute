@@ -4056,4 +4056,25 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get deleteDuplicates => 'מחק כפילויות';
+
+  @override
+  String get driverRouteTitle => 'מסלול נהג';
+
+  @override
+  String wazeOpenError(String error) {
+    return 'שגיאה בפתיחת Waze: $error';
+  }
+
+  @override
+  String get remainingLabel => 'נותרו';
+
+  @override
+  String percentCompleted(Object percent) {
+    return '$percent% הושלם';
+  }
+
+  @override
+  String nPoints(Object count) {
+    return '$count נקודות';
+  }
 }

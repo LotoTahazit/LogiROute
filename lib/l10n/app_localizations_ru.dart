@@ -4081,4 +4081,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get deleteDuplicates => 'Удалить дубликаты';
+
+  @override
+  String get driverRouteTitle => 'Маршрут водителя';
+
+  @override
+  String wazeOpenError(String error) {
+    return 'Ошибка открытия Waze: $error';
+  }
+
+  @override
+  String get remainingLabel => 'Осталось';
+
+  @override
+  String percentCompleted(Object percent) {
+    return '$percent% выполнено';
+  }
+
+  @override
+  String nPoints(Object count) {
+    return '$count точек';
+  }
 }

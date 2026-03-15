@@ -470,12 +470,32 @@ class RouteService {
     print(
         '⚖️ [RouteService] Driver truck weight: ${truckWeight.toStringAsFixed(1)}t');
 
-    // Получаем позицию: склада (диспетчер) или водителя
+    // Получаем позицию: если водитель уже в пути → его GPS, иначе склад
     Map<String, double>? startLocation;
-    if (useDispatcherLocation) {
+
+    // Проверяем, есть ли у водителя активные точки (= он уже на маршруте)
+    final existingActive = await _deliveryPointsCollection()
+        .where('driverId', isEqualTo: driverId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .limit(1)
+        .get();
+    final driverOnRoute = existingActive.docs.isNotEmpty;
+
+    if (driverOnRoute) {
+      // Водитель уже на маршруте → используем его GPS
+      startLocation = await _getDriverCurrentLocation(driverId);
+      if (startLocation != null) {
+        print(
+            '🚛 [RouteService] Driver on route — using live GPS: (${startLocation['latitude']}, ${startLocation['longitude']})');
+      } else {
+        // GPS недоступен → fallback на склад
+        startLocation = await _getDispatcherLocation();
+        print(
+            '⚠️ [RouteService] Driver GPS unavailable — falling back to warehouse');
+      }
+    } else if (useDispatcherLocation) {
       startLocation = await _getDispatcherLocation();
-      print(
-          '🏭 [RouteService] Using dispatcher/warehouse location for route optimization');
+      print('🏭 [RouteService] New route — using warehouse location');
     } else {
       startLocation = await _getDriverCurrentLocation(driverId);
       print('🚛 [RouteService] Using driver location for route optimization');
@@ -517,7 +537,8 @@ class RouteService {
       } else {
         print('✅ [RouteService] Alternative route approved!');
         await _assignPointsToDriver(
-            driverId, driverName, driverCapacity, alternativePoints);
+            driverId, driverName, driverCapacity, alternativePoints,
+            startLocation: startLocation);
         return;
       }
     }
@@ -526,32 +547,62 @@ class RouteService {
 
     // Назначаем точки водителю
     await _assignPointsToDriver(
-        driverId, driverName, driverCapacity, optimizedPoints);
+        driverId, driverName, driverCapacity, optimizedPoints,
+        startLocation: startLocation);
   }
 
-  /// 🏭 Получает позицию склада/диспетчера из настроек
+  /// 🏭 Получает позицию склада из настроек компании
   Future<Map<String, double>?> _getDispatcherLocation() async {
     try {
-      // Пробуем получить настройки склада из Firestore
-      final doc = await _firestore
+      // 1. Company config (основной путь — как CompanyCache)
+      final configDoc = await _firestore
+          .collection('companies')
+          .doc(companyId)
           .collection('settings')
-          .doc('warehouse_location')
+          .doc('config')
           .get();
 
-      if (doc.exists) {
-        final data = doc.data()!;
-        return {
-          'latitude': data['latitude'],
-          'longitude': data['longitude'],
-        };
+      if (configDoc.exists) {
+        final data = configDoc.data()!;
+        final lat = (data['warehouseLat'] as num?)?.toDouble();
+        final lng = (data['warehouseLng'] as num?)?.toDouble();
+        if (lat != null && lng != null && lat != 0 && lng != 0) {
+          print(
+              '🏭 [RouteService] Warehouse from company config: ($lat, $lng)');
+          return {'latitude': lat, 'longitude': lng};
+        }
       }
 
-      print(
-          '⚠️ [RouteService] Warehouse location not configured, using default location');
-      return null;
+      // 2. Legacy warehouse doc
+      final legacyDoc = await _firestore
+          .collection('companies')
+          .doc(companyId)
+          .collection('settings')
+          .doc('warehouse')
+          .get();
+
+      if (legacyDoc.exists) {
+        final data = legacyDoc.data()!;
+        final lat = (data['lat'] as num?)?.toDouble();
+        final lng = (data['lng'] as num?)?.toDouble();
+        if (lat != null && lng != null && lat != 0 && lng != 0) {
+          print('🏭 [RouteService] Warehouse from legacy doc: ($lat, $lng)');
+          return {'latitude': lat, 'longitude': lng};
+        }
+      }
+
+      // 3. Fallback to AppConfig defaults
+      print('⚠️ [RouteService] No warehouse config, using AppConfig defaults');
+      return {
+        'latitude': AppConfig.defaultWarehouseLat,
+        'longitude': AppConfig.defaultWarehouseLng,
+      };
     } catch (e) {
       print('❌ [RouteService] Error getting warehouse location: $e');
-      return null;
+      return {
+        'latitude': AppConfig.defaultWarehouseLat,
+        'longitude': AppConfig.defaultWarehouseLng,
+      };
     }
   }
 
@@ -1240,7 +1291,8 @@ class RouteService {
 
   /// 🚚 Назначает точки водителю (вынесенный метод)
   Future<void> _assignPointsToDriver(String driverId, String driverName,
-      int driverCapacity, List<DeliveryPoint> points) async {
+      int driverCapacity, List<DeliveryPoint> points,
+      {Map<String, double>? startLocation}) async {
     // 🛡️ Жёсткая проверка перегрузки
     final existingLoad = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
@@ -1384,10 +1436,17 @@ class RouteService {
       // Рассчитываем расстояние от предыдущей точки
       double distanceKm = 0;
       if (i == 0) {
-        // 🏭 Первая точка нового маршрута:
-        // - Если есть завершенные точки сегодня → от последней завершенной
-        // - Иначе → от склада
-        if (todayCompleted.isNotEmpty) {
+        // 🏭 Первая точка: startLocation (GPS) > последняя завершённая > склад
+        if (startLocation != null) {
+          distanceKm = _calculateDistance(
+            startLocation['latitude']!,
+            startLocation['longitude']!,
+            pointLat,
+            pointLng,
+          );
+          print(
+              '🚛 [RouteService] ETA starting from driver GPS / resolved location');
+        } else if (todayCompleted.isNotEmpty) {
           // Сортируем по orderInRoute и берем последнюю
           todayCompleted.sort((a, b) {
             final aOrder = (a.data()['orderInRoute'] as num?)?.toInt() ?? 0;
@@ -1401,8 +1460,7 @@ class RouteService {
               AppConfig.defaultWarehouseLng;
 
           distanceKm = _calculateDistance(lastLat, lastLng, pointLat, pointLng);
-          print(
-              '📍 [RouteService] Starting from last completed point (${lastCompleted['clientName']})');
+          print('📍 [RouteService] ETA starting from last completed point');
         } else {
           distanceKm = _calculateDistance(
             AppConfig.defaultWarehouseLat,
@@ -1411,7 +1469,7 @@ class RouteService {
             pointLng,
           );
           print(
-              '🏭 [RouteService] Starting from warehouse (no completed points today)');
+              '🏭 [RouteService] ETA starting from warehouse (no GPS, no completed points)');
         }
       } else {
         final prevPoint = points[i - 1];
@@ -1458,8 +1516,10 @@ class RouteService {
 
     // 🗺️ Получаем полилинию маршрута из OSRM и сохраняем в Firestore
     try {
-      final warehouseLat = AppConfig.defaultWarehouseLat;
-      final warehouseLng = AppConfig.defaultWarehouseLng;
+      final originLat =
+          startLocation?['latitude'] ?? AppConfig.defaultWarehouseLat;
+      final originLng =
+          startLocation?['longitude'] ?? AppConfig.defaultWarehouseLng;
       final osrm = OsrmNavigationService();
 
       final waypoints = <Map<String, double>>[];
@@ -1472,25 +1532,15 @@ class RouteService {
         });
       }
 
-      // Маршрут: махсан → все точки → махсан (кольцевой)
+      // Маршрут: origin → все точки → origin (кольцевой)
       OsrmRoute? osrmRoute;
-      if (waypoints.length == 1) {
-        osrmRoute = await osrm.getOptimizedRoute(
-          startLat: warehouseLat,
-          startLng: warehouseLng,
-          waypoints: waypoints,
-          endLat: warehouseLat,
-          endLng: warehouseLng,
-        );
-      } else {
-        osrmRoute = await osrm.getOptimizedRoute(
-          startLat: warehouseLat,
-          startLng: warehouseLng,
-          waypoints: waypoints,
-          endLat: warehouseLat,
-          endLng: warehouseLng,
-        );
-      }
+      osrmRoute = await osrm.getOptimizedRoute(
+        startLat: originLat,
+        startLng: originLng,
+        waypoints: waypoints,
+        endLat: originLat,
+        endLng: originLng,
+      );
 
       if (osrmRoute != null && osrmRoute.polyline.isNotEmpty) {
         // Защита от слишком длинных polyline (Firestore doc limit 1MB)

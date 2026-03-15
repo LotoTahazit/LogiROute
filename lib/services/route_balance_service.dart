@@ -132,8 +132,8 @@ class RouteBalanceService {
       double distanceKm = 0;
       if (i == 0) {
         distanceKm = RouteOptimizer.calculateDistance(
-          32.48698,
-          34.982121,
+          AppConfig.defaultWarehouseLat,
+          AppConfig.defaultWarehouseLng,
           point.latitude,
           point.longitude,
         );

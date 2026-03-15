@@ -1557,5 +1557,14 @@
     "placeholders": { "name": { "type": "String" } }
   },
   "checkNotDuplicate": "Make sure this is not a duplicate order!",
-  "deleteDuplicates": "Delete duplicates"
+  "deleteDuplicates": "Delete duplicates",
+
+  "driverRouteTitle": "Driver route",
+  "wazeOpenError": "Error opening Waze: {error}",
+  "@wazeOpenError": { "placeholders": { "error": { "type": "String" } } },
+  "remainingLabel": "Remaining",
+  "percentCompleted": "{percent}% completed",
+  "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
+  "nPoints": "{count} points",
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
 }

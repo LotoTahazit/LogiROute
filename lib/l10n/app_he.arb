@@ -1501,5 +1501,14 @@
   "exactDuplicateFound": "נמצאה הזמנה זהה לחלוטין עבור {name}!",
   "existingOrdersFound": "נמצאו הזמנות קיימות עבור {name}:",
   "checkNotDuplicate": "בדוק שזו לא הזמנה כפולה!",
-  "deleteDuplicates": "מחק כפילויות"
+  "deleteDuplicates": "מחק כפילויות",
+
+  "driverRouteTitle": "מסלול נהג",
+  "wazeOpenError": "שגיאה בפתיחת Waze: {error}",
+  "@wazeOpenError": { "placeholders": { "error": { "type": "String" } } },
+  "remainingLabel": "נותרו",
+  "percentCompleted": "{percent}% הושלם",
+  "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
+  "nPoints": "{count} נקודות",
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
 }
