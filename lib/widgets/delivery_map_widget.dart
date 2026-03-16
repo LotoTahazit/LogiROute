@@ -1614,10 +1614,8 @@ class _DeliveryMapWidgetState extends State<DeliveryMapWidget>
               '✅ [AutoComplete] Point ${point.clientName} completed! Distance: ${distance.toStringAsFixed(1)}m, Stopped: ${stoppedSeconds}s, Arrived: $arrivedNearPoint, OnRoute: $isOnRoute');
 
           // Обновляем Firestore
-          await FirebaseFirestore.instance
-              .collection('companies')
-              .doc(widget.companyId)
-              .collection('delivery_points')
+          await FirestorePaths()
+              .deliveryPointsRef(widget.companyId)
               .doc(point.id)
               .update({
             'status': DeliveryPoint.statusCompleted,

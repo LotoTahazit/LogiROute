@@ -169,6 +169,7 @@ class BackgroundLocationService {
     }
 
     final Map<String, DateTime> arrivalTimes = {};
+    String? lastGeoBucket;
 
     final driverDataSub = service.on('setDriverData').listen((event) {
       driverId = event?['driverId'] as String?;
@@ -248,29 +249,37 @@ class BackgroundLocationService {
 
         final now = DateTime.now();
 
-        // 1. Сохраняем координаты водителя
-        await FirestorePaths.driverLocationsOf(companyId!).doc(driverId).set({
-          'driverId': driverId,
-          'driverName': driverName,
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'timestamp': FieldValue.serverTimestamp(),
-          'accuracy': position.accuracy,
-          'speed': position.speed,
-          'role': 'driver',
-        }, SetOptions(merge: true));
-
-        // 1b. Сохраняем в history для треков
-        try {
-          await FirestorePaths.driverLocationsOf(companyId!)
-              .doc(driverId)
-              .collection('history')
-              .add({
+        final geoBucket = _buildGeoBucket(position.latitude, position.longitude);
+        final hasMovedBucket = geoBucket != lastGeoBucket;
+        if (hasMovedBucket) {
+          // 1. Сохраняем координаты водителя
+          await FirestorePaths.driverLocationsOf(companyId!).doc(driverId).set({
+            'driverId': driverId,
+            'driverName': driverName,
             'latitude': position.latitude,
             'longitude': position.longitude,
             'timestamp': FieldValue.serverTimestamp(),
             'accuracy': position.accuracy,
-          });
+            'speed': position.speed,
+            'role': 'driver',
+            'geoBucket': geoBucket,
+          }, SetOptions(merge: true));
+          lastGeoBucket = geoBucket;
+        }
+
+        // 1b. Сохраняем в history для треков
+        try {
+          if (hasMovedBucket) {
+            await FirestorePaths.driverLocationsOf(companyId!)
+                .doc(driverId)
+                .collection('history')
+                .add({
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'timestamp': FieldValue.serverTimestamp(),
+              'accuracy': position.accuracy,
+            });
+          }
         } catch (e) {
           debugPrint('⚠️ [BGService] Error saving location to Firestore: $e');
         }
@@ -354,5 +363,11 @@ class BackgroundLocationService {
             math.sin(dLon / 2) *
             math.sin(dLon / 2);
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  static String _buildGeoBucket(double lat, double lng) {
+    final latBucket = (lat * 10000).floor() / 10000;
+    final lngBucket = (lng * 10000).floor() / 10000;
+    return '${latBucket}_$lngBucket';
   }
 }

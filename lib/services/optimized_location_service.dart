@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,6 +28,7 @@ class OptimizedLocationService {
   Position? _lastSavedPosition;
   DateTime? _lastSaveTime;
   Timer? _batchTimer;
+  String? _lastGeoBucket;
 
   // Configuration
   static const Duration batchInterval = Duration(seconds: 30);
@@ -160,8 +161,11 @@ class OptimizedLocationService {
 
     try {
       final timestamp = Timestamp.now();
+      final geoBucket = _buildGeoBucket(position.latitude, position.longitude);
+      if (_lastGeoBucket == geoBucket) return;
       _lastSavedPosition = position;
       _lastSaveTime = DateTime.now();
+      _lastGeoBucket = geoBucket;
 
       // ⚡ OPTIMIZATION: Single write instead of two
       await _driverLocationsRef.doc(_currentDriverId).set({
@@ -171,6 +175,7 @@ class OptimizedLocationService {
         'accuracy': position.accuracy,
         'speed': position.speed,
         'heading': position.heading,
+        'geoBucket': geoBucket,
       }, SetOptions(merge: true));
 
       // ⚡ OPTIMIZATION: History с лимитом 500 записей
@@ -229,6 +234,13 @@ class OptimizedLocationService {
     _lastPosition = null;
     _lastSavedPosition = null;
     _lastSaveTime = null;
+    _lastGeoBucket = null;
+  }
+
+  String _buildGeoBucket(double lat, double lng) {
+    final latBucket = (lat * 10000).floor() / 10000;
+    final lngBucket = (lng * 10000).floor() / 10000;
+    return '${latBucket}_$lngBucket';
   }
 
   void checkPointCompletion(
@@ -329,13 +341,19 @@ class OptimizedLocationService {
   Stream<List<Map<String, dynamic>>> getAllDriverLocationsStream({
     List<String>? driverIds,
   }) {
+    final isFallbackMode =
+        !(driverIds != null && driverIds.isNotEmpty && driverIds.length <= 10);
+    final freshCutoff = DateTime.now().subtract(const Duration(minutes: 10));
+
     // ⚡ Если переданы конкретные водители — слушаем только их (в 10-50x дешевле)
     Query query;
     if (driverIds != null && driverIds.isNotEmpty && driverIds.length <= 10) {
       query =
           _driverLocationsRef.where(FieldPath.documentId, whereIn: driverIds);
     } else {
-      query = _driverLocationsRef.where('role', isEqualTo: 'driver');
+      query = _driverLocationsRef
+          .where('role', isEqualTo: 'driver')
+          .limit(200);
     }
 
     return query.snapshots().map((snapshot) {
@@ -345,9 +363,17 @@ class OptimizedLocationService {
             if (data == null) return null;
             final lat = (data['latitude'] as num?)?.toDouble();
             final lng = (data['longitude'] as num?)?.toDouble();
+            final ts = data['timestamp'];
+            final updatedAt = ts is Timestamp
+                ? ts.toDate()
+                : (ts is DateTime ? ts : null);
 
             // ⚠️ Пропускаем записи без координат
             if (lat == null || lng == null || (lat == 0 && lng == 0)) {
+              return null;
+            }
+            if (isFallbackMode &&
+                (updatedAt == null || updatedAt.isBefore(freshCutoff))) {
               return null;
             }
 

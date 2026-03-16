@@ -1,5 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/company_context.dart';
 
+/// FIRESTORE SCHEMA
+/// This file is the single source of truth for all Firestore paths.
+/// Direct Firestore paths are forbidden elsewhere in the codebase
+/// (except logging/debug strings).
+///
 /// Централизованный хелпер для путей Firestore
 ///
 /// ВАЖНО: Используйте этот класс для всех путей к коллекциям!
@@ -9,6 +15,11 @@ class FirestorePaths {
 
   FirestorePaths({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  /// Создать FirestorePaths из CompanyContext.
+  static FirestorePaths fromContext(CompanyContext ctx) {
+    return FirestorePaths(firestore: ctx.firestore);
+  }
 
   // ============================================================================
   // ROOT LEVEL COLLECTIONS (глобальные, не зависят от компании)
@@ -82,6 +93,11 @@ class FirestorePaths {
         .collection('product_types');
   }
 
+  /// Typed ref: product_types
+  CollectionReference<Map<String, dynamic>> productTypesRef(String companyId) {
+    return productTypes(companyId);
+  }
+
   /// Коллекция инвентаризаций компании
   CollectionReference<Map<String, dynamic>> inventoryCounts(String companyId) {
     return _firestore
@@ -126,6 +142,11 @@ class FirestorePaths {
         .collection('delivery_points');
   }
 
+  /// Typed ref: delivery_points
+  CollectionReference<Map<String, dynamic>> deliveryPointsRef(String companyId) {
+    return deliveryPoints(companyId);
+  }
+
   /// Коллекция маршрутов компании (1 документ = 1 маршрут водителя за день)
   CollectionReference<Map<String, dynamic>> routes(String companyId) {
     return _firestore
@@ -136,6 +157,60 @@ class FirestorePaths {
         .collection('routes');
   }
 
+  /// Typed ref: routes
+  CollectionReference<Map<String, dynamic>> routesRef(String companyId) {
+    return routes(companyId);
+  }
+
+  /// Коллекция drivers компании (логистический справочник водителей)
+  CollectionReference<Map<String, dynamic>> drivers(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('drivers');
+  }
+
+  /// Typed ref: drivers
+  CollectionReference<Map<String, dynamic>> driversRef(String companyId) {
+    return drivers(companyId);
+  }
+
+  /// Коллекция trucks компании
+  CollectionReference<Map<String, dynamic>> trucks(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('trucks');
+  }
+
+  /// Документ маршрута
+  DocumentReference<Map<String, dynamic>> routeDoc(
+      String companyId, String routeId) {
+    return routes(companyId).doc(routeId);
+  }
+
+  /// Подколлекция stop-ов внутри маршрута
+  CollectionReference<Map<String, dynamic>> routeStops(
+      String companyId, String routeId) {
+    return routeDoc(companyId, routeId).collection('stops');
+  }
+
+  /// Документ stop-а внутри маршрута
+  DocumentReference<Map<String, dynamic>> stopDoc(
+      String companyId, String routeId, String stopId) {
+    return routeStops(companyId, routeId).doc(stopId);
+  }
+
+  /// Подколлекция событий внутри stop-а
+  CollectionReference<Map<String, dynamic>> stopEvents(
+      String companyId, String routeId, String stopId) {
+    return stopDoc(companyId, routeId, stopId).collection('events');
+  }
+
   /// Коллекция кешированных маршрутов компании
   CollectionReference<Map<String, dynamic>> cachedRoutes(String companyId) {
     return _firestore
@@ -144,6 +219,26 @@ class FirestorePaths {
         .collection('logistics')
         .doc('_root')
         .collection('cached_routes');
+  }
+
+  /// История маршрутов компании
+  CollectionReference<Map<String, dynamic>> routeHistory(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('route_history');
+  }
+
+  /// События доставки компании
+  CollectionReference<Map<String, dynamic>> deliveryEvents(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('delivery_events');
   }
 
   /// Коллекция цен компании
@@ -166,6 +261,12 @@ class FirestorePaths {
         .collection('companies')
         .doc(companyId)
         .collection('driver_locations');
+  }
+
+  /// Typed ref: driver_locations
+  CollectionReference<Map<String, dynamic>> driverLocationsRef(
+      String companyId) {
+    return driverLocations(companyId);
   }
 
   /// Документ локации конкретного водителя
@@ -249,6 +350,11 @@ class FirestorePaths {
         .collection('accounting')
         .doc('_root')
         .collection('invoices');
+  }
+
+  /// Typed ref: invoices
+  CollectionReference<Map<String, dynamic>> invoicesRef(String companyId) {
+    return invoices(companyId);
   }
 
   /// Коллекция счётчиков компании (accounting)
@@ -375,6 +481,48 @@ class FirestorePaths {
         .collection('companies')
         .doc(companyId)
         .collection('audit');
+  }
+
+  /// Support: коллекция платёжных событий компании
+  CollectionReference<Map<String, dynamic>> paymentEvents(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('payment_events');
+  }
+
+  /// Support: алиас для аудит-логов (текущий источник — collection('audit'))
+  CollectionReference<Map<String, dynamic>> auditLogs(String companyId) {
+    return audit(companyId);
+  }
+
+  /// Support: тикеты поддержки компании
+  CollectionReference<Map<String, dynamic>> supportTickets(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('support_tickets');
+  }
+
+  /// Support: логи push-доставки компании
+  CollectionReference<Map<String, dynamic>> pushDeliveryLogs(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('push_delivery_logs');
+  }
+
+  /// Support: логи email-доставки компании
+  CollectionReference<Map<String, dynamic>> emailDeliveryLogs(
+      String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('email_delivery_logs');
   }
 
   /// Коллекция бухгалтерских документов компании
