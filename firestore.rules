@@ -125,7 +125,7 @@ service cloud.firestore {
       return isSuperAdmin() || (
         isCompanyMember(companyId) && billingAllowsWrite(companyId) && hasModule(companyId, moduleKey) && (
           (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher'])) ||
-          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper', 'dispatcher'])) ||
           (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant'])) ||
           (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
         )

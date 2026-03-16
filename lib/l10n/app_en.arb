@@ -18,6 +18,7 @@
   "deliveryPoints": "Delivery Points",
   "addPoint": "Add Point",
   "createRoute": "Create Route",
+  "createRouteByZone": "Route by Zone",
   "address": "Address",
   "clientName": "Client Name",
   "clientNumber": "Client Number",

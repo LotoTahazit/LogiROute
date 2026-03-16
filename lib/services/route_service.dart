@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/delivery_point.dart';
 import '../models/user_model.dart';
-import '../models/box_type.dart';
+import '../models/route_status.dart';
 import '../config/app_config.dart';
 import 'api_config_service.dart';
 import 'client_learning_service.dart';
@@ -12,6 +12,7 @@ import 'route_optimizer.dart';
 import 'route_safety_service.dart';
 import 'route_balance_service.dart';
 import 'osrm_navigation_service.dart';
+import 'route_builder_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'firestore_paths.dart';
@@ -470,35 +471,44 @@ class RouteService {
     print(
         '⚖️ [RouteService] Driver truck weight: ${truckWeight.toStringAsFixed(1)}t');
 
-    // Получаем позицию: если водитель уже в пути → его GPS, иначе склад
+    // Определяем стартовую точку через RouteBuilderService
+    final routeBuilder = RouteBuilderService(companyId);
+
     Map<String, double>? startLocation;
+    if (useDispatcherLocation) {
+      // Для диспетчера: проверяем, есть ли у водителя активные точки
+      final existingActive = await _deliveryPointsCollection()
+          .where('driverId', isEqualTo: driverId)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .limit(1)
+          .get();
+      final driverOnRoute = existingActive.docs.isNotEmpty;
 
-    // Проверяем, есть ли у водителя активные точки (= он уже на маршруте)
-    final existingActive = await _deliveryPointsCollection()
-        .where('driverId', isEqualTo: driverId)
-        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
-        .limit(1)
-        .get();
-    final driverOnRoute = existingActive.docs.isNotEmpty;
-
-    if (driverOnRoute) {
-      // Водитель уже на маршруте → используем его GPS
-      startLocation = await _getDriverCurrentLocation(driverId);
-      if (startLocation != null) {
+      if (driverOnRoute) {
+        // Водитель уже на маршруте → используем его GPS с fallback на склад
+        startLocation =
+            await routeBuilder.getRouteStartPoint(driverId, RouteStatus.active);
+        if (startLocation == null) {
+          // GPS недоступен → fallback на склад
+          startLocation = await routeBuilder.getRouteStartPoint(
+              driverId, RouteStatus.planned);
+          print(
+              '⚠️ [RouteService] Driver GPS unavailable — fallback to warehouse');
+        }
         print(
-            '🚛 [RouteService] Driver on route — using live GPS: (${startLocation['latitude']}, ${startLocation['longitude']})');
+            '🚛 [RouteService] Driver on route — using GPS: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
       } else {
-        // GPS недоступен → fallback на склад
-        startLocation = await _getDispatcherLocation();
+        // Новый маршрут → начинаем со склада
+        startLocation = await routeBuilder.getRouteStartPoint(
+            driverId, RouteStatus.planned);
         print(
-            '⚠️ [RouteService] Driver GPS unavailable — falling back to warehouse');
+            '🏭 [RouteService] New route — using warehouse: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
       }
-    } else if (useDispatcherLocation) {
-      startLocation = await _getDispatcherLocation();
-      print('🏭 [RouteService] New route — using warehouse location');
     } else {
+      // Для оптимизации: всегда GPS водителя (если доступен)
       startLocation = await _getDriverCurrentLocation(driverId);
-      print('🚛 [RouteService] Using driver location for route optimization');
+      print(
+          '🚛 [RouteService] Using driver location for optimization: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
     }
 
     // Combined optimization algorithm with real position
@@ -551,62 +561,68 @@ class RouteService {
         startLocation: startLocation);
   }
 
-  /// 🏭 Получает позицию склада из настроек компании
-  Future<Map<String, double>?> _getDispatcherLocation() async {
+  /// � Начать маршрут — установить статус active
+  Future<void> startRoute(String routeId,
+      {Map<String, dynamic>? metadata}) async {
     try {
-      // 1. Company config (основной путь — как CompanyCache)
-      final configDoc = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('config')
-          .get();
+      final now = Timestamp.now();
 
-      if (configDoc.exists) {
-        final data = configDoc.data()!;
-        final lat = (data['warehouseLat'] as num?)?.toDouble();
-        final lng = (data['warehouseLng'] as num?)?.toDouble();
-        if (lat != null && lng != null && lat != 0 && lng != 0) {
-          print(
-              '🏭 [RouteService] Warehouse from company config: ($lat, $lng)');
-          return {'latitude': lat, 'longitude': lng};
-        }
-      }
+      await _routesCollection().doc(routeId).update({
+        'status': RouteStatus.active.name,
+        'startedAt': now,
+        'updatedAt': now,
+        if (metadata != null) ...metadata,
+      });
 
-      // 2. Legacy warehouse doc
-      final legacyDoc = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('warehouse')
-          .get();
-
-      if (legacyDoc.exists) {
-        final data = legacyDoc.data()!;
-        final lat = (data['lat'] as num?)?.toDouble();
-        final lng = (data['lng'] as num?)?.toDouble();
-        if (lat != null && lng != null && lat != 0 && lng != 0) {
-          print('🏭 [RouteService] Warehouse from legacy doc: ($lat, $lng)');
-          return {'latitude': lat, 'longitude': lng};
-        }
-      }
-
-      // 3. Fallback to AppConfig defaults
-      print('⚠️ [RouteService] No warehouse config, using AppConfig defaults');
-      return {
-        'latitude': AppConfig.defaultWarehouseLat,
-        'longitude': AppConfig.defaultWarehouseLng,
-      };
+      print('✅ [RouteService] Route $routeId started (status: active)');
     } catch (e) {
-      print('❌ [RouteService] Error getting warehouse location: $e');
-      return {
-        'latitude': AppConfig.defaultWarehouseLat,
-        'longitude': AppConfig.defaultWarehouseLng,
-      };
+      print('❌ [RouteService] Error starting route: $e');
+      rethrow;
     }
   }
 
-  /// 📍 Получает текущую позицию водителя из Firestore
+  /// 🏁 Завершить маршрут — установить статус completed
+  Future<void> finishRoute(String routeId,
+      {Map<String, dynamic>? metadata}) async {
+    try {
+      final now = Timestamp.now();
+
+      await _routesCollection().doc(routeId).update({
+        'status': RouteStatus.completed.name,
+        'completedAt': now,
+        'updatedAt': now,
+        if (metadata != null) ...metadata,
+      });
+
+      print('✅ [RouteService] Route $routeId finished (status: completed)');
+    } catch (e) {
+      print('❌ [RouteService] Error finishing route: $e');
+      rethrow;
+    }
+  }
+
+  /// ❌ Отменить маршрут — установить статус cancelled
+  Future<void> cancelRoute(String routeId,
+      {String? reason, Map<String, dynamic>? metadata}) async {
+    try {
+      final now = Timestamp.now();
+
+      await _routesCollection().doc(routeId).update({
+        'status': RouteStatus.cancelled.name,
+        'cancelledAt': now,
+        'updatedAt': now,
+        if (reason != null) 'cancelReason': reason,
+        if (metadata != null) ...metadata,
+      });
+
+      print('✅ [RouteService] Route $routeId cancelled (reason: $reason)');
+    } catch (e) {
+      print('❌ [RouteService] Error cancelling route: $e');
+      rethrow;
+    }
+  }
+
+  /// � Получает текущую позицию водителя из Firestore
   Future<Map<String, double>?> _getDriverCurrentLocation(
       String driverId) async {
     try {
@@ -722,9 +738,17 @@ class RouteService {
     print(
         '📦 [RouteService] Updating boxTypes for point $pointId: ${boxTypes.length} items');
     try {
-      final boxes = boxTypes.whereType<BoxType>().toList();
-      final boxMaps = boxes.map((bt) => bt.toMap()).toList();
-      final totalBoxes = boxes.fold<int>(0, (s, bt) => s + bt.quantity);
+      // Безопасное преобразование box types
+      final boxMaps = <Map<String, dynamic>>[];
+      int totalBoxes = 0;
+
+      for (final boxType in boxTypes) {
+        if (boxType is Map<String, dynamic>) {
+          boxMaps.add(boxType);
+          final quantity = boxType['quantity'] as num? ?? 0;
+          totalBoxes += quantity.toInt();
+        }
+      }
 
       // Пересчитываем миштахи по данным инвентаря
       int totalPallets = 0;
@@ -735,22 +759,26 @@ class RouteService {
         int fullPallets = 0;
         int remainderBoxes = 0;
 
-        for (final box in boxes) {
+        for (final box in boxMaps) {
+          final boxType = box['type'] as String? ?? '';
+          final boxNumber = box['number'] as String? ?? '';
+          final boxQuantity = (box['quantity'] as num?)?.toInt() ?? 0;
+
           final match = inventory.where(
-            (item) => item.type == box.type && item.number == box.number,
+            (item) => item.type == boxType && item.number == boxNumber,
           );
           final perPallet =
               match.isNotEmpty ? match.first.quantityPerPallet : 20;
 
           if (perPallet > 0) {
-            fullPallets += box.quantity ~/ perPallet;
-            remainderBoxes += box.quantity % perPallet;
+            fullPallets += boxQuantity ~/ perPallet;
+            remainderBoxes += boxQuantity % perPallet;
           } else {
-            remainderBoxes += box.quantity;
+            remainderBoxes += boxQuantity;
           }
 
           debugPrint(
-            '🔍 [Calc] ${box.type} ${box.number}: qty=${box.quantity}, perPallet=$perPallet, full=${box.quantity ~/ (perPallet > 0 ? perPallet : 1)}, rem=${perPallet > 0 ? box.quantity % perPallet : box.quantity}',
+            '🔍 [Calc] $boxType $boxNumber: qty=$boxQuantity, perPallet=$perPallet, full=${boxQuantity ~/ (perPallet > 0 ? perPallet : 1)}, rem=${perPallet > 0 ? boxQuantity % perPallet : boxQuantity}',
           );
         }
 
@@ -1029,7 +1057,7 @@ class RouteService {
   }
 
   /// ✅ Отмена маршрута - удаляем все точки конкретного маршрута
-  Future<void> cancelRoute(String driverId, String? routeId) async {
+  Future<void> cancelRoutePoints(String driverId, String? routeId) async {
     print(
         '🛑 [RouteService] Starting route cancellation for driverId: "$driverId", routeId: "$routeId"');
 
@@ -1542,17 +1570,10 @@ class RouteService {
         endLng: originLng,
       );
 
+      // Polyline больше не храним в Firestore - считаем на клиенте
       if (osrmRoute != null && osrmRoute.polyline.isNotEmpty) {
-        // Защита от слишком длинных polyline (Firestore doc limit 1MB)
-        final polylineStr = osrmRoute.polyline.length > 20000
-            ? osrmRoute.polyline.substring(0, 20000)
-            : osrmRoute.polyline;
-        // Сохраняем polyline в routes документ (не в каждую точку)
-        await _routesCollection().doc(routeId).set({
-          'polyline': polylineStr,
-        }, SetOptions(merge: true));
         print(
-            '✅ [RouteService] Route polyline saved to routes/$routeId (${osrmRoute.polyline.length} chars)');
+            '✅ [RouteService] Route polyline calculated on client (${osrmRoute.polyline.length} chars)');
       }
     } catch (e) {
       print('⚠️ [RouteService] Failed to cache route polyline: $e');

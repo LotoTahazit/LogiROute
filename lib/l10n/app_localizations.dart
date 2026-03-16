@@ -208,6 +208,12 @@ abstract class AppLocalizations {
   /// **'Create Route'**
   String get createRoute;
 
+  /// No description provided for @createRouteByZone.
+  ///
+  /// In en, this message translates to:
+  /// **'Route by Zone'**
+  String get createRouteByZone;
+
   /// No description provided for @address.
   ///
   /// In en, this message translates to:

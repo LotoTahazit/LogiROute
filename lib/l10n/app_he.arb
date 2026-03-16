@@ -18,6 +18,7 @@
   "deliveryPoints": "נקודות משלוח",
   "addPoint": "הוסף נקודה",
   "createRoute": "צור מסלול",
+  "createRouteByZone": "מסלול לפי אזור",
   "address": "כתובת",
   "clientName": "שם לקוח",
   "clientNumber": "מספר לקוח",

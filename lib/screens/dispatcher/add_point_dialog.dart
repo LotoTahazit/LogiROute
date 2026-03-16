@@ -630,6 +630,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
         longitude: longitude,
         pallets: int.tryParse(_palletsController.text) ?? 0,
         boxes: int.tryParse(_boxesController.text) ?? 0,
+        zone: client.zones.isNotEmpty ? client.zones.first : null,
         urgency: _urgency,
         status: 'pending',
         driverId: null,

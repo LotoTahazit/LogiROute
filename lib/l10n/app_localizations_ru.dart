@@ -64,6 +64,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createRoute => 'Создать маршрут';
 
   @override
+  String get createRouteByZone => 'Маршрут по зоне';
+
+  @override
   String get address => 'Адрес';
 
   @override

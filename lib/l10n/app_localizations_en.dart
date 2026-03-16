@@ -64,6 +64,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createRoute => 'Create Route';
 
   @override
+  String get createRouteByZone => 'Route by Zone';
+
+  @override
   String get address => 'Address';
 
   @override

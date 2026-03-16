@@ -22,6 +22,10 @@
     ],
     "rewrites": [
       {
+        "source": "/.env",
+        "destination": "/.env"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

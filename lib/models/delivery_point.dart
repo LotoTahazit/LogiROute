@@ -70,6 +70,7 @@ class DeliveryPoint {
   final double? distanceKm; // Расстояние от предыдущей точки (км)
   final String? routeId; // ID маршрута для группировки точек
   final String? routePolyline; // Кешированная полилиния маршрута (encoded)
+  final String? zone; // Район клиента из ClientModel.zones
   final String? updatedByUid; // Аудит: кто последний обновил статус
   final DateTime? updatedAt; // Аудит: когда последний раз обновлён статус
   final DateTime? createdAt; // Когда создана точка
@@ -100,6 +101,7 @@ class DeliveryPoint {
     this.distanceKm,
     this.routeId,
     this.routePolyline,
+    this.zone,
     this.updatedByUid,
     this.updatedAt,
     this.createdAt,
@@ -164,8 +166,9 @@ class DeliveryPoint {
             ? (map['distanceKm'] as num).toDouble()
             : double.tryParse('${map['distanceKm']}'),
         routeId: map['routeId']?.toString(),
-        routePolyline: map['routePolyline']?.toString(),
-        updatedByUid: map['updatedByUid']?.toString(),
+        routePolyline: map['routePolyline'],
+        zone: map['zone']?.toString(),
+        updatedByUid: map['updatedByUid'],
         updatedAt: map['updatedAt'] != null && map['updatedAt'] is Timestamp
             ? (map['updatedAt'] as Timestamp).toDate()
             : null,
@@ -217,6 +220,7 @@ class DeliveryPoint {
       if (distanceKm != null) 'distanceKm': distanceKm,
       if (routeId != null) 'routeId': routeId,
       if (routePolyline != null) 'routePolyline': routePolyline,
+      if (zone != null) 'zone': zone,
       if (updatedByUid != null) 'updatedByUid': updatedByUid,
       // Timestamps: createdAt fallback to server, updatedAt always refreshed
       'createdAt': createdAt != null

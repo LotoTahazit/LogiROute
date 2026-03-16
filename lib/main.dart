@@ -4,7 +4,6 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
@@ -16,6 +15,8 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  const googleMapsKey = String.fromEnvironment('GOOGLE_MAPS_WEB_KEY');
 
   // 🔥 Глобальный ловец ошибок Flutter
   FlutterError.onError = (details) {
@@ -30,17 +31,6 @@ void main() async {
     debugPrint('$stack');
     return true;
   };
-
-  // 🔐 Загрузка переменных окружения из .env файла
-  try {
-    await dotenv.load(fileName: ".env");
-    debugPrint(
-        '✅ [dotenv] Loaded ${dotenv.env.length} vars: ${dotenv.env.keys.toList()}');
-    debugPrint(
-        '✅ [dotenv] GOOGLE_MAPS_WEB_KEY=${dotenv.env['GOOGLE_MAPS_WEB_KEY']?.isNotEmpty == true ? '***set***' : 'EMPTY'}');
-  } catch (e) {
-    debugPrint('❌ [dotenv] Failed to load .env: $e');
-  }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 

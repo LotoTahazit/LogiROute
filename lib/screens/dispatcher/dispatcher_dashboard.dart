@@ -425,7 +425,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
     if (confirmed) {
       final routeService = RouteService(companyId: companyId);
-      await routeService.cancelRoute(driverId, routeId);
+      await routeService.cancelRoutePoints(driverId, routeId);
       if (mounted) {
         setState(() {
           _lastNonEmptyRoutes = [];

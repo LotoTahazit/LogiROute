@@ -84,7 +84,7 @@ flutter:
     # 🧩 Просто указываем папку — Flutter автоматически подхватит все шрифты
     - assets/fonts/
     # 🔐 Файл с переменными окружения
-    - .env
+    - .env.local
     # 🖼 Логотип приложения
     - assets/logo.png
     - assets/company_logo.png

@@ -18,6 +18,7 @@
   "deliveryPoints": "Точки доставки",
   "addPoint": "Добавить точку",
   "createRoute": "Создать маршрут",
+  "createRouteByZone": "Маршрут по зоне",
   "address": "Адрес",
   "clientName": "Имя клиента",
   "clientNumber": "Номер клиента",

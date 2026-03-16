@@ -1,0 +1,1 @@
+flutter build apk --dart-define-from-file=.env.local

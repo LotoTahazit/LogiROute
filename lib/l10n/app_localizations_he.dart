@@ -63,6 +63,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get createRoute => 'צור מסלול';
 
   @override
+  String get createRouteByZone => 'מסלול לפי אזור';
+
+  @override
   String get address => 'כתובת';
 
   @override
