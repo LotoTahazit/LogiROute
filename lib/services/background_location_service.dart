@@ -46,7 +46,7 @@ class BackgroundLocationService {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: false, // НЕ стартуем при обычном запуске приложения
+        autoStart: true, // ✅ Автостарт foreground-service
         autoStartOnBoot: true, // ✅ Стартуем после перезагрузки телефона
         isForegroundMode: true,
         notificationChannelId: notificationChannelId,
@@ -105,6 +105,9 @@ class BackgroundLocationService {
 
   @pragma('vm:entry-point')
   static void onStart(ServiceInstance service) async {
+    if (service is AndroidServiceInstance) {
+      service.setAsForegroundService();
+    }
     DartPluginRegistrant.ensureInitialized();
 
     String? driverId;
@@ -249,7 +252,8 @@ class BackgroundLocationService {
 
         final now = DateTime.now();
 
-        final geoBucket = _buildGeoBucket(position.latitude, position.longitude);
+        final geoBucket =
+            _buildGeoBucket(position.latitude, position.longitude);
         final hasMovedBucket = geoBucket != lastGeoBucket;
         if (hasMovedBucket) {
           // 1. Сохраняем координаты водителя
@@ -348,9 +352,13 @@ class BackgroundLocationService {
 
   /// Проверяет рабочее время (Вс-Чт 7:00-17:00, Израиль)
   static bool _isWorkTime(DateTime time) {
+    // ЗАКОММЕНТИРОВАНО: GPS работает всегда, независимо от времени
     // Пятница (5) и Суббота (6) — выходные
-    if (time.weekday == 5 || time.weekday == 6) return false;
-    return time.hour >= 7 && time.hour < 17;
+    // if (time.weekday == 5 || time.weekday == 6) return false;
+    // return time.hour >= 7 && time.hour < 17;
+
+    // GPS работает ВСЕГДА
+    return true;
   }
 
   static double _distance(double lat1, double lon1, double lat2, double lon2) {

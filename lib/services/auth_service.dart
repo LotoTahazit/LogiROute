@@ -8,6 +8,7 @@ import '../services/locale_service_stub.dart'
     if (dart.library.html) '../services/locale_service_web.dart';
 import '../services/company_settings_service.dart';
 import '../services/background_location_service.dart';
+import 'firestore_paths.dart';
 
 class AuthService extends ChangeNotifier {
   Future<String?> sendPasswordResetEmail(String email) async {
@@ -211,11 +212,13 @@ class AuthService extends ChangeNotifier {
       // ✅ Проверяем существует ли компания
       if (companyId.isNotEmpty) {
         final companyDoc =
-            await _firestore.collection('companies').doc(companyId).get();
+            await FirestorePaths(firestore: _firestore).companyDoc(companyId).get();
 
         // ✅ Если компании нет - создаём её с инициализацией
         if (!companyDoc.exists) {
-          await _firestore.collection('companies').doc(companyId).set({
+          await FirestorePaths(firestore: _firestore)
+              .companyDoc(companyId)
+              .set({
             'name': companyId, // Используем ID как имя по умолчанию
             'createdAt': FieldValue.serverTimestamp(),
             'createdBy': _userModel?.uid ?? 'system',

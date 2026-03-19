@@ -6,6 +6,7 @@ import '../../services/invoice_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/issuance_service.dart';
+import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -43,10 +44,9 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
 
     // Проверка period lock: credit note наследует deliveryDate от оригинала
     try {
-      final companyDoc = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(widget.originalInvoice.companyId)
-          .get();
+      final companyCtx = CompanyContext.of(context);
+      final companyDoc =
+          await companyCtx.paths.companyDoc(widget.originalInvoice.companyId).get();
       final data = companyDoc.data() ?? {};
       if (data['accountingLockedUntil'] != null) {
         final lockedUntil =

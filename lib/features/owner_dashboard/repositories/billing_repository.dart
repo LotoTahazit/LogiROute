@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/firestore_paths.dart';
 
 import '../models/billing_invoice.dart';
 
@@ -31,11 +32,11 @@ class BillingRepository {
 
   /// Ссылка на документ компании.
   DocumentReference<Map<String, dynamic>> get _companyDoc =>
-      _firestore.collection('companies').doc(companyId);
+      FirestorePaths(firestore: _firestore).companyDoc(companyId);
 
   /// Ссылка на коллекцию billing_invoices компании.
   CollectionReference<Map<String, dynamic>> get _invoicesCollection =>
-      _companyDoc.collection('billing_invoices');
+      FirestorePaths(firestore: _firestore).billingInvoices(companyId);
 
   /// Стрим биллинговой информации из документа компании.
   ///

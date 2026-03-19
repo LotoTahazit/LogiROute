@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/firestore_paths.dart';
 
 import '../models/invite.dart';
 import '../models/role_hierarchy.dart';
@@ -32,7 +33,7 @@ class InvitesRepository {
 
   /// Ссылка на коллекцию invites компании.
   CollectionReference<Map<String, dynamic>> get _invitesCollection =>
-      _firestore.collection('companies').doc(companyId).collection('invites');
+      FirestorePaths(firestore: _firestore).invites(companyId);
 
   /// Создаёт новое приглашение в компанию.
   ///

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firestore_paths.dart';
 
 /// Cross-module audit log — пишет в companies/{companyId}/audit/{eventId}
 /// Append-only: create only, update/delete запрещены правилами.
@@ -43,7 +44,7 @@ class CrossModuleAuditService {
   ];
 
   CollectionReference<Map<String, dynamic>> get _auditRef =>
-      _firestore.collection('companies').doc(companyId).collection('audit');
+      FirestorePaths(firestore: _firestore).audit(companyId);
 
   /// Записать событие в cross-module audit log.
   /// [uid] — текущий auth uid (createdBy == request.auth.uid в rules).

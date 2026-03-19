@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/company_settings.dart';
+import 'firestore_paths.dart';
 
 /// Мягкий контроль лимитов по тарифу.
 /// Не блокирует — только предупреждает + отчёт.
@@ -34,7 +35,7 @@ class PlanLimitsService {
   /// Проверка текущего использования vs лимиты
   Future<PlanUsageReport> checkUsage() async {
     final companyDoc =
-        await _firestore.collection('companies').doc(companyId).get();
+        await FirestorePaths(firestore: _firestore).companyDoc(companyId).get();
     final data = companyDoc.data() ?? {};
     final plan = data['plan'] ?? 'full';
     final limits = data['limits'] != null

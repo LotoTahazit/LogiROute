@@ -17,6 +17,18 @@ class SmartNavigationService {
     String language = 'he',
     bool useOptimization = true,
   }) async {
+    // 🐞 DEBUG: Входные данные
+    debugPrint('🔍 [SmartNavigation] getMultiPointRoute called');
+    debugPrint('📍 [SmartNavigation] Start: ($startLat, $startLng)');
+    debugPrint('📍 [SmartNavigation] End: ($endLat, $endLng)');
+    debugPrint('📍 [SmartNavigation] Waypoints: ${waypoints.length} points');
+    if (waypoints.isNotEmpty) {
+      debugPrint(
+          '📍 [SmartNavigation] First waypoint: (${waypoints.first.latitude}, ${waypoints.first.longitude})');
+      debugPrint(
+          '📍 [SmartNavigation] Last waypoint: (${waypoints.last.latitude}, ${waypoints.last.longitude})');
+    }
+
     final uniqueWaypoints = <Map<String, double>>[];
     for (var p in waypoints) {
       final exists = uniqueWaypoints.any((w) =>
@@ -27,7 +39,10 @@ class SmartNavigationService {
       }
     }
 
+    debugPrint(
+        '📍 [SmartNavigation] Unique waypoints: ${uniqueWaypoints.length} points');
     final shouldOptimize = useOptimization && uniqueWaypoints.length > 3;
+    debugPrint('📍 [SmartNavigation] Should optimize: $shouldOptimize');
 
     try {
       OsrmRoute? osrmRoute;
@@ -63,8 +78,12 @@ class SmartNavigationService {
       if (osrmRoute != null) {
         if (osrmRoute.polyline.isEmpty) {
           debugPrint('❌ [SmartNavigation] OSRM returned empty polyline');
+          debugPrint(
+              '🐞 [SmartNavigation] Returning null due to empty polyline');
           return null;
         }
+        debugPrint(
+            '✅ [SmartNavigation] OSRM success: polyline length ${osrmRoute.polyline.length}');
         return NavigationRoute(
           distance: osrmRoute.formattedDistance,
           duration: osrmRoute.formattedDuration,
@@ -74,13 +93,16 @@ class SmartNavigationService {
         );
       } else {
         debugPrint('❌ [SmartNavigation] OSRM returned null route');
+        debugPrint('🐞 [SmartNavigation] OSRM result was null');
       }
     } catch (e) {
       debugPrint('❌ [SmartNavigation] OSRM multi-point failed: $e');
+      debugPrint('🐞 [SmartNavigation] Exception in OSRM: $e');
     }
 
     if (!kIsWeb) {
       try {
+        debugPrint('🔍 [SmartNavigation] Trying Google Navigation service');
         final googleRoute = await _google.getMultiPointRoute(
           startLat: startLat,
           startLng: startLng,
@@ -89,13 +111,21 @@ class SmartNavigationService {
           endLng: endLng,
           language: language,
         );
-        if (googleRoute != null) return googleRoute;
+        if (googleRoute != null) {
+          debugPrint(
+              '✅ [SmartNavigation] Google success: polyline length ${googleRoute.polyline.length}');
+          return googleRoute;
+        } else {
+          debugPrint('❌ [SmartNavigation] Google returned null route');
+        }
       } catch (e) {
         debugPrint('❌ [SmartNavigation] Google multi-point failed: $e');
+        debugPrint('🐞 [SmartNavigation] Exception in Google: $e');
       }
     }
 
     debugPrint('❌ [SmartNavigation] All multi-point services failed');
+    debugPrint('🐞 [SmartNavigation] Final return null - no route available');
     return null;
   }
 

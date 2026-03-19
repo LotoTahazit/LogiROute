@@ -143,7 +143,8 @@ class FirestorePaths {
   }
 
   /// Typed ref: delivery_points
-  CollectionReference<Map<String, dynamic>> deliveryPointsRef(String companyId) {
+  CollectionReference<Map<String, dynamic>> deliveryPointsRef(
+      String companyId) {
     return deliveryPoints(companyId);
   }
 
@@ -260,7 +261,9 @@ class FirestorePaths {
     return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('driver_locations');
+        .collection('logistics')
+        .doc('_root')
+        .collection('drivers');
   }
 
   /// Typed ref: driver_locations
@@ -272,22 +275,13 @@ class FirestorePaths {
   /// Документ локации конкретного водителя
   DocumentReference<Map<String, dynamic>> driverLocation(
       String companyId, String driverId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('driver_locations')
-        .doc(driverId);
+    return driverLocations(companyId).doc(driverId);
   }
 
   /// История GPS водителя
   CollectionReference<Map<String, dynamic>> driverLocationHistory(
       String companyId, String driverId) {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('driver_locations')
-        .doc(driverId)
-        .collection('history');
+    return driverLocation(companyId, driverId).collection('history');
   }
 
   // --- Static shortcuts (для сервисов без инстанса FirestorePaths) ---
@@ -316,16 +310,18 @@ class FirestorePaths {
   /// Static: коллекция driver_locations компании
   static CollectionReference<Map<String, dynamic>> driverLocationsOf(
       String companyId) {
-    return FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
-        .collection('driver_locations');
+    // ИЗМЕНЕНО: используем глобальный путь driver_locations
+    return FirebaseFirestore.instance.collection('driver_locations');
   }
 
   /// Static: история GPS водителя
   static CollectionReference<Map<String, dynamic>> driverHistoryOf(
       String companyId, String driverId) {
-    return driverLocationsOf(companyId).doc(driverId).collection('history');
+    // ИЗМЕНЕНО: используем глобальный путь driver_locations
+    return FirebaseFirestore.instance
+        .collection('driver_locations')
+        .doc(driverId)
+        .collection('history');
   }
 
   /// Static: документ конфигурации компании

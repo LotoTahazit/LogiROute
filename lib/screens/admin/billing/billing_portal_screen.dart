@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/company_context.dart';
 import '../../../services/plan_limits_service.dart';
 import '../../../services/checkout_service.dart';
+import '../../../services/firestore_paths.dart';
 import '../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../utils/file_download_web.dart';
 import 'billing_helpers.dart';
@@ -71,8 +72,9 @@ class _BillingPortalScreenState extends State<BillingPortalScreen> {
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: StreamBuilder<DocumentSnapshot>(
-          stream:
-              _firestore.collection('companies').doc(_companyId).snapshots(),
+          stream: FirestorePaths(firestore: _firestore)
+              .companyDoc(_companyId)
+              .snapshots(),
           builder: (context, companySnap) {
             if (companySnap.hasError) {
               final l10n = AppLocalizations.of(context)!;
@@ -529,10 +531,8 @@ class _PaymentHistorySection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('companies')
-                  .doc(companyId)
-                  .collection('payment_events')
+              stream: FirestorePaths()
+                  .paymentEvents(companyId)
                   .orderBy('processedAt', descending: true)
                   .limit(20)
                   .snapshots(),

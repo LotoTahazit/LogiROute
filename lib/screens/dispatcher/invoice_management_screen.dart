@@ -122,10 +122,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     final authService = context.read<AuthService>();
     // Проверка period lock: квитанция наследует deliveryDate от invoice
     try {
-      final companyDoc = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .get();
+      final companyCtx = CompanyContext.of(context);
+      final companyDoc = await companyCtx.paths.companyDoc(companyId).get();
       final data = companyDoc.data() ?? {};
       if (data['accountingLockedUntil'] != null) {
         final lockedUntil =

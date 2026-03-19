@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../../services/firestore_paths.dart';
 
 /// Billing & Compliance Dashboard для super_admin.
 /// Один экран для управления 50–200 компаниями:
@@ -158,7 +159,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await _firestore.collection('companies').doc(companyId).update({
+      await FirestorePaths(firestore: _firestore).companyDoc(companyId).update({
         'billingStatus': newStatus,
         'billingStatusChangedAt': FieldValue.serverTimestamp(),
         'billingStatusChangedBy': 'super_admin:dashboard',

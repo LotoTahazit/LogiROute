@@ -594,11 +594,8 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
   @override
   void didUpdateWidget(_OptimizeTimeButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.routePoints != widget.routePoints ||
-        oldWidget.driverId != widget.driverId) {
-      _isSuboptimal = null;
-      _check();
-    }
+    _isSuboptimal = null;
+    _check();
   }
 
   Future<void> _check() async {

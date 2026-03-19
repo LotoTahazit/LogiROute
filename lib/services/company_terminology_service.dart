@@ -1,15 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/company_terminology.dart';
+import 'firestore_paths.dart';
 
 /// Сервис управления терминологией компании
 class CompanyTerminologyService {
   final String companyId;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   CompanyTerminologyService({required this.companyId});
 
   DocumentReference<Map<String, dynamic>> get _doc =>
-      _firestore.collection('companies').doc(companyId);
+      FirestorePaths().companyDoc(companyId);
 
   /// Получить терминологию компании
   Future<CompanyTerminology> getTerminology() async {

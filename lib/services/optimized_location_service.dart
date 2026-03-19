@@ -5,7 +5,80 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/delivery_point.dart';
 import '../config/app_config.dart';
-import 'firestore_paths.dart';
+
+const bool _enforceDriverRoleFilter = false;
+
+class SafeDriver {
+  final String id;
+  final double lat;
+  final double lng;
+  final DateTime? timestamp;
+  final String role;
+  final String companyId;
+  final String name;
+  final double speed;
+  final double heading;
+
+  SafeDriver({
+    required this.id,
+    required this.lat,
+    required this.lng,
+    required this.timestamp,
+    required this.role,
+    required this.companyId,
+    required this.name,
+    required this.speed,
+    required this.heading,
+  });
+
+  bool get hasValidLocation => lat != 0 && lng != 0;
+}
+
+SafeDriver? normalizeDriver(Map<String, dynamic>? data, String id) {
+  if (data == null) return null;
+
+  try {
+    final latRaw = data['latitude'] ?? data['lat'] ?? 0;
+    final lngRaw = data['longitude'] ?? data['lng'] ?? 0;
+    final lat = latRaw is num ? latRaw.toDouble() : 0.0;
+    final lng = lngRaw is num ? lngRaw.toDouble() : 0.0;
+
+    final timestampRaw = data['timestamp'];
+    DateTime? timestamp;
+    if (timestampRaw is DateTime) {
+      timestamp = timestampRaw;
+    } else if (timestampRaw is Timestamp) {
+      timestamp = timestampRaw.toDate();
+    }
+
+    final role = (data['role'] ?? '').toString().trim().toLowerCase();
+    final companyId = (data['companyId'] ?? '').toString();
+    final name = (data['driverName'] ?? data['name'] ?? 'Driver').toString();
+    final speedRaw = data['speed'];
+    final headingRaw = data['heading'];
+    final speed = speedRaw is num ? speedRaw.toDouble() : 0.0;
+    final heading = headingRaw is num ? headingRaw.toDouble() : 0.0;
+
+    final driver = SafeDriver(
+      id: id,
+      lat: lat,
+      lng: lng,
+      timestamp: timestamp,
+      role: role,
+      companyId: companyId,
+      name: name,
+      speed: speed,
+      heading: heading,
+    );
+
+    if (!driver.hasValidLocation) return null;
+    if (_enforceDriverRoleFilter && driver.role != 'driver') return null;
+    return driver;
+  } catch (e) {
+    debugPrint('❌ normalizeDriver error: $e');
+    return null;
+  }
+}
 
 /// Optimized Location Service with GPS batching
 /// ⚡ OPTIMIZATION: Reduces Firestore writes by 95%
@@ -39,8 +112,10 @@ class OptimizedLocationService {
   OptimizedLocationService(this.companyId);
 
   /// Company-scoped driver_locations collection reference
-  CollectionReference get _driverLocationsRef =>
-      FirestorePaths.driverLocationsOf(companyId);
+  CollectionReference get _driverLocationsRef => FirebaseFirestore.instance
+      .collection('companies')
+      .doc(companyId)
+      .collection('driver_locations');
 
   Future<void> startTracking(
     String driverId,
@@ -48,6 +123,8 @@ class OptimizedLocationService {
     Function(double, double) onLocationUpdate, {
     String? userRole,
   }) async {
+    debugPrint(
+        '🚀 [GPS] OptimizedLocationService STARTED for driver=$driverId');
     _currentDriverId = driverId;
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -89,6 +166,8 @@ class OptimizedLocationService {
         distanceFilter: AppConfig.locationDistanceFilter,
       ),
     ).listen((Position position) {
+      debugPrint(
+          '📍 [GPS] Position received: lat=${position.latitude} lng=${position.longitude}');
       _lastPosition = position;
 
       // Always update UI immediately (local only, no Firestore write)
@@ -168,6 +247,8 @@ class OptimizedLocationService {
       _lastGeoBucket = geoBucket;
 
       // ⚡ OPTIMIZATION: Single write instead of two
+      debugPrint(
+          '📡 [GPS SEND] driver=$_currentDriverId lat=${position.latitude} lng=${position.longitude}');
       await _driverLocationsRef.doc(_currentDriverId).set({
         'latitude': position.latitude,
         'longitude': position.longitude,
@@ -351,44 +432,33 @@ class OptimizedLocationService {
       query =
           _driverLocationsRef.where(FieldPath.documentId, whereIn: driverIds);
     } else {
-      query = _driverLocationsRef
-          .where('role', isEqualTo: 'driver')
-          .limit(200);
+      query = _driverLocationsRef.limit(200);
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs
-          .map((doc) {
-            final data = doc.data() as Map<String, dynamic>?;
-            if (data == null) return null;
-            final lat = (data['latitude'] as num?)?.toDouble();
-            final lng = (data['longitude'] as num?)?.toDouble();
-            final ts = data['timestamp'];
-            final updatedAt = ts is Timestamp
-                ? ts.toDate()
-                : (ts is DateTime ? ts : null);
-
-            // ⚠️ Пропускаем записи без координат
-            if (lat == null || lng == null || (lat == 0 && lng == 0)) {
-              return null;
-            }
-            if (isFallbackMode &&
-                (updatedAt == null || updatedAt.isBefore(freshCutoff))) {
-              return null;
-            }
-
-            return {
-              'driverId': doc.id,
-              'driverName': data['driverName']?.toString() ?? 'Driver',
-              'latitude': lat,
-              'longitude': lng,
-              'timestamp': data['timestamp'],
-              'speed': (data['speed'] as num?)?.toDouble() ?? 0.0,
-              'heading': (data['heading'] as num?)?.toDouble() ?? 0.0,
-            };
-          })
-          .whereType<Map<String, dynamic>>()
-          .toList();
+      final drivers = snapshot.docs
+          .map((doc) =>
+              normalizeDriver(doc.data() as Map<String, dynamic>?, doc.id))
+          .whereType<SafeDriver>()
+          .where((driver) =>
+              !isFallbackMode ||
+              (driver.timestamp != null &&
+                  !driver.timestamp!.isBefore(freshCutoff)))
+          .map((driver) {
+        debugPrint(
+            '📡 [GPS READ] driver=${driver.id} lat=${driver.lat} lng=${driver.lng}');
+        return {
+          'driverId': driver.id,
+          'driverName': driver.name,
+          'latitude': driver.lat,
+          'longitude': driver.lng,
+          'timestamp': driver.timestamp,
+          'speed': driver.speed,
+          'heading': driver.heading,
+        };
+      }).toList();
+      debugPrint('📡 [GPS READ] Total drivers: ${drivers.length}');
+      return drivers;
     });
   }
 

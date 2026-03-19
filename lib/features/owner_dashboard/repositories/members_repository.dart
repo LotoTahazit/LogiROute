@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/firestore_paths.dart';
 
 import '../models/member_with_user.dart';
 import '../models/membership.dart';
@@ -22,7 +23,7 @@ class MembersRepository {
 
   /// Ссылка на коллекцию members компании.
   CollectionReference<Map<String, dynamic>> get _membersCollection =>
-      _firestore.collection('companies').doc(companyId).collection('members');
+      FirestorePaths(firestore: _firestore).members(companyId);
 
   /// Ссылка на глобальную коллекцию users.
   CollectionReference<Map<String, dynamic>> get _usersCollection =>

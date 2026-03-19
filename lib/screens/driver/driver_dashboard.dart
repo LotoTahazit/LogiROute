@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
@@ -17,6 +18,12 @@ import '../../models/delivery_point.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
+import '../../services/firestore_paths.dart';
+
+// === ARRIVAL CONFIG ===
+const double kArrivalRadius = 150; // meters
+const double kStopSpeed = 2.0; // m/s (~7 km/h)
+const int kStopTimeSec = 12; // seconds
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -36,6 +43,29 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool _isTrackingActive = false;
   String _scheduleStatus = '';
   Timer? _scheduleStatusTimer;
+  DateTime _lastGpsNotificationSync = DateTime(2000);
+  DateTime? _stopStartTime;
+  String? _lastArrivedPointId;
+  double? _arrivalPrevLat;
+  double? _arrivalPrevLng;
+  DateTime? _arrivalPrevTime;
+
+  bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
+    if (local == null) return true;
+    if (incoming.updatedAt == null) return true;
+    if (local.updatedAt == null) return true;
+    return incoming.updatedAt!.isAfter(local.updatedAt!);
+  }
+
+  List<DeliveryPoint> _mergePointsByUpdatedAt(
+      List<DeliveryPoint> incomingPoints, List<DeliveryPoint> localPoints) {
+    if (localPoints.isEmpty) return incomingPoints;
+    final localById = {for (final p in localPoints) p.id: p};
+    return incomingPoints.map((incoming) {
+      final local = localById[incoming.id];
+      return _shouldApplyUpdate(incoming, local) ? incoming : local!;
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -62,6 +92,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     // Устанавливаем начальный статус
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isTrackingActive) {
+        _showGpsNotification();
+      }
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         setState(() {
@@ -99,6 +132,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   void _startTracking() {
+    debugPrint('🚀 [GPS] _startTracking() called from driver dashboard');
     final authService = context.read<AuthService>();
     final driverName = authService.userModel?.name ??
         (AppLocalizations.of(context)?.driverFallbackName ?? 'Driver');
@@ -115,6 +149,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
 
     // Foreground GPS (пока приложение открыто)
+    debugPrint('🚀 [GPS] Calling locationService.startTracking()');
     _locationService?.startTracking(
       driverId,
       driverName,
@@ -131,6 +166,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _realtimeGps.connectAsDriver();
 
     setState(() => _isTrackingActive = true);
+    _showGpsNotification();
     debugPrint('✅ [Driver] Tracking started: $driverName');
   }
 
@@ -139,6 +175,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     if (!kIsWeb) BackgroundLocationService.stop();
     _realtimeGps.dispose();
     setState(() => _isTrackingActive = false);
+    _hideGpsNotification();
     debugPrint('🛑 [Driver] Tracking stopped');
   }
 
@@ -163,6 +200,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   void _onLocationUpdate(double lat, double lon) {
     if (_routeService == null) return;
     final l10n = AppLocalizations.of(context)!;
+    if (_isTrackingActive) {
+      _showGpsNotification();
+    }
+    _handleArrivalLogic(lat, lon);
 
     // Отправляем GPS через WebSocket только если сдвинулись > 10м или прошло > 10 сек
     final now = DateTime.now();
@@ -226,6 +267,95 @@ class _DriverDashboardState extends State<DriverDashboard> {
           _isAutoCompleting = false;
         },
       );
+    }
+  }
+
+  void _handleArrivalLogic(double lat, double lon) {
+    final point = _currentPoint;
+    if (point == null) return;
+    if (point.status == DeliveryPoint.statusCompleted ||
+        point.status == DeliveryPoint.statusCancelled) {
+      _stopStartTime = null;
+      return;
+    }
+
+    if (_lastArrivedPointId == point.id) return;
+    if (point.arrivedAt != null) return;
+
+    final now = DateTime.now();
+    final distance =
+        _simpleDistanceMeters(lat, lon, point.latitude, point.longitude);
+    final isInsideRadius = distance <= kArrivalRadius;
+
+    double speedMps = double.infinity;
+    if (_arrivalPrevLat != null &&
+        _arrivalPrevLng != null &&
+        _arrivalPrevTime != null) {
+      final elapsedMs = now.difference(_arrivalPrevTime!).inMilliseconds;
+      if (elapsedMs > 0) {
+        final moved = _simpleDistanceMeters(
+          _arrivalPrevLat!,
+          _arrivalPrevLng!,
+          lat,
+          lon,
+        );
+        speedMps = moved / (elapsedMs / 1000.0);
+      }
+    }
+
+    final isSlow = speedMps <= kStopSpeed;
+    if (isInsideRadius && isSlow) {
+      _stopStartTime ??= now;
+      final stoppedSec = now.difference(_stopStartTime!).inSeconds;
+      if (stoppedSec >= kStopTimeSec) {
+        _lastArrivedPointId = point.id;
+        _markArrived(point.id);
+      }
+    } else {
+      _stopStartTime = null;
+    }
+
+    _arrivalPrevLat = lat;
+    _arrivalPrevLng = lon;
+    _arrivalPrevTime = now;
+  }
+
+  Future<void> _markArrived(String pointId) async {
+    try {
+      final authService = context.read<AuthService>();
+      final companyId = authService.userModel?.companyId ?? '';
+      if (companyId.isEmpty) return;
+      await FirestorePaths.deliveryPointsOf(companyId).doc(pointId).update({
+        'status': DeliveryPoint.statusInProgress,
+        'arrivedAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('ARRIVED: $pointId');
+    } catch (e) {
+      debugPrint('ARRIVAL ERROR: $e');
+    }
+  }
+
+  Future<void> _showGpsNotification() async {
+    if (kIsWeb) return;
+    final now = DateTime.now();
+    if (now.difference(_lastGpsNotificationSync).inSeconds < 15) return;
+    _lastGpsNotificationSync = now;
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    final driverId = authService.currentUser?.uid ?? '';
+    final driverName = authService.userModel?.name ?? 'Driver';
+    if (companyId.isEmpty || driverId.isEmpty) return;
+    final isRunning = await BackgroundLocationService.isRunning();
+    if (!isRunning) {
+      await BackgroundLocationService.start(driverId, driverName, companyId);
+    }
+  }
+
+  Future<void> _hideGpsNotification() async {
+    if (kIsWeb) return;
+    final isRunning = await BackgroundLocationService.isRunning();
+    if (isRunning) {
+      await BackgroundLocationService.stop();
     }
   }
 
@@ -393,7 +523,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
                           );
                         }
 
-                        final points = snapshot.data ?? [];
+                        final incomingPoints = snapshot.data ?? [];
+                        final points = _mergePointsByUpdatedAt(
+                            incomingPoints, _lastPoints);
                         _lastPoints = points;
 
                         if (points.isNotEmpty) {
@@ -672,6 +804,25 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 DeliveryPoint.statusCompleted,
                 updatedByUid: authService.currentUser?.uid,
               );
+              // Шаг: фиксируем факт визита (координата водителя в момент ручного закрытия)
+              try {
+                final companyId = authService.userModel?.companyId ?? '';
+                final driverId = authService.currentUser?.uid ?? '';
+                final hasDriverPos = _lastSentLat != 0 && _lastSentLng != 0;
+                if (companyId.isNotEmpty && hasDriverPos) {
+                  await FirestorePaths.deliveryPointsOf(companyId)
+                      .doc(point.id)
+                      .collection('visit_logs')
+                      .add({
+                    'lat': _lastSentLat,
+                    'lng': _lastSentLng,
+                    'driverId': driverId,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                }
+              } catch (e) {
+                debugPrint('visit_logs error: $e');
+              }
               if (mounted) {
                 messenger.showSnackBar(
                   SnackBar(

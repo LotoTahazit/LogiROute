@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/company_settings.dart';
+import 'firestore_paths.dart';
 
 class CompanySettingsService {
   static const String _defaultDocId = 'settings';
@@ -11,11 +12,10 @@ class CompanySettingsService {
   CompanySettingsService({required this.companyId});
 
   /// Получить путь к настройкам компании
-  DocumentReference get _settingsDoc => _firestore
-      .collection('companies')
-      .doc(companyId)
-      .collection('settings')
-      .doc(_defaultDocId);
+  DocumentReference get _settingsDoc =>
+      FirestorePaths(firestore: _firestore)
+          .companySettings(companyId)
+          .doc(_defaultDocId);
 
   /// Получить настройки компании
   Future<CompanySettings?> getSettings() async {
@@ -38,8 +38,10 @@ class CompanySettingsService {
           '⚠️ [CompanySettings] Not found in subcollection, trying root doc');
 
       // 2. Fallback: корневой документ companies/{companyId}
-      final rootDoc =
-          await _firestore.collection('companies').doc(companyId).get().timeout(
+      final rootDoc = await FirestorePaths(firestore: _firestore)
+          .companyDoc(companyId)
+          .get()
+          .timeout(
         const Duration(seconds: 5),
         onTimeout: () {
           debugPrint('⏰ [CompanySettings] Timeout reading root doc');

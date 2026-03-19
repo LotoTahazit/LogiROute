@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../models/invoice.dart';
+import '../services/firestore_paths.dart';
 
 /// Экран просмотра инвойса по deep-link URL.
 /// Загружает документ из Firestore по companyId + docId.
@@ -54,18 +54,16 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
       debugPrint('[DeepLink] Auth OK: ${user.uid}');
 
       final col = widget.collection;
-      final path =
-          'companies/${widget.companyId}/accounting/_root/$col/${widget.docId}';
-      debugPrint('[DeepLink] Fetching: $path');
-
-      final doc = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(widget.companyId)
+      final docRef = FirestorePaths()
+          .companyDoc(widget.companyId)
           .collection('accounting')
           .doc('_root')
           .collection(col)
-          .doc(widget.docId)
-          .get();
+          .doc(widget.docId);
+      final path = docRef.path;
+      debugPrint('[DeepLink] Fetching: $path');
+
+      final doc = await docRef.get();
 
       debugPrint('[DeepLink] Doc exists: ${doc.exists}');
       if (doc.exists) {

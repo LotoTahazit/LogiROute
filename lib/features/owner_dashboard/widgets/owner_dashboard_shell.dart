@@ -111,6 +111,24 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
   int _selectedIndex = 0;
   bool _accountantDefaultSectionSet = false;
 
+  bool _isSectionUnderConstruction(String key) => key == 'accounting';
+
+  String _sectionLabelForUi(String key, AppLocalizations l10n) {
+    final base = _sectionLabel(key, l10n);
+    return _isSectionUnderConstruction(key) ? '$base (בפיתוח)' : base;
+  }
+
+  Future<void> _showUnderConstructionDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const AlertDialog(
+        title: Text('בפיתוח'),
+        content: Text('מודול חשבוניות יהיה זמין בקרוב'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
@@ -157,6 +175,7 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
         final visibleSections = _allSections
             .where((s) => visibleSectionKeys.contains(s.key))
             .where((s) => permissions.canRead(s.moduleKey))
+            .where((s) => !_isSectionUnderConstruction(s.key))
             .toList();
 
         if (visibleSections.isEmpty) {
@@ -168,7 +187,8 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
         // Бухгалтер по умолчанию видит секцию «Бухгалтерия» (инвойсы и документы)
         if (appRole == AppRole.accountant &&
             !_accountantDefaultSectionSet &&
-            visibleSections.any((s) => s.key == 'accounting')) {
+            visibleSections.any((s) => s.key == 'accounting') &&
+            !_isSectionUnderConstruction('accounting')) {
           _accountantDefaultSectionSet = true;
           final idx = visibleSections.indexWhere((s) => s.key == 'accounting');
           if (idx >= 0) {
@@ -225,6 +245,11 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                             NavigationRail(
                               selectedIndex: safeIndex,
                               onDestinationSelected: (index) {
+                                final section = visibleSections[index];
+                                if (_isSectionUnderConstruction(section.key)) {
+                                  _showUnderConstructionDialog();
+                                  return;
+                                }
                                 setState(() => _selectedIndex = index);
                               },
                               labelType: NavigationRailLabelType.all,
@@ -233,7 +258,8 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                                 return NavigationRailDestination(
                                   icon: Icon(section.icon),
                                   selectedIcon: Icon(section.icon),
-                                  label: Text(_sectionLabel(section.key, l10n)),
+                                  label:
+                                      Text(_sectionLabelForUi(section.key, l10n)),
                                 );
                               }).toList(),
                             ),
@@ -341,7 +367,7 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
               return ListTile(
                 leading: Icon(section.icon,
                     color: isSelected ? theme.primaryColor : null),
-                title: Text(_sectionLabel(section.key, l10n),
+                title: Text(_sectionLabelForUi(section.key, l10n),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                     style: TextStyle(
@@ -351,6 +377,11 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                     )),
                 selected: isSelected,
                 onTap: () {
+                  if (_isSectionUnderConstruction(section.key)) {
+                    _showUnderConstructionDialog();
+                    Navigator.pop(context);
+                    return;
+                  }
                   setState(() => _selectedIndex = i);
                   Navigator.pop(context);
                 },

@@ -402,11 +402,10 @@ class RouteService {
   Stream<List<DeliveryPoint>> getAllPendingPoints() {
     return _deliveryPointsCollection()
         .where('status', whereIn: DeliveryPoint.pendingStatuses)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
+        .limit(300)
         .snapshots(includeMetadataChanges: false)
         .map((snapshot) {
-      return snapshot.docs
+      final points = snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
           .where((p) {
         final normalized = DeliveryPoint.normalizeStatus(p.status);
@@ -416,6 +415,18 @@ class RouteService {
             (p.routeId == null || p.routeId!.isEmpty);
         return isPending && isUnassigned;
       }).toList();
+
+      // Важно: у части старых документов может отсутствовать createdAt.
+      // Сортируем на клиенте, чтобы они не выпадали из списка pending.
+      points.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+      if (points.length > 50) {
+        return points.sublist(0, 50);
+      }
+      return points;
     });
   }
 
@@ -474,42 +485,12 @@ class RouteService {
     // Определяем стартовую точку через RouteBuilderService
     final routeBuilder = RouteBuilderService(companyId);
 
-    Map<String, double>? startLocation;
-    if (useDispatcherLocation) {
-      // Для диспетчера: проверяем, есть ли у водителя активные точки
-      final existingActive = await _deliveryPointsCollection()
-          .where('driverId', isEqualTo: driverId)
-          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
-          .limit(1)
-          .get();
-      final driverOnRoute = existingActive.docs.isNotEmpty;
-
-      if (driverOnRoute) {
-        // Водитель уже на маршруте → используем его GPS с fallback на склад
-        startLocation =
-            await routeBuilder.getRouteStartPoint(driverId, RouteStatus.active);
-        if (startLocation == null) {
-          // GPS недоступен → fallback на склад
-          startLocation = await routeBuilder.getRouteStartPoint(
-              driverId, RouteStatus.planned);
-          print(
-              '⚠️ [RouteService] Driver GPS unavailable — fallback to warehouse');
-        }
-        print(
-            '🚛 [RouteService] Driver on route — using GPS: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
-      } else {
-        // Новый маршрут → начинаем со склада
-        startLocation = await routeBuilder.getRouteStartPoint(
-            driverId, RouteStatus.planned);
-        print(
-            '🏭 [RouteService] New route — using warehouse: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
-      }
-    } else {
-      // Для оптимизации: всегда GPS водителя (если доступен)
-      startLocation = await _getDriverCurrentLocation(driverId);
-      print(
-          '🚛 [RouteService] Using driver location for optimization: ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
-    }
+    // Бизнес-правило: построение маршрута всегда от склада.
+    // useDispatcherLocation оставляем только для совместимости сигнатуры.
+    Map<String, double>? startLocation =
+        await routeBuilder.getRouteStartPoint(driverId, RouteStatus.planned);
+    print(
+        '🏭 [RouteService] Route build start (forced warehouse): ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
 
     // Combined optimization algorithm with real position
     final optimizedPoints =
@@ -1190,16 +1171,15 @@ class RouteService {
     await _updatePoint(pointId, patch);
     print('✅ Point $pointId status updated to $newStatus');
 
-    // Самообучение: записываем GPS и service_time при завершении
-    if (newStatus == DeliveryPoint.statusCompleted) {
-      _recordDeliveryLearning(pointId);
-    }
+    // Временно: обучение отключено из runtime-сервиса.
+    // Оставляем только факт визита из ручного закрытия (UI -> visit_logs).
   }
 
   /// Записывает данные доставки для самообучения клиента
   Future<void> _recordDeliveryLearning(String pointId) async {
     try {
-      final doc = await _deliveryPointsCollection().doc(pointId).get();
+      final pointRef = _deliveryPointsCollection().doc(pointId);
+      final doc = await pointRef.get();
       if (!doc.exists) return;
       final data = doc.data()!;
 
@@ -1207,7 +1187,7 @@ class RouteService {
       final driverId = data['driverId'] as String? ?? '';
       if (clientNumber.isEmpty || driverId.isEmpty) return;
 
-      // Получаем GPS водителя
+      // 1) Фиксируем факт закрытия в visit_logs (без изменения самой точки).
       final locDoc =
           await FirestorePaths.driverLocationsOf(companyId).doc(driverId).get();
       double driverLat = 0, driverLng = 0;
@@ -1215,13 +1195,20 @@ class RouteService {
         driverLat = (locDoc.data()?['latitude'] as num?)?.toDouble() ?? 0;
         driverLng = (locDoc.data()?['longitude'] as num?)?.toDouble() ?? 0;
       }
+      final hasDriverCoord = driverLat != 0 && driverLng != 0;
+      if (hasDriverCoord) {
+        await pointRef.collection('visit_logs').add({
+          'lat': driverLat,
+          'lng': driverLng,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
 
-      // arrivedAt — когда водитель начал (in_progress)
+      // Оставляем текущее обучение клиента (service_time/GPS) как было.
       DateTime? arrivedAt;
       if (data['arrivedAt'] != null) {
         arrivedAt = (data['arrivedAt'] as Timestamp).toDate();
       }
-
       final learning = ClientLearningService(companyId: companyId);
       await learning.recordDelivery(
         clientNumber: clientNumber,
@@ -1230,6 +1217,83 @@ class RouteService {
         arrivedAt: arrivedAt,
         completedAt: DateTime.now(),
       );
+
+      // 2) Асинхронное "мягкое" обучение координаты точки по visit_logs.
+      // Не трогаем UI и не делаем резких прыжков.
+      final visitsSnap = await pointRef
+          .collection('visit_logs')
+          .orderBy('timestamp', descending: true)
+          .limit(30)
+          .get();
+      final rawVisits = visitsSnap.docs
+          .map((d) => d.data())
+          .where(
+            (v) =>
+                (v['lat'] is num) &&
+                (v['lng'] is num) &&
+                ((v['lat'] as num).toDouble() != 0) &&
+                ((v['lng'] as num).toDouble() != 0),
+          )
+          .map(
+            (v) => (
+              lat: (v['lat'] as num).toDouble(),
+              lng: (v['lng'] as num).toDouble(),
+            ),
+          )
+          .toList();
+
+      if (rawVisits.length < 5) return; // Порог накопления
+
+      // Центроид по всем наблюдениям
+      double baseLat = 0, baseLng = 0;
+      for (final v in rawVisits) {
+        baseLat += v.lat;
+        baseLng += v.lng;
+      }
+      baseLat /= rawVisits.length;
+      baseLng /= rawVisits.length;
+
+      // 3) Убираем выбросы: далеко от массы (>70м)
+      final inliers = rawVisits.where((v) {
+        final meters = _calculateDistance(baseLat, baseLng, v.lat, v.lng) * 1000;
+        return meters <= 70;
+      }).toList();
+      if (inliers.length < 5) return;
+
+      // "Истинная точка" = центроид по inliers
+      double learnedLat = 0, learnedLng = 0;
+      for (final v in inliers) {
+        learnedLat += v.lat;
+        learnedLng += v.lng;
+      }
+      learnedLat /= inliers.length;
+      learnedLng /= inliers.length;
+
+      // Проверка разброса (variance по расстоянию, м^2)
+      double variance = 0;
+      for (final v in inliers) {
+        final meters =
+            _calculateDistance(learnedLat, learnedLng, v.lat, v.lng) * 1000;
+        variance += meters * meters;
+      }
+      variance /= inliers.length;
+      const varianceThreshold = 1600.0; // ~40м стандартное отклонение
+      if (variance > varianceThreshold) return;
+
+      final oldLat = (data['latitude'] as num?)?.toDouble() ?? 0;
+      final oldLng = (data['longitude'] as num?)?.toDouble() ?? 0;
+      if (oldLat == 0 || oldLng == 0) return;
+
+      // 4) Мягкое обновление (без рывков)
+      final newLat = oldLat * 0.7 + learnedLat * 0.3;
+      final newLng = oldLng * 0.7 + learnedLng * 0.3;
+
+      // 5) Обновляем координаты точки
+      await pointRef.update({
+        'latitude': newLat,
+        'longitude': newLng,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
       print('⚠️ [Learning] Error in _recordDeliveryLearning: $e');
     }

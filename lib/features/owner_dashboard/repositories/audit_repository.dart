@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/firestore_paths.dart';
 
 import '../models/audit_event.dart';
 
@@ -21,7 +22,7 @@ class AuditRepository {
 
   /// Ссылка на коллекцию audit компании.
   CollectionReference<Map<String, dynamic>> get _auditCollection =>
-      _firestore.collection('companies').doc(companyId).collection('audit');
+      FirestorePaths(firestore: _firestore).audit(companyId);
 
   /// Стрим аудит-лога в реальном времени, отсортированный по убыванию `createdAt`.
   ///

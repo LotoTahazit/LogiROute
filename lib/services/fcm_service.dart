@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'notification_service.dart';
 
 /// Обработчик фоновых сообщений — должен быть top-level функцией
@@ -44,8 +45,16 @@ class FcmService {
         provisional: false,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        debugPrint('⚠️ [FCM] Разрешение отклонено');
+      // Android 13+: sometimes Firebase request is not enough, do an explicit OS-level request.
+      if (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          settings.authorizationStatus == AuthorizationStatus.denied) {
+        await Permission.notification.request();
+      }
+
+      final finalSettings = await _messaging.getNotificationSettings();
+      if (finalSettings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint('⚠️ [FCM] Notification permission denied');
         return;
       }
 

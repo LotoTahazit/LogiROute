@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firestore_paths.dart';
 import '../models/import_result.dart';
 import '../models/product_type.dart';
 import '../models/template_product.dart';
@@ -80,7 +81,7 @@ class TemplateService {
         'ℹ️ [TemplateService] Import started: ${selectedTemplates.length} templates selected for company $companyId');
 
     final productTypesRef =
-        _firestore.collection('companies/$companyId/product_types');
+        FirestorePaths(firestore: _firestore).productTypes(companyId);
 
     // Загрузить существующие товары компании
     final existingSnapshot = await productTypesRef.get();

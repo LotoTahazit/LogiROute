@@ -2,6 +2,14 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
+const ADMIN_ROLES = ["super_admin", "owner", "admin", "accountant"];
+const ADMIN_ONLY_TYPES = new Set([
+  "integrity_chain_broken",
+  "billing_grace",
+  "billing_suspended",
+  "payment_received",
+  "welcome",
+]);
 
 /**
  * Trigger: when a new notification is created in companies/{companyId}/notifications/{notifId}
@@ -28,18 +36,64 @@ exports.sendPushNotification = functions.firestore
     console.log(`📱 Sending push for ${companyId}/${notifId}: ${data.title}`);
 
     try {
-      // Find target user(s) — if driverId specified, send only to that driver
+      // Find target user(s): strict targeting by default.
+      // Broadcast is allowed only when notification explicitly sets broadcast=true.
       let usersSnap;
       if (data.driverId) {
         const driverDoc = await db.collection("users").doc(data.driverId).get();
         usersSnap = driverDoc.exists ? { docs: [driverDoc] } : { docs: [] };
         console.log(`📱 Targeting driver ${data.driverId}`);
-      } else {
-        // Broadcast to all company users (e.g. system-wide notifications)
+      } else if (data.userId || data.uid || data.recipientId) {
+        const targetUid = data.userId || data.uid || data.recipientId;
+        const userDoc = await db.collection("users").doc(targetUid).get();
+        usersSnap = userDoc.exists ? { docs: [userDoc] } : { docs: [] };
+        console.log(`📱 Targeting user ${targetUid}`);
+      } else if (Array.isArray(data.targetUserIds) && data.targetUserIds.length > 0) {
+        const ids = data.targetUserIds
+          .filter((v) => typeof v === "string" && v.length > 0)
+          .slice(0, 10);
+        if (ids.length > 0) {
+          usersSnap = await db
+            .collection("users")
+            .where(admin.firestore.FieldPath.documentId(), "in", ids)
+            .get();
+          console.log(`📱 Targeting explicit users (${ids.length})`);
+        } else {
+          usersSnap = { docs: [] };
+        }
+      } else if (Array.isArray(data.targetRoles) && data.targetRoles.length > 0) {
+        const roles = data.targetRoles
+          .filter((v) => typeof v === "string" && v.length > 0)
+          .slice(0, 10);
+        if (roles.length > 0) {
+          usersSnap = await db
+            .collection("users")
+            .where("companyId", "==", companyId)
+            .where("role", "in", roles)
+            .get();
+          console.log(`📱 Targeting roles: ${roles.join(",")}`);
+        } else {
+          usersSnap = { docs: [] };
+        }
+      } else if (ADMIN_ONLY_TYPES.has(data.type)) {
+        // Safety: admin/system alerts should not go to all drivers.
+        usersSnap = await db
+          .collection("users")
+          .where("companyId", "==", companyId)
+          .where("role", "in", ADMIN_ROLES)
+          .get();
+        console.log(`📱 Targeting admin roles for type=${data.type}`);
+      } else if (data.broadcast === true) {
+        // Explicit broadcast only.
         usersSnap = await db
           .collection("users")
           .where("companyId", "==", companyId)
           .get();
+        console.log(`📢 Broadcast enabled explicitly for ${companyId}`);
+      } else {
+        // No explicit target -> do not broadcast by accident.
+        console.log(`⚠️ Notification ${notifId} has no target; skipping push`);
+        return null;
       }
 
       // Collect tokens: support both new map format and legacy string/array

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/company_context.dart';
 import '../../services/auth_service.dart';
 import '../../services/cross_module_audit_service.dart';
+import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
 
 /// מסך ניהול מודולים — בחירת תוכנית → מודולים נקבעים אוטומטית
@@ -133,10 +134,8 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
     }
     _companyId = id;
 
-    final snap = await _firestore
-        .collection('companies')
-        .doc(id)
-        .collection('settings')
+    final snap = await FirestorePaths(firestore: _firestore)
+        .companySettings(id)
         .doc('settings')
         .get();
     final data = snap.data() ?? {};
@@ -157,18 +156,12 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
       final auth = Provider.of<AuthService>(context, listen: false);
       final uid = auth.currentUser?.uid ?? 'unknown';
 
-      await _firestore
-          .collection('companies')
-          .doc(_companyId!)
-          .collection('settings')
+      await FirestorePaths(firestore: _firestore)
+          .companySettings(_companyId!)
           .doc('settings')
           .update({'modules': _currentModules, 'plan': _plan});
 
-      await _firestore
-          .collection('companies')
-          .doc(_companyId!)
-          .collection('audit')
-          .add({
+      await FirestorePaths(firestore: _firestore).audit(_companyId!).add({
         'moduleKey': 'admin',
         'type': CrossModuleAuditService.typeBillingStatusChanged,
         'entity': {'collection': 'companies', 'docId': _companyId},
@@ -177,7 +170,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
         'reason': 'Plan changed to $_plan',
       });
 
-      await _firestore.collection('companies').doc(_companyId!).update({
+      await FirestorePaths(firestore: _firestore).companyDoc(_companyId!).update({
         'plan': _plan,
       });
 

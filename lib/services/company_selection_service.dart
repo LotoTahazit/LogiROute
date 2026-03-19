@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_service.dart';
+import 'firestore_paths.dart';
 
 /// Модель компании для списка
 class CompanyInfo {
@@ -108,7 +109,8 @@ class CompanySelectionService extends ChangeNotifier {
 
   Future<void> _loadSingleCompany(String companyId) async {
     try {
-      final doc = await _firestore.collection('companies').doc(companyId).get();
+      final doc =
+          await FirestorePaths(firestore: _firestore).companyDoc(companyId).get();
 
       if (doc.exists) {
         final data = doc.data();

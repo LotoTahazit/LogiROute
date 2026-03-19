@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/company_context.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/firestore_paths.dart';
 
 /// Admin screen for managing billing status and accounting period lock.
 /// Reads/writes directly to companies/{companyId} document.
@@ -56,7 +57,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
   }
 
   DocumentReference _companyDoc(String id) =>
-      _firestore.collection('companies').doc(id);
+      FirestorePaths(firestore: _firestore).companyDoc(id);
 
   Future<void> _load() async {
     final ctx = CompanyContext.of(context);

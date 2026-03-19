@@ -49,6 +49,31 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Future<List<Map<String, dynamic>>>? _routeDocsFuture;
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
+  List<DeliveryPoint> _lastMapPoints = [];
+
+  bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
+    if (local == null) return true;
+    if (incoming.updatedAt == null) return true;
+    if (local.updatedAt == null) return true;
+
+    return incoming.updatedAt!.isAfter(local.updatedAt!);
+  }
+
+  List<DeliveryPoint> _mergePointsByUpdatedAt(
+    List<DeliveryPoint> incoming,
+    List<DeliveryPoint> local,
+  ) {
+    final map = {for (var p in local) p.id: p};
+
+    for (final p in incoming) {
+      final existing = map[p.id];
+      if (_shouldApplyUpdate(p, existing)) {
+        map[p.id] = p;
+      }
+    }
+
+    return map.values.toList();
+  }
 
   /// Инициализация потоков — вынесено из build() для предотвращения race condition
   void _initStreams(String companyId) {
@@ -196,15 +221,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         final latitude = double.parse(latController.text);
         final longitude = double.parse(lngController.text);
 
-        await FirebaseFirestore.instance
-            .collection('settings')
-            .doc('warehouse_location')
-            .set({
-          'latitude': latitude,
-          'longitude': longitude,
+        final companyCtx = CompanyContext.of(context);
+        final companyId = companyCtx.requireCompanyId;
+        await companyCtx.paths.companySettings(companyId).doc('config').set({
+          'warehouseLat': latitude,
+          'warehouseLng': longitude,
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': uid,
-        });
+        }, SetOptions(merge: true));
 
         if (mounted) {
           SnackbarHelper.showSuccess(
@@ -1300,6 +1324,12 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             child: Text('Error: ${pointsSnapshot.error}'),
                           );
                         }
+                        final incomingPoints = pointsSnapshot.data ?? [];
+                        final points = _mergePointsByUpdatedAt(
+                          incomingPoints,
+                          _lastMapPoints,
+                        );
+                        _lastMapPoints = points;
                         return FutureBuilder<List<Map<String, dynamic>>>(
                           future: _routeDocsFuture ??
                               Future.value(<Map<String, dynamic>>[]),
@@ -1315,7 +1345,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               }
                             }
                             return MapTab(
-                              routes: pointsSnapshot.data ?? [],
+                              routes: points,
                               lastNonEmptyRoutes: _lastNonEmptyRoutes,
                               drivers: _drivers,
                               selectedDriverId: _selectedDriverId,

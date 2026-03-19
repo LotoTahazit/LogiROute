@@ -54,18 +54,22 @@ class WorkScheduleService {
 
   /// Проверяет должно ли быть активно отслеживание в данный момент
   bool _shouldBeTracking(DateTime time) {
+    // ЗАКОММЕНТИРОВАНО: GPS работает всегда, независимо от времени
     // Проверяем день недели (1 = понедельник, 7 = воскресенье)
-    if (weekendDays.contains(time.weekday)) {
-      return false;
-    }
+    // if (weekendDays.contains(time.weekday)) {
+    //   return false;
+    // }
 
     // Проверяем время
-    final hour = time.hour;
-    if (hour >= workStartHour && hour < workEndHour) {
-      return true;
-    }
+    // final hour = time.hour;
+    // if (hour >= workStartHour && hour < workEndHour) {
+    //   return true;
+    // }
 
-    return false;
+    // return false;
+
+    // GPS работает ВСЕГДА
+    return true;
   }
 
   /// Возвращает информацию о текущем статусе расписания

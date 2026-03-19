@@ -94,10 +94,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       final companyId = companyCtx.effectiveCompanyId ?? '';
 
       try {
-        final companyDoc = await FirebaseFirestore.instance
-            .collection('companies')
-            .doc(companyId)
-            .get();
+        final companyDoc = await companyCtx.paths.companyDoc(companyId).get();
         final data = companyDoc.data() ?? {};
         if (data['accountingLockedUntil'] != null) {
           _accountingLockedUntil =

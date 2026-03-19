@@ -167,16 +167,33 @@ class _AddPointDialogState extends State<AddPointDialog> {
     final List<DeliveryPoint> duplicates = [];
 
     try {
-      // Проверяем только активные точки (pending/assigned/in_progress)
-      // Без completedAt — дешевле индекс, быстрее запрос
-      final activeSnapshot = await collection
-          .where('clientNumber', isEqualTo: clientNumber)
-          .where('status', whereIn: ['pending', 'assigned', 'in_progress'])
-          .limit(10)
-          .get();
+      // Проверяем только активные точки (pending/assigned/in_progress).
+      // Сначала читаем с сервера, чтобы не ловить устаревший кеш сразу после completion.
+      QuerySnapshot<Map<String, dynamic>> activeSnapshot;
+      try {
+        activeSnapshot = await collection
+            .where('clientNumber', isEqualTo: clientNumber)
+            .where('status', whereIn: ['pending', 'assigned', 'in_progress'])
+            .limit(10)
+            .get(const GetOptions(source: Source.server));
+      } catch (_) {
+        // Fallback: если сервер временно недоступен, используем стандартный источник.
+        activeSnapshot = await collection
+            .where('clientNumber', isEqualTo: clientNumber)
+            .where('status', whereIn: ['pending', 'assigned', 'in_progress'])
+            .limit(10)
+            .get();
+      }
 
       for (final doc in activeSnapshot.docs) {
-        duplicates.add(DeliveryPoint.fromMap(doc.data(), doc.id));
+        final point = DeliveryPoint.fromMap(doc.data(), doc.id);
+        // Safety-фильтр: если запись фактически уже закрыта, не считаем её активным дублем.
+        if (point.completedAt != null) continue;
+        if (point.status == DeliveryPoint.statusCompleted ||
+            point.status == DeliveryPoint.statusCancelled) {
+          continue;
+        }
+        duplicates.add(point);
       }
     } catch (e) {
       debugPrint('⚠️ [Duplicate Check] Error: $e');

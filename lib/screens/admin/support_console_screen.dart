@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Support Console — "одна компания = вся история"
@@ -54,62 +55,45 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
     });
 
     try {
-      final companyDoc =
-          await _firestore.collection('companies').doc(companyId).get();
+      final companyDoc = await FirestorePaths().companyDoc(companyId).get();
       _companyData = companyDoc.data();
 
       final results = await Future.wait([
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('audit')
+        FirestorePaths()
+            .audit(companyId)
             .orderBy('createdAt', descending: true)
             .limit(20)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('payment_events')
+        FirestorePaths()
+            .paymentEvents(companyId)
             .orderBy('processedAt', descending: true)
             .limit(20)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('notifications')
+        FirestorePaths()
+            .notifications(companyId)
             .orderBy('createdAt', descending: true)
             .limit(20)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('push_delivery_logs')
+        FirestorePaths()
+            .pushDeliveryLogs(companyId)
             .orderBy('timestamp', descending: true)
             .limit(20)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('email_delivery_logs')
+        FirestorePaths()
+            .emailDeliveryLogs(companyId)
             .orderBy('timestamp', descending: true)
             .limit(20)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('notifications')
+        FirestorePaths()
+            .notifications(companyId)
             .where('read', isEqualTo: false)
             .get(),
         _firestore
             .collection('users')
             .where('companyId', isEqualTo: companyId)
             .get(),
-        _firestore
-            .collection('companies')
-            .doc(companyId)
-            .collection('accounting')
-            .doc('_root')
-            .collection('invoices')
+        FirestorePaths()
+            .invoices(companyId)
             .where('createdAt',
                 isGreaterThan: Timestamp.fromDate(
                     DateTime(DateTime.now().year, DateTime.now().month, 1)))

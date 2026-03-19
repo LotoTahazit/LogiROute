@@ -6,6 +6,7 @@ import '../../services/company_context.dart';
 import '../../services/auth_service.dart';
 import '../../services/checkout_service.dart';
 import '../../services/cross_module_audit_service.dart';
+import '../../services/firestore_paths.dart';
 
 /// Subscription management screen
 class SubscriptionScreen extends StatefulWidget {
@@ -54,16 +55,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: StreamBuilder<DocumentSnapshot>(
-          stream: _firestore
-              .collection('companies')
-              .doc(companyId)
-              .collection('settings')
+          stream: FirestorePaths(firestore: _firestore)
+              .companySettings(companyId)
               .doc('settings')
               .snapshots(),
           builder: (context, settingsSnap) {
             return StreamBuilder<DocumentSnapshot>(
-              stream:
-                  _firestore.collection('companies').doc(companyId).snapshots(),
+              stream: FirestorePaths(firestore: _firestore)
+                  .companyDoc(companyId)
+                  .snapshots(),
               builder: (context, companySnap) {
                 if (!companySnap.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -258,22 +258,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final auth = Provider.of<AuthService>(context, listen: false);
       final uid = auth.currentUser?.uid ?? 'unknown';
 
-      await _firestore
-          .collection('companies')
-          .doc(companyId)
+      await FirestorePaths(firestore: _firestore)
+          .companyDoc(companyId)
           .update({'plan': newPlan});
-      await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
+      await FirestorePaths(firestore: _firestore)
+          .companySettings(companyId)
           .doc('settings')
           .update({'plan': newPlan});
 
-      await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('audit')
-          .add({
+      await FirestorePaths(firestore: _firestore).audit(companyId).add({
         'moduleKey': 'billing',
         'type': CrossModuleAuditService.typeBillingStatusChanged,
         'entity': {'collection': 'companies', 'docId': companyId},
@@ -338,10 +331,8 @@ class _PaymentHistory extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('payment_events')
+      stream: FirestorePaths()
+          .paymentEvents(companyId)
           .orderBy('processedAt', descending: true)
           .limit(20)
           .snapshots(),

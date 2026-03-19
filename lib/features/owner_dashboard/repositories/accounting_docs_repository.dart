@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/firestore_paths.dart';
 
 import '../../../services/cross_module_audit_service.dart';
 import '../models/accounting_doc.dart';
@@ -34,23 +35,16 @@ class AccountingDocsRepository {
   }
 
   /// Ссылка на коллекцию accountingDocs компании.
-  CollectionReference<Map<String, dynamic>> get _docsCollection => _firestore
-      .collection('companies')
-      .doc(companyId)
-      .collection('accountingDocs');
+  CollectionReference<Map<String, dynamic>> get _docsCollection =>
+      FirestorePaths(firestore: _firestore).accountingDocs(companyId);
 
   /// Ссылка на коллекцию счётчиков нумерации.
   CollectionReference<Map<String, dynamic>> get _countersCollection =>
-      _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('accounting')
-          .doc('_root')
-          .collection('counters');
+      FirestorePaths(firestore: _firestore).counters(companyId);
 
   /// Ссылка на коллекцию аудит-логов компании.
   CollectionReference<Map<String, dynamic>> get _auditCollection =>
-      _firestore.collection('companies').doc(companyId).collection('audit');
+      FirestorePaths(firestore: _firestore).audit(companyId);
 
   /// Создаёт новый бухгалтерский документ (статус draft).
   ///
