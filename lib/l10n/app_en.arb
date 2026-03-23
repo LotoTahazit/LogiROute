@@ -817,6 +817,211 @@
   "savingPallets": "Saving: {count}",
   "hideGpsTracks": "Hide GPS tracks",
   "showGpsTracks": "Show GPS tracks (24h)",
+  "mapTooltipCurrentRoute": "Current route",
+  "mapTooltipPreviousRoute": "Previous route",
+  "mapTooltipClearMap": "Clear map",
+  "mapTooltipExitDemo": "Exit demo mode",
+  "mapTooltipDemoMode": "Demo mode",
+  "mapBannerPreviousRouteShown": "Showing previous route",
+  "billingGuardAccessSuspendedTitle": "Access suspended",
+  "billingGuardAccessSuspendedBody": "Your account has been suspended for non-payment. Pay to restore access.",
+  "billingGuardAccountCancelledTitle": "Account cancelled",
+  "billingGuardAccountCancelledBody": "Your account has been cancelled. Please contact support to renew.",
+  "billingGuardTrialEndedTitle": "Trial ended",
+  "billingGuardTrialEndedBody": "Your trial has ended. Upgrade to a paid plan.",
+  "billingGuardNoAccessTitle": "No access",
+  "billingGuardNoAccessBody": "Please contact support.",
+  "billingGuardContactSupport": "Contact support",
+  "billingGuardPayNow": "Pay now",
+  "billingGuardUpgrade": "Upgrade",
+  "billingGuardTrialBanner": "Trial — {days} days left (until {date})",
+  "@billingGuardTrialBanner": {
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingGuardGraceBanner": "Grace period — {days} days left to pay. After that the account will be suspended.",
+  "@billingGuardGraceBanner": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "billingGuardCheckoutOpened": "Payment page opened in the browser. After payment, the account will update automatically.",
+  "billingGuardCheckoutError": "Error opening payment page: {error}",
+  "@billingGuardCheckoutError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsNotSelected": "No company selected",
+  "companySettingsInitError": "Initialization error: {error}",
+  "@companySettingsInitError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsEmptyWarning": "No settings found. Fill in the form.",
+  "companySettingsLoadError": "Load error: {error}",
+  "@companySettingsLoadError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingDashboardTitle": "Billing dashboard",
+  "billingDashboardFilterAll": "All",
+  "billingDashboardFilterTrial": "🧪 Trial",
+  "billingDashboardFilterActive": "✅ Active",
+  "billingDashboardFilterGrace": "⏳ Grace",
+  "billingDashboardFilterSuspended": "🚫 Suspended",
+  "billingDashboardFilterCancelled": "❌ Cancelled",
+  "billingDashboardSearchHint": "Search…",
+  "billingDashboardNoCompanies": "No companies found",
+  "billingDashboardExtendTitle": "Extend {companyName}",
+  "@billingDashboardExtendTitle": {
+    "placeholders": { "companyName": { "type": "String" } }
+  },
+  "billingDashboardExtendPaidUntil": "Set paid until: {date}",
+  "@billingDashboardExtendPaidUntil": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "billingDashboardNoteLabel": "Note (required)",
+  "billingDashboardNoteDefault": "Extended via dashboard",
+  "billingDashboardExtendButton": "Extend",
+  "billingDashboardChangeStatusTitle": "Change {companyName} → {status}?",
+  "@billingDashboardChangeStatusTitle": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardChangeStatusBody": "This will immediately change the billing status.",
+  "billingDashboardStatusUpdated": "{companyName} → {status}",
+  "@billingDashboardStatusUpdated": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardIntegrityRunning": "Running integrity check…",
+  "billingDashboardIntegrityDone": "Integrity check complete",
+  "billingDashboardRunIntegrityTooltip": "Run integrity check",
+  "billingDashboardExtendSuccess": "{companyName} extended to {date}",
+  "@billingDashboardExtendSuccess": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingDashboardError": "Error: {error}",
+  "@billingDashboardError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingLabelProvider": "Provider",
+  "billingLabelPaidUntil": "Paid until",
+  "billingLabelTrialUntil": "Trial until",
+  "billingLabelGraceUntil": "Grace until",
+  "billingLabelGraceDays": "Grace days",
+  "billingActionExtend": "Extend",
+  "billingActionActive": "Active",
+  "billingActionGrace": "Grace",
+  "billingActionSuspend": "Suspend",
+  "dispatcherInvalidCoordinates": "Invalid coordinates: {error}",
+  "@dispatcherInvalidCoordinates": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherPrintError": "Print error: {error}",
+  "@dispatcherPrintError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherGenericError": "Error: {error}",
+  "@dispatcherGenericError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherWarehouseSaved": "Warehouse location saved: {coords}",
+  "@dispatcherWarehouseSaved": {
+    "placeholders": { "coords": { "type": "String" } }
+  },
+  "dispatcherTourStep1": "Delivery points: add a client and products for the order — the order is built here before the route.",
+  "dispatcherTourStep2": "At each point: products and quantities; you can edit before building the route.",
+  "dispatcherTourStep3": "When products are ready — go to the «Active routes» tab and assign a driver.",
+  "dispatcherTourStep4": "Active routes: driver assignment, stop order, and route on the map.",
+  "dispatcherTourStep5": "After the route is built — tasks reach the driver in the app; switch to the map.",
+  "dispatcherTourStopTooltip": "Stop demo tour",
+  "dispatcherTourStartTooltip": "Demo tour: product → route → driver",
+  "dispatcherTourProgress": "{current}/{total}",
+  "@dispatcherTourProgress": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dispatcherSkippedInvoicesMakor": "{count} invoices skipped — original already printed. Use invoice management to reprint.",
+  "@dispatcherSkippedInvoicesMakor": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dispatcherCopiesOnlyPendingTax": "Copy prints only — waiting for assignment number. Original prints after tax authority approval.",
+  "pointUpdatedSuccess": "Point updated: {name}",
+  "@pointUpdatedSuccess": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointReturnedToRoute": "{name} returned to route",
+  "@dispatcherPointReturnedToRoute": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTitle": "Mark as delivered",
+  "dispatcherManualCompleteMessage": "Mark \"{name}\" as delivered manually? Use if auto-close did not run.",
+  "@dispatcherManualCompleteMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTooltip": "Mark as delivered manually",
+  "dispatcherPointCompletedManually": "{name} marked as delivered",
+  "@dispatcherPointCompletedManually": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointAssignedToDriver": "Point assigned: {client} → {driver}",
+  "@dispatcherPointAssignedToDriver": {
+    "placeholders": {
+      "client": { "type": "String" },
+      "driver": { "type": "String" }
+    }
+  },
+  "dispatcherAssignDriverTitle": "Assign driver — {clientName}",
+  "@dispatcherAssignDriverTitle": {
+    "placeholders": { "clientName": { "type": "String" } }
+  },
+  "dispatcherDragAssignSuccess": "Point assigned → {driverName}",
+  "@dispatcherDragAssignSuccess": {
+    "placeholders": { "driverName": { "type": "String" } }
+  },
+  "autoDistributeFailed": "Auto-distribution failed: {error}",
+  "@autoDistributeFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsSaveFailed": "Error saving settings: {error}",
+  "@companySettingsSaveFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "makorOriginalPrintedTitle": "Original already printed",
+  "makorDocTypeDeliveryNote": "Delivery note",
+  "makorDocTypeTaxInvoiceReceipt": "Tax invoice / receipt",
+  "makorDocTypeTaxInvoice": "Tax invoice",
+  "makorInvoiceLineNumbered": "{docType} no. {seq}",
+  "@makorInvoiceLineNumbered": {
+    "placeholders": {
+      "docType": { "type": "String" },
+      "seq": { "type": "String" }
+    }
+  },
+  "makorClientLine": "Client: {name}",
+  "@makorClientLine": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "makorBooksLawWarning": "Under bookkeeping law — you cannot print another original.\nYou may print a copy or true-to-original only.",
+  "makorChoosePrintType": "Choose print type:",
+  "makorCopy": "Copy",
+  "makorCopySubtitle": "Copy number {n}",
+  "@makorCopySubtitle": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "makorTrueToOriginal": "True to original",
+  "makorTrueToOriginalSubtitle": "Replaces the original",
+  "makorCopyQuantity": "Number of copies:",
+  "makorPrintButton": "Print",
   "vatId": "Tax ID / Business Number",
   "deliveryZones": "Delivery Zones",
   "zonesRequired": "Please select at least one zone",
@@ -847,9 +1052,9 @@
   "@skipClientContent": { "placeholders": { "clientName": { "type": "Object" } } },
   "stopAllButton": "Stop all",
   "skipAndContinueButton": "Skip and continue",
-  "invoicesPrintedSuccess": "? {count} invoices printed",
+  "invoicesPrintedSuccess": "✅ {count} invoices printed",
   "@invoicesPrintedSuccess": { "placeholders": { "count": { "type": "Object" } } },
-  "printingErrorMessage": "? Printing error: {error}",
+  "printingErrorMessage": "❌ Printing error: {error}",
   "@printingErrorMessage": { "placeholders": { "error": { "type": "Object" } } },
   "finishCountButton": "Finish count",
   "uncheckedItemsWarning": "There are still {count} items not counted.\nFinish anyway?",
@@ -1567,5 +1772,23 @@
   "percentCompleted": "{percent}% completed",
   "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
   "nPoints": "{count} points",
-  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } },
+
+  "shiftScheduleTitle": "Shift schedule",
+  "shiftWorkingDays": "Working days",
+  "shiftDayMon": "Mon",
+  "shiftDayTue": "Tue",
+  "shiftDayWed": "Wed",
+  "shiftDayThu": "Thu",
+  "shiftDayFri": "Fri",
+  "shiftDaySat": "Sat",
+  "shiftDaySun": "Sun",
+  "shiftStart": "Shift start",
+  "shiftEnd": "Shift end",
+  "shiftSaved": "Saved",
+  "shiftLoadError": "Failed to load: {error}",
+  "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftSaveError": "Error: {error}",
+  "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftNoCompanyId": "Company not selected"
 }

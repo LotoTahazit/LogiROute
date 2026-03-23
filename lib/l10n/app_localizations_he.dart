@@ -2043,6 +2043,361 @@ class AppLocalizationsHe extends AppLocalizations {
   String get showGpsTracks => 'הצג מסלולי GPS (24 שעות)';
 
   @override
+  String get mapTooltipCurrentRoute => 'מסלול נוכחי';
+
+  @override
+  String get mapTooltipPreviousRoute => 'מסלול קודם';
+
+  @override
+  String get mapTooltipClearMap => 'נקה מפה';
+
+  @override
+  String get mapTooltipExitDemo => 'יציאה ממצב הדגמה';
+
+  @override
+  String get mapTooltipDemoMode => 'מצב הדגמה';
+
+  @override
+  String get mapBannerPreviousRouteShown => 'מוצג מסלול קודם';
+
+  @override
+  String get billingGuardAccessSuspendedTitle => 'הגישה הושעתה';
+
+  @override
+  String get billingGuardAccessSuspendedBody =>
+      'החשבון שלך הושעה עקב אי תשלום. שלם כדי לחדש את הגישה.';
+
+  @override
+  String get billingGuardAccountCancelledTitle => 'החשבון בוטל';
+
+  @override
+  String get billingGuardAccountCancelledBody =>
+      'החשבון שלך בוטל. אנא צור קשר עם התמיכה לחידוש.';
+
+  @override
+  String get billingGuardTrialEndedTitle => 'תקופת הניסיון הסתיימה';
+
+  @override
+  String get billingGuardTrialEndedBody =>
+      'תקופת הניסיון שלך הסתיימה. שדרג לתוכנית בתשלום.';
+
+  @override
+  String get billingGuardNoAccessTitle => 'אין גישה';
+
+  @override
+  String get billingGuardNoAccessBody => 'אנא צור קשר עם התמיכה.';
+
+  @override
+  String get billingGuardContactSupport => 'צור קשר עם התמיכה';
+
+  @override
+  String get billingGuardPayNow => 'שלם עכשיו';
+
+  @override
+  String get billingGuardUpgrade => 'שדרג';
+
+  @override
+  String billingGuardTrialBanner(int days, String date) {
+    return 'תקופת ניסיון — נותרו $days ימים (עד $date)';
+  }
+
+  @override
+  String billingGuardGraceBanner(int days) {
+    return 'תקופת חסד — נותרו $days ימים לתשלום. לאחר מכן החשבון יושעה.';
+  }
+
+  @override
+  String get billingGuardCheckoutOpened =>
+      'דף התשלום נפתח בדפדפן. לאחר התשלום החשבון יתעדכן אוטומטית.';
+
+  @override
+  String billingGuardCheckoutError(String error) {
+    return 'שגיאה בפתיחת דף תשלום: $error';
+  }
+
+  @override
+  String get companySettingsNotSelected => 'לא נבחרה חברה';
+
+  @override
+  String companySettingsInitError(String error) {
+    return 'שגיאת אתחול: $error';
+  }
+
+  @override
+  String get companySettingsEmptyWarning => 'לא נמצאו הגדרות. מלאו את הטופס.';
+
+  @override
+  String companySettingsLoadError(String error) {
+    return 'שגיאת טעינה: $error';
+  }
+
+  @override
+  String get billingDashboardTitle => 'לוח חיוב';
+
+  @override
+  String get billingDashboardFilterAll => 'הכל';
+
+  @override
+  String get billingDashboardFilterTrial => '🧪 ניסיון';
+
+  @override
+  String get billingDashboardFilterActive => '✅ פעיל';
+
+  @override
+  String get billingDashboardFilterGrace => '⏳ חסד';
+
+  @override
+  String get billingDashboardFilterSuspended => '🚫 מושעה';
+
+  @override
+  String get billingDashboardFilterCancelled => '❌ בוטל';
+
+  @override
+  String get billingDashboardSearchHint => 'חיפוש…';
+
+  @override
+  String get billingDashboardNoCompanies => 'לא נמצאו חברות';
+
+  @override
+  String billingDashboardExtendTitle(String companyName) {
+    return 'הארכה — $companyName';
+  }
+
+  @override
+  String billingDashboardExtendPaidUntil(String date) {
+    return 'קבע תשלום עד: $date';
+  }
+
+  @override
+  String get billingDashboardNoteLabel => 'הערה (חובה)';
+
+  @override
+  String get billingDashboardNoteDefault => 'הוארך דרך לוח הבקרה';
+
+  @override
+  String get billingDashboardExtendButton => 'הארך';
+
+  @override
+  String billingDashboardChangeStatusTitle(String companyName, String status) {
+    return 'לשנות $companyName → $status?';
+  }
+
+  @override
+  String get billingDashboardChangeStatusBody =>
+      'השינוי יחול על סטטוס החיוב מיד.';
+
+  @override
+  String billingDashboardStatusUpdated(String companyName, String status) {
+    return '$companyName → $status';
+  }
+
+  @override
+  String get billingDashboardIntegrityRunning => 'מריץ בדיקת שלמות…';
+
+  @override
+  String get billingDashboardIntegrityDone => 'בדיקת שלמות הושלמה';
+
+  @override
+  String get billingDashboardRunIntegrityTooltip => 'הרץ בדיקת שלמות';
+
+  @override
+  String billingDashboardExtendSuccess(String companyName, String date) {
+    return '$companyName הוארך עד $date';
+  }
+
+  @override
+  String billingDashboardError(String error) {
+    return 'שגיאה: $error';
+  }
+
+  @override
+  String get billingLabelProvider => 'ספק';
+
+  @override
+  String get billingLabelPaidUntil => 'שולם עד';
+
+  @override
+  String get billingLabelTrialUntil => 'ניסיון עד';
+
+  @override
+  String get billingLabelGraceUntil => 'חסד עד';
+
+  @override
+  String get billingLabelGraceDays => 'ימי חסד';
+
+  @override
+  String get billingActionExtend => 'הארך';
+
+  @override
+  String get billingActionActive => 'פעיל';
+
+  @override
+  String get billingActionGrace => 'חסד';
+
+  @override
+  String get billingActionSuspend => 'השעה';
+
+  @override
+  String dispatcherInvalidCoordinates(String error) {
+    return 'קואורדינטות לא תקינות: $error';
+  }
+
+  @override
+  String dispatcherPrintError(String error) {
+    return 'שגיאת הדפסה: $error';
+  }
+
+  @override
+  String dispatcherGenericError(String error) {
+    return 'שגיאה: $error';
+  }
+
+  @override
+  String dispatcherWarehouseSaved(String coords) {
+    return 'מיקום המחסן נשמר: $coords';
+  }
+
+  @override
+  String get dispatcherTourStep1 =>
+      'נקודות משלוח: מוסיפים לקוח ומוצרים להזמנה — כאן נבנית ההזמנה לפני המסלול';
+
+  @override
+  String get dispatcherTourStep2 =>
+      'בכל נקודה: מוצרים וכמויות; אפשר לערוך לפני בניית מסלול';
+
+  @override
+  String get dispatcherTourStep3 =>
+      'כשהמוצרים מוכנים — עוברים ללשונית «מסלולים פעילים» ושיוך לנהג';
+
+  @override
+  String get dispatcherTourStep4 =>
+      'מסלולים פעילים: השיוך לנהג, סדר עצירות ומסלול על המפה';
+
+  @override
+  String get dispatcherTourStep5 =>
+      'אחרי בניית המסלול — המשימות מגיעות לנהג באפליקציה; עוברים למפה';
+
+  @override
+  String get dispatcherTourStopTooltip => 'עצור סיור הדגמה';
+
+  @override
+  String get dispatcherTourStartTooltip => 'סיור הדגמה: מוצר → מסלול → נהג';
+
+  @override
+  String dispatcherTourProgress(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String dispatcherSkippedInvoicesMakor(int count) {
+    return 'דולגו $count חשבוניות — מקור כבר הודפס. להדפסה חוזרת השתמשו בניהול חשבוניות.';
+  }
+
+  @override
+  String get dispatcherCopiesOnlyPendingTax =>
+      'הודפסו עותקים בלבד — ממתין למספר הקצאה. המקור יודפס לאחר אישור רשות המסים.';
+
+  @override
+  String pointUpdatedSuccess(String name) {
+    return 'הנקודה עודכנה: $name';
+  }
+
+  @override
+  String dispatcherPointReturnedToRoute(String name) {
+    return '$name הוחזר למסלול';
+  }
+
+  @override
+  String get dispatcherManualCompleteTitle => 'סמן כמסופק';
+
+  @override
+  String dispatcherManualCompleteMessage(String name) {
+    return 'לסמן את \"$name\" כמסופק ידנית? אם הסגירה האוטומטית לא רצה.';
+  }
+
+  @override
+  String get dispatcherManualCompleteTooltip => 'סגירה ידנית של נקודה';
+
+  @override
+  String dispatcherPointCompletedManually(String name) {
+    return '$name סומן כמסופק';
+  }
+
+  @override
+  String dispatcherPointAssignedToDriver(String client, String driver) {
+    return 'הוקצה לנהג: $client → $driver';
+  }
+
+  @override
+  String dispatcherAssignDriverTitle(String clientName) {
+    return 'שיוך לנהג — $clientName';
+  }
+
+  @override
+  String dispatcherDragAssignSuccess(String driverName) {
+    return 'הוקצה לנהג → $driverName';
+  }
+
+  @override
+  String autoDistributeFailed(String error) {
+    return 'שגיאה בחלוקה אוטומטית: $error';
+  }
+
+  @override
+  String companySettingsSaveFailed(String error) {
+    return 'שגיאה בשמירת הגדרות: $error';
+  }
+
+  @override
+  String get makorOriginalPrintedTitle => 'מקור כבר הודפס';
+
+  @override
+  String get makorDocTypeDeliveryNote => 'תעודת משלוח';
+
+  @override
+  String get makorDocTypeTaxInvoiceReceipt => 'חשבונית מס / קבלה';
+
+  @override
+  String get makorDocTypeTaxInvoice => 'חשבונית מס';
+
+  @override
+  String makorInvoiceLineNumbered(String docType, String seq) {
+    return '$docType מס\' $seq';
+  }
+
+  @override
+  String makorClientLine(String name) {
+    return 'לקוח: $name';
+  }
+
+  @override
+  String get makorBooksLawWarning =>
+      'לפי חוק ניהול ספרים — לא ניתן להדפיס מקור נוסף.\nניתן להדפיס העתק או נאמן למקור בלבד.';
+
+  @override
+  String get makorChoosePrintType => 'בחר סוג הדפסה:';
+
+  @override
+  String get makorCopy => 'העתק';
+
+  @override
+  String makorCopySubtitle(int n) {
+    return 'עותק מספר $n';
+  }
+
+  @override
+  String get makorTrueToOriginal => 'נאמן למקור';
+
+  @override
+  String get makorTrueToOriginalSubtitle => 'מחליף את המקור';
+
+  @override
+  String get makorCopyQuantity => 'כמות עותקים:';
+
+  @override
+  String get makorPrintButton => 'הדפס';
+
+  @override
   String get vatId => 'ח.פ / ע.מ (מספר עוסק)';
 
   @override
@@ -4080,4 +4435,53 @@ class AppLocalizationsHe extends AppLocalizations {
   String nPoints(Object count) {
     return '$count נקודות';
   }
+
+  @override
+  String get shiftScheduleTitle => 'לוח משמרות';
+
+  @override
+  String get shiftWorkingDays => 'ימי עבודה';
+
+  @override
+  String get shiftDayMon => 'ב׳';
+
+  @override
+  String get shiftDayTue => 'ג׳';
+
+  @override
+  String get shiftDayWed => 'ד׳';
+
+  @override
+  String get shiftDayThu => 'ה׳';
+
+  @override
+  String get shiftDayFri => 'ו׳';
+
+  @override
+  String get shiftDaySat => 'ש׳';
+
+  @override
+  String get shiftDaySun => 'א׳';
+
+  @override
+  String get shiftStart => 'תחילת משמרת';
+
+  @override
+  String get shiftEnd => 'סיום משמרת';
+
+  @override
+  String get shiftSaved => 'נשמר';
+
+  @override
+  String shiftLoadError(String error) {
+    return 'שגיאת טעינה: $error';
+  }
+
+  @override
+  String shiftSaveError(String error) {
+    return 'שגיאה: $error';
+  }
+
+  @override
+  String get shiftNoCompanyId => 'לא נבחרה חברה';
 }

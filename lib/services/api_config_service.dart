@@ -14,13 +14,10 @@ class ApiConfigService {
       return dotenv.env['GOOGLE_MAPS_ANDROID_KEY'] ?? '';
     }
   }
-  
-  // 🌐 OSRM API
-  static String get osrmBaseUrl {
-    return dotenv.env['OSRM_BASE_URL'] ?? 
-           'https://router.project-osrm.org/route/v1/driving';
-  }
-  
+
+  // OSRM: все URL маршрутизации — [ApiConstants] (osrmBaseUrl / osrmRouteUrl / fallback).
+  // Переменные окружения: OSRM_HOST, OSRM_FALLBACK_HOST или OSRM_BASE_URL (legacy, origin).
+
   // 🗺️ Google APIs URLs (публичные URL, не требуют защиты)
   static const String googleRoadsApiUrl = 'https://roads.googleapis.com/v1/snapToRoads';
   static const String googlePlacesApiUrl = 'https://maps.googleapis.com/maps/api/place/details/json';

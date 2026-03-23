@@ -83,8 +83,11 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
+      final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
       try {
         await _clientService.updateClient(client.id, result);
+        if (!mounted) return;
 
         // Если координаты или адрес изменились — обновить все активные точки доставки
         final coordsChanged = client.latitude != result.latitude ||
@@ -92,12 +95,11 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
         final addressChanged = client.address != result.address;
         if ((coordsChanged || addressChanged) &&
             result.clientNumber.isNotEmpty) {
-          final companyCtx = CompanyContext.of(context);
-          final companyId = companyCtx.effectiveCompanyId ?? '';
           final points = await FirestorePaths.deliveryPointsOf(companyId)
               .where('clientNumber', isEqualTo: result.clientNumber)
               .where('status',
                   whereIn: ['pending', 'assigned', 'in_progress']).get();
+          if (!mounted) return;
           for (final doc in points.docs) {
             await doc.reference.update({
               'latitude': result.latitude,

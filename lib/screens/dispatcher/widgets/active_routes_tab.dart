@@ -22,6 +22,7 @@ class ActiveRoutesTab extends StatelessWidget {
   final Function(DeliveryPoint point) onEditPoint;
   final Function(DeliveryPoint point) onRemovePoint;
   final Function(DeliveryPoint point)? onReopenPoint;
+  final void Function(DeliveryPoint point)? onCompletePointManually;
   final VoidCallback? onBalanceRoutes;
   final Function(String driverId, String? routeId, List<DeliveryPoint> points)?
       onOptimizeRoute;
@@ -42,9 +43,16 @@ class ActiveRoutesTab extends StatelessWidget {
     required this.onEditPoint,
     required this.onRemovePoint,
     this.onReopenPoint,
+    this.onCompletePointManually,
     this.onBalanceRoutes,
     this.onOptimizeRoute,
   });
+
+  bool _isAssignedOrInProgress(DeliveryPoint p) {
+    final s = DeliveryPoint.normalizeStatus(p.status);
+    return s == DeliveryPoint.statusAssigned ||
+        s == DeliveryPoint.statusInProgress;
+  }
 
   String _getDisplayAddress(DeliveryPoint point) {
     if (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty) {
@@ -466,6 +474,15 @@ class ActiveRoutesTab extends StatelessWidget {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (onCompletePointManually != null &&
+                                _isAssignedOrInProgress(r))
+                              IconButton(
+                                icon: const Icon(Icons.task_alt,
+                                    color: Colors.green),
+                                tooltip: l10n.dispatcherManualCompleteTooltip,
+                                onPressed: () =>
+                                    onCompletePointManually!(r),
+                              ),
                             IconButton(
                               icon: const Icon(Icons.receipt,
                                   color: Colors.green),

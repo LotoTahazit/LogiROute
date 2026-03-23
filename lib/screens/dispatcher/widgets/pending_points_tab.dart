@@ -77,7 +77,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
       selected: isSelected,
       selectedColor: zoneColor,
       checkmarkColor: Colors.white,
-      backgroundColor: zoneColor.withOpacity(0.1),
+      backgroundColor:
+          zoneColor.withValues(alpha: (zoneColor.a * 0.1).clamp(0.0, 1.0)),
       side: BorderSide(color: zoneColor, width: 1.5),
       onSelected: (val) {
         setState(() {
@@ -209,7 +210,7 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                       child: _buildZoneButton(
                           zone.id, zone.nameHe, zone.nameHe, zoneCounts[zone.id] ?? 0),
                     );
-                  }).toList(),
+                  }),
                   const SizedBox(width: 16),
                   if (selectedZone != null)
                     ElevatedButton.icon(
@@ -251,11 +252,13 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                     final showZoneHeader = index == 0 ||
                         point.zone != filteredPoints[index - 1].zone;
 
+                    final zoneFill =
+                        ZoneUtils.getZoneColor(point.zone ?? '');
                     final card = Card(
                           margin: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
-                          color: ZoneUtils.getZoneColor(point.zone ?? '')
-                              .withOpacity(0.15),
+                          color: zoneFill.withValues(
+                              alpha: (zoneFill.a * 0.15).clamp(0.0, 1.0)),
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Column(

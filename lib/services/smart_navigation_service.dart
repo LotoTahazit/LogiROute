@@ -1,5 +1,6 @@
 // lib/services/smart_navigation_service.dart
 import 'package:flutter/foundation.dart';
+import '../config/api_constants.dart';
 import 'osrm_navigation_service.dart';
 import 'navigation_service.dart';
 import '../models/delivery_point.dart';
@@ -17,6 +18,8 @@ class SmartNavigationService {
     String language = 'he',
     bool useOptimization = true,
   }) async {
+    debugPrint(
+        '[OSRM_INPUT] start=$startLat,$startLng end=$endLat,$endLng waypoints=${waypoints.length}');
     // 🐞 DEBUG: Входные данные
     debugPrint('🔍 [SmartNavigation] getMultiPointRoute called');
     debugPrint('📍 [SmartNavigation] Start: ($startLat, $startLng)');
@@ -45,6 +48,27 @@ class SmartNavigationService {
     debugPrint('📍 [SmartNavigation] Should optimize: $shouldOptimize');
 
     try {
+      debugPrint('[OSRM_CALL_START]');
+      // Тот же URL, что уйдёт в OsrmNavigationService (до http.get) — для диагностики web.
+      final debugOsrmUrl = () {
+        if (uniqueWaypoints.isEmpty) {
+          final coords = '$startLng,$startLat;$endLng,$endLat';
+          return '${ApiConstants.osrmRouteUrl}/$coords?${ApiConstants.osrmRouteParams}';
+        }
+        final buf = StringBuffer()
+          ..write('$startLng,$startLat');
+        for (final w in uniqueWaypoints) {
+          buf.write(';${w['lng']},${w['lat']}');
+        }
+        buf.write(';$endLng,$endLat');
+        final coords = buf.toString();
+        if (shouldOptimize) {
+          return '${ApiConstants.osrmTripUrl}/$coords?${ApiConstants.osrmTripParams}';
+        }
+        return '${ApiConstants.osrmRouteUrl}/$coords?${ApiConstants.osrmRouteParams}';
+      }();
+      debugPrint('[OSRM_HTTP_URL] $debugOsrmUrl');
+
       OsrmRoute? osrmRoute;
 
       if (uniqueWaypoints.isEmpty) {
@@ -74,6 +98,7 @@ class SmartNavigationService {
           language: language,
         );
       }
+      debugPrint('[OSRM_CALL_END] result=$osrmRoute');
 
       if (osrmRoute != null) {
         if (osrmRoute.polyline.isEmpty) {

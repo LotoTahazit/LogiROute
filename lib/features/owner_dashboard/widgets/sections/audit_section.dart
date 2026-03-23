@@ -134,7 +134,8 @@ class _AuditSectionState extends State<AuditSection> {
         horizontal: narrow ? 12 : 16, vertical: narrow ? 8 : 12);
 
     final moduleDropdown = DropdownButtonFormField<String>(
-      value: _selectedModule,
+      key: ValueKey(_selectedModule),
+      initialValue: _selectedModule,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.moduleFilter,
@@ -154,7 +155,8 @@ class _AuditSectionState extends State<AuditSection> {
     );
 
     final typeDropdown = DropdownButtonFormField<String>(
-      value: _selectedType,
+      key: ValueKey(_selectedType),
+      initialValue: _selectedType,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.eventTypeFilter,
@@ -173,7 +175,8 @@ class _AuditSectionState extends State<AuditSection> {
     );
 
     final userDropdown = DropdownButtonFormField<String>(
-      value: _selectedUser,
+      key: ValueKey(_selectedUser),
+      initialValue: _selectedUser,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.userFilter,

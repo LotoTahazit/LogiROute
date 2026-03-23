@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/firestore_paths.dart';
 
 /// Billing & Compliance Dashboard для super_admin.
@@ -20,14 +21,14 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
   String _statusFilter = 'all';
   String _searchQuery = '';
 
-  static const _filterOptions = {
-    'all': 'הכל',
-    'trial': '🧪 Trial',
-    'active': '✅ Active',
-    'grace': '⏳ Grace',
-    'suspended': '🚫 Suspended',
-    'cancelled': '❌ Cancelled',
-  };
+  Map<String, String> _filterLabels(AppLocalizations l10n) => {
+        'all': l10n.billingDashboardFilterAll,
+        'trial': l10n.billingDashboardFilterTrial,
+        'active': l10n.billingDashboardFilterActive,
+        'grace': l10n.billingDashboardFilterGrace,
+        'suspended': l10n.billingDashboardFilterSuspended,
+        'cancelled': l10n.billingDashboardFilterCancelled,
+      };
 
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> query = _firestore.collection('companies');
@@ -68,6 +69,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
   }
 
   Future<void> _extendPaidUntil(String companyId, String companyName) async {
+    final l10n = AppLocalizations.of(context)!;
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().add(const Duration(days: 30)),
@@ -77,21 +79,21 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
     if (picked == null || !mounted) return;
 
     final noteController =
-        TextEditingController(text: 'Extended via dashboard');
+        TextEditingController(text: l10n.billingDashboardNoteDefault);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Extend $companyName'),
+        title: Text(l10n.billingDashboardExtendTitle(companyName)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Set paidUntil to: ${_fmtDate(picked)}'),
+            Text(l10n.billingDashboardExtendPaidUntil(_fmtDate(picked))),
             const SizedBox(height: 12),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'Note (required)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.billingDashboardNoteLabel,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -99,10 +101,10 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l10n.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Extend')),
+              child: Text(l10n.billingDashboardExtendButton)),
         ],
       ),
     );
@@ -116,20 +118,23 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
         'companyId': companyId,
         'paidUntilISO': picked.toIso8601String(),
         'note': noteController.text.trim().isEmpty
-            ? 'Extended via dashboard'
+            ? l10n.billingDashboardNoteDefault
             : noteController.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('✅ $companyName extended to ${_fmtDate(picked)}'),
+              content: Text(l10n.billingDashboardExtendSuccess(
+                  companyName, _fmtDate(picked))),
               backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(l10n.billingDashboardError(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -137,15 +142,16 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
 
   Future<void> _setStatus(
       String companyId, String companyName, String newStatus) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Change $companyName → $newStatus?'),
-        content: const Text('This will immediately change the billing status.'),
+        title: Text(l10n.billingDashboardChangeStatusTitle(companyName, newStatus)),
+        content: Text(l10n.billingDashboardChangeStatusBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l10n.cancel)),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
@@ -167,26 +173,30 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('✅ $companyName → $newStatus'),
+              content: Text(
+                  l10n.billingDashboardStatusUpdated(companyName, newStatus)),
               backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(l10n.billingDashboardError(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     }
   }
 
   Future<void> _runIntegrityCheck() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final callable =
           FirebaseFunctions.instance.httpsCallable('verifyIntegrityChain');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('🔗 Running integrity check...'),
+        SnackBar(
+            content: Text(l10n.billingDashboardIntegrityRunning),
             backgroundColor: Colors.blue),
       );
       // Note: verifyIntegrityChain is a callable, scheduledIntegrityCheck is scheduled
@@ -194,15 +204,17 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
       await callable.call({});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('✅ Integrity check complete'),
+          SnackBar(
+              content: Text(l10n.billingDashboardIntegrityDone),
               backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(l10n.billingDashboardError(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -210,14 +222,16 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final filterLabels = _filterLabels(l10n);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Billing Dashboard'),
+        title: Text(l10n.billingDashboardTitle),
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
             icon: const Icon(Icons.verified_user),
-            tooltip: 'Run Integrity Check',
+            tooltip: l10n.billingDashboardRunIntegrityTooltip,
             onPressed: _runIntegrityCheck,
           ),
         ],
@@ -234,7 +248,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: _filterOptions.entries.map((e) {
+                      children: filterLabels.entries.map((e) {
                         final isSelected = _statusFilter == e.key;
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
@@ -256,13 +270,13 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
                 SizedBox(
                   width: 200,
                   child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'חיפוש...',
-                      prefixIcon: Icon(Icons.search, size: 18),
+                    decoration: InputDecoration(
+                      hintText: l10n.billingDashboardSearchHint,
+                      prefixIcon: const Icon(Icons.search, size: 18),
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                       contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     ),
                     onChanged: (v) =>
                         setState(() => _searchQuery = v.toLowerCase()),
@@ -283,7 +297,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
                 if (!snapshot.hasData ||
                     snapshot.data == null ||
                     snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No companies found'));
+                  return Center(child: Text(l10n.billingDashboardNoCompanies));
                 }
 
                 var docs = snapshot.data!.docs;
@@ -359,6 +373,7 @@ class _CompanyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final status = data['billingStatus'] as String? ?? 'active';
     final name = data['nameHebrew'] as String? ?? companyId;
     final nameEn = data['nameEnglish'] as String? ?? '';
@@ -430,19 +445,19 @@ class _CompanyCard extends StatelessWidget {
               spacing: 16,
               runSpacing: 4,
               children: [
-                _InfoChip('Plan', plan),
-                if (provider != null) _InfoChip('Provider', provider),
-                _InfoChip('Paid until',
+                _InfoChip(l10n.billingPlan, plan),
+                if (provider != null) _InfoChip(l10n.billingLabelProvider, provider),
+                _InfoChip(l10n.billingLabelPaidUntil,
                     '${fmtDate(paidUntil)} ${daysUntil(paidUntil)}',
                     warn: isPaidExpired),
                 if (status == 'trial')
-                  _InfoChip('Trial until',
+                  _InfoChip(l10n.billingLabelTrialUntil,
                       '${fmtDate(trialUntil)} ${daysUntil(trialUntil)}'),
                 if (status == 'grace' && graceUntil != null)
-                  _InfoChip('Grace until',
+                  _InfoChip(l10n.billingLabelGraceUntil,
                       '${fmtDate(graceUntil)} ${daysUntil(graceUntil)}',
                       warn: true),
-                _InfoChip('Grace days', '$graceDays'),
+                _InfoChip(l10n.billingLabelGraceDays, '$graceDays'),
               ],
             ),
             const SizedBox(height: 8),
@@ -451,18 +466,28 @@ class _CompanyCard extends StatelessWidget {
             Row(
               children: [
                 _ActionBtn(
-                    Icons.add_circle_outline, 'Extend', Colors.green, onExtend),
+                    Icons.add_circle_outline,
+                    l10n.billingActionExtend,
+                    Colors.green,
+                    onExtend),
                 const SizedBox(width: 4),
                 if (status != 'active')
-                  _ActionBtn(Icons.check_circle_outline, 'Active', Colors.green,
+                  _ActionBtn(
+                      Icons.check_circle_outline,
+                      l10n.billingActionActive,
+                      Colors.green,
                       onSetActive),
                 if (status != 'active') const SizedBox(width: 4),
                 if (status == 'active')
-                  _ActionBtn(Icons.pause_circle_outline, 'Grace', Colors.orange,
+                  _ActionBtn(
+                      Icons.pause_circle_outline,
+                      l10n.billingActionGrace,
+                      Colors.orange,
                       onSetGrace),
                 if (status == 'active') const SizedBox(width: 4),
                 if (status != 'suspended' && status != 'cancelled')
-                  _ActionBtn(Icons.block, 'Suspend', Colors.red, onSuspend),
+                  _ActionBtn(
+                      Icons.block, l10n.billingActionSuspend, Colors.red, onSuspend),
                 const Spacer(),
                 Text(companyId,
                     style:

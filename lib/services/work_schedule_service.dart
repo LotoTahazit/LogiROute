@@ -1,18 +1,24 @@
 // lib/services/work_schedule_service.dart
 import 'dart:async';
+import '../models/shift_schedule_config.dart';
 
-/// Сервис управления рабочим расписанием водителя
-/// Автоматически включает/выключает отслеживание GPS по расписанию
+/// Сервис управления рабочим расписанием водителя.
+/// Текст статуса и логика «рабочий день» берутся из [ShiftScheduleConfig]
+/// (`companies/{companyId}/settings/shifts`) — тот же источник, что экран לוח משמרות.
+/// Включение/выключение GPS по расписанию сейчас отключено (трекинг всегда можно).
 class WorkScheduleService {
   Timer? _scheduleCheckTimer;
   bool _isTrackingActive = false;
   Function()? _onStartTracking;
   Function()? _onStopTracking;
 
-  // Рабочее расписание
-  static const int workStartHour = 7; // 7:00
-  static const int workEndHour = 17; // 17:00
-  static const List<int> weekendDays = [5, 6]; // Пятница (5), Суббота (6)
+  /// Совпадает с [DeliveryMapWidget] / `settings/shifts`.
+  ShiftScheduleConfig _shift = ShiftScheduleConfig.defaults;
+
+  /// Подставлять из Firestore при загрузке/подписке на `settings/shifts`.
+  void updateShiftSchedule(ShiftScheduleConfig config) {
+    _shift = config;
+  }
 
   /// Запускает мониторинг расписания
   void startScheduleMonitoring({
@@ -54,21 +60,7 @@ class WorkScheduleService {
 
   /// Проверяет должно ли быть активно отслеживание в данный момент
   bool _shouldBeTracking(DateTime time) {
-    // ЗАКОММЕНТИРОВАНО: GPS работает всегда, независимо от времени
-    // Проверяем день недели (1 = понедельник, 7 = воскресенье)
-    // if (weekendDays.contains(time.weekday)) {
-    //   return false;
-    // }
-
-    // Проверяем время
-    // final hour = time.hour;
-    // if (hour >= workStartHour && hour < workEndHour) {
-    //   return true;
-    // }
-
-    // return false;
-
-    // GPS работает ВСЕГДА
+    // GPS работает ВСЕГДА (см. продуктовые требования)
     return true;
   }
 
@@ -82,23 +74,31 @@ class WorkScheduleService {
   }) {
     final now = DateTime.now();
     final shouldBeTracking = _shouldBeTracking(now);
-    final isWeekend = weekendDays.contains(now.weekday);
+    final cfg = _shift;
+
+    final isDayOff = !cfg.workingDays.contains(now.weekday);
 
     String statusMessage;
-    if (isWeekend) {
-      statusMessage = weekendDayText ?? 'Weekend day';
-    } else if (now.hour < workStartHour) {
-      final minutesUntilStart = ((workStartHour - now.hour) * 60) - now.minute;
-      statusMessage = workStartsInFn != null
-          ? workStartsInFn(minutesUntilStart)
-          : 'Work starts in $minutesUntilStart minutes';
-    } else if (now.hour >= workEndHour) {
-      statusMessage = workDayEndedText ?? 'Work day ended';
-    } else {
-      final minutesUntilEnd = ((workEndHour - now.hour) * 60) - now.minute;
+    if (isDayOff) {
+      statusMessage = weekendDayText ?? 'Day off';
+    } else if (cfg.allows(now)) {
+      final end = DateTime(now.year, now.month, now.day, cfg.endHour, 59, 59);
+      var minutesUntilEnd = end.difference(now).inMinutes;
+      if (minutesUntilEnd < 0) minutesUntilEnd = 0;
       statusMessage = workEndsInFn != null
           ? workEndsInFn(minutesUntilEnd)
           : 'Work ends in $minutesUntilEnd minutes';
+    } else {
+      final start =
+          DateTime(now.year, now.month, now.day, cfg.startHour, 0, 0);
+      if (now.isBefore(start)) {
+        final minutesUntilStart = start.difference(now).inMinutes;
+        statusMessage = workStartsInFn != null
+            ? workStartsInFn(minutesUntilStart)
+            : 'Work starts in $minutesUntilStart minutes';
+      } else {
+        statusMessage = workDayEndedText ?? 'Work day ended';
+      }
     }
 
     return {
@@ -106,7 +106,7 @@ class WorkScheduleService {
       'isTracking': _isTrackingActive,
       'statusMessage': statusMessage,
       'currentHour': now.hour,
-      'isWeekend': isWeekend,
+      'isWeekend': isDayOff,
     };
   }
 

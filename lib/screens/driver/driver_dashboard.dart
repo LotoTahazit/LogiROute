@@ -15,6 +15,7 @@ import '../../services/notification_service.dart';
 import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
+import '../../models/shift_schedule_config.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
@@ -39,10 +40,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   final WorkScheduleService _scheduleService = WorkScheduleService();
   DeliveryPoint? _currentPoint;
   List<DeliveryPoint> _lastPoints = [];
-  bool _isAutoCompleting = false;
   bool _isTrackingActive = false;
   String _scheduleStatus = '';
   Timer? _scheduleStatusTimer;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shiftsSub;
   DateTime _lastGpsNotificationSync = DateTime(2000);
   DateTime? _stopStartTime;
   String? _lastArrivedPointId;
@@ -107,6 +108,34 @@ class _DriverDashboardState extends State<DriverDashboard> {
           _scheduleStatus = status['statusMessage'];
         });
       }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _attachShiftsListener();
+    });
+  }
+
+  /// Тот же документ, что экран לוח משמרות — статус «рабочий день» совпадает с настройками.
+  void _attachShiftsListener() {
+    final auth = context.read<AuthService>();
+    final cid = auth.userModel?.companyId ?? '';
+    if (cid.isEmpty) return;
+    _shiftsSub?.cancel();
+    _shiftsSub = FirestorePaths.companyShiftsOf(cid).snapshots().listen((snap) {
+      final config = ShiftScheduleConfig.fromFirestore(snap.data());
+      ShiftScheduleConfig.saveToPrefs(config);
+      _scheduleService.updateShiftSchedule(config);
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      setState(() {
+        final status = _scheduleService.getScheduleStatus(
+          weekendDayText: l10n.weekendDay,
+          workDayEndedText: l10n.workDayEnded,
+          workStartsInFn: (m) => l10n.workStartsIn(m),
+          workEndsInFn: (m) => l10n.workEndsIn(m),
+        );
+        _scheduleStatus = status['statusMessage'] as String;
+      });
     });
   }
 
@@ -181,6 +210,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   @override
   void dispose() {
+    _shiftsSub?.cancel();
     _scheduleStatusTimer?.cancel();
     _locationService?.stopTracking();
     _realtimeGps.dispose();
@@ -195,11 +225,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
   double _lastSentLat = 0;
   double _lastSentLng = 0;
   DateTime _lastSentTime = DateTime(2000);
-  DateTime _lastPointCheckTime = DateTime(2000); // debounce проверки точек
 
   void _onLocationUpdate(double lat, double lon) {
     if (_routeService == null) return;
-    final l10n = AppLocalizations.of(context)!;
     if (_isTrackingActive) {
       _showGpsNotification();
     }
@@ -223,51 +251,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       _lastSentTime = now;
     }
 
-    // Проверяем точки не чаще раза в 60 секунд (debounce)
-    if (_isAutoCompleting) return;
-    final checkElapsed = now.difference(_lastPointCheckTime).inSeconds;
-    if (checkElapsed < 60) return;
-    _lastPointCheckTime = now;
-
-    final activePoints = _lastPoints
-        .where((p) =>
-            p.status != DeliveryPoint.statusCompleted &&
-            p.status != DeliveryPoint.statusCancelled)
-        .toList();
-
-    for (final point in activePoints) {
-      _locationService?.checkPointCompletion(
-        point,
-        lat,
-        lon,
-        (completedPoint) async {
-          if (_isAutoCompleting) return;
-          _isAutoCompleting = true;
-
-          final authService = context.read<AuthService>();
-          final currentUid = authService.currentUser?.uid ?? '';
-          await _routeService!.updatePointStatus(
-            completedPoint.id,
-            DeliveryPoint.statusCompleted,
-            updatedByUid: currentUid,
-            autoCompleted: true,
-          );
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                    '✅ ${l10n.pointCompleted}: ${completedPoint.clientName}'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-
-          _isAutoCompleting = false;
-        },
-      );
-    }
+    // Автозакрытие точек обрабатывается BackgroundLocationService (единый механизм).
   }
 
   void _handleArrivalLogic(double lat, double lon) {
@@ -932,7 +916,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   LinearProgressIndicator(
                     value: totalCount > 0 ? completedCount / totalCount : 0,
                     backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.green),
                   ),
                   const SizedBox(height: 8),
                   Text(

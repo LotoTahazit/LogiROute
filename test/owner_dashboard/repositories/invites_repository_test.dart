@@ -46,10 +46,6 @@ String _randomEmailOrPhone(Random rng) {
 AppRole _randomAllowedRole(Random rng) =>
     _allowedRoles[rng.nextInt(_allowedRoles.length)];
 
-/// Creator role: owner or admin (the roles that can create invites).
-AppRole _randomCreatorRole(Random rng) =>
-    rng.nextBool() ? AppRole.owner : AppRole.admin;
-
 // ===========================================================================
 // Property-Based Tests — Property 10: Инварианты создания приглашения
 // ===========================================================================

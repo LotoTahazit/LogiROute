@@ -7,6 +7,8 @@ import '../price_management_screen.dart';
 import '../../warehouse/warehouse_dashboard.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/company_context.dart';
+import '../../shift_settings_screen.dart';
 
 /// AppBar actions для диспетчера
 class DispatcherAppBarActions extends StatelessWidget {
@@ -97,6 +99,16 @@ class DispatcherAppBarActions extends StatelessWidget {
             ],
           ),
         ),
+        PopupMenuItem(
+          value: 'shift_settings',
+          child: Row(
+            children: [
+              const Icon(Icons.schedule, size: 20),
+              const SizedBox(width: 12),
+              Text(l10n.shiftScheduleTitle),
+            ],
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -161,6 +173,16 @@ class DispatcherAppBarActions extends StatelessWidget {
             break;
           case 'warehouse_location':
             onSetWarehouseLocation();
+            break;
+          case 'shift_settings':
+            final companyId =
+                CompanyContext.of(context).effectiveCompanyId ?? '';
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ShiftSettingsScreen(companyId: companyId),
+              ),
+            );
             break;
           case 'logout':
             authService.signOut();

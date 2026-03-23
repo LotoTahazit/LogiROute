@@ -4,6 +4,7 @@ import '../../models/company_settings.dart';
 import '../../services/company_settings_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../features/owner_dashboard/widgets/sections/integration_settings_dialog.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
@@ -56,9 +57,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       if (companyId == null || companyId.isEmpty) {
         debugPrint('❌ [CompanySettings] CompanyId is null or empty');
         if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ Компания не выбрана'),
+            SnackBar(
+              content: Text(l10n.companySettingsNotSelected),
               backgroundColor: Colors.red,
             ),
           );
@@ -79,9 +81,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     } catch (e) {
       debugPrint('❌ [CompanySettings] Error in _initializeService: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Ошибка инициализации: $e'),
+            content: Text(l10n.companySettingsInitError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -131,8 +134,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           debugPrint(
               '⚠️ [CompanySettings] No settings found - showing empty form');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Настройки не найдены. Заполните форму.'),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)!.companySettingsEmptyWarning,
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -141,9 +146,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     } catch (e) {
       debugPrint('❌ [CompanySettings] Error loading settings: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Ошибка загрузки: $e'),
+            content: Text(l10n.companySettingsLoadError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -191,20 +197,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       await service.saveSettings(settings);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${l10n.settingsSaved}'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackbarHelper.showSuccess(context, l10n.settingsSaved);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ ${l10n.errorSavingSettings}: $e'),
-            backgroundColor: Colors.red,
-          ),
+        SnackbarHelper.showError(
+          context,
+          l10n.companySettingsSaveFailed(e.toString()),
         );
       }
     } finally {

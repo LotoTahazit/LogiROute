@@ -3,7 +3,8 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 
 import 'dart:async';
-import 'dart:js' as js;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 
 /// Результат геокодинга
@@ -21,25 +22,32 @@ class GeocodingResult {
 
 /// Сервис геокодинга для web через Google Maps JavaScript API
 class WebGeocodingService {
-  static js.JsObject? _geocoder;
+  static JSObject? _geocoder;
 
   /// Инициализация геокодера
   static void _ensureInitialized() {
-    if (_geocoder == null) {
-      final google = js.context['google'];
-      if (google != null) {
-        final maps = google['maps'];
-        if (maps != null) {
-          final geocoderClass = maps['Geocoder'];
-          if (geocoderClass != null) {
-            _geocoder = js.JsObject(geocoderClass);
-          }
-        }
-      }
-
-      if (_geocoder == null) {
+    if (_geocoder != null) return;
+    try {
+      final googleAny = globalContext['google'];
+      if (googleAny == null) {
         debugPrint('❌ [WebGeocoding] Google Maps not loaded');
+        return;
       }
+      final google = googleAny as JSObject;
+      final mapsAny = google['maps'];
+      if (mapsAny == null) return;
+      final maps = mapsAny as JSObject;
+      final geocoderCtorAny = maps['Geocoder'];
+      if (geocoderCtorAny == null) return;
+      final ctor = geocoderCtorAny as JSFunction;
+      _geocoder = ctor.callAsConstructor<JSObject>();
+    } catch (e) {
+      debugPrint('❌ [WebGeocoding] Google Maps not loaded: $e');
+      _geocoder = null;
+    }
+
+    if (_geocoder == null) {
+      debugPrint('❌ [WebGeocoding] Google Maps not loaded');
     }
   }
 
@@ -54,77 +62,93 @@ class WebGeocodingService {
     final completer = Completer<GeocodingResult?>();
 
     try {
-      final request = js.JsObject.jsify({'address': address});
+      final request = JSObject();
+      request['address'] = address.toJS;
 
-      final callback = js.JsFunction.withThis(
-        (self, results, status) {
-          try {
-            if (status == 'OK' && results != null && results.length > 0) {
-              final firstResult = results[0];
-              final geometry = firstResult['geometry'];
-              final location = geometry['location'];
+      void onGeocode(JSAny? results, JSAny? status) {
+        try {
+          final statusStr =
+              status != null ? (status as JSString).toDart : '';
 
-              // Получаем lat/lng через методы
-              final lat = location.callMethod('lat', []) as double;
-              final lng = location.callMethod('lng', []) as double;
-
-              // Получаем форматированный адрес
-              String? formattedAddress;
-              try {
-                formattedAddress = firstResult['formatted_address'] as String?;
-              } catch (e) {
-                debugPrint(
-                    '⚠️ [WebGeocoding] Error parsing formatted_address: $e');
-              }
-
-              // ✅ ПРОВЕРКА: Если в запросе был конкретный город, проверяем результат
-              final cityChecks = {
-                'חולון': ['חולון', 'Holon'],
-                'Holon': ['חולון', 'Holon'],
-                'ראשון לציון': ['ראשון לציון', 'Rishon'],
-                'Rishon': ['ראשון לציון', 'Rishon'],
-                'תל אביב': ['תל אביב', 'Tel Aviv'],
-                'Tel Aviv': ['תל אביב', 'Tel Aviv'],
-              };
-
-              for (final entry in cityChecks.entries) {
-                if (address.contains(entry.key)) {
-                  final cityFound = entry.value.any(
-                    (city) => formattedAddress?.contains(city) ?? false,
-                  );
-                  if (!cityFound) {
-                    if (!completer.isCompleted) {
-                      completer.complete(null);
-                    }
-                    return;
-                  }
-                }
-              }
-
-              if (!completer.isCompleted) {
-                completer.complete(GeocodingResult(
-                  latitude: lat,
-                  longitude: lng,
-                  formattedAddress: formattedAddress,
-                ));
-              }
-            } else {
-              debugPrint('❌ [WebGeocoding] Статус: $status');
-              if (!completer.isCompleted) {
-                completer.complete(null);
-              }
-            }
-          } catch (e) {
-            debugPrint('❌ [WebGeocoding] Ошибка парсинга: $e');
+          if (statusStr != 'OK' || results == null) {
+            debugPrint('❌ [WebGeocoding] Статус: $statusStr');
             if (!completer.isCompleted) {
               completer.complete(null);
             }
+            return;
           }
-        },
-      );
 
-      // Вызываем геокодер с callback
-      _geocoder!.callMethod('geocode', [request, callback]);
+          final resultsObj = results as JSObject;
+          final lenAny = resultsObj['length'];
+          final len = lenAny != null ? (lenAny as JSNumber).toDartInt : 0;
+          if (len <= 0) {
+            debugPrint('❌ [WebGeocoding] Статус: $statusStr');
+            if (!completer.isCompleted) {
+              completer.complete(null);
+            }
+            return;
+          }
+
+          final firstResult = resultsObj['0'] as JSObject;
+          final geometry = firstResult['geometry'] as JSObject;
+          final location = geometry['location'] as JSObject;
+
+          final latAny = location.callMethod('lat'.toJS);
+          final lngAny = location.callMethod('lng'.toJS);
+          final lat = (latAny as JSNumber).toDartDouble;
+          final lng = (lngAny as JSNumber).toDartDouble;
+
+          String? formattedAddress;
+          try {
+            final fa = firstResult['formatted_address'];
+            if (fa != null) {
+              formattedAddress = (fa as JSString).toDart;
+            }
+          } catch (e) {
+            debugPrint(
+                '⚠️ [WebGeocoding] Error parsing formatted_address: $e');
+          }
+
+          final cityChecks = {
+            'חולון': ['חולון', 'Holon'],
+            'Holon': ['חולון', 'Holon'],
+            'ראשון לציון': ['ראשון לציון', 'Rishon'],
+            'Rishon': ['ראשון לציון', 'Rishon'],
+            'תל אביב': ['תל אביב', 'Tel Aviv'],
+            'Tel Aviv': ['תל אביב', 'Tel Aviv'],
+          };
+
+          for (final entry in cityChecks.entries) {
+            if (address.contains(entry.key)) {
+              final cityFound = entry.value.any(
+                (city) => formattedAddress?.contains(city) ?? false,
+              );
+              if (!cityFound) {
+                if (!completer.isCompleted) {
+                  completer.complete(null);
+                }
+                return;
+              }
+            }
+          }
+
+          if (!completer.isCompleted) {
+            completer.complete(GeocodingResult(
+              latitude: lat,
+              longitude: lng,
+              formattedAddress: formattedAddress,
+            ));
+          }
+        } catch (e) {
+          debugPrint('❌ [WebGeocoding] Ошибка парсинга: $e');
+          if (!completer.isCompleted) {
+            completer.complete(null);
+          }
+        }
+      }
+
+      final callback = onGeocode.toJS;
+      _geocoder!.callMethod('geocode'.toJS, request, callback);
     } catch (e) {
       debugPrint('❌ [WebGeocoding] Ошибка: $e');
       if (!completer.isCompleted) {

@@ -391,6 +391,21 @@ class RouteProgressService {
     final splitIndex = nearestPoint['index'] as int;
 
     final routeParts = splitRouteAtIndex(polyline, splitIndex);
+    var remaining = List<LatLng>.from(
+      routeParts['remainingRoute'] as List<LatLng>,
+    );
+    // Линия «остатка» начинается с GPS водителя, иначе визуально отрывается от метки
+    if (remaining.isNotEmpty) {
+      final d = GpsUtils.distanceMeters(
+        driver.latitude,
+        driver.longitude,
+        remaining.first.latitude,
+        remaining.first.longitude,
+      );
+      remaining = d > 4
+          ? <LatLng>[driver, ...remaining]
+          : <LatLng>[driver, ...remaining.skip(1)];
+    }
 
     // Добавляем метаданные
     return {
@@ -398,12 +413,12 @@ class RouteProgressService {
       'nearestPoint': nearestPoint['point'],
       'distanceToNearest': nearestPoint['distance'],
       'passedRoute': routeParts['passedRoute'],
-      'remainingRoute': routeParts['remainingRoute'],
+      'remainingRoute': remaining,
       'passedPointsCount': (routeParts['passedRoute'] as List<LatLng>).length,
       'remainingPointsCount':
           (routeParts['remainingRoute'] as List<LatLng>).length,
       'totalPointsCount': polyline.length,
-      'passedPercentage': polyline.length > 0
+      'passedPercentage': polyline.isNotEmpty
           ? (splitIndex / polyline.length * 100).round()
           : 0.0,
     };

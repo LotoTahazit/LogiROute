@@ -310,15 +310,18 @@ class FirestorePaths {
   /// Static: коллекция driver_locations компании
   static CollectionReference<Map<String, dynamic>> driverLocationsOf(
       String companyId) {
-    // ИЗМЕНЕНО: используем глобальный путь driver_locations
-    return FirebaseFirestore.instance.collection('driver_locations');
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('driver_locations');
   }
 
   /// Static: история GPS водителя
   static CollectionReference<Map<String, dynamic>> driverHistoryOf(
       String companyId, String driverId) {
-    // ИЗМЕНЕНО: используем глобальный путь driver_locations
     return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
         .collection('driver_locations')
         .doc(driverId)
         .collection('history');
@@ -332,6 +335,17 @@ class FirestorePaths {
         .doc(companyId)
         .collection('settings')
         .doc('config');
+  }
+
+  /// График смен для карты / логики «на смене»:
+  /// `companies/{companyId}/settings/shifts`
+  static DocumentReference<Map<String, dynamic>> companyShiftsOf(
+      String companyId) {
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('settings')
+        .doc('shifts');
   }
 
   // ============================================================================

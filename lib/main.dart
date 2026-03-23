@@ -85,8 +85,6 @@ Future<void> _requestIgnoreBatteryOptimizationOnce() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const googleMapsKey = String.fromEnvironment('GOOGLE_MAPS_WEB_KEY');
-
   // 🔥 Глобальный ловец ошибок Flutter
   FlutterError.onError = (details) {
     FlutterError.dumpErrorToConsole(details);

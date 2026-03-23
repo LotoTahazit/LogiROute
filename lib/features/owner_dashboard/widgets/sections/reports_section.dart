@@ -260,7 +260,7 @@ class _MonthlyReport extends StatelessWidget {
   void _csv(
       BuildContext ctx, List<String> months, Map<String, _MonthData> data) {
     const t = '\t';
-    final b = StringBuffer('חודש${t}מסמכים${t}נטו${t}מע"מ${t}ברוטו\n');
+    final b = StringBuffer('חודש$tמסמכים$tנטו$tמע"מ$tברוטו\n');
     for (final m in months) {
       final d = data[m]!;
       b.writeln(
@@ -373,7 +373,7 @@ class _VatReport extends StatelessWidget {
 
   void _csv(BuildContext ctx, List<String> months, Map<String, _VatData> data) {
     const t = '\t';
-    final b = StringBuffer('חודש${t}בסיס מס${t}מע"מ\n');
+    final b = StringBuffer('חודש$tבסיס מס$tמע"מ\n');
     for (final m in months) {
       final d = data[m]!;
       b.writeln(
@@ -483,7 +483,7 @@ class _ClientReport extends StatelessWidget {
       BuildContext ctx, List<String> clients, Map<String, _ClientData> data) {
     const t = '\t';
     final b =
-        StringBuffer('לקוח${t}ח.פ./ע.מ.${t}מסמכים${t}נטו${t}מע"מ${t}ברוטו\n');
+        StringBuffer('לקוח$tח.פ./ע.מ.$tמסמכים$tנטו$tמע"מ$tברוטו\n');
     for (final c in clients) {
       final d = data[c]!;
       b.writeln(

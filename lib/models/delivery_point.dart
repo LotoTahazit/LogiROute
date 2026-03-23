@@ -74,6 +74,9 @@ class DeliveryPoint {
   final String? updatedByUid; // Аудит: кто последний обновил статус
   final DateTime? updatedAt; // Аудит: когда последний раз обновлён статус
   final DateTime? createdAt; // Когда создана точка
+  /// Завершённая точка убрана из оперативных списков (незавершённые не архивируются).
+  final bool archived;
+  final DateTime? archivedAt;
 
   DeliveryPoint({
     required this.id,
@@ -105,6 +108,8 @@ class DeliveryPoint {
     this.updatedByUid,
     this.updatedAt,
     this.createdAt,
+    this.archived = false,
+    this.archivedAt,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -175,6 +180,10 @@ class DeliveryPoint {
         createdAt: map['createdAt'] != null && map['createdAt'] is Timestamp
             ? (map['createdAt'] as Timestamp).toDate()
             : null,
+        archived: map['archived'] == true,
+        archivedAt: map['archivedAt'] != null && map['archivedAt'] is Timestamp
+            ? (map['archivedAt'] as Timestamp).toDate()
+            : null,
       );
     } catch (e) {
       print('❌ DeliveryPoint.fromMap error: $e');
@@ -227,6 +236,8 @@ class DeliveryPoint {
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'archived': archived,
+      if (archivedAt != null) 'archivedAt': Timestamp.fromDate(archivedAt!),
     };
   }
 
@@ -239,6 +250,8 @@ class DeliveryPoint {
     double? distanceKm,
     String? updatedByUid,
     DateTime? updatedAt,
+    bool? archived,
+    DateTime? archivedAt,
   }) {
     return DeliveryPoint(
       id: id,
@@ -269,6 +282,8 @@ class DeliveryPoint {
       updatedByUid: updatedByUid ?? this.updatedByUid,
       updatedAt: updatedAt ?? this.updatedAt,
       createdAt: createdAt,
+      archived: archived ?? this.archived,
+      archivedAt: archivedAt ?? this.archivedAt,
     );
   }
 

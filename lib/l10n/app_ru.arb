@@ -785,6 +785,211 @@
   "savingPallets": "Экономия: {count}",
   "hideGpsTracks": "Скрыть GPS-треки",
   "showGpsTracks": "Показать GPS-треки за 24ч",
+  "mapTooltipCurrentRoute": "Текущий маршрут",
+  "mapTooltipPreviousRoute": "Предыдущий маршрут",
+  "mapTooltipClearMap": "Очистить карту",
+  "mapTooltipExitDemo": "Выйти из демо",
+  "mapTooltipDemoMode": "Демо-режим",
+  "mapBannerPreviousRouteShown": "Показан предыдущий маршрут",
+  "billingGuardAccessSuspendedTitle": "Доступ приостановлен",
+  "billingGuardAccessSuspendedBody": "Аккаунт приостановлен из-за неоплаты. Оплатите, чтобы восстановить доступ.",
+  "billingGuardAccountCancelledTitle": "Аккаунт отменён",
+  "billingGuardAccountCancelledBody": "Аккаунт отменён. Свяжитесь с поддержкой для возобновления.",
+  "billingGuardTrialEndedTitle": "Пробный период окончен",
+  "billingGuardTrialEndedBody": "Пробный период закончился. Перейдите на платный тариф.",
+  "billingGuardNoAccessTitle": "Нет доступа",
+  "billingGuardNoAccessBody": "Свяжитесь с поддержкой.",
+  "billingGuardContactSupport": "Связаться с поддержкой",
+  "billingGuardPayNow": "Оплатить сейчас",
+  "billingGuardUpgrade": "Улучшить тариф",
+  "billingGuardTrialBanner": "Пробный период — осталось {days} дн. (до {date})",
+  "@billingGuardTrialBanner": {
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingGuardGraceBanner": "Отсрочка — осталось {days} дн. для оплаты. Затем аккаунт будет заблокирован.",
+  "@billingGuardGraceBanner": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "billingGuardCheckoutOpened": "Страница оплаты открыта в браузере. После оплаты аккаунт обновится автоматически.",
+  "billingGuardCheckoutError": "Ошибка открытия оплаты: {error}",
+  "@billingGuardCheckoutError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsNotSelected": "Компания не выбрана",
+  "companySettingsInitError": "Ошибка инициализации: {error}",
+  "@companySettingsInitError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsEmptyWarning": "Настройки не найдены. Заполните форму.",
+  "companySettingsLoadError": "Ошибка загрузки: {error}",
+  "@companySettingsLoadError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingDashboardTitle": "Панель биллинга",
+  "billingDashboardFilterAll": "Все",
+  "billingDashboardFilterTrial": "🧪 Пробный",
+  "billingDashboardFilterActive": "✅ Активен",
+  "billingDashboardFilterGrace": "⏳ Отсрочка",
+  "billingDashboardFilterSuspended": "🚫 Приостановлен",
+  "billingDashboardFilterCancelled": "❌ Отменён",
+  "billingDashboardSearchHint": "Поиск…",
+  "billingDashboardNoCompanies": "Компании не найдены",
+  "billingDashboardExtendTitle": "Продлить {companyName}",
+  "@billingDashboardExtendTitle": {
+    "placeholders": { "companyName": { "type": "String" } }
+  },
+  "billingDashboardExtendPaidUntil": "Установить оплату до: {date}",
+  "@billingDashboardExtendPaidUntil": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "billingDashboardNoteLabel": "Примечание (обязательно)",
+  "billingDashboardNoteDefault": "Продлено через панель",
+  "billingDashboardExtendButton": "Продлить",
+  "billingDashboardChangeStatusTitle": "Изменить {companyName} → {status}?",
+  "@billingDashboardChangeStatusTitle": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardChangeStatusBody": "Статус биллинга изменится сразу.",
+  "billingDashboardStatusUpdated": "{companyName} → {status}",
+  "@billingDashboardStatusUpdated": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardIntegrityRunning": "Запуск проверки целостности…",
+  "billingDashboardIntegrityDone": "Проверка целостности завершена",
+  "billingDashboardRunIntegrityTooltip": "Проверка целостности",
+  "billingDashboardExtendSuccess": "{companyName}: продлено до {date}",
+  "@billingDashboardExtendSuccess": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingDashboardError": "Ошибка: {error}",
+  "@billingDashboardError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingLabelProvider": "Провайдер",
+  "billingLabelPaidUntil": "Оплачено до",
+  "billingLabelTrialUntil": "Пробный до",
+  "billingLabelGraceUntil": "Отсрочка до",
+  "billingLabelGraceDays": "Дней отсрочки",
+  "billingActionExtend": "Продлить",
+  "billingActionActive": "Активен",
+  "billingActionGrace": "Отсрочка",
+  "billingActionSuspend": "Блокировать",
+  "dispatcherInvalidCoordinates": "Неверные координаты: {error}",
+  "@dispatcherInvalidCoordinates": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherPrintError": "Ошибка печати: {error}",
+  "@dispatcherPrintError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherGenericError": "Ошибка: {error}",
+  "@dispatcherGenericError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherWarehouseSaved": "Координаты склада сохранены: {coords}",
+  "@dispatcherWarehouseSaved": {
+    "placeholders": { "coords": { "type": "String" } }
+  },
+  "dispatcherTourStep1": "Точки доставки: добавляете клиента и товары к заказу — здесь формируется заказ до маршрута.",
+  "dispatcherTourStep2": "В каждой точке: товары и количества; можно править до построения маршрута.",
+  "dispatcherTourStep3": "Когда товары готовы — переходите на вкладку «Активные маршруты» и назначьте водителя.",
+  "dispatcherTourStep4": "Активные маршруты: водитель, порядок остановок и маршрут на карте.",
+  "dispatcherTourStep5": "После построения маршрута задания попадают водителю в приложение; переключайтесь на карту.",
+  "dispatcherTourStopTooltip": "Остановить демо-тур",
+  "dispatcherTourStartTooltip": "Демо-тур: заказ → маршрут → водитель",
+  "dispatcherTourProgress": "{current}/{total}",
+  "@dispatcherTourProgress": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dispatcherSkippedInvoicesMakor": "Пропущено {count} счетов — оригинал уже напечатан. Для повторной печати используйте управление счетами.",
+  "@dispatcherSkippedInvoicesMakor": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dispatcherCopiesOnlyPendingTax": "Напечатаны только копии — ожидается номер присвоения. Оригинал после одобрения налоговой.",
+  "pointUpdatedSuccess": "Точка обновлена: {name}",
+  "@pointUpdatedSuccess": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointReturnedToRoute": "{name} возвращён на маршрут",
+  "@dispatcherPointReturnedToRoute": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTitle": "Отметить доставлено",
+  "dispatcherManualCompleteMessage": "Отметить «{name}» доставленным вручную? Если авто-закрытие не сработало.",
+  "@dispatcherManualCompleteMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTooltip": "Закрыть точку вручную",
+  "dispatcherPointCompletedManually": "{name} отмечена доставленной",
+  "@dispatcherPointCompletedManually": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointAssignedToDriver": "Точка назначена: {client} → {driver}",
+  "@dispatcherPointAssignedToDriver": {
+    "placeholders": {
+      "client": { "type": "String" },
+      "driver": { "type": "String" }
+    }
+  },
+  "dispatcherAssignDriverTitle": "Назначить водителя — {clientName}",
+  "@dispatcherAssignDriverTitle": {
+    "placeholders": { "clientName": { "type": "String" } }
+  },
+  "dispatcherDragAssignSuccess": "Точка назначена → {driverName}",
+  "@dispatcherDragAssignSuccess": {
+    "placeholders": { "driverName": { "type": "String" } }
+  },
+  "autoDistributeFailed": "Ошибка автораспределения: {error}",
+  "@autoDistributeFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsSaveFailed": "Ошибка сохранения настроек: {error}",
+  "@companySettingsSaveFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "makorOriginalPrintedTitle": "Оригинал уже напечатан",
+  "makorDocTypeDeliveryNote": "Накладная",
+  "makorDocTypeTaxInvoiceReceipt": "Счёт-фактура / квитанция",
+  "makorDocTypeTaxInvoice": "Счёт-фактура",
+  "makorInvoiceLineNumbered": "{docType} № {seq}",
+  "@makorInvoiceLineNumbered": {
+    "placeholders": {
+      "docType": { "type": "String" },
+      "seq": { "type": "String" }
+    }
+  },
+  "makorClientLine": "Клиент: {name}",
+  "@makorClientLine": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "makorBooksLawWarning": "По закону о бухучёте — нельзя напечатать ещё один оригинал.\nМожно только копию или заверенную копию.",
+  "makorChoosePrintType": "Выберите тип печати:",
+  "makorCopy": "Копия",
+  "makorCopySubtitle": "Копия номер {n}",
+  "@makorCopySubtitle": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "makorTrueToOriginal": "Верно к оригиналу",
+  "makorTrueToOriginalSubtitle": "Заменяет оригинал",
+  "makorCopyQuantity": "Количество копий:",
+  "makorPrintButton": "Печать",
   "vatId": "ИНН / Номер плательщика",
   "deliveryZones": "Зоны доставки",
   "zonesRequired": "Необходимо выбрать хотя бы одну зону",
@@ -1497,5 +1702,23 @@
   "percentCompleted": "{percent}% выполнено",
   "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
   "nPoints": "{count} точек",
-  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } },
+
+  "shiftScheduleTitle": "График смен",
+  "shiftWorkingDays": "Рабочие дни",
+  "shiftDayMon": "Пн",
+  "shiftDayTue": "Вт",
+  "shiftDayWed": "Ср",
+  "shiftDayThu": "Чт",
+  "shiftDayFri": "Пт",
+  "shiftDaySat": "Сб",
+  "shiftDaySun": "Вс",
+  "shiftStart": "Начало смены",
+  "shiftEnd": "Конец смены",
+  "shiftSaved": "Сохранено",
+  "shiftLoadError": "Ошибка загрузки: {error}",
+  "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftSaveError": "Ошибка: {error}",
+  "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftNoCompanyId": "Компания не выбрана"
 }

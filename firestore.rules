@@ -214,9 +214,17 @@ service cloud.firestore {
       // =========================================================
       // Company settings
       // =========================================================
+      // config / integrations / … — только admin+.
+      // shifts — גם dispatcher + owner (לוח משמרות בממשק דיספצ׳ר).
       match /settings/{docId} {
         allow read: if isCompanyMember(companyId);
-        allow create, update: if canAdminWrite(companyId);
+        allow create, update: if isCompanyMember(companyId) && billingAllowsWrite(companyId) && (
+          canAdminWrite(companyId) ||
+          (
+            docId == 'shifts' &&
+            hasAnyRole(['owner', 'dispatcher'])
+          )
+        );
         allow delete: if false;
       }
 

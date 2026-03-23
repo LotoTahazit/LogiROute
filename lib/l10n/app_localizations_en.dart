@@ -2049,6 +2049,363 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showGpsTracks => 'Show GPS tracks (24h)';
 
   @override
+  String get mapTooltipCurrentRoute => 'Current route';
+
+  @override
+  String get mapTooltipPreviousRoute => 'Previous route';
+
+  @override
+  String get mapTooltipClearMap => 'Clear map';
+
+  @override
+  String get mapTooltipExitDemo => 'Exit demo mode';
+
+  @override
+  String get mapTooltipDemoMode => 'Demo mode';
+
+  @override
+  String get mapBannerPreviousRouteShown => 'Showing previous route';
+
+  @override
+  String get billingGuardAccessSuspendedTitle => 'Access suspended';
+
+  @override
+  String get billingGuardAccessSuspendedBody =>
+      'Your account has been suspended for non-payment. Pay to restore access.';
+
+  @override
+  String get billingGuardAccountCancelledTitle => 'Account cancelled';
+
+  @override
+  String get billingGuardAccountCancelledBody =>
+      'Your account has been cancelled. Please contact support to renew.';
+
+  @override
+  String get billingGuardTrialEndedTitle => 'Trial ended';
+
+  @override
+  String get billingGuardTrialEndedBody =>
+      'Your trial has ended. Upgrade to a paid plan.';
+
+  @override
+  String get billingGuardNoAccessTitle => 'No access';
+
+  @override
+  String get billingGuardNoAccessBody => 'Please contact support.';
+
+  @override
+  String get billingGuardContactSupport => 'Contact support';
+
+  @override
+  String get billingGuardPayNow => 'Pay now';
+
+  @override
+  String get billingGuardUpgrade => 'Upgrade';
+
+  @override
+  String billingGuardTrialBanner(int days, String date) {
+    return 'Trial — $days days left (until $date)';
+  }
+
+  @override
+  String billingGuardGraceBanner(int days) {
+    return 'Grace period — $days days left to pay. After that the account will be suspended.';
+  }
+
+  @override
+  String get billingGuardCheckoutOpened =>
+      'Payment page opened in the browser. After payment, the account will update automatically.';
+
+  @override
+  String billingGuardCheckoutError(String error) {
+    return 'Error opening payment page: $error';
+  }
+
+  @override
+  String get companySettingsNotSelected => 'No company selected';
+
+  @override
+  String companySettingsInitError(String error) {
+    return 'Initialization error: $error';
+  }
+
+  @override
+  String get companySettingsEmptyWarning =>
+      'No settings found. Fill in the form.';
+
+  @override
+  String companySettingsLoadError(String error) {
+    return 'Load error: $error';
+  }
+
+  @override
+  String get billingDashboardTitle => 'Billing dashboard';
+
+  @override
+  String get billingDashboardFilterAll => 'All';
+
+  @override
+  String get billingDashboardFilterTrial => '🧪 Trial';
+
+  @override
+  String get billingDashboardFilterActive => '✅ Active';
+
+  @override
+  String get billingDashboardFilterGrace => '⏳ Grace';
+
+  @override
+  String get billingDashboardFilterSuspended => '🚫 Suspended';
+
+  @override
+  String get billingDashboardFilterCancelled => '❌ Cancelled';
+
+  @override
+  String get billingDashboardSearchHint => 'Search…';
+
+  @override
+  String get billingDashboardNoCompanies => 'No companies found';
+
+  @override
+  String billingDashboardExtendTitle(String companyName) {
+    return 'Extend $companyName';
+  }
+
+  @override
+  String billingDashboardExtendPaidUntil(String date) {
+    return 'Set paid until: $date';
+  }
+
+  @override
+  String get billingDashboardNoteLabel => 'Note (required)';
+
+  @override
+  String get billingDashboardNoteDefault => 'Extended via dashboard';
+
+  @override
+  String get billingDashboardExtendButton => 'Extend';
+
+  @override
+  String billingDashboardChangeStatusTitle(String companyName, String status) {
+    return 'Change $companyName → $status?';
+  }
+
+  @override
+  String get billingDashboardChangeStatusBody =>
+      'This will immediately change the billing status.';
+
+  @override
+  String billingDashboardStatusUpdated(String companyName, String status) {
+    return '$companyName → $status';
+  }
+
+  @override
+  String get billingDashboardIntegrityRunning => 'Running integrity check…';
+
+  @override
+  String get billingDashboardIntegrityDone => 'Integrity check complete';
+
+  @override
+  String get billingDashboardRunIntegrityTooltip => 'Run integrity check';
+
+  @override
+  String billingDashboardExtendSuccess(String companyName, String date) {
+    return '$companyName extended to $date';
+  }
+
+  @override
+  String billingDashboardError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get billingLabelProvider => 'Provider';
+
+  @override
+  String get billingLabelPaidUntil => 'Paid until';
+
+  @override
+  String get billingLabelTrialUntil => 'Trial until';
+
+  @override
+  String get billingLabelGraceUntil => 'Grace until';
+
+  @override
+  String get billingLabelGraceDays => 'Grace days';
+
+  @override
+  String get billingActionExtend => 'Extend';
+
+  @override
+  String get billingActionActive => 'Active';
+
+  @override
+  String get billingActionGrace => 'Grace';
+
+  @override
+  String get billingActionSuspend => 'Suspend';
+
+  @override
+  String dispatcherInvalidCoordinates(String error) {
+    return 'Invalid coordinates: $error';
+  }
+
+  @override
+  String dispatcherPrintError(String error) {
+    return 'Print error: $error';
+  }
+
+  @override
+  String dispatcherGenericError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String dispatcherWarehouseSaved(String coords) {
+    return 'Warehouse location saved: $coords';
+  }
+
+  @override
+  String get dispatcherTourStep1 =>
+      'Delivery points: add a client and products for the order — the order is built here before the route.';
+
+  @override
+  String get dispatcherTourStep2 =>
+      'At each point: products and quantities; you can edit before building the route.';
+
+  @override
+  String get dispatcherTourStep3 =>
+      'When products are ready — go to the «Active routes» tab and assign a driver.';
+
+  @override
+  String get dispatcherTourStep4 =>
+      'Active routes: driver assignment, stop order, and route on the map.';
+
+  @override
+  String get dispatcherTourStep5 =>
+      'After the route is built — tasks reach the driver in the app; switch to the map.';
+
+  @override
+  String get dispatcherTourStopTooltip => 'Stop demo tour';
+
+  @override
+  String get dispatcherTourStartTooltip =>
+      'Demo tour: product → route → driver';
+
+  @override
+  String dispatcherTourProgress(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String dispatcherSkippedInvoicesMakor(int count) {
+    return '$count invoices skipped — original already printed. Use invoice management to reprint.';
+  }
+
+  @override
+  String get dispatcherCopiesOnlyPendingTax =>
+      'Copy prints only — waiting for assignment number. Original prints after tax authority approval.';
+
+  @override
+  String pointUpdatedSuccess(String name) {
+    return 'Point updated: $name';
+  }
+
+  @override
+  String dispatcherPointReturnedToRoute(String name) {
+    return '$name returned to route';
+  }
+
+  @override
+  String get dispatcherManualCompleteTitle => 'Mark as delivered';
+
+  @override
+  String dispatcherManualCompleteMessage(String name) {
+    return 'Mark \"$name\" as delivered manually? Use if auto-close did not run.';
+  }
+
+  @override
+  String get dispatcherManualCompleteTooltip => 'Mark as delivered manually';
+
+  @override
+  String dispatcherPointCompletedManually(String name) {
+    return '$name marked as delivered';
+  }
+
+  @override
+  String dispatcherPointAssignedToDriver(String client, String driver) {
+    return 'Point assigned: $client → $driver';
+  }
+
+  @override
+  String dispatcherAssignDriverTitle(String clientName) {
+    return 'Assign driver — $clientName';
+  }
+
+  @override
+  String dispatcherDragAssignSuccess(String driverName) {
+    return 'Point assigned → $driverName';
+  }
+
+  @override
+  String autoDistributeFailed(String error) {
+    return 'Auto-distribution failed: $error';
+  }
+
+  @override
+  String companySettingsSaveFailed(String error) {
+    return 'Error saving settings: $error';
+  }
+
+  @override
+  String get makorOriginalPrintedTitle => 'Original already printed';
+
+  @override
+  String get makorDocTypeDeliveryNote => 'Delivery note';
+
+  @override
+  String get makorDocTypeTaxInvoiceReceipt => 'Tax invoice / receipt';
+
+  @override
+  String get makorDocTypeTaxInvoice => 'Tax invoice';
+
+  @override
+  String makorInvoiceLineNumbered(String docType, String seq) {
+    return '$docType no. $seq';
+  }
+
+  @override
+  String makorClientLine(String name) {
+    return 'Client: $name';
+  }
+
+  @override
+  String get makorBooksLawWarning =>
+      'Under bookkeeping law — you cannot print another original.\nYou may print a copy or true-to-original only.';
+
+  @override
+  String get makorChoosePrintType => 'Choose print type:';
+
+  @override
+  String get makorCopy => 'Copy';
+
+  @override
+  String makorCopySubtitle(int n) {
+    return 'Copy number $n';
+  }
+
+  @override
+  String get makorTrueToOriginal => 'True to original';
+
+  @override
+  String get makorTrueToOriginalSubtitle => 'Replaces the original';
+
+  @override
+  String get makorCopyQuantity => 'Number of copies:';
+
+  @override
+  String get makorPrintButton => 'Print';
+
+  @override
   String get vatId => 'Tax ID / Business Number';
 
   @override
@@ -2141,12 +2498,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String invoicesPrintedSuccess(Object count) {
-    return '? $count invoices printed';
+    return '✅ $count invoices printed';
   }
 
   @override
   String printingErrorMessage(Object error) {
-    return '? Printing error: $error';
+    return '❌ Printing error: $error';
   }
 
   @override
@@ -4092,4 +4449,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String nPoints(Object count) {
     return '$count points';
   }
+
+  @override
+  String get shiftScheduleTitle => 'Shift schedule';
+
+  @override
+  String get shiftWorkingDays => 'Working days';
+
+  @override
+  String get shiftDayMon => 'Mon';
+
+  @override
+  String get shiftDayTue => 'Tue';
+
+  @override
+  String get shiftDayWed => 'Wed';
+
+  @override
+  String get shiftDayThu => 'Thu';
+
+  @override
+  String get shiftDayFri => 'Fri';
+
+  @override
+  String get shiftDaySat => 'Sat';
+
+  @override
+  String get shiftDaySun => 'Sun';
+
+  @override
+  String get shiftStart => 'Shift start';
+
+  @override
+  String get shiftEnd => 'Shift end';
+
+  @override
+  String get shiftSaved => 'Saved';
+
+  @override
+  String shiftLoadError(String error) {
+    return 'Failed to load: $error';
+  }
+
+  @override
+  String shiftSaveError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get shiftNoCompanyId => 'Company not selected';
 }

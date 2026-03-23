@@ -9,7 +9,7 @@ class ExportService {
     const t = '\t';
     final buffer = StringBuffer();
     buffer.writeln(
-        'מק"ט${t}סוג${t}מספר${t}כמות${t}כמות במשטחים${t}קוטר${t}נפח${t}ארוז${t}מידע נוסף');
+        'מק"ט$tסוג$tמספר$tכמות$tכמות במשטחים$tקוטר$tנפח$tארוז$tמידע נוסף');
 
     for (final item in items) {
       buffer.writeln([
@@ -36,7 +36,7 @@ class ExportService {
     const t = '\t';
     final buffer = StringBuffer();
     buffer.writeln(
-        'תאריך${t}שעה${t}מק"ט${t}סוג${t}מספר${t}שינוי${t}כמות אחרי${t}משתמש');
+        'תאריך$tשעה$tמק"ט$tסוג$tמספר$tשינוי$tכמות אחרי$tמשתמש');
 
     for (final change in changes) {
       final timestamp = change['timestamp'] as DateTime?;

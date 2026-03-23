@@ -262,7 +262,8 @@ class _EditClientDialogState extends State<EditClientDialog> {
                 const SizedBox(height: 16),
                 // אופן תשלום
                 DropdownButtonFormField<String>(
-                  value: _paymentMethod,
+                  key: ValueKey(_paymentMethod),
+                  initialValue: _paymentMethod,
                   decoration: InputDecoration(
                     labelText: l10n.paymentMethodLabel,
                     border: const OutlineInputBorder(),

@@ -102,10 +102,12 @@ class _DriverCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: loadColor.withOpacity(0.4)),
+        border: Border.all(
+          color: loadColor.withValues(alpha: (loadColor.a * 0.4).clamp(0.0, 1.0)),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

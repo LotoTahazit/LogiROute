@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -238,6 +237,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   Future<void> _createInvoice() async {
     if (_isCreating) return;
     setState(() => _isCreating = true);
+    final l10n = AppLocalizations.of(context)!;
     try {
       // ✅ Берём данные из authService (виртуальный companyId для super_admin)
       final authService = context.read<AuthService>();
@@ -246,7 +246,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       final userName = user?.name ?? 'Unknown';
       final userUid = authService.currentUser?.uid ?? '';
       if (userUid.isEmpty) {
-        throw Exception(AppLocalizations.of(context)!.userNotLoggedIn);
+        throw Exception(l10n.userNotLoggedIn);
       }
 
       // Время выезда всегда 7:00
@@ -306,7 +306,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         );
 
         if (!issuanceResult.ok) {
-          throw Exception(AppLocalizations.of(context)!.serverIssuanceError);
+          throw Exception(l10n.serverIssuanceError);
         }
       }
 
@@ -321,18 +321,20 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         final docNum = alreadyIssued
             ? (existingInvoice.sequentialNumber)
             : (issuanceResult?.docNumber ?? 0);
+        final String successMsg;
+        if (alreadyIssued) {
+          successMsg = l10n.deliveryNoteAlreadyExists(docNum);
+        } else if (_effectiveDocumentType == InvoiceDocumentType.delivery) {
+          successMsg = l10n.deliveryNoteCreatedSuccess(docNum);
+        } else if (_effectiveDocumentType ==
+            InvoiceDocumentType.taxInvoiceReceipt) {
+          successMsg = l10n.taxInvoiceReceiptCreatedSuccess(docNum);
+        } else {
+          successMsg = l10n.invoiceCreatedSuccess(docNum);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(() {
-              final l10n = AppLocalizations.of(context)!;
-              if (alreadyIssued) return l10n.deliveryNoteAlreadyExists(docNum);
-              if (_effectiveDocumentType == InvoiceDocumentType.delivery)
-                return l10n.deliveryNoteCreatedSuccess(docNum);
-              if (_effectiveDocumentType ==
-                  InvoiceDocumentType.taxInvoiceReceipt)
-                return l10n.taxInvoiceReceiptCreatedSuccess(docNum);
-              return l10n.invoiceCreatedSuccess(docNum);
-            }()),
+            content: Text(successMsg),
             backgroundColor: alreadyIssued ? Colors.orange : Colors.green,
           ),
         );
@@ -341,7 +343,10 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       if (mounted) {
         setState(() => _isCreating = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ שגיאה: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.dispatcherGenericError(e.toString())),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

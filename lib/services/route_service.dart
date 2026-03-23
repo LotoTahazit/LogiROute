@@ -13,6 +13,7 @@ import 'route_safety_service.dart';
 import 'route_balance_service.dart';
 import 'osrm_navigation_service.dart';
 import 'route_builder_service.dart';
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'firestore_paths.dart';
@@ -23,6 +24,8 @@ class RouteService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirestorePaths _paths = FirestorePaths();
   static bool _isDistributing = false;
+  /// Один раз за сессию на компанию: архив completed + частичные маршруты → pending.
+  static final Set<String> _scheduledPointHygiene = {};
 
   RouteService({required this.companyId}) {
     if (companyId.isEmpty) {
@@ -94,7 +97,7 @@ class RouteService {
           .get();
       final load = existing.docs.fold<int>(
         0,
-        (sum, doc) => sum + ((doc.data()['pallets'] as num?)?.toInt() ?? 0),
+        (acc, doc) => acc + ((doc.data()['pallets'] as num?)?.toInt() ?? 0),
       );
       driverCurrentLoad[driver.uid] = load;
     }
@@ -284,6 +287,11 @@ class RouteService {
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
 
+    if (!_scheduledPointHygiene.contains(companyId)) {
+      _scheduledPointHygiene.add(companyId);
+      unawaited(_syncPointHygiene());
+    }
+
     Query query = _deliveryPointsCollection();
 
     if (driverId != null) {
@@ -301,9 +309,16 @@ class RouteService {
           .map((doc) =>
               DeliveryPoint.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .where((p) {
+        if (p.archived) return false;
         // 1️⃣ routeId = driverId_year_month_day → парсим дату
-        if (p.routeId != null) {
-          return _isRouteFromToday(p.routeId!, todayMidnight);
+        if (p.routeId != null && p.routeId!.isNotEmpty) {
+          if (_isRouteFromToday(p.routeId!, todayMidnight)) return true;
+          // Незавершённый маршрут с вчерашним routeId остаётся, только если
+          // по маршруту ещё не было ни одной доставки (см. _syncPointHygiene).
+          if (DeliveryPoint.activeRouteStatuses.contains(p.status)) {
+            return true;
+          }
+          return false;
         }
 
         // 2️⃣ Completed сегодня (без routeId)
@@ -331,6 +346,125 @@ class RouteService {
     });
   }
 
+  /// Архив completed (до сегодняшней полночи), затем частичные маршруты → pending.
+  Future<void> _syncPointHygiene() async {
+    await archiveStaleCompletedPoints();
+    await releasePartialRouteIncompleteToPending();
+  }
+
+  /// Завершённые точки с completedAt до начала сегодняшнего дня → в архив (поле archived).
+  Future<void> archiveStaleCompletedPoints() async {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final cutoff = Timestamp.fromDate(todayMidnight);
+    DocumentSnapshot<Map<String, dynamic>>? cursorDoc;
+    try {
+      while (true) {
+        Query<Map<String, dynamic>> q = _deliveryPointsCollection()
+            .where('status', isEqualTo: DeliveryPoint.statusCompleted)
+            .where('completedAt', isLessThan: cutoff)
+            .orderBy('completedAt')
+            .limit(500);
+        if (cursorDoc != null) {
+          q = q.startAfterDocument(cursorDoc);
+        }
+        final snap = await q.get();
+        if (snap.docs.isEmpty) break;
+        cursorDoc = snap.docs.last;
+        final batch = _firestore.batch();
+        var n = 0;
+        for (final doc in snap.docs) {
+          if (doc.data()['archived'] == true) continue;
+          batch.update(doc.reference, {
+            'archived': true,
+            'archivedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          n++;
+        }
+        if (n > 0) await batch.commit();
+        if (snap.docs.length < 500) break;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [RouteService] archiveStaleCompletedPoints: $e');
+    }
+  }
+
+  /// Если по [routeId] уже есть хотя бы одна completed и есть active — active → pending.
+  /// Если ни одной доставки не завершено — маршрут не трогаем (тот же routeId).
+  Future<void> releasePartialRouteIncompleteToPending() async {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final processed = <String>{};
+    DocumentSnapshot<Map<String, dynamic>>? cursor;
+    try {
+      while (true) {
+        Query<Map<String, dynamic>> q = _deliveryPointsCollection()
+            .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+            .orderBy(FieldPath.documentId)
+            .limit(100);
+        if (cursor != null) {
+          q = q.startAfterDocument(cursor);
+        }
+        final snap = await q.get();
+        if (snap.docs.isEmpty) break;
+        cursor = snap.docs.last;
+        for (final doc in snap.docs) {
+          final routeId = doc.data()['routeId'] as String?;
+          if (routeId == null || routeId.isEmpty) continue;
+          if (_isRouteFromToday(routeId, todayMidnight)) continue;
+          if (processed.contains(routeId)) continue;
+          processed.add(routeId);
+          await _releasePartialRouteIfNeeded(routeId);
+        }
+        if (snap.docs.length < 100) break;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [RouteService] releasePartialRouteIncompleteToPending: $e');
+    }
+  }
+
+  Future<void> _releasePartialRouteIfNeeded(String routeId) async {
+    final snap = await _deliveryPointsCollection()
+        .where('routeId', isEqualTo: routeId)
+        .get();
+    if (snap.docs.isEmpty) return;
+
+    var hasCompleted = false;
+    final activeRefs = <DocumentReference<Map<String, dynamic>>>[];
+
+    for (final doc in snap.docs) {
+      final st = DeliveryPoint.normalizeStatus(doc.data()['status']);
+      if (st == DeliveryPoint.statusCompleted) {
+        hasCompleted = true;
+        continue;
+      }
+      if (st == DeliveryPoint.statusAssigned || st == DeliveryPoint.statusInProgress) {
+        activeRefs.add(doc.reference);
+      }
+    }
+
+    if (!hasCompleted || activeRefs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final ref in activeRefs) {
+      batch.update(ref, {
+        'status': DeliveryPoint.statusPending,
+        'driverId': FieldValue.delete(),
+        'driverName': FieldValue.delete(),
+        'routeId': FieldValue.delete(),
+        'routePolyline': FieldValue.delete(),
+        'routeDate': FieldValue.delete(),
+        'orderInRoute': 0,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    debugPrint(
+      '📤 [RouteService] Partial route $routeId: ${activeRefs.length} points → pending',
+    );
+  }
+
   /// Проверяет, относится ли routeId к сегодняшнему дню
   /// Формат routeId: driverId_year_month_day
   bool _isRouteFromToday(String routeId, DateTime today) {
@@ -347,7 +481,11 @@ class RouteService {
   }
 
   /// ✅ Получить маршруты для карты (из коллекции routes — 1 чтение)
-  Future<List<Map<String, dynamic>>> getTodayRoutesForMap() async {
+  /// [additionalRouteIds] — документы не за «сегодня», но нужны для polyline
+  /// (незавершённый маршрут с вчерашней датой в routeId).
+  Future<List<Map<String, dynamic>>> getTodayRoutesForMap({
+    Set<String>? additionalRouteIds,
+  }) async {
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
 
@@ -357,7 +495,7 @@ class RouteService {
         .catchError((_) => _routesCollection().get());
 
     // Фильтруем на клиенте: routeDate == сегодня ИЛИ routeId содержит сегодняшнюю дату
-    return snapshot.docs
+    final todayList = snapshot.docs
         .where((doc) {
           final data = doc.data();
           final routeDate = data['routeDate'] as Timestamp?;
@@ -373,6 +511,20 @@ class RouteService {
         })
         .map((doc) => {'id': doc.id, ...doc.data()})
         .toList();
+
+    final haveIds = todayList.map((m) => m['id'] as String? ?? m['routeId']?.toString()).whereType<String>().toSet();
+
+    final extra = <Map<String, dynamic>>[];
+    for (final id in additionalRouteIds ?? {}) {
+      if (id.isEmpty || haveIds.contains(id)) continue;
+      final doc = await _routesCollection().doc(id).get();
+      if (doc.exists && doc.data() != null) {
+        extra.add({'id': doc.id, ...doc.data()!});
+        haveIds.add(doc.id);
+      }
+    }
+
+    return [...todayList, ...extra];
   }
 
   /// Поток автозакрытых точек (для кнопки "החזר לנקודה פתוחה")
@@ -390,6 +542,7 @@ class RouteService {
       return snapshot.docs
           .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
           .where((p) {
+        if (p.archived) return false;
         // Показываем только точки, завершенные сегодня (после полуночи)
         if (p.completedAt == null) return false;
         return p.completedAt!.isAfter(midnight);
@@ -600,41 +753,6 @@ class RouteService {
     } catch (e) {
       print('❌ [RouteService] Error cancelling route: $e');
       rethrow;
-    }
-  }
-
-  /// � Получает текущую позицию водителя из Firestore
-  Future<Map<String, double>?> _getDriverCurrentLocation(
-      String driverId) async {
-    try {
-      final doc =
-          await FirestorePaths.driverLocationsOf(companyId).doc(driverId).get();
-
-      if (doc.exists) {
-        final data = doc.data()!;
-        final timestamp = data['timestamp'];
-
-        // Проверяем, что данные не старше 10 минут
-        if (timestamp != null) {
-          final locationTime = timestamp.toDate();
-          final now = DateTime.now();
-          final diffMinutes = now.difference(locationTime).inMinutes;
-
-          if (diffMinutes <= 10) {
-            return {
-              'latitude': data['latitude'],
-              'longitude': data['longitude'],
-            };
-          }
-        }
-      }
-
-      print(
-          '⚠️ [RouteService] Driver location not found or too old, using default location');
-      return null;
-    } catch (e) {
-      print('❌ [RouteService] Error getting driver location: $e');
-      return null;
     }
   }
 
@@ -934,8 +1052,9 @@ class RouteService {
     }
   }
 
-  /// Проверяет, является ли текущий порядок точек неоптимальным по времени.
-  /// Сравнивает длительность текущего маршрута с OSRM-оптимальным порядком.
+  /// Совпадает с [optimizeRouteByTime]: неоптимально только если OSRM Trip
+  /// предлагает другой порядок (`waypointOrder[i] != i`). Раньше сравнивали
+  /// длительности route vs trip — разные инстансы OSRM давали ложный «неоптимально».
   Future<bool> isRouteOrderSuboptimal(List<DeliveryPoint> points) async {
     final activePoints = points
         .where((p) =>
@@ -953,26 +1072,18 @@ class RouteService {
     final whLat = AppConfig.defaultWarehouseLat;
     final whLng = AppConfig.defaultWarehouseLng;
 
-    final currentRoute = await osrm.getOptimizedRoute(
-      startLat: whLat,
-      startLng: whLng,
-      waypoints: waypoints,
-      endLat: whLat,
-      endLng: whLng,
-    );
-    if (currentRoute == null) return false;
-
     final optimized = await osrm.getOptimizedTripOrder(
       warehouseLat: whLat,
       warehouseLng: whLng,
       waypoints: waypoints,
     );
     if (optimized == null) return false;
+    if (optimized.waypointOrder.length != activePoints.length) return false;
 
-    final savedMinutes = currentRoute.duration - optimized.durationMinutes;
-    return savedMinutes > 2.0 ||
-        (currentRoute.duration > 0 &&
-            savedMinutes / currentRoute.duration > 0.05);
+    for (var i = 0; i < optimized.waypointOrder.length; i++) {
+      if (optimized.waypointOrder[i] != i) return true;
+    }
+    return false;
   }
 
   /// Оптимизация порядка точек в маршруте по времени через OSRM Trip API.
@@ -1037,52 +1148,51 @@ class RouteService {
     return true;
   }
 
-  /// ✅ Отмена маршрута - удаляем все точки конкретного маршрута
+  /// ✅ Отмена маршрута — точки возвращаются в пул ожидания (не удаляются).
   Future<void> cancelRoutePoints(String driverId, String? routeId) async {
     print(
-        '🛑 [RouteService] Starting route cancellation for driverId: "$driverId", routeId: "$routeId"');
-
-    // Сначала посмотрим, что у нас есть в базе
-    final allPoints = await _deliveryPointsCollection().get();
-    print(
-        '📊 [RouteService] Total points in database: ${allPoints.docs.length}');
-
-    for (final doc in allPoints.docs) {
-      final data = doc.data();
-      print(
-          '📍 [RouteService] Point: ${data['clientName']} - driverId: "${data['driverId']}" - routeId: "${data['routeId']}" - status: "${data['status']}"');
-    }
+        '🛑 [RouteService] Cancel route → pending: driverId="$driverId", routeId="$routeId"');
 
     Query query;
 
     if (driverId.isEmpty || driverId == 'null') {
-      // Safety: refuse to delete ALL points — require explicit driverId
       print(
-          '⚠️ [RouteService] Refusing to delete ALL points (driverId is empty). Aborting.');
+          '⚠️ [RouteService] Refusing (driverId is empty). Aborting.');
       return;
     } else if (routeId != null) {
-      // Если есть routeId, удаляем только точки этого маршрута
-      print('🗑️ [RouteService] Deleting points for routeId: "$routeId"');
       query = _deliveryPointsCollection().where('routeId', isEqualTo: routeId);
     } else {
-      // Иначе удаляем точки конкретного водителя (для старых маршрутов без routeId)
-      print(
-          '🗑️ [RouteService] Deleting points for driverId: "$driverId" (no routeId)');
       query =
           _deliveryPointsCollection().where('driverId', isEqualTo: driverId);
     }
 
     final snapshot = await query.get();
-    print('🛑 [RouteService] Found ${snapshot.docs.length} points to delete');
+    if (snapshot.docs.isEmpty) {
+      print('⚠️ [RouteService] No points matched for cancel');
+      return;
+    }
+    print(
+        '📤 [RouteService] Returning ${snapshot.docs.length} points to pending');
 
+    final batch = _firestore.batch();
+    final now = Timestamp.now();
     for (final doc in snapshot.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      print('🗑️ [RouteService] Deleting point: ${data['clientName']}');
-      await doc.reference.delete();
+      batch.update(doc.reference, {
+        'status': DeliveryPoint.statusPending,
+        'routeId': FieldValue.delete(),
+        'driverId': FieldValue.delete(),
+        'driverName': FieldValue.delete(),
+        'orderInRoute': FieldValue.delete(),
+        'eta': FieldValue.delete(),
+        'routeDate': FieldValue.delete(),
+        'autoCompleted': false,
+        'updatedAt': now,
+      });
     }
 
+    await batch.commit();
     print(
-        '✅ [RouteService] Route cancellation completed - ${snapshot.docs.length} points deleted');
+        '✅ [RouteService] Route cancelled — ${snapshot.docs.length} points → pending');
   }
 
   /// ✅ Смена водителя для конкретного маршрута
@@ -1171,11 +1281,12 @@ class RouteService {
     await _updatePoint(pointId, patch);
     print('✅ Point $pointId status updated to $newStatus');
 
-    // Временно: обучение отключено из runtime-сервиса.
-    // Оставляем только факт визита из ручного закрытия (UI -> visit_logs).
+    if (newStatus == DeliveryPoint.statusCompleted) {
+      unawaited(_recordDeliveryLearning(pointId));
+    }
   }
 
-  /// Записывает данные доставки для самообучения клиента
+  /// Записывает данные доставки для самообучения клиента (visit_logs + сглаживание координат).
   Future<void> _recordDeliveryLearning(String pointId) async {
     try {
       final pointRef = _deliveryPointsCollection().doc(pointId);
@@ -1391,8 +1502,8 @@ class RouteService {
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
         .get();
     final currentPallets = existingLoad.docs.fold<int>(
-        0, (sum, doc) => sum + ((doc.data()['pallets'] as num?)?.toInt() ?? 0));
-    final newPallets = points.fold<int>(0, (sum, p) => sum + p.pallets);
+        0, (acc, doc) => acc + ((doc.data()['pallets'] as num?)?.toInt() ?? 0));
+    final newPallets = points.fold<int>(0, (acc, p) => acc + p.pallets);
     if (driverCapacity > 0 && currentPallets + newPallets > driverCapacity) {
       throw Exception(
           'עומס יתר: $driverName — ${currentPallets + newPallets} משטחים מתוך $driverCapacity מותרים');
@@ -1400,35 +1511,11 @@ class RouteService {
 
     // Генерируем routeId для этого маршрута
     final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
     final routeId = '${driverId}_${now.year}_${now.month}_${now.day}';
 
-    // 🧹 Очищаем ВЧЕРАШНИЕ завершенные маршруты (старше полуночи сегодня)
-    final todayMidnight = DateTime(now.year, now.month, now.day);
-
-    final oldCompletedPoints = await _deliveryPointsCollection()
-        .where('driverId', isEqualTo: driverId)
-        .where('status', isEqualTo: DeliveryPoint.statusCompleted)
-        .get();
-
-    int clearedCount = 0;
-    for (final doc in oldCompletedPoints.docs) {
-      final data = doc.data();
-      final completedAt = (data['completedAt'] as Timestamp?)?.toDate();
-
-      // Очищаем только точки, завершенные ДО полуночи сегодня
-      if (completedAt != null && completedAt.isBefore(todayMidnight)) {
-        await doc.reference.update({
-          'routePolyline': null,
-          'routeId': null,
-          'routeDate': null,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        clearedCount++;
-      }
-    }
-
-    print(
-        '🧹 [RouteService] Cleared $clearedCount old completed points for driver $driverName');
+    // Завершённые «вчерашние» точки уходят в архив (archived) через archiveStaleCompletedPoints,
+    // незавершённые не трогаем — см. getTodayRoutes.
 
     // 🧹 Очищаем осиротевшие assigned/in_progress точки от СТАРЫХ маршрутов
     // Возвращаем их в pending чтобы диспетчер мог перераспределить
@@ -1473,6 +1560,7 @@ class RouteService {
 
     final todayCompleted = todayCompletedPoints.docs.where((doc) {
       final data = doc.data();
+      if (data['archived'] == true) return false;
       final completedAt = (data['completedAt'] as Timestamp?)?.toDate();
       return completedAt != null && completedAt.isAfter(todayMidnight);
     }).toList();
@@ -1606,7 +1694,42 @@ class RouteService {
       }
     }
 
-    // 🗺️ Получаем полилинию маршрута из OSRM и сохраняем в Firestore
+    print('✅ [RouteService] Route successfully created for $driverName');
+
+    // 📦 Сразу после назначения точек — документ маршрута (не ждём OSRM)
+    try {
+      final expiresAt = todayMidnight.add(const Duration(days: 30));
+      await _routesCollection().doc(routeId).set({
+        'routeId': routeId,
+        'driverId': driverId,
+        'driverName': driverName,
+        'routeDate': Timestamp.fromDate(todayMidnight),
+        'pointIds': points.map((p) => p.id).toList(),
+        'totalPallets': newPallets + currentPallets,
+        'expiresAt': Timestamp.fromDate(expiresAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      print('📦 [RouteService] Route document saved: $routeId');
+    } catch (e) {
+      print('⚠️ [RouteService] Failed to save route document: $e');
+    }
+
+    // 🗺️ OSRM: до ~5s × 2 сервера при фейле — не блокируем отдачу маршрута водителю
+    unawaited(_logOsrmPolylineBackground(
+      startLocation: startLocation,
+      clientNavPoints: clientNavPoints,
+      points: points,
+      driverName: driverName,
+    ));
+  }
+
+  /// Только лог / проверка геометрии; в Firestore polyline не пишем.
+  Future<void> _logOsrmPolylineBackground({
+    Map<String, double>? startLocation,
+    required Map<String, Map<String, double>> clientNavPoints,
+    required List<DeliveryPoint> points,
+    required String driverName,
+  }) async {
     try {
       final originLat =
           startLocation?['latitude'] ?? AppConfig.defaultWarehouseLat;
@@ -1624,9 +1747,7 @@ class RouteService {
         });
       }
 
-      // Маршрут: origin → все точки → origin (кольцевой)
-      OsrmRoute? osrmRoute;
-      osrmRoute = await osrm.getOptimizedRoute(
+      final osrmRoute = await osrm.getOptimizedRoute(
         startLat: originLat,
         startLng: originLng,
         waypoints: waypoints,
@@ -1634,33 +1755,12 @@ class RouteService {
         endLng: originLng,
       );
 
-      // Polyline больше не храним в Firestore - считаем на клиенте
       if (osrmRoute != null && osrmRoute.polyline.isNotEmpty) {
         print(
-            '✅ [RouteService] Route polyline calculated on client (${osrmRoute.polyline.length} chars)');
+            '✅ [RouteService] Route polyline (bg) for $driverName: ${osrmRoute.polyline.length} chars');
       }
     } catch (e) {
-      print('⚠️ [RouteService] Failed to cache route polyline: $e');
-    }
-
-    print('✅ [RouteService] Route successfully created for $driverName');
-
-    // 📦 Сохраняем документ маршрута в коллекцию routes
-    try {
-      final expiresAt = todayMidnight.add(const Duration(days: 30));
-      await _routesCollection().doc(routeId).set({
-        'routeId': routeId,
-        'driverId': driverId,
-        'driverName': driverName,
-        'routeDate': Timestamp.fromDate(todayMidnight),
-        'pointIds': points.map((p) => p.id).toList(),
-        'totalPallets': newPallets + currentPallets,
-        'expiresAt': Timestamp.fromDate(expiresAt),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      print('📦 [RouteService] Route document saved: $routeId');
-    } catch (e) {
-      print('⚠️ [RouteService] Failed to save route document: $e');
+      print('⚠️ [RouteService] OSRM background polyline log failed: $e');
     }
   }
 

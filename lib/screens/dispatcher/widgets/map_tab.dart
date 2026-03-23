@@ -19,6 +19,12 @@ class MapTab extends StatefulWidget {
   final void Function(String pointId, String driverId, String driverName)?
   onPointDragToDriver;
 
+  /// סיור מלא מהדשבורד — מפעיל דמו במפה בלי ללחוץ על כפתור המפה.
+  final bool demoModeFromTour;
+
+  /// כשסיום דמו המפה (סוף התרחיש) — לנקות שיוך מההורה.
+  final VoidCallback? onTourDemoFinished;
+
   const MapTab({
     super.key,
     required this.routes,
@@ -31,6 +37,8 @@ class MapTab extends StatefulWidget {
     required this.warehouseLat,
     required this.warehouseLng,
     this.onPointDragToDriver,
+    this.demoModeFromTour = false,
+    this.onTourDemoFinished,
   });
 
   @override
@@ -41,6 +49,10 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   bool _showDriverTracks = false;
   bool _showPreviousRoutes = false;
   bool _clearMap = false;
+  /// Демо-сценарий на карте (только UI; prod — false).
+  bool _demoMode = false;
+
+  bool get _effectiveDemoMode => widget.demoModeFromTour || _demoMode;
 
   @override
   bool get wantKeepAlive => true;
@@ -144,8 +156,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               if (hasCurrentRoutes && hasPreviousRoutes)
                 Tooltip(
                   message: _showPreviousRoutes
-                      ? 'מסלול נוכחי' // Текущий маршрут
-                      : 'מסלול קודם', // Предыдущий маршрут
+                      ? l10n.mapTooltipCurrentRoute
+                      : l10n.mapTooltipPreviousRoute,
                   child: IconButton(
                     icon: Icon(
                       _showPreviousRoutes
@@ -166,7 +178,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               const SizedBox(width: 4),
               // Очистить карту
               Tooltip(
-                message: 'נקה מפה', // Очистить карту
+                message: l10n.mapTooltipClearMap,
                 child: IconButton(
                   icon: Icon(
                     _clearMap ? Icons.layers : Icons.layers_clear,
@@ -211,6 +223,24 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              if (!widget.demoModeFromTour)
+                Tooltip(
+                  message: _effectiveDemoMode
+                      ? l10n.mapTooltipExitDemo
+                      : l10n.mapTooltipDemoMode,
+                  child: IconButton(
+                    icon: Icon(
+                      _effectiveDemoMode ? Icons.movie : Icons.movie_outlined,
+                      color: _effectiveDemoMode
+                          ? Colors.purple.shade700
+                          : Colors.grey.shade600,
+                    ),
+                    onPressed: () {
+                      setState(() => _demoMode = !_demoMode);
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -230,7 +260,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'מוצג מסלול קודם', // Показан предыдущий маршрут
+                    l10n.mapBannerPreviousRouteShown,
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade800,
@@ -245,6 +275,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
           child: DeliveryMapWidget(
             points: _clearMap ? [] : filteredPoints,
             companyId: widget.companyId,
+            demoMode: _effectiveDemoMode,
+            onDemoFinished: widget.onTourDemoFinished,
             showDriverTracks: _clearMap ? false : _showDriverTracks,
             routePolylines: _clearMap ? {} : widget.routePolylines,
             warehouseLat: widget.warehouseLat,

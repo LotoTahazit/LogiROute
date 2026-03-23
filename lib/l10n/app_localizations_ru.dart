@@ -2051,6 +2051,363 @@ class AppLocalizationsRu extends AppLocalizations {
   String get showGpsTracks => 'Показать GPS-треки за 24ч';
 
   @override
+  String get mapTooltipCurrentRoute => 'Текущий маршрут';
+
+  @override
+  String get mapTooltipPreviousRoute => 'Предыдущий маршрут';
+
+  @override
+  String get mapTooltipClearMap => 'Очистить карту';
+
+  @override
+  String get mapTooltipExitDemo => 'Выйти из демо';
+
+  @override
+  String get mapTooltipDemoMode => 'Демо-режим';
+
+  @override
+  String get mapBannerPreviousRouteShown => 'Показан предыдущий маршрут';
+
+  @override
+  String get billingGuardAccessSuspendedTitle => 'Доступ приостановлен';
+
+  @override
+  String get billingGuardAccessSuspendedBody =>
+      'Аккаунт приостановлен из-за неоплаты. Оплатите, чтобы восстановить доступ.';
+
+  @override
+  String get billingGuardAccountCancelledTitle => 'Аккаунт отменён';
+
+  @override
+  String get billingGuardAccountCancelledBody =>
+      'Аккаунт отменён. Свяжитесь с поддержкой для возобновления.';
+
+  @override
+  String get billingGuardTrialEndedTitle => 'Пробный период окончен';
+
+  @override
+  String get billingGuardTrialEndedBody =>
+      'Пробный период закончился. Перейдите на платный тариф.';
+
+  @override
+  String get billingGuardNoAccessTitle => 'Нет доступа';
+
+  @override
+  String get billingGuardNoAccessBody => 'Свяжитесь с поддержкой.';
+
+  @override
+  String get billingGuardContactSupport => 'Связаться с поддержкой';
+
+  @override
+  String get billingGuardPayNow => 'Оплатить сейчас';
+
+  @override
+  String get billingGuardUpgrade => 'Улучшить тариф';
+
+  @override
+  String billingGuardTrialBanner(int days, String date) {
+    return 'Пробный период — осталось $days дн. (до $date)';
+  }
+
+  @override
+  String billingGuardGraceBanner(int days) {
+    return 'Отсрочка — осталось $days дн. для оплаты. Затем аккаунт будет заблокирован.';
+  }
+
+  @override
+  String get billingGuardCheckoutOpened =>
+      'Страница оплаты открыта в браузере. После оплаты аккаунт обновится автоматически.';
+
+  @override
+  String billingGuardCheckoutError(String error) {
+    return 'Ошибка открытия оплаты: $error';
+  }
+
+  @override
+  String get companySettingsNotSelected => 'Компания не выбрана';
+
+  @override
+  String companySettingsInitError(String error) {
+    return 'Ошибка инициализации: $error';
+  }
+
+  @override
+  String get companySettingsEmptyWarning =>
+      'Настройки не найдены. Заполните форму.';
+
+  @override
+  String companySettingsLoadError(String error) {
+    return 'Ошибка загрузки: $error';
+  }
+
+  @override
+  String get billingDashboardTitle => 'Панель биллинга';
+
+  @override
+  String get billingDashboardFilterAll => 'Все';
+
+  @override
+  String get billingDashboardFilterTrial => '🧪 Пробный';
+
+  @override
+  String get billingDashboardFilterActive => '✅ Активен';
+
+  @override
+  String get billingDashboardFilterGrace => '⏳ Отсрочка';
+
+  @override
+  String get billingDashboardFilterSuspended => '🚫 Приостановлен';
+
+  @override
+  String get billingDashboardFilterCancelled => '❌ Отменён';
+
+  @override
+  String get billingDashboardSearchHint => 'Поиск…';
+
+  @override
+  String get billingDashboardNoCompanies => 'Компании не найдены';
+
+  @override
+  String billingDashboardExtendTitle(String companyName) {
+    return 'Продлить $companyName';
+  }
+
+  @override
+  String billingDashboardExtendPaidUntil(String date) {
+    return 'Установить оплату до: $date';
+  }
+
+  @override
+  String get billingDashboardNoteLabel => 'Примечание (обязательно)';
+
+  @override
+  String get billingDashboardNoteDefault => 'Продлено через панель';
+
+  @override
+  String get billingDashboardExtendButton => 'Продлить';
+
+  @override
+  String billingDashboardChangeStatusTitle(String companyName, String status) {
+    return 'Изменить $companyName → $status?';
+  }
+
+  @override
+  String get billingDashboardChangeStatusBody =>
+      'Статус биллинга изменится сразу.';
+
+  @override
+  String billingDashboardStatusUpdated(String companyName, String status) {
+    return '$companyName → $status';
+  }
+
+  @override
+  String get billingDashboardIntegrityRunning => 'Запуск проверки целостности…';
+
+  @override
+  String get billingDashboardIntegrityDone => 'Проверка целостности завершена';
+
+  @override
+  String get billingDashboardRunIntegrityTooltip => 'Проверка целостности';
+
+  @override
+  String billingDashboardExtendSuccess(String companyName, String date) {
+    return '$companyName: продлено до $date';
+  }
+
+  @override
+  String billingDashboardError(String error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String get billingLabelProvider => 'Провайдер';
+
+  @override
+  String get billingLabelPaidUntil => 'Оплачено до';
+
+  @override
+  String get billingLabelTrialUntil => 'Пробный до';
+
+  @override
+  String get billingLabelGraceUntil => 'Отсрочка до';
+
+  @override
+  String get billingLabelGraceDays => 'Дней отсрочки';
+
+  @override
+  String get billingActionExtend => 'Продлить';
+
+  @override
+  String get billingActionActive => 'Активен';
+
+  @override
+  String get billingActionGrace => 'Отсрочка';
+
+  @override
+  String get billingActionSuspend => 'Блокировать';
+
+  @override
+  String dispatcherInvalidCoordinates(String error) {
+    return 'Неверные координаты: $error';
+  }
+
+  @override
+  String dispatcherPrintError(String error) {
+    return 'Ошибка печати: $error';
+  }
+
+  @override
+  String dispatcherGenericError(String error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String dispatcherWarehouseSaved(String coords) {
+    return 'Координаты склада сохранены: $coords';
+  }
+
+  @override
+  String get dispatcherTourStep1 =>
+      'Точки доставки: добавляете клиента и товары к заказу — здесь формируется заказ до маршрута.';
+
+  @override
+  String get dispatcherTourStep2 =>
+      'В каждой точке: товары и количества; можно править до построения маршрута.';
+
+  @override
+  String get dispatcherTourStep3 =>
+      'Когда товары готовы — переходите на вкладку «Активные маршруты» и назначьте водителя.';
+
+  @override
+  String get dispatcherTourStep4 =>
+      'Активные маршруты: водитель, порядок остановок и маршрут на карте.';
+
+  @override
+  String get dispatcherTourStep5 =>
+      'После построения маршрута задания попадают водителю в приложение; переключайтесь на карту.';
+
+  @override
+  String get dispatcherTourStopTooltip => 'Остановить демо-тур';
+
+  @override
+  String get dispatcherTourStartTooltip =>
+      'Демо-тур: заказ → маршрут → водитель';
+
+  @override
+  String dispatcherTourProgress(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String dispatcherSkippedInvoicesMakor(int count) {
+    return 'Пропущено $count счетов — оригинал уже напечатан. Для повторной печати используйте управление счетами.';
+  }
+
+  @override
+  String get dispatcherCopiesOnlyPendingTax =>
+      'Напечатаны только копии — ожидается номер присвоения. Оригинал после одобрения налоговой.';
+
+  @override
+  String pointUpdatedSuccess(String name) {
+    return 'Точка обновлена: $name';
+  }
+
+  @override
+  String dispatcherPointReturnedToRoute(String name) {
+    return '$name возвращён на маршрут';
+  }
+
+  @override
+  String get dispatcherManualCompleteTitle => 'Отметить доставлено';
+
+  @override
+  String dispatcherManualCompleteMessage(String name) {
+    return 'Отметить «$name» доставленным вручную? Если авто-закрытие не сработало.';
+  }
+
+  @override
+  String get dispatcherManualCompleteTooltip => 'Закрыть точку вручную';
+
+  @override
+  String dispatcherPointCompletedManually(String name) {
+    return '$name отмечена доставленной';
+  }
+
+  @override
+  String dispatcherPointAssignedToDriver(String client, String driver) {
+    return 'Точка назначена: $client → $driver';
+  }
+
+  @override
+  String dispatcherAssignDriverTitle(String clientName) {
+    return 'Назначить водителя — $clientName';
+  }
+
+  @override
+  String dispatcherDragAssignSuccess(String driverName) {
+    return 'Точка назначена → $driverName';
+  }
+
+  @override
+  String autoDistributeFailed(String error) {
+    return 'Ошибка автораспределения: $error';
+  }
+
+  @override
+  String companySettingsSaveFailed(String error) {
+    return 'Ошибка сохранения настроек: $error';
+  }
+
+  @override
+  String get makorOriginalPrintedTitle => 'Оригинал уже напечатан';
+
+  @override
+  String get makorDocTypeDeliveryNote => 'Накладная';
+
+  @override
+  String get makorDocTypeTaxInvoiceReceipt => 'Счёт-фактура / квитанция';
+
+  @override
+  String get makorDocTypeTaxInvoice => 'Счёт-фактура';
+
+  @override
+  String makorInvoiceLineNumbered(String docType, String seq) {
+    return '$docType № $seq';
+  }
+
+  @override
+  String makorClientLine(String name) {
+    return 'Клиент: $name';
+  }
+
+  @override
+  String get makorBooksLawWarning =>
+      'По закону о бухучёте — нельзя напечатать ещё один оригинал.\nМожно только копию или заверенную копию.';
+
+  @override
+  String get makorChoosePrintType => 'Выберите тип печати:';
+
+  @override
+  String get makorCopy => 'Копия';
+
+  @override
+  String makorCopySubtitle(int n) {
+    return 'Копия номер $n';
+  }
+
+  @override
+  String get makorTrueToOriginal => 'Верно к оригиналу';
+
+  @override
+  String get makorTrueToOriginalSubtitle => 'Заменяет оригинал';
+
+  @override
+  String get makorCopyQuantity => 'Количество копий:';
+
+  @override
+  String get makorPrintButton => 'Печать';
+
+  @override
   String get vatId => 'ИНН / Номер плательщика';
 
   @override
@@ -4105,4 +4462,53 @@ class AppLocalizationsRu extends AppLocalizations {
   String nPoints(Object count) {
     return '$count точек';
   }
+
+  @override
+  String get shiftScheduleTitle => 'График смен';
+
+  @override
+  String get shiftWorkingDays => 'Рабочие дни';
+
+  @override
+  String get shiftDayMon => 'Пн';
+
+  @override
+  String get shiftDayTue => 'Вт';
+
+  @override
+  String get shiftDayWed => 'Ср';
+
+  @override
+  String get shiftDayThu => 'Чт';
+
+  @override
+  String get shiftDayFri => 'Пт';
+
+  @override
+  String get shiftDaySat => 'Сб';
+
+  @override
+  String get shiftDaySun => 'Вс';
+
+  @override
+  String get shiftStart => 'Начало смены';
+
+  @override
+  String get shiftEnd => 'Конец смены';
+
+  @override
+  String get shiftSaved => 'Сохранено';
+
+  @override
+  String shiftLoadError(String error) {
+    return 'Ошибка загрузки: $error';
+  }
+
+  @override
+  String shiftSaveError(String error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String get shiftNoCompanyId => 'Компания не выбрана';
 }

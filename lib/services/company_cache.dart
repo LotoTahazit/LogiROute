@@ -182,6 +182,18 @@ class CompanyCache {
     _drivers = [];
   }
 
+  /// Перезагрузить только водителей (без полного preload)
+  Future<void> reloadDrivers(AuthService authService) async {
+    try {
+      final allUsers = await authService.getAllUsers();
+      _drivers = allUsers.where((u) => u.isDriver).toList();
+      debugPrint(
+          '🔄 [CompanyCache] Drivers reloaded: ${_drivers.length} drivers');
+    } catch (e) {
+      debugPrint('❌ [CompanyCache] Drivers reload error: $e');
+    }
+  }
+
   /// Полный сброс
   static void reset() {
     _instance = null;

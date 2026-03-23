@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../l10n/app_localizations.dart';
 import '../services/checkout_service.dart';
 
 /// Обёртка для проверки billing status компании.
@@ -92,26 +93,27 @@ class _BlockedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final (icon, title, subtitle) = switch (status) {
       'suspended' => (
           Icons.block,
-          'הגישה הושעתה',
-          'החשבון שלך הושעה עקב אי תשלום. שלם כדי לחדש את הגישה.',
+          l10n.billingGuardAccessSuspendedTitle,
+          l10n.billingGuardAccessSuspendedBody,
         ),
       'cancelled' => (
           Icons.cancel,
-          'החשבון בוטל',
-          'החשבון שלך בוטל. אנא צור קשר עם התמיכה לחידוש.',
+          l10n.billingGuardAccountCancelledTitle,
+          l10n.billingGuardAccountCancelledBody,
         ),
       'trial_expired' => (
           Icons.timer_off,
-          'תקופת הניסיון הסתיימה',
-          'תקופת הניסיון שלך הסתיימה. שדרג לתוכנית בתשלום.',
+          l10n.billingGuardTrialEndedTitle,
+          l10n.billingGuardTrialEndedBody,
         ),
       _ => (
           Icons.error,
-          'אין גישה',
-          'אנא צור קשר עם התמיכה.',
+          l10n.billingGuardNoAccessTitle,
+          l10n.billingGuardNoAccessBody,
         ),
     };
 
@@ -150,7 +152,7 @@ class _BlockedScreen extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.support_agent),
-                label: const Text('צור קשר עם התמיכה'),
+                label: Text(l10n.billingGuardContactSupport),
               ),
             ],
           ),
@@ -167,21 +169,27 @@ class _TrialBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final daysLeft = trialUntil.difference(DateTime.now()).inDays;
     final color = daysLeft <= 3 ? Colors.orange : Colors.blue;
+    final dateStr =
+        '${trialUntil.day}.${trialUntil.month}.${trialUntil.year}';
 
     return Column(
       children: [
         MaterialBanner(
           backgroundColor: color.shade50,
           content: Text(
-            'תקופת ניסיון — נותרו $daysLeft ימים (עד ${trialUntil.day}.${trialUntil.month}.${trialUntil.year})',
+            l10n.billingGuardTrialBanner(daysLeft, dateStr),
             style: TextStyle(color: color.shade900),
           ),
           actions: [
             TextButton(
               onPressed: () {},
-              child: Text('שדרג', style: TextStyle(color: color.shade700)),
+              child: Text(
+                l10n.billingGuardUpgrade,
+                style: TextStyle(color: color.shade700),
+              ),
             ),
           ],
         ),
@@ -200,13 +208,14 @@ class _GraceBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         MaterialBanner(
           backgroundColor: Colors.red.shade50,
           leading: const Icon(Icons.warning_amber, color: Colors.red),
           content: Text(
-            'תקופת חסד — נותרו $daysLeft ימים לתשלום. לאחר מכן החשבון יושעה.',
+            l10n.billingGuardGraceBanner(daysLeft),
             style: TextStyle(color: Colors.red.shade900),
           ),
           actions: [
@@ -239,19 +248,20 @@ class _PayNowButtonState extends State<_PayNowButton> {
     try {
       await CheckoutService().createAndOpen(companyId: widget.companyId);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'דף התשלום נפתח בדפדפן. לאחר התשלום החשבון יתעדכן אוטומטית.'),
+          SnackBar(
+            content: Text(l10n.billingGuardCheckoutOpened),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('שגיאה בפתיחת דף תשלום: $e'),
+            content: Text(l10n.billingGuardCheckoutError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -263,6 +273,7 @@ class _PayNowButtonState extends State<_PayNowButton> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (widget.compact) {
       return TextButton(
         onPressed: _isLoading ? null : _pay,
@@ -271,9 +282,13 @@ class _PayNowButtonState extends State<_PayNowButton> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2))
-            : Text('שלם עכשיו',
+            : Text(
+                l10n.billingGuardPayNow,
                 style: TextStyle(
-                    color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       );
     }
 
@@ -286,7 +301,7 @@ class _PayNowButtonState extends State<_PayNowButton> {
               child: CircularProgressIndicator(
                   strokeWidth: 2, color: Colors.white))
           : const Icon(Icons.payment),
-      label: const Text('שלם עכשיו'),
+      label: Text(l10n.billingGuardPayNow),
       style: FilledButton.styleFrom(
         backgroundColor: Colors.green,
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

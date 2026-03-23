@@ -5,13 +5,19 @@ import 'package:http/http.dart' as http;
 import '../config/api_constants.dart';
 
 class OsrmNavigationService {
+  static const Duration _routeHttpTimeout = Duration(seconds: 12);
+  /// Trip — тяжёлый запрос; прокси/публичный OSRM часто >8s.
+  static const Duration _tripHttpTimeout = Duration(seconds: 25);
+
   /// Общий метод: пробует список OSRM-серверов для route endpoint
   Future<OsrmRoute?> _tryRouteUrls(String coordinates, String params) async {
     for (final baseUrl in ApiConstants.osrmRouteUrls) {
       final url = '$baseUrl/$coordinates?$params';
       try {
+        debugPrint('[OSRM_HTTP_URL] $url');
         debugPrint('🧭 [OSRM] Trying: $url');
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+        final response =
+            await http.get(Uri.parse(url)).timeout(_routeHttpTimeout);
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['code'] == 'Ok' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
@@ -43,8 +49,10 @@ class OsrmNavigationService {
     for (final baseUrl in ApiConstants.osrmTripUrls) {
       final url = '$baseUrl/$coordinates?$params';
       try {
+        debugPrint('[OSRM_HTTP_URL] $url');
         debugPrint('🧭 [OSRM] Trying trip: $url');
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+        final response =
+            await http.get(Uri.parse(url)).timeout(_tripHttpTimeout);
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['code'] == 'Ok' && data['trips'] != null && (data['trips'] as List).isNotEmpty) {
@@ -80,8 +88,12 @@ class OsrmNavigationService {
     required double endLng,
     String language = 'he',
   }) async {
+    debugPrint('[OSRM_BUILD_URL_START]');
     final coordinates = '$startLng,$startLat;$endLng,$endLat';
-    return _tryRouteUrls(coordinates, ApiConstants.osrmRouteParams);
+    final params = ApiConstants.osrmRouteParams;
+    final url = '${ApiConstants.osrmRouteUrl}/$coordinates?$params';
+    debugPrint('[OSRM_BUILD_URL_DONE] $url');
+    return _tryRouteUrls(coordinates, params);
   }
 
   /// Получает оптимизированный маршрут с промежуточными точками
@@ -171,9 +183,10 @@ class OsrmNavigationService {
       final url =
           '$baseUrl/${coordinates.toString()}?${ApiConstants.osrmTripRoundtripParams}';
       try {
+        debugPrint('[OSRM_HTTP_URL] $url');
         debugPrint('🧭 [OSRM] Trip optimize: $url');
         final response =
-            await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+            await http.get(Uri.parse(url)).timeout(_tripHttpTimeout);
         if (response.statusCode != 200) continue;
 
         final data = json.decode(response.body);
@@ -239,6 +252,7 @@ class OsrmNavigationService {
         final url =
             '${ApiConstants.osrmMatchUrl}/$coordinates?${ApiConstants.osrmOverviewFull}&${ApiConstants.osrmGeometriesPolyline}&radiuses=$radiuses';
 
+        debugPrint('[OSRM_HTTP_URL] $url');
         final response =
             await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 

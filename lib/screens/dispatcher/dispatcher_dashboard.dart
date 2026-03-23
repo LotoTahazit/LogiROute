@@ -24,6 +24,7 @@ import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
 import 'widgets/map_tab.dart';
+import 'widgets/dispatcher_demo_process_visual.dart';
 import 'widgets/driver_workload_panel.dart';
 import '../../widgets/notification_bell.dart';
 import '../../services/company_cache.dart';
@@ -46,10 +47,34 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _pendingPointsStream;
   Stream<List<DeliveryPoint>>? _routesStream;
   Stream<List<DeliveryPoint>>? _mapRoutesStream;
-  Future<List<Map<String, dynamic>>>? _routeDocsFuture;
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
   List<DeliveryPoint> _lastMapPoints = [];
+
+  /// סיור הדגמה: נקודות → מסלולים → דמו מפה (ללא שינוי לוגיקת prod).
+  Timer? _tourTimer;
+  bool _tourActive = false;
+  int _tourIndex = 0;
+  bool _forceMapDemo = false;
+
+  static const Duration _kTourStepDuration = Duration(seconds: 10);
+
+  String _tourStepMessage(AppLocalizations l10n, int index) {
+    switch (index) {
+      case 0:
+        return l10n.dispatcherTourStep1;
+      case 1:
+        return l10n.dispatcherTourStep2;
+      case 2:
+        return l10n.dispatcherTourStep3;
+      case 3:
+        return l10n.dispatcherTourStep4;
+      case 4:
+        return l10n.dispatcherTourStep5;
+      default:
+        return '';
+    }
+  }
 
   bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
     if (local == null) return true;
@@ -80,7 +105,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final routeService = RouteService(companyId: companyId);
     _pendingPointsStream = routeService.getAllPendingPoints();
     _mapRoutesStream = routeService.getTodayRoutes();
-    _routeDocsFuture = routeService.getTodayRoutesForMap();
     _routesStream = routeService.getTodayRoutes(includeCompleted: false).map((
       routes,
     ) {
@@ -114,32 +138,77 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
   @override
   void dispose() {
+    _tourTimer?.cancel();
     // Streams are created from Firestore snapshots() and managed by StreamBuilder,
     // so no manual cancellation needed — but clear references.
     _pendingPointsStream = null;
     _routesStream = null;
     _mapRoutesStream = null;
-    _routeDocsFuture = null;
     _autoCompletedStream = null;
     super.dispose();
   }
 
-  static List<UserModel>? _driversCache;
+  void _startProductTour() {
+    _tourTimer?.cancel();
+    setState(() {
+      _tourActive = true;
+      _tourIndex = 0;
+      _currentTabIndex = 0;
+      _forceMapDemo = false;
+    });
+    _scheduleTourNextStep();
+  }
 
-  Future<void> _loadDrivers() async {
-    if (_driversCache != null) {
+  void _scheduleTourNextStep() {
+    _tourTimer?.cancel();
+    _tourTimer = Timer(_kTourStepDuration, () {
       if (!mounted) return;
       setState(() {
-        _drivers = _driversCache!;
+        _tourIndex++;
+        if (_tourIndex == 3) {
+          _currentTabIndex = 1;
+        } else if (_tourIndex == 5) {
+          _currentTabIndex = 2;
+          _tourActive = false;
+          _forceMapDemo = true;
+        }
       });
-      return;
-    }
-    final authService = context.read<AuthService>();
-    final allUsers = await authService.getAllUsers();
-    if (!mounted) return;
-    _driversCache = allUsers.where((u) => u.isDriver).toList();
+      if (_tourIndex < 5) {
+        _scheduleTourNextStep();
+      }
+    });
+  }
+
+  void _cancelProductTour() {
+    _tourTimer?.cancel();
     setState(() {
-      _drivers = _driversCache!;
+      _tourActive = false;
+      _forceMapDemo = false;
+      _tourIndex = 0;
+    });
+  }
+
+  void _onMapTourDemoFinished() {
+    if (!mounted) return;
+    setState(() {
+      _forceMapDemo = false;
+    });
+  }
+
+  Future<void> _loadDrivers() async {
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    if (companyId.isEmpty) return;
+
+    final cache = CompanyCache.instance(companyId);
+    if (!cache.isLoaded) {
+      await cache.preload(companyId, authService);
+    } else if (cache.drivers.isEmpty) {
+      await cache.reloadDrivers(authService);
+    }
+    if (!mounted) return;
+    setState(() {
+      _drivers = cache.drivers;
     });
   }
 
@@ -158,7 +227,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '${l10n.autoDistributeError}: $e');
+        SnackbarHelper.showError(
+            context, l10n.autoDistributeFailed(e.toString()));
       }
     } finally {
       setState(() => _isLoadingMap = false);
@@ -217,6 +287,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     if (result == true &&
         latController.text.isNotEmpty &&
         lngController.text.isNotEmpty) {
+      if (!mounted) return;
       try {
         final latitude = double.parse(latController.text);
         final longitude = double.parse(lngController.text);
@@ -233,12 +304,15 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           SnackbarHelper.showSuccess(
             context,
-            'Warehouse location saved: ($latitude, $longitude)',
+            l10n.dispatcherWarehouseSaved('($latitude, $longitude)'),
           );
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, 'Invalid coordinates: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherInvalidCoordinates(e.toString()),
+          );
         }
       }
     }
@@ -301,12 +375,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         orElse: () => UserModel(
           uid: point.driverId ?? '',
           email: '',
-          name: point.driverName ?? 'Unknown',
+          name: point.driverName ?? l10n.unknownDriver,
           role: 'driver',
           vehicleNumber: '',
         ),
       );
 
+      if (!mounted) break;
       final invoice = await showDialog<Invoice>(
         context: context,
         builder: (context) => CreateInvoiceDialog(point: point, driver: driver),
@@ -342,9 +417,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     if (skippedMakor > 0 && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '⚠️ דולגו $skippedMakor חשבוניות — מקור כבר הודפס. להדפסה חוזרת השתמש בניהול חשבוניות.',
-          ),
+          content: Text(l10n.dispatcherSkippedInvoicesMakor(skippedMakor)),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 5),
         ),
@@ -353,7 +426,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
     if (invoices.isNotEmpty && mounted) {
       final auth = context.read<AuthService>();
-      final messenger = ScaffoldMessenger.of(context);
       try {
         await InvoicePrintService.printAllRouteInvoices(
           invoices,
@@ -426,7 +498,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, '${l10n.error}: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
@@ -468,7 +543,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final authService = context.read<AuthService>();
-    final messenger = ScaffoldMessenger.of(context);
     final allUsers = await authService.getAllUsers();
     final drivers = allUsers.where((u) => u.isDriver).toList();
 
@@ -534,12 +608,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     DeliveryPoint point, {
     InvoiceDocumentType documentType = InvoiceDocumentType.invoice,
   }) async {
+    final l10n = AppLocalizations.of(context)!;
     final driver = _drivers.firstWhere(
       (d) => d.uid == point.driverId,
       orElse: () => UserModel(
         uid: point.driverId ?? '',
         email: '',
-        name: point.driverName ?? 'Unknown',
+        name: point.driverName ?? l10n.unknownDriver,
         role: 'driver',
         vehicleNumber: '',
       ),
@@ -576,6 +651,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
 
     // === Документ не найден — создаём через CreateInvoiceDialog ===
+    if (!mounted) return;
     final invoice = await showDialog<Invoice>(
       context: context,
       builder: (context) => CreateInvoiceDialog(
@@ -618,18 +694,20 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           invoice.requiresAssignment &&
           invoice.assignmentStatus != AssignmentStatus.approved) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              '⚠️ הודפסו עותקים בלבד — ממתין למספר הקצאה. המקור יודפס לאחר אישור רשות המסים.',
-            ),
+          SnackBar(
+            content: Text(l10n.dispatcherCopiesOnlyPendingTax),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 6),
+            duration: const Duration(seconds: 6),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
+        final loc = AppLocalizations.of(context)!;
+        SnackbarHelper.showError(
+          context,
+          loc.dispatcherPrintError(e.toString()),
+        );
       }
     }
   }
@@ -660,7 +738,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       );
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '❌ שגיאה בהדפסה: $e');
+        final loc = AppLocalizations.of(context)!;
+        SnackbarHelper.showError(
+          context,
+          loc.dispatcherPrintError(e.toString()),
+        );
       }
     }
   }
@@ -697,7 +779,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, '${l10n.error}: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
@@ -727,7 +812,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, '${l10n.error}: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
@@ -762,11 +850,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           result['address'] as String?,
         );
         if (mounted) {
-          SnackbarHelper.show(context, 'Point updated: ${point.clientName}');
+          SnackbarHelper.show(
+            context,
+            l10n.pointUpdatedSuccess(point.clientName),
+          );
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, 'Error: $e');
+          final loc = AppLocalizations.of(context)!;
+          SnackbarHelper.showError(
+            context,
+            loc.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
@@ -794,7 +889,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, '${l10n.error}: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
@@ -818,7 +916,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final selectedDriver = await showDialog<UserModel>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${l10n.assignDriver} - ${point.clientName}'),
+        title: Text(l10n.dispatcherAssignDriverTitle(point.clientName)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -903,30 +1001,80 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           SnackbarHelper.showSuccess(
             context,
-            '${l10n.pointAssigned}: ${point.clientName} → ${selectedDriver.name}',
+            l10n.dispatcherPointAssignedToDriver(
+              point.clientName,
+              selectedDriver.name,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
-          SnackbarHelper.showError(context, '${l10n.error}: $e');
+          SnackbarHelper.showError(
+            context,
+            l10n.dispatcherGenericError(e.toString()),
+          );
         }
       }
     }
   }
 
   Future<void> _reopenPoint(String companyId, DeliveryPoint point) async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final routeService = RouteService(companyId: companyId);
       await routeService.reopenPoint(point.id);
       if (mounted) {
         SnackbarHelper.showSuccess(
           context,
-          '✅ ${point.clientName} הוחזר למסלול',
+          l10n.dispatcherPointReturnedToRoute(point.clientName),
         );
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '❌ שגיאה: $e');
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
+      }
+    }
+  }
+
+  /// Ручное закрытие точки, если авто-закрытие не сработало.
+  Future<void> _completePointManually(
+    String companyId,
+    DeliveryPoint point,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await DialogHelper.showConfirmation(
+      context: context,
+      title: l10n.dispatcherManualCompleteTitle,
+      content: l10n.dispatcherManualCompleteMessage(point.clientName),
+      confirmText: l10n.confirm,
+      cancelText: l10n.cancel,
+      confirmColor: Colors.green,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      final uid = context.read<AuthService>().currentUser?.uid ?? '';
+      final routeService = RouteService(companyId: companyId);
+      await routeService.updatePointStatus(
+        point.id,
+        DeliveryPoint.statusCompleted,
+        updatedByUid: uid.isEmpty ? null : uid,
+        autoCompleted: false,
+      );
+      if (mounted) {
+        SnackbarHelper.showSuccess(
+          context,
+          l10n.dispatcherPointCompletedManually(point.clientName),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
       }
     }
   }
@@ -962,12 +1110,15 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       if (mounted) {
         SnackbarHelper.showSuccess(
           context,
-          '✅ ${l10n.pointAssigned}: → $driverName',
+          l10n.dispatcherDragAssignSuccess(driverName),
         );
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '${l10n.error}: $e');
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
       }
     }
   }
@@ -994,11 +1145,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       await balanceService.recalculateETAsForPoints(reorderedRoutes);
 
       if (mounted) {
-        SnackbarHelper.showSuccess(context, '✅ ${l10n.routePointsReordered}');
+        SnackbarHelper.showSuccess(context, l10n.routePointsReordered);
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '❌ Ошибка: $e');
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
       }
     }
   }
@@ -1091,7 +1245,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         } else if (movedCount > 0) {
           SnackbarHelper.showSuccess(
             context,
-            '✅ ${l10n.movedPoints(movedCount.toString())}',
+            l10n.movedPoints(movedCount.toString()),
           );
         } else {
           SnackbarHelper.showInfo(context, l10n.routesAlreadyBalanced);
@@ -1099,7 +1253,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '❌ Error: $e');
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
       }
     }
   }
@@ -1133,6 +1290,20 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.dispatcher),
           actions: [
+            IconButton(
+              tooltip: _tourActive || _forceMapDemo
+                  ? l10n.dispatcherTourStopTooltip
+                  : l10n.dispatcherTourStartTooltip,
+              icon: Icon(
+                _tourActive || _forceMapDemo
+                    ? Icons.stop_circle_outlined
+                    : Icons.play_circle_outline,
+                color: Colors.white,
+              ),
+              onPressed: _tourActive || _forceMapDemo
+                  ? _cancelProductTour
+                  : _startProductTour,
+            ),
             NotificationBell(companyId: effectiveCompanyId),
             DispatcherAppBarActions(
               onSetWarehouseLocation: _setWarehouseLocation,
@@ -1140,245 +1311,369 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             ),
           ],
         ),
-        body: DefaultTabController(
-          length: 3,
-          child: Column(
-            children: [
-              if (authService.userModel?.isAdmin == true &&
-                  authService.viewAsRole == 'dispatcher')
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    border: Border(
-                      bottom: BorderSide(color: Colors.blue.shade300, width: 2),
-                    ),
-                  ),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+        body: Stack(
+          children: [
+            DefaultTabController(
+              length: 3,
+              child: Column(
+                children: [
+                  if (authService.userModel?.isAdmin == true &&
+                      authService.viewAsRole == 'dispatcher')
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        border: Border(
+                          bottom:
+                              BorderSide(color: Colors.blue.shade300, width: 2),
+                        ),
+                      ),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Icon(
-                            Icons.visibility,
-                            color: Colors.blue.shade900,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              '${l10n.viewingAs} ${l10n.dispatcher}',
-                              style: TextStyle(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.visibility,
                                 color: Colors.blue.shade900,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '${l10n.viewingAs} ${l10n.dispatcher}',
+                                  style: TextStyle(
+                                    color: Colors.blue.shade900,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => authService.setViewAsRole(null),
+                            icon: const Icon(
+                              Icons.admin_panel_settings,
+                              size: 18,
+                            ),
+                            label: Text(l10n.backToAdmin),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => authService.setViewAsRole(null),
-                        icon: const Icon(Icons.admin_panel_settings, size: 18),
-                        label: Text(l10n.backToAdmin),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
+                    ),
+                  // 🚛 Driver Workload Panel — горизонтальная полоса загрузки водителей
+                  StreamBuilder<List<DeliveryPoint>>(
+                    stream: _routesStream,
+                    initialData: _lastNonEmptyRoutes,
+                    builder: (context, snapshot) {
+                      final routes = snapshot.data ?? [];
+                      if (routes.isEmpty) return const SizedBox.shrink();
+                      return DriverWorkloadPanel(
+                          routes: routes, drivers: _drivers);
+                    },
+                  ),
+                  TabBar(
+                    onTap: (index) => setState(() => _currentTabIndex = index),
+                    tabs: [
+                      Tab(text: l10n.deliveryPoints),
+                      Tab(text: l10n.routes),
+                      Tab(text: l10n.map),
                     ],
                   ),
-                ),
-              // 🚛 Driver Workload Panel — горизонтальная полоса загрузки водителей
-              StreamBuilder<List<DeliveryPoint>>(
-                stream: _routesStream,
-                initialData: _lastNonEmptyRoutes,
-                builder: (context, snapshot) {
-                  final routes = snapshot.data ?? [];
-                  if (routes.isEmpty) return const SizedBox.shrink();
-                  return DriverWorkloadPanel(routes: routes, drivers: _drivers);
-                },
-              ),
-              TabBar(
-                onTap: (index) => setState(() => _currentTabIndex = index),
-                tabs: [
-                  Tab(text: l10n.deliveryPoints),
-                  Tab(text: l10n.routes),
-                  Tab(text: l10n.map),
-                ],
-              ),
-              Expanded(
-                child: IndexedStack(
-                  index: _currentTabIndex,
-                  children: [
-                    StreamBuilder<List<DeliveryPoint>>(
-                      stream: _pendingPointsStream,
-                      initialData: const [],
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                                ConnectionState.waiting &&
-                            !snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        return PendingPointsTab(
-                          points: snapshot.data ?? const [],
-                          companyId: effectiveCompanyId,
-                          isLoadingMap: _isLoadingMap,
-                          onCreateRoute: () => _createRoute(
-                            effectiveCompanyId,
-                            snapshot.data ?? const [],
-                          ),
-                          onAutoDistribute: () =>
-                              _autoDistributePallets(effectiveCompanyId),
-                          onDeletePoint: (pointId, clientName) => _deletePoint(
-                            effectiveCompanyId,
-                            pointId,
-                            clientName,
-                          ),
-                          onEditPoint: (point) =>
-                              _editPoint(effectiveCompanyId, point),
-                          onAssignDriver: (point) =>
-                              _assignDriverToPoint(effectiveCompanyId, point),
-                          onAddProduct: (point) =>
-                              _addProductToPoint(effectiveCompanyId, point),
-                        );
-                      },
-                    ),
-                    StreamBuilder<List<DeliveryPoint>>(
-                      stream: _routesStream,
-                      initialData: const [],
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
-                        return StreamBuilder<List<DeliveryPoint>>(
-                          stream: _autoCompletedStream,
+                  Expanded(
+                    child: IndexedStack(
+                      index: _currentTabIndex,
+                      children: [
+                        StreamBuilder<List<DeliveryPoint>>(
+                          stream: _pendingPointsStream,
                           initialData: const [],
-                          builder: (context, autoSnapshot) {
-                            return ActiveRoutesTab(
-                              companyId: effectiveCompanyId,
-                              routes: snapshot.data ?? [],
-                              lastNonEmptyRoutes: _lastNonEmptyRoutes,
-                              autoCompletedPoints: autoSnapshot.data ?? [],
-                              onChangeDriver: (driverId, driverName, routeId) =>
-                                  _changeDriver(
-                                effectiveCompanyId,
-                                driverId,
-                                driverName,
-                                routeId,
-                              ),
-                              onCancelRoute: (driverId, routeId) =>
-                                  _cancelRoute(
-                                effectiveCompanyId,
-                                driverId,
-                                routeId,
-                              ),
-                              onPrintRoute: _printDriverRoute,
-                              onReorderPoints: _reorderRoutePoints,
-                              onCreateInvoice: _createInvoiceForPoint,
-                              onCreateDeliveryNote: _createDeliveryNoteForPoint,
-                              onPrintAllInvoices: _printAllRouteInvoices,
-                              onEditPoint: (point) =>
-                                  _editPoint(effectiveCompanyId, point),
-                              onRemovePoint: (point) => _removePointFromRoute(
-                                effectiveCompanyId,
-                                point,
-                              ),
-                              onReopenPoint: (point) =>
-                                  _reopenPoint(effectiveCompanyId, point),
-                              onBalanceRoutes: _balanceRoutes,
-                              onOptimizeRoute: (driverId, routeId, points) =>
-                                  _optimizeRouteByTime(
-                                effectiveCompanyId,
-                                driverId,
-                                routeId,
-                                points,
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    StreamBuilder<List<DeliveryPoint>>(
-                      stream: _mapRoutesStream,
-                      initialData: _lastNonEmptyRoutes,
-                      builder: (context, pointsSnapshot) {
-                        if (pointsSnapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${pointsSnapshot.error}'),
-                          );
-                        }
-                        final incomingPoints = pointsSnapshot.data ?? [];
-                        final points = _mergePointsByUpdatedAt(
-                          incomingPoints,
-                          _lastMapPoints,
-                        );
-                        _lastMapPoints = points;
-                        return FutureBuilder<List<Map<String, dynamic>>>(
-                          future: _routeDocsFuture ??
-                              Future.value(<Map<String, dynamic>>[]),
-                          initialData: const [],
-                          builder: (context, routesSnapshot) {
-                            final polylines = <String, String>{};
-                            for (final doc in routesSnapshot.data ?? []) {
-                              if (doc == null) continue;
-                              final id = doc['routeId']?.toString();
-                              final pl = doc['polyline']?.toString();
-                              if (id != null && pl != null) {
-                                polylines[id] = pl;
-                              }
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                !snapshot.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
                             }
-                            return MapTab(
-                              routes: points,
-                              lastNonEmptyRoutes: _lastNonEmptyRoutes,
-                              drivers: _drivers,
-                              selectedDriverId: _selectedDriverId,
-                              routePolylines: polylines,
+                            return PendingPointsTab(
+                              points: snapshot.data ?? const [],
                               companyId: effectiveCompanyId,
-                              warehouseLat: CompanyCache.instance(
+                              isLoadingMap: _isLoadingMap,
+                              onCreateRoute: () => _createRoute(
                                 effectiveCompanyId,
-                              ).warehouseLat,
-                              warehouseLng: CompanyCache.instance(
-                                effectiveCompanyId,
-                              ).warehouseLng,
-                              onDriverFilterChanged: (driverId) =>
-                                  setState(() => _selectedDriverId = driverId),
-                              onPointDragToDriver:
-                                  (pointId, driverId, driverName) =>
-                                      _handleDragAssign(
+                                snapshot.data ?? const [],
+                              ),
+                              onAutoDistribute: () =>
+                                  _autoDistributePallets(effectiveCompanyId),
+                              onDeletePoint: (pointId, clientName) =>
+                                  _deletePoint(
                                 effectiveCompanyId,
                                 pointId,
-                                driverId,
-                                driverName,
+                                clientName,
                               ),
+                              onEditPoint: (point) =>
+                                  _editPoint(effectiveCompanyId, point),
+                              onAssignDriver: (point) => _assignDriverToPoint(
+                                  effectiveCompanyId, point),
+                              onAddProduct: (point) =>
+                                  _addProductToPoint(effectiveCompanyId, point),
                             );
                           },
-                        );
-                      },
+                        ),
+                        StreamBuilder<List<DeliveryPoint>>(
+                          stream: _routesStream,
+                          initialData: const [],
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  l10n.dispatcherGenericError(
+                                    snapshot.error.toString(),
+                                  ),
+                                ),
+                              );
+                            }
+                            return StreamBuilder<List<DeliveryPoint>>(
+                              stream: _autoCompletedStream,
+                              initialData: const [],
+                              builder: (context, autoSnapshot) {
+                                return ActiveRoutesTab(
+                                  companyId: effectiveCompanyId,
+                                  routes: snapshot.data ?? [],
+                                  lastNonEmptyRoutes: _lastNonEmptyRoutes,
+                                  autoCompletedPoints: autoSnapshot.data ?? [],
+                                  onChangeDriver:
+                                      (driverId, driverName, routeId) =>
+                                          _changeDriver(
+                                    effectiveCompanyId,
+                                    driverId,
+                                    driverName,
+                                    routeId,
+                                  ),
+                                  onCancelRoute: (driverId, routeId) =>
+                                      _cancelRoute(
+                                    effectiveCompanyId,
+                                    driverId,
+                                    routeId,
+                                  ),
+                                  onPrintRoute: _printDriverRoute,
+                                  onReorderPoints: _reorderRoutePoints,
+                                  onCreateInvoice: _createInvoiceForPoint,
+                                  onCreateDeliveryNote:
+                                      _createDeliveryNoteForPoint,
+                                  onPrintAllInvoices: _printAllRouteInvoices,
+                                  onEditPoint: (point) =>
+                                      _editPoint(effectiveCompanyId, point),
+                                  onRemovePoint: (point) =>
+                                      _removePointFromRoute(
+                                    effectiveCompanyId,
+                                    point,
+                                  ),
+                                  onReopenPoint: (point) =>
+                                      _reopenPoint(effectiveCompanyId, point),
+                                  onCompletePointManually: (point) =>
+                                      _completePointManually(
+                                    effectiveCompanyId,
+                                    point,
+                                  ),
+                                  onBalanceRoutes: _balanceRoutes,
+                                  onOptimizeRoute:
+                                      (driverId, routeId, points) =>
+                                          _optimizeRouteByTime(
+                                    effectiveCompanyId,
+                                    driverId,
+                                    routeId,
+                                    points,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        StreamBuilder<List<DeliveryPoint>>(
+                          stream: _mapRoutesStream,
+                          initialData: _lastNonEmptyRoutes,
+                          builder: (context, pointsSnapshot) {
+                            if (pointsSnapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  l10n.dispatcherGenericError(
+                                    pointsSnapshot.error.toString(),
+                                  ),
+                                ),
+                              );
+                            }
+                            final incomingPoints = pointsSnapshot.data ?? [];
+                            final points = _mergePointsByUpdatedAt(
+                              incomingPoints,
+                              _lastMapPoints,
+                            );
+                            _lastMapPoints = points;
+                            final carryRouteIds = incomingPoints
+                                .where(
+                                  (p) =>
+                                      p.routeId != null &&
+                                      p.routeId!.isNotEmpty &&
+                                      DeliveryPoint.activeRouteStatuses
+                                          .contains(p.status),
+                                )
+                                .map((p) => p.routeId!)
+                                .toSet();
+                            return FutureBuilder<List<Map<String, dynamic>>>(
+                              future:
+                                  RouteService(companyId: effectiveCompanyId)
+                                      .getTodayRoutesForMap(
+                                additionalRouteIds: carryRouteIds,
+                              ),
+                              initialData: const [],
+                              builder: (context, routesSnapshot) {
+                                final polylines = <String, String>{};
+                                for (final doc in routesSnapshot.data ?? []) {
+                                  if (doc == null) continue;
+                                  // id документа routes == routeId; поле routeId иногда отсутствует у старых записей
+                                  final id = doc['routeId']?.toString() ??
+                                      doc['id']?.toString();
+                                  final pl = doc['polyline']?.toString();
+                                  if (id != null &&
+                                      pl != null &&
+                                      pl.isNotEmpty) {
+                                    polylines[id] = pl;
+                                  }
+                                }
+                                return MapTab(
+                                  routes: points,
+                                  lastNonEmptyRoutes: _lastNonEmptyRoutes,
+                                  drivers: _drivers,
+                                  selectedDriverId: _selectedDriverId,
+                                  routePolylines: polylines,
+                                  companyId: effectiveCompanyId,
+                                  warehouseLat: CompanyCache.instance(
+                                    effectiveCompanyId,
+                                  ).warehouseLat,
+                                  warehouseLng: CompanyCache.instance(
+                                    effectiveCompanyId,
+                                  ).warehouseLng,
+                                  demoModeFromTour: _forceMapDemo,
+                                  onTourDemoFinished: _onMapTourDemoFinished,
+                                  onDriverFilterChanged: (driverId) => setState(
+                                      () => _selectedDriverId = driverId),
+                                  onPointDragToDriver:
+                                      (pointId, driverId, driverName) =>
+                                          _handleDragAssign(
+                                    effectiveCompanyId,
+                                    pointId,
+                                    driverId,
+                                    driverName,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+            if (_tourActive && _tourIndex < 5)
+              Positioned.fill(
+                child: Material(
+                  color: Colors.black54,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: IconButton(
+                              tooltip: l10n.close,
+                              onPressed: _cancelProductTour,
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
+                            ),
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      blurRadius: 12,
+                                      color: Colors.black26,
+                                    ),
+                                  ],
+                                ),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      AnimatedSwitcher(
+                                        duration:
+                                            const Duration(milliseconds: 450),
+                                        switchInCurve: Curves.easeOut,
+                                        switchOutCurve: Curves.easeIn,
+                                        child: DispatcherDemoProcessVisual(
+                                          key: ValueKey(_tourIndex),
+                                          stepIndex: _tourIndex,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      const Divider(),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        _tourStepMessage(l10n, _tourIndex),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            l10n.dispatcherTourProgress(_tourIndex + 1, 5),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
-        floatingActionButton: _currentTabIndex == 0
+        floatingActionButton: !_tourActive && _currentTabIndex == 0
             ? FloatingActionButton(
                 tooltip: l10n.addPoint,
                 onPressed: () {
@@ -1411,12 +1706,13 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final docTypeLabel = widget.invoice.documentType ==
             InvoiceDocumentType.delivery
-        ? 'תעודת משלוח'
+        ? l10n.makorDocTypeDeliveryNote
         : widget.invoice.documentType == InvoiceDocumentType.taxInvoiceReceipt
-            ? 'חשבונית מס / קבלה'
-            : 'חשבונית מס';
+            ? l10n.makorDocTypeTaxInvoiceReceipt
+            : l10n.makorDocTypeTaxInvoice;
     return AlertDialog(
       title: Row(
         children: [
@@ -1425,7 +1721,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'מקור כבר הודפס',
+              l10n.makorOriginalPrintedTitle,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -1446,49 +1742,65 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$docTypeLabel מס\' ${widget.invoice.sequentialNumber}',
+                  l10n.makorInvoiceLineNumbered(
+                    docTypeLabel,
+                    '${widget.invoice.sequentialNumber}',
+                  ),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
-                Text('לקוח: ${widget.invoice.clientName}'),
+                Text(l10n.makorClientLine(widget.invoice.clientName)),
                 const SizedBox(height: 8),
-                const Text(
-                  'לפי חוק ניהול ספרים — לא ניתן להדפיס מקור נוסף.\n'
-                  'ניתן להדפיס העתק או נאמן למקור בלבד.',
-                  style: TextStyle(fontSize: 13, color: Colors.red),
+                Text(
+                  l10n.makorBooksLawWarning,
+                  style: const TextStyle(fontSize: 13, color: Colors.red),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          const Text('בחר סוג הדפסה:',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          RadioListTile<InvoiceCopyType>(
-            value: InvoiceCopyType.copy,
-            groupValue: _selectedType,
-            title: const Text('העתק'),
-            subtitle: Text('עותק מספר ${widget.invoice.copiesPrinted + 1}'),
-            onChanged: (v) => setState(() => _selectedType = v!),
+          Text(
+            l10n.makorChoosePrintType,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          RadioListTile<InvoiceCopyType>(
-            value: InvoiceCopyType.replacesOriginal,
-            groupValue: _selectedType,
-            title: const Text('נאמן למקור'),
-            subtitle: const Text('מחליף את המקור'),
-            onChanged: (v) => setState(() => _selectedType = v!),
+          ListTile(
+            leading: Icon(
+              _selectedType == InvoiceCopyType.copy
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+            ),
+            title: Text(l10n.makorCopy),
+            subtitle: Text(
+              l10n.makorCopySubtitle(widget.invoice.copiesPrinted + 1),
+            ),
+            onTap: () => setState(() => _selectedType = InvoiceCopyType.copy),
+          ),
+          ListTile(
+            leading: Icon(
+              _selectedType == InvoiceCopyType.replacesOriginal
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+            ),
+            title: Text(l10n.makorTrueToOriginal),
+            subtitle: Text(l10n.makorTrueToOriginalSubtitle),
+            onTap: () => setState(
+              () => _selectedType = InvoiceCopyType.replacesOriginal,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text('כמות עותקים: '),
+              Text(l10n.makorCopyQuantity),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
                 onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
               ),
-              Text('$_copies',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(
+                '$_copies',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
                 onPressed: _copies < 5 ? () => setState(() => _copies++) : null,
@@ -1500,7 +1812,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
           onPressed: () => Navigator.pop(context, {
@@ -1508,7 +1820,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
             'copies': _copies,
           }),
           icon: const Icon(Icons.print),
-          label: const Text('הדפס'),
+          label: Text(l10n.makorPrintButton),
         ),
       ],
     );

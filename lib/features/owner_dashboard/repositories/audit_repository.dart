@@ -120,7 +120,7 @@ class AuditRepository {
     const baseUrl = 'https://logiroute-app.web.app';
     final buffer = StringBuffer();
     buffer.writeln(
-        'תאריך${t}מודול${t}סוג אירוע${t}משתמש${t}ישות${t}פרטים${t}קישור');
+        'תאריך$tמודול$tסוג אירוע$tמשתמש$tישות$tפרטים$tקישור');
 
     for (final event in events) {
       final date = event.createdAt != null

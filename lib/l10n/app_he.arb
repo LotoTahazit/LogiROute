@@ -799,6 +799,211 @@
   "savingPallets": "חיסכון: {count}",
   "hideGpsTracks": "הסתר מסלולי GPS",
   "showGpsTracks": "הצג מסלולי GPS (24 שעות)",
+  "mapTooltipCurrentRoute": "מסלול נוכחי",
+  "mapTooltipPreviousRoute": "מסלול קודם",
+  "mapTooltipClearMap": "נקה מפה",
+  "mapTooltipExitDemo": "יציאה ממצב הדגמה",
+  "mapTooltipDemoMode": "מצב הדגמה",
+  "mapBannerPreviousRouteShown": "מוצג מסלול קודם",
+  "billingGuardAccessSuspendedTitle": "הגישה הושעתה",
+  "billingGuardAccessSuspendedBody": "החשבון שלך הושעה עקב אי תשלום. שלם כדי לחדש את הגישה.",
+  "billingGuardAccountCancelledTitle": "החשבון בוטל",
+  "billingGuardAccountCancelledBody": "החשבון שלך בוטל. אנא צור קשר עם התמיכה לחידוש.",
+  "billingGuardTrialEndedTitle": "תקופת הניסיון הסתיימה",
+  "billingGuardTrialEndedBody": "תקופת הניסיון שלך הסתיימה. שדרג לתוכנית בתשלום.",
+  "billingGuardNoAccessTitle": "אין גישה",
+  "billingGuardNoAccessBody": "אנא צור קשר עם התמיכה.",
+  "billingGuardContactSupport": "צור קשר עם התמיכה",
+  "billingGuardPayNow": "שלם עכשיו",
+  "billingGuardUpgrade": "שדרג",
+  "billingGuardTrialBanner": "תקופת ניסיון — נותרו {days} ימים (עד {date})",
+  "@billingGuardTrialBanner": {
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingGuardGraceBanner": "תקופת חסד — נותרו {days} ימים לתשלום. לאחר מכן החשבון יושעה.",
+  "@billingGuardGraceBanner": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "billingGuardCheckoutOpened": "דף התשלום נפתח בדפדפן. לאחר התשלום החשבון יתעדכן אוטומטית.",
+  "billingGuardCheckoutError": "שגיאה בפתיחת דף תשלום: {error}",
+  "@billingGuardCheckoutError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsNotSelected": "לא נבחרה חברה",
+  "companySettingsInitError": "שגיאת אתחול: {error}",
+  "@companySettingsInitError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsEmptyWarning": "לא נמצאו הגדרות. מלאו את הטופס.",
+  "companySettingsLoadError": "שגיאת טעינה: {error}",
+  "@companySettingsLoadError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingDashboardTitle": "לוח חיוב",
+  "billingDashboardFilterAll": "הכל",
+  "billingDashboardFilterTrial": "🧪 ניסיון",
+  "billingDashboardFilterActive": "✅ פעיל",
+  "billingDashboardFilterGrace": "⏳ חסד",
+  "billingDashboardFilterSuspended": "🚫 מושעה",
+  "billingDashboardFilterCancelled": "❌ בוטל",
+  "billingDashboardSearchHint": "חיפוש…",
+  "billingDashboardNoCompanies": "לא נמצאו חברות",
+  "billingDashboardExtendTitle": "הארכה — {companyName}",
+  "@billingDashboardExtendTitle": {
+    "placeholders": { "companyName": { "type": "String" } }
+  },
+  "billingDashboardExtendPaidUntil": "קבע תשלום עד: {date}",
+  "@billingDashboardExtendPaidUntil": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "billingDashboardNoteLabel": "הערה (חובה)",
+  "billingDashboardNoteDefault": "הוארך דרך לוח הבקרה",
+  "billingDashboardExtendButton": "הארך",
+  "billingDashboardChangeStatusTitle": "לשנות {companyName} → {status}?",
+  "@billingDashboardChangeStatusTitle": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardChangeStatusBody": "השינוי יחול על סטטוס החיוב מיד.",
+  "billingDashboardStatusUpdated": "{companyName} → {status}",
+  "@billingDashboardStatusUpdated": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "status": { "type": "String" }
+    }
+  },
+  "billingDashboardIntegrityRunning": "מריץ בדיקת שלמות…",
+  "billingDashboardIntegrityDone": "בדיקת שלמות הושלמה",
+  "billingDashboardRunIntegrityTooltip": "הרץ בדיקת שלמות",
+  "billingDashboardExtendSuccess": "{companyName} הוארך עד {date}",
+  "@billingDashboardExtendSuccess": {
+    "placeholders": {
+      "companyName": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "billingDashboardError": "שגיאה: {error}",
+  "@billingDashboardError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "billingLabelProvider": "ספק",
+  "billingLabelPaidUntil": "שולם עד",
+  "billingLabelTrialUntil": "ניסיון עד",
+  "billingLabelGraceUntil": "חסד עד",
+  "billingLabelGraceDays": "ימי חסד",
+  "billingActionExtend": "הארך",
+  "billingActionActive": "פעיל",
+  "billingActionGrace": "חסד",
+  "billingActionSuspend": "השעה",
+  "dispatcherInvalidCoordinates": "קואורדינטות לא תקינות: {error}",
+  "@dispatcherInvalidCoordinates": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherPrintError": "שגיאת הדפסה: {error}",
+  "@dispatcherPrintError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherGenericError": "שגיאה: {error}",
+  "@dispatcherGenericError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "dispatcherWarehouseSaved": "מיקום המחסן נשמר: {coords}",
+  "@dispatcherWarehouseSaved": {
+    "placeholders": { "coords": { "type": "String" } }
+  },
+  "dispatcherTourStep1": "נקודות משלוח: מוסיפים לקוח ומוצרים להזמנה — כאן נבנית ההזמנה לפני המסלול",
+  "dispatcherTourStep2": "בכל נקודה: מוצרים וכמויות; אפשר לערוך לפני בניית מסלול",
+  "dispatcherTourStep3": "כשהמוצרים מוכנים — עוברים ללשונית «מסלולים פעילים» ושיוך לנהג",
+  "dispatcherTourStep4": "מסלולים פעילים: השיוך לנהג, סדר עצירות ומסלול על המפה",
+  "dispatcherTourStep5": "אחרי בניית המסלול — המשימות מגיעות לנהג באפליקציה; עוברים למפה",
+  "dispatcherTourStopTooltip": "עצור סיור הדגמה",
+  "dispatcherTourStartTooltip": "סיור הדגמה: מוצר → מסלול → נהג",
+  "dispatcherTourProgress": "{current}/{total}",
+  "@dispatcherTourProgress": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dispatcherSkippedInvoicesMakor": "דולגו {count} חשבוניות — מקור כבר הודפס. להדפסה חוזרת השתמשו בניהול חשבוניות.",
+  "@dispatcherSkippedInvoicesMakor": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dispatcherCopiesOnlyPendingTax": "הודפסו עותקים בלבד — ממתין למספר הקצאה. המקור יודפס לאחר אישור רשות המסים.",
+  "pointUpdatedSuccess": "הנקודה עודכנה: {name}",
+  "@pointUpdatedSuccess": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointReturnedToRoute": "{name} הוחזר למסלול",
+  "@dispatcherPointReturnedToRoute": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTitle": "סמן כמסופק",
+  "dispatcherManualCompleteMessage": "לסמן את \"{name}\" כמסופק ידנית? אם הסגירה האוטומטית לא רצה.",
+  "@dispatcherManualCompleteMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherManualCompleteTooltip": "סגירה ידנית של נקודה",
+  "dispatcherPointCompletedManually": "{name} סומן כמסופק",
+  "@dispatcherPointCompletedManually": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "dispatcherPointAssignedToDriver": "הוקצה לנהג: {client} → {driver}",
+  "@dispatcherPointAssignedToDriver": {
+    "placeholders": {
+      "client": { "type": "String" },
+      "driver": { "type": "String" }
+    }
+  },
+  "dispatcherAssignDriverTitle": "שיוך לנהג — {clientName}",
+  "@dispatcherAssignDriverTitle": {
+    "placeholders": { "clientName": { "type": "String" } }
+  },
+  "dispatcherDragAssignSuccess": "הוקצה לנהג → {driverName}",
+  "@dispatcherDragAssignSuccess": {
+    "placeholders": { "driverName": { "type": "String" } }
+  },
+  "autoDistributeFailed": "שגיאה בחלוקה אוטומטית: {error}",
+  "@autoDistributeFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "companySettingsSaveFailed": "שגיאה בשמירת הגדרות: {error}",
+  "@companySettingsSaveFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "makorOriginalPrintedTitle": "מקור כבר הודפס",
+  "makorDocTypeDeliveryNote": "תעודת משלוח",
+  "makorDocTypeTaxInvoiceReceipt": "חשבונית מס / קבלה",
+  "makorDocTypeTaxInvoice": "חשבונית מס",
+  "makorInvoiceLineNumbered": "{docType} מס' {seq}",
+  "@makorInvoiceLineNumbered": {
+    "placeholders": {
+      "docType": { "type": "String" },
+      "seq": { "type": "String" }
+    }
+  },
+  "makorClientLine": "לקוח: {name}",
+  "@makorClientLine": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "makorBooksLawWarning": "לפי חוק ניהול ספרים — לא ניתן להדפיס מקור נוסף.\nניתן להדפיס העתק או נאמן למקור בלבד.",
+  "makorChoosePrintType": "בחר סוג הדפסה:",
+  "makorCopy": "העתק",
+  "makorCopySubtitle": "עותק מספר {n}",
+  "@makorCopySubtitle": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "makorTrueToOriginal": "נאמן למקור",
+  "makorTrueToOriginalSubtitle": "מחליף את המקור",
+  "makorCopyQuantity": "כמות עותקים:",
+  "makorPrintButton": "הדפס",
   "vatId": "ח.פ / ע.מ (מספר עוסק)",
   "deliveryZones": "אזורי חלוקה",
   "zonesRequired": "חובה לבחור לפחות אזור אחד",
@@ -1511,5 +1716,23 @@
   "percentCompleted": "{percent}% הושלם",
   "@percentCompleted": { "placeholders": { "percent": { "type": "Object" } } },
   "nPoints": "{count} נקודות",
-  "@nPoints": { "placeholders": { "count": { "type": "Object" } } }
+  "@nPoints": { "placeholders": { "count": { "type": "Object" } } },
+
+  "shiftScheduleTitle": "לוח משמרות",
+  "shiftWorkingDays": "ימי עבודה",
+  "shiftDayMon": "ב׳",
+  "shiftDayTue": "ג׳",
+  "shiftDayWed": "ד׳",
+  "shiftDayThu": "ה׳",
+  "shiftDayFri": "ו׳",
+  "shiftDaySat": "ש׳",
+  "shiftDaySun": "א׳",
+  "shiftStart": "תחילת משמרת",
+  "shiftEnd": "סיום משמרת",
+  "shiftSaved": "נשמר",
+  "shiftLoadError": "שגיאת טעינה: {error}",
+  "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftSaveError": "שגיאה: {error}",
+  "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
+  "shiftNoCompanyId": "לא נבחרה חברה"
 }

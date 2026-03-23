@@ -227,7 +227,8 @@ class _AccountingSectionState extends State<AccountingSection> {
     final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 500;
     final typeDropdown = DropdownButtonFormField<AccountingDocType?>(
-      value: _filterType,
+      key: ValueKey(_filterType),
+      initialValue: _filterType,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.documentType,
@@ -247,7 +248,8 @@ class _AccountingSectionState extends State<AccountingSection> {
       onChanged: (value) => setState(() => _filterType = value),
     );
     final statusDropdown = DropdownButtonFormField<AccountingDocStatus?>(
-      value: _filterStatus,
+      key: ValueKey(_filterStatus),
+      initialValue: _filterStatus,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.columnStatus,

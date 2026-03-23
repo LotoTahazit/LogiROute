@@ -17,7 +17,9 @@ class PolylineDecoder {
     }
   }
 
-  static bool isValid(List<LatLng> points, {int minPoints = 10}) {
+  /// Для отрисовки на карте достаточно ≥2 точек; старый порог 10 отсекал
+  /// короткие, но валидные OSRM-полилинии и приводил к прямым fallback.
+  static bool isValid(List<LatLng> points, {int minPoints = 2}) {
     if (points.length < minPoints) return false;
     if (points.first.latitude.isNaN ||
         points.first.longitude.isNaN ||

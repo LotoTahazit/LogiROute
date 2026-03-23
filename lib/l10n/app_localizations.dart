@@ -3995,6 +3995,576 @@ abstract class AppLocalizations {
   /// **'Show GPS tracks (24h)'**
   String get showGpsTracks;
 
+  /// No description provided for @mapTooltipCurrentRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Current route'**
+  String get mapTooltipCurrentRoute;
+
+  /// No description provided for @mapTooltipPreviousRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous route'**
+  String get mapTooltipPreviousRoute;
+
+  /// No description provided for @mapTooltipClearMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear map'**
+  String get mapTooltipClearMap;
+
+  /// No description provided for @mapTooltipExitDemo.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit demo mode'**
+  String get mapTooltipExitDemo;
+
+  /// No description provided for @mapTooltipDemoMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo mode'**
+  String get mapTooltipDemoMode;
+
+  /// No description provided for @mapBannerPreviousRouteShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing previous route'**
+  String get mapBannerPreviousRouteShown;
+
+  /// No description provided for @billingGuardAccessSuspendedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Access suspended'**
+  String get billingGuardAccessSuspendedTitle;
+
+  /// No description provided for @billingGuardAccessSuspendedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been suspended for non-payment. Pay to restore access.'**
+  String get billingGuardAccessSuspendedBody;
+
+  /// No description provided for @billingGuardAccountCancelledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account cancelled'**
+  String get billingGuardAccountCancelledTitle;
+
+  /// No description provided for @billingGuardAccountCancelledBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been cancelled. Please contact support to renew.'**
+  String get billingGuardAccountCancelledBody;
+
+  /// No description provided for @billingGuardTrialEndedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial ended'**
+  String get billingGuardTrialEndedTitle;
+
+  /// No description provided for @billingGuardTrialEndedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trial has ended. Upgrade to a paid plan.'**
+  String get billingGuardTrialEndedBody;
+
+  /// No description provided for @billingGuardNoAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No access'**
+  String get billingGuardNoAccessTitle;
+
+  /// No description provided for @billingGuardNoAccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Please contact support.'**
+  String get billingGuardNoAccessBody;
+
+  /// No description provided for @billingGuardContactSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact support'**
+  String get billingGuardContactSupport;
+
+  /// No description provided for @billingGuardPayNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay now'**
+  String get billingGuardPayNow;
+
+  /// No description provided for @billingGuardUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get billingGuardUpgrade;
+
+  /// No description provided for @billingGuardTrialBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial — {days} days left (until {date})'**
+  String billingGuardTrialBanner(int days, String date);
+
+  /// No description provided for @billingGuardGraceBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace period — {days} days left to pay. After that the account will be suspended.'**
+  String billingGuardGraceBanner(int days);
+
+  /// No description provided for @billingGuardCheckoutOpened.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment page opened in the browser. After payment, the account will update automatically.'**
+  String get billingGuardCheckoutOpened;
+
+  /// No description provided for @billingGuardCheckoutError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error opening payment page: {error}'**
+  String billingGuardCheckoutError(String error);
+
+  /// No description provided for @companySettingsNotSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No company selected'**
+  String get companySettingsNotSelected;
+
+  /// No description provided for @companySettingsInitError.
+  ///
+  /// In en, this message translates to:
+  /// **'Initialization error: {error}'**
+  String companySettingsInitError(String error);
+
+  /// No description provided for @companySettingsEmptyWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'No settings found. Fill in the form.'**
+  String get companySettingsEmptyWarning;
+
+  /// No description provided for @companySettingsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Load error: {error}'**
+  String companySettingsLoadError(String error);
+
+  /// No description provided for @billingDashboardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing dashboard'**
+  String get billingDashboardTitle;
+
+  /// No description provided for @billingDashboardFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get billingDashboardFilterAll;
+
+  /// No description provided for @billingDashboardFilterTrial.
+  ///
+  /// In en, this message translates to:
+  /// **'🧪 Trial'**
+  String get billingDashboardFilterTrial;
+
+  /// No description provided for @billingDashboardFilterActive.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Active'**
+  String get billingDashboardFilterActive;
+
+  /// No description provided for @billingDashboardFilterGrace.
+  ///
+  /// In en, this message translates to:
+  /// **'⏳ Grace'**
+  String get billingDashboardFilterGrace;
+
+  /// No description provided for @billingDashboardFilterSuspended.
+  ///
+  /// In en, this message translates to:
+  /// **'🚫 Suspended'**
+  String get billingDashboardFilterSuspended;
+
+  /// No description provided for @billingDashboardFilterCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Cancelled'**
+  String get billingDashboardFilterCancelled;
+
+  /// No description provided for @billingDashboardSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get billingDashboardSearchHint;
+
+  /// No description provided for @billingDashboardNoCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'No companies found'**
+  String get billingDashboardNoCompanies;
+
+  /// No description provided for @billingDashboardExtendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend {companyName}'**
+  String billingDashboardExtendTitle(String companyName);
+
+  /// No description provided for @billingDashboardExtendPaidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Set paid until: {date}'**
+  String billingDashboardExtendPaidUntil(String date);
+
+  /// No description provided for @billingDashboardNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (required)'**
+  String get billingDashboardNoteLabel;
+
+  /// No description provided for @billingDashboardNoteDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended via dashboard'**
+  String get billingDashboardNoteDefault;
+
+  /// No description provided for @billingDashboardExtendButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend'**
+  String get billingDashboardExtendButton;
+
+  /// No description provided for @billingDashboardChangeStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change {companyName} → {status}?'**
+  String billingDashboardChangeStatusTitle(String companyName, String status);
+
+  /// No description provided for @billingDashboardChangeStatusBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will immediately change the billing status.'**
+  String get billingDashboardChangeStatusBody;
+
+  /// No description provided for @billingDashboardStatusUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'{companyName} → {status}'**
+  String billingDashboardStatusUpdated(String companyName, String status);
+
+  /// No description provided for @billingDashboardIntegrityRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running integrity check…'**
+  String get billingDashboardIntegrityRunning;
+
+  /// No description provided for @billingDashboardIntegrityDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrity check complete'**
+  String get billingDashboardIntegrityDone;
+
+  /// No description provided for @billingDashboardRunIntegrityTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Run integrity check'**
+  String get billingDashboardRunIntegrityTooltip;
+
+  /// No description provided for @billingDashboardExtendSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{companyName} extended to {date}'**
+  String billingDashboardExtendSuccess(String companyName, String date);
+
+  /// No description provided for @billingDashboardError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String billingDashboardError(String error);
+
+  /// No description provided for @billingLabelProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get billingLabelProvider;
+
+  /// No description provided for @billingLabelPaidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid until'**
+  String get billingLabelPaidUntil;
+
+  /// No description provided for @billingLabelTrialUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial until'**
+  String get billingLabelTrialUntil;
+
+  /// No description provided for @billingLabelGraceUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace until'**
+  String get billingLabelGraceUntil;
+
+  /// No description provided for @billingLabelGraceDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace days'**
+  String get billingLabelGraceDays;
+
+  /// No description provided for @billingActionExtend.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend'**
+  String get billingActionExtend;
+
+  /// No description provided for @billingActionActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get billingActionActive;
+
+  /// No description provided for @billingActionGrace.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace'**
+  String get billingActionGrace;
+
+  /// No description provided for @billingActionSuspend.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspend'**
+  String get billingActionSuspend;
+
+  /// No description provided for @dispatcherInvalidCoordinates.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid coordinates: {error}'**
+  String dispatcherInvalidCoordinates(String error);
+
+  /// No description provided for @dispatcherPrintError.
+  ///
+  /// In en, this message translates to:
+  /// **'Print error: {error}'**
+  String dispatcherPrintError(String error);
+
+  /// No description provided for @dispatcherGenericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String dispatcherGenericError(String error);
+
+  /// No description provided for @dispatcherWarehouseSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse location saved: {coords}'**
+  String dispatcherWarehouseSaved(String coords);
+
+  /// No description provided for @dispatcherTourStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery points: add a client and products for the order — the order is built here before the route.'**
+  String get dispatcherTourStep1;
+
+  /// No description provided for @dispatcherTourStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'At each point: products and quantities; you can edit before building the route.'**
+  String get dispatcherTourStep2;
+
+  /// No description provided for @dispatcherTourStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'When products are ready — go to the «Active routes» tab and assign a driver.'**
+  String get dispatcherTourStep3;
+
+  /// No description provided for @dispatcherTourStep4.
+  ///
+  /// In en, this message translates to:
+  /// **'Active routes: driver assignment, stop order, and route on the map.'**
+  String get dispatcherTourStep4;
+
+  /// No description provided for @dispatcherTourStep5.
+  ///
+  /// In en, this message translates to:
+  /// **'After the route is built — tasks reach the driver in the app; switch to the map.'**
+  String get dispatcherTourStep5;
+
+  /// No description provided for @dispatcherTourStopTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop demo tour'**
+  String get dispatcherTourStopTooltip;
+
+  /// No description provided for @dispatcherTourStartTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo tour: product → route → driver'**
+  String get dispatcherTourStartTooltip;
+
+  /// No description provided for @dispatcherTourProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{current}/{total}'**
+  String dispatcherTourProgress(int current, int total);
+
+  /// No description provided for @dispatcherSkippedInvoicesMakor.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} invoices skipped — original already printed. Use invoice management to reprint.'**
+  String dispatcherSkippedInvoicesMakor(int count);
+
+  /// No description provided for @dispatcherCopiesOnlyPendingTax.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy prints only — waiting for assignment number. Original prints after tax authority approval.'**
+  String get dispatcherCopiesOnlyPendingTax;
+
+  /// No description provided for @pointUpdatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Point updated: {name}'**
+  String pointUpdatedSuccess(String name);
+
+  /// No description provided for @dispatcherPointReturnedToRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} returned to route'**
+  String dispatcherPointReturnedToRoute(String name);
+
+  /// No description provided for @dispatcherManualCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as delivered'**
+  String get dispatcherManualCompleteTitle;
+
+  /// No description provided for @dispatcherManualCompleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark \"{name}\" as delivered manually? Use if auto-close did not run.'**
+  String dispatcherManualCompleteMessage(String name);
+
+  /// No description provided for @dispatcherManualCompleteTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as delivered manually'**
+  String get dispatcherManualCompleteTooltip;
+
+  /// No description provided for @dispatcherPointCompletedManually.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} marked as delivered'**
+  String dispatcherPointCompletedManually(String name);
+
+  /// No description provided for @dispatcherPointAssignedToDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Point assigned: {client} → {driver}'**
+  String dispatcherPointAssignedToDriver(String client, String driver);
+
+  /// No description provided for @dispatcherAssignDriverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign driver — {clientName}'**
+  String dispatcherAssignDriverTitle(String clientName);
+
+  /// No description provided for @dispatcherDragAssignSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Point assigned → {driverName}'**
+  String dispatcherDragAssignSuccess(String driverName);
+
+  /// No description provided for @autoDistributeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-distribution failed: {error}'**
+  String autoDistributeFailed(String error);
+
+  /// No description provided for @companySettingsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving settings: {error}'**
+  String companySettingsSaveFailed(String error);
+
+  /// No description provided for @makorOriginalPrintedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Original already printed'**
+  String get makorOriginalPrintedTitle;
+
+  /// No description provided for @makorDocTypeDeliveryNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery note'**
+  String get makorDocTypeDeliveryNote;
+
+  /// No description provided for @makorDocTypeTaxInvoiceReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax invoice / receipt'**
+  String get makorDocTypeTaxInvoiceReceipt;
+
+  /// No description provided for @makorDocTypeTaxInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax invoice'**
+  String get makorDocTypeTaxInvoice;
+
+  /// No description provided for @makorInvoiceLineNumbered.
+  ///
+  /// In en, this message translates to:
+  /// **'{docType} no. {seq}'**
+  String makorInvoiceLineNumbered(String docType, String seq);
+
+  /// No description provided for @makorClientLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Client: {name}'**
+  String makorClientLine(String name);
+
+  /// No description provided for @makorBooksLawWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Under bookkeeping law — you cannot print another original.\nYou may print a copy or true-to-original only.'**
+  String get makorBooksLawWarning;
+
+  /// No description provided for @makorChoosePrintType.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose print type:'**
+  String get makorChoosePrintType;
+
+  /// No description provided for @makorCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get makorCopy;
+
+  /// No description provided for @makorCopySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy number {n}'**
+  String makorCopySubtitle(int n);
+
+  /// No description provided for @makorTrueToOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'True to original'**
+  String get makorTrueToOriginal;
+
+  /// No description provided for @makorTrueToOriginalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaces the original'**
+  String get makorTrueToOriginalSubtitle;
+
+  /// No description provided for @makorCopyQuantity.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of copies:'**
+  String get makorCopyQuantity;
+
+  /// No description provided for @makorPrintButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Print'**
+  String get makorPrintButton;
+
   /// No description provided for @vatId.
   ///
   /// In en, this message translates to:
@@ -4166,13 +4736,13 @@ abstract class AppLocalizations {
   /// No description provided for @invoicesPrintedSuccess.
   ///
   /// In en, this message translates to:
-  /// **'? {count} invoices printed'**
+  /// **'✅ {count} invoices printed'**
   String invoicesPrintedSuccess(Object count);
 
   /// No description provided for @printingErrorMessage.
   ///
   /// In en, this message translates to:
-  /// **'? Printing error: {error}'**
+  /// **'❌ Printing error: {error}'**
   String printingErrorMessage(Object error);
 
   /// No description provided for @finishCountButton.
@@ -7692,6 +8262,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} points'**
   String nPoints(Object count);
+
+  /// No description provided for @shiftScheduleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift schedule'**
+  String get shiftScheduleTitle;
+
+  /// No description provided for @shiftWorkingDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Working days'**
+  String get shiftWorkingDays;
+
+  /// No description provided for @shiftDayMon.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get shiftDayMon;
+
+  /// No description provided for @shiftDayTue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get shiftDayTue;
+
+  /// No description provided for @shiftDayWed.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get shiftDayWed;
+
+  /// No description provided for @shiftDayThu.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get shiftDayThu;
+
+  /// No description provided for @shiftDayFri.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get shiftDayFri;
+
+  /// No description provided for @shiftDaySat.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get shiftDaySat;
+
+  /// No description provided for @shiftDaySun.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get shiftDaySun;
+
+  /// No description provided for @shiftStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift start'**
+  String get shiftStart;
+
+  /// No description provided for @shiftEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift end'**
+  String get shiftEnd;
+
+  /// No description provided for @shiftSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get shiftSaved;
+
+  /// No description provided for @shiftLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load: {error}'**
+  String shiftLoadError(String error);
+
+  /// No description provided for @shiftSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String shiftSaveError(String error);
+
+  /// No description provided for @shiftNoCompanyId.
+  ///
+  /// In en, this message translates to:
+  /// **'Company not selected'**
+  String get shiftNoCompanyId;
 }
 
 class _AppLocalizationsDelegate

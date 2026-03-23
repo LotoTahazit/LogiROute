@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/delivery_point.dart';
 import '../config/app_config.dart';
+import 'firestore_paths.dart';
 
 const bool _enforceDriverRoleFilter = false;
 
@@ -18,6 +19,7 @@ class SafeDriver {
   final String name;
   final double speed;
   final double heading;
+  final bool isOnShift;
 
   SafeDriver({
     required this.id,
@@ -29,6 +31,7 @@ class SafeDriver {
     required this.name,
     required this.speed,
     required this.heading,
+    required this.isOnShift,
   });
 
   bool get hasValidLocation => lat != 0 && lng != 0;
@@ -58,6 +61,8 @@ SafeDriver? normalizeDriver(Map<String, dynamic>? data, String id) {
     final headingRaw = data['heading'];
     final speed = speedRaw is num ? speedRaw.toDouble() : 0.0;
     final heading = headingRaw is num ? headingRaw.toDouble() : 0.0;
+    final isOnShift =
+        data['isOnShift'] ?? true; // 🎯 Читаем isOnShift, по умолчанию true
 
     final driver = SafeDriver(
       id: id,
@@ -69,6 +74,7 @@ SafeDriver? normalizeDriver(Map<String, dynamic>? data, String id) {
       name: name,
       speed: speed,
       heading: heading,
+      isOnShift: isOnShift,
     );
 
     if (!driver.hasValidLocation) return null;
@@ -101,7 +107,6 @@ class OptimizedLocationService {
   Position? _lastSavedPosition;
   DateTime? _lastSaveTime;
   Timer? _batchTimer;
-  String? _lastGeoBucket;
 
   // Configuration
   static const Duration batchInterval = Duration(seconds: 30);
@@ -111,11 +116,9 @@ class OptimizedLocationService {
 
   OptimizedLocationService(this.companyId);
 
-  /// Company-scoped driver_locations collection reference
-  CollectionReference get _driverLocationsRef => FirebaseFirestore.instance
-      .collection('companies')
-      .doc(companyId)
-      .collection('driver_locations');
+  /// Company-scoped driver_locations (must match FirestorePaths + dispatcher reads)
+  CollectionReference<Map<String, dynamic>> get _driverLocationsRef =>
+      FirestorePaths.driverLocationsOf(companyId);
 
   Future<void> startTracking(
     String driverId,
@@ -149,9 +152,10 @@ class OptimizedLocationService {
       await _driverLocationsRef.doc(driverId).set({
         'driverName': driverName,
         'role': userRole ?? 'driver',
+        'isOnShift': true,
         'latitude': 0.0,
         'longitude': 0.0,
-        'timestamp': Timestamp.now(),
+        'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       debugPrint(
           '✅ [Location] Driver name and role saved: $driverName ($userRole)');
@@ -239,27 +243,33 @@ class OptimizedLocationService {
     if (_currentDriverId == null) return;
 
     try {
-      final timestamp = Timestamp.now();
       final geoBucket = _buildGeoBucket(position.latitude, position.longitude);
-      if (_lastGeoBucket == geoBucket) return;
+      // Не отбрасывать запись по той же ячейке: иначе при стоянке (>60 с / батч)
+      // координаты в Firestore не обновляются — диспетчер видит «старый» GPS.
       _lastSavedPosition = position;
       _lastSaveTime = DateTime.now();
-      _lastGeoBucket = geoBucket;
 
-      // ⚡ OPTIMIZATION: Single write instead of two
-      debugPrint(
-          '📡 [GPS SEND] driver=$_currentDriverId lat=${position.latitude} lng=${position.longitude}');
+      // OPTIMIZATION: Single write instead of two
+      if (kDebugMode) {
+        debugPrint(
+            '[GPS SEND] driver=$_currentDriverId lat=${position.latitude} lng=${position.longitude}');
+      }
       await _driverLocationsRef.doc(_currentDriverId).set({
         'latitude': position.latitude,
         'longitude': position.longitude,
-        'timestamp': timestamp,
+        'timestamp': FieldValue.serverTimestamp(),
         'accuracy': position.accuracy,
         'speed': position.speed,
         'heading': position.heading,
         'geoBucket': geoBucket,
+        'isOnShift': true,
       }, SetOptions(merge: true));
 
-      // ⚡ OPTIMIZATION: History с лимитом 500 записей
+      if (kDebugMode) {
+        debugPrint('GPS SENT: driver=$_currentDriverId');
+      }
+
+      // OPTIMIZATION: History с лимитом 500 записей
       try {
         final historyRef =
             _driverLocationsRef.doc(_currentDriverId).collection('history');
@@ -272,19 +282,19 @@ class OptimizedLocationService {
         await historyRef.add({
           'latitude': position.latitude,
           'longitude': position.longitude,
-          'timestamp': timestamp,
+          'timestamp': FieldValue.serverTimestamp(),
           'accuracy': position.accuracy,
         });
       } catch (e) {
-        debugPrint('⚠️ [Location] Error saving to history: $e');
+        debugPrint('[Location] Error saving to history: $e');
       }
     } catch (e) {
-      debugPrint('❌ [Location] Error saving: $e');
+      debugPrint('[Location] Error saving: $e');
     }
   }
 
   /// Save to history (only when needed, not every update)
-  /// ⚡ OPTIMIZATION: Max 500 entries per driver
+  /// OPTIMIZATION: Max 500 entries per driver
   Future<void> saveToHistory(Position position) async {
     if (_currentDriverId == null) return;
 
@@ -304,7 +314,7 @@ class OptimizedLocationService {
         'accuracy': position.accuracy,
       });
     } catch (e) {
-      debugPrint('❌ [Location] Error saving history: $e');
+      debugPrint('[Location] Error saving history: $e');
     }
   }
 
@@ -315,7 +325,6 @@ class OptimizedLocationService {
     _lastPosition = null;
     _lastSavedPosition = null;
     _lastSaveTime = null;
-    _lastGeoBucket = null;
   }
 
   String _buildGeoBucket(double lat, double lng) {
@@ -386,7 +395,7 @@ class OptimizedLocationService {
       final doc = await _driverLocationsRef.doc(driverId).get();
 
       if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
+        final data = doc.data();
         if (data == null) return null;
         return LatLng(
           (data['latitude'] as num).toDouble(),
@@ -395,17 +404,17 @@ class OptimizedLocationService {
       }
       return null;
     } catch (e) {
-      debugPrint('❌ [Location] Error getting location: $e');
+      debugPrint('[Location] Error getting location: $e');
       return null;
     }
   }
 
   /// Stream driver location (realtime)
-  /// ⚡ OPTIMIZATION: Small document, updates every 30s instead of every second
+  /// OPTIMIZATION: Small document, updates every 30s instead of every second
   Stream<LatLng?> watchDriverLocation(String driverId) {
     return _driverLocationsRef.doc(driverId).snapshots().map((snapshot) {
       if (snapshot.exists) {
-        final data = snapshot.data() as Map<String, dynamic>?;
+        final data = snapshot.data();
         if (data == null) return null;
         return LatLng(
           (data['latitude'] as num).toDouble(),
@@ -417,16 +426,14 @@ class OptimizedLocationService {
   }
 
   /// Get all driver locations (for map)
-  /// ✅ ФИЛЬТРАЦИЯ: Показываем ТОЛЬКО водителей (role == 'driver')
-  /// ✅ SaaS: company-scoped — видим только своих водителей
+  /// ФИЛЬТРАЦИЯ: Показываем ТОЛЬКО водителей (role == 'driver') — в [normalizeDriver]
+  /// НЕ фильтруем isOnShift в Firestore: у старых документов поля нет → where==true даёт 0 строк.
+  ///    Фильтр «вне смены» — в UI ([DeliveryMapWidget] + toggle).
+  /// SaaS: company-scoped — видим только своих водителей
   Stream<List<Map<String, dynamic>>> getAllDriverLocationsStream({
     List<String>? driverIds,
   }) {
-    final isFallbackMode =
-        !(driverIds != null && driverIds.isNotEmpty && driverIds.length <= 10);
-    final freshCutoff = DateTime.now().subtract(const Duration(minutes: 10));
-
-    // ⚡ Если переданы конкретные водители — слушаем только их (в 10-50x дешевле)
+    // Если переданы конкретные водители — слушаем только их (в 10-50x дешевле)
     Query query;
     if (driverIds != null && driverIds.isNotEmpty && driverIds.length <= 10) {
       query =
@@ -440,13 +447,7 @@ class OptimizedLocationService {
           .map((doc) =>
               normalizeDriver(doc.data() as Map<String, dynamic>?, doc.id))
           .whereType<SafeDriver>()
-          .where((driver) =>
-              !isFallbackMode ||
-              (driver.timestamp != null &&
-                  !driver.timestamp!.isBefore(freshCutoff)))
           .map((driver) {
-        debugPrint(
-            '📡 [GPS READ] driver=${driver.id} lat=${driver.lat} lng=${driver.lng}');
         return {
           'driverId': driver.id,
           'driverName': driver.name,
@@ -455,15 +456,18 @@ class OptimizedLocationService {
           'timestamp': driver.timestamp,
           'speed': driver.speed,
           'heading': driver.heading,
+          'isOnShift': driver.isOnShift,
         };
       }).toList();
-      debugPrint('📡 [GPS READ] Total drivers: ${drivers.length}');
+      if (kDebugMode) {
+        debugPrint('GPS READ: Total drivers: ${drivers.length}');
+      }
       return drivers;
     });
   }
 
   /// Cleanup old location history
-  /// ⚡ OPTIMIZATION: Delete old data to reduce storage costs
+  /// OPTIMIZATION: Delete old data to reduce storage costs
   Future<void> cleanupOldHistory() async {
     try {
       final cutoffTime = DateTime.now().subtract(historyRetention);
