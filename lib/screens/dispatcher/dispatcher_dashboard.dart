@@ -105,7 +105,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final routeService = RouteService(companyId: companyId);
     _pendingPointsStream = routeService.getAllPendingPoints();
     _mapRoutesStream = routeService.getTodayRoutes();
-    _routesStream = routeService.getTodayRoutes(includeCompleted: false).map((
+    _routesStream = routeService.getTodayRoutes(includeCompleted: true).map((
       routes,
     ) {
       if (routes.isNotEmpty) {
@@ -1266,6 +1266,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     final l10n = AppLocalizations.of(context)!;
     final authService = context.watch<AuthService>();
     final localeService = context.watch<LocaleService>();
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     final companyCtx = CompanyContext.watch(context);
     final effectiveCompanyId = companyCtx.effectiveCompanyId ?? '';
@@ -1390,6 +1391,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                     },
                   ),
                   TabBar(
+                    isScrollable: narrow,
                     onTap: (index) => setState(() => _currentTabIndex = index),
                     tabs: [
                       Tab(text: l10n.deliveryPoints),

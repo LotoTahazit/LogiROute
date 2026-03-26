@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 import '../models/delivery_point.dart';
 import '../models/shift_schedule_config.dart';
 import 'firestore_paths.dart';
@@ -20,8 +22,11 @@ class BackgroundLocationService {
   static const String notificationChannelName = 'Location Tracking';
   static const int notificationId = 888;
 
-  static const double _autoCompleteRadius = 100.0; // метров
-  static const int _autoCompleteMinutes = 2; // минут стоянки
+  static const double _autoCompleteRadius = AppConfig.autoCompleteRadius;
+  static const double _autoCompleteResetRadius =
+      AppConfig.autoCompleteResetRadius;
+  static const Duration _autoCompleteDuration =
+      AppConfig.autoCompleteDuration;
 
   // SharedPreferences keys
   static const String _prefDriverId = 'bg_driver_id';
@@ -111,6 +116,13 @@ class BackgroundLocationService {
       service.setAsForegroundService();
     }
     DartPluginRegistrant.ensureInitialized();
+
+    // ✅ Инициализация Firebase в фоновом isolate (критично после перезагрузки телефона)
+    try {
+      await Firebase.initializeApp();
+    } catch (_) {
+      // Уже инициализирован (нормальный запуск из приложения)
+    }
 
     String? driverId;
     String? driverName;
@@ -229,20 +241,21 @@ class BackgroundLocationService {
       final isWorkTime = shiftConfig.isWithin(now);
 
       if (!isWorkTime) {
-        // Смена закончилась — после endHour останавливаемся
-        if (now.hour >= shiftConfig.endHour) {
-          debugPrint('🛑 [BGService] Past ${shiftConfig.endHour}:00, stopping');
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool(_prefTrackingActive, false);
-          } catch (e) {
-            debugPrint('⚠️ [BGService] Error updating tracking pref: $e');
-          }
-          service.stopSelf();
-          timer.cancel();
-          return;
+        // ВАЖНО: не убиваем сервис после смены, иначе утром некому будет
+        // автоматически возобновить GPS и автозакрытие точек.
+        debugPrint('⏸️ [BGService] Outside work hours, idle');
+        if (service is AndroidServiceInstance) {
+          final isDayOff = !shiftConfig.workingDays.contains(now.weekday);
+          final waitText = isDayOff
+              ? 'Нерабочий день, ожидание смены'
+              : (now.hour >= shiftConfig.endHour
+                  ? 'Смена завершена, ожидание ${shiftConfig.startHour}:00'
+                  : 'Ожидание начала смены (${shiftConfig.startHour}:00)');
+          service.setForegroundNotificationInfo(
+            title: 'LogiRoute',
+            content: waitText,
+          );
         }
-        // До начала смены или нерабочий день — просто ждём
         return;
       }
 
@@ -330,18 +343,30 @@ class BackgroundLocationService {
           final pointLat = (data['latitude'] as num).toDouble();
           final pointLng = (data['longitude'] as num).toDouble();
           final clientName = data['clientName'] as String? ?? '';
+          final pointStatus = data['status'] as String? ?? '';
+          final arrivedAtTs = data['arrivedAt'];
+          final arrivedAt = arrivedAtTs is Timestamp ? arrivedAtTs.toDate() : null;
 
           final dist = _distance(
               position.latitude, position.longitude, pointLat, pointLng);
 
           if (dist <= _autoCompleteRadius) {
-            final arrived = arrivalTimes[pointId] ?? now;
             if (!arrivalTimes.containsKey(pointId)) {
-              arrivalTimes[pointId] = now;
+              arrivalTimes[pointId] = arrivedAt ?? now;
+              if (arrivedAt == null &&
+                  DeliveryPoint.normalizeStatus(pointStatus) ==
+                      DeliveryPoint.statusAssigned) {
+                await doc.reference.update({
+                  'status': DeliveryPoint.statusInProgress,
+                  'arrivedAt': FieldValue.serverTimestamp(),
+                  'updatedByUid': driverId,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+              }
               debugPrint(
                   '📍 [BGService] Arrived at $clientName, timer started');
-            } else if (now.difference(arrived).inMinutes >=
-                _autoCompleteMinutes) {
+            } else if (now.difference(arrivalTimes[pointId]!) >=
+                _autoCompleteDuration) {
               await doc.reference.update({
                 'status': DeliveryPoint.statusCompleted,
                 'completedAt': FieldValue.serverTimestamp(),
@@ -352,7 +377,7 @@ class BackgroundLocationService {
               arrivalTimes.remove(pointId);
               debugPrint('✅ [BGService] Auto-completed: $clientName');
             }
-          } else {
+          } else if (dist > _autoCompleteResetRadius) {
             if (arrivalTimes.containsKey(pointId)) {
               arrivalTimes.remove(pointId);
             }

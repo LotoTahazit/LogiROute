@@ -103,145 +103,165 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
         // Фильтр по водителям + toggle треков + toggle старых маршрутов
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String?>(
-                  initialValue: widget.selectedDriverId,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    isDense: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 560;
+              final driverFilter = DropdownButtonFormField<String?>(
+                initialValue: widget.selectedDriverId,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
+                  isDense: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      '${l10n.allDrivers} (${displayPoints.length})',
+                    ),
+                  ),
+                  ...widget.drivers.map((driver) {
+                    final isActive = activeDriverIds.contains(driver.uid);
+                    final pointCount = driverPointCounts[driver.uid] ?? 0;
+
+                    return DropdownMenuItem<String?>(
+                      value: driver.uid,
+                      enabled: isActive,
                       child: Text(
-                        '${l10n.allDrivers} (${displayPoints.length})',
+                        isActive
+                            ? '${driver.name} ($pointCount)'
+                            : '${driver.name} (0)',
+                        style: TextStyle(
+                          color: isActive ? Colors.black : Colors.grey,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: widget.onDriverFilterChanged,
+              );
+
+              final actions = <Widget>[
+                if (hasCurrentRoutes && hasPreviousRoutes)
+                  Tooltip(
+                    message: _showPreviousRoutes
+                        ? l10n.mapTooltipCurrentRoute
+                        : l10n.mapTooltipPreviousRoute,
+                    child: IconButton(
+                      icon: Icon(
+                        _showPreviousRoutes
+                            ? Icons.history
+                            : Icons.history_outlined,
+                        color: _showPreviousRoutes
+                            ? Colors.orange.shade700
+                            : Colors.grey.shade600,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showPreviousRoutes = !_showPreviousRoutes;
+                          _clearMap = false;
+                        });
+                      },
+                    ),
+                  ),
+                Tooltip(
+                  message: l10n.mapTooltipClearMap,
+                  child: IconButton(
+                    icon: Icon(
+                      _clearMap ? Icons.layers : Icons.layers_clear,
+                      color: _clearMap
+                          ? Colors.red.shade700
+                          : Colors.grey.shade600,
+                    ),
+                    onPressed: () {
+                      setState(() => _clearMap = !_clearMap);
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: _showDriverTracks
+                      ? l10n.hideGpsTracks
+                      : l10n.showGpsTracks,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _showDriverTracks
+                          ? Colors.blue.shade100
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: _showDriverTracks
+                          ? Border.all(color: Colors.blue.shade400)
+                          : null,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        _showDriverTracks ? Icons.route : Icons.route_outlined,
+                        color: _showDriverTracks
+                            ? Colors.blue.shade700
+                            : Colors.grey.shade600,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showDriverTracks = !_showDriverTracks;
+                          _clearMap = false;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                if (!widget.demoModeFromTour)
+                  Tooltip(
+                    message: _effectiveDemoMode
+                        ? l10n.mapTooltipExitDemo
+                        : l10n.mapTooltipDemoMode,
+                    child: IconButton(
+                      icon: Icon(
+                        _effectiveDemoMode ? Icons.movie : Icons.movie_outlined,
+                        color: _effectiveDemoMode
+                            ? Colors.purple.shade700
+                            : Colors.grey.shade600,
+                      ),
+                      onPressed: () {
+                        setState(() => _demoMode = !_demoMode);
+                      },
+                    ),
+                  ),
+              ];
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    driverFilter,
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: actions,
                       ),
                     ),
-                    ...widget.drivers.map((driver) {
-                      final isActive = activeDriverIds.contains(driver.uid);
-                      final pointCount = driverPointCounts[driver.uid] ?? 0;
-
-                      return DropdownMenuItem<String?>(
-                        value: driver.uid,
-                        enabled: isActive,
-                        child: Text(
-                          isActive
-                              ? '${driver.name} ($pointCount)'
-                              : '${driver.name} (0)',
-                          style: TextStyle(
-                            color: isActive ? Colors.black : Colors.grey,
-                          ),
-                        ),
-                      );
-                    }),
                   ],
-                  onChanged: widget.onDriverFilterChanged,
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Toggle предыдущих маршрутов (только когда есть текущие)
-              if (hasCurrentRoutes && hasPreviousRoutes)
-                Tooltip(
-                  message: _showPreviousRoutes
-                      ? l10n.mapTooltipCurrentRoute
-                      : l10n.mapTooltipPreviousRoute,
-                  child: IconButton(
-                    icon: Icon(
-                      _showPreviousRoutes
-                          ? Icons.history
-                          : Icons.history_outlined,
-                      color: _showPreviousRoutes
-                          ? Colors.orange.shade700
-                          : Colors.grey.shade600,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _showPreviousRoutes = !_showPreviousRoutes;
-                        _clearMap = false;
-                      });
-                    },
-                  ),
-                ),
-              const SizedBox(width: 4),
-              // Очистить карту
-              Tooltip(
-                message: l10n.mapTooltipClearMap,
-                child: IconButton(
-                  icon: Icon(
-                    _clearMap ? Icons.layers : Icons.layers_clear,
-                    color: _clearMap
-                        ? Colors.red.shade700
-                        : Colors.grey.shade600,
-                  ),
-                  onPressed: () {
-                    setState(() => _clearMap = !_clearMap);
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Toggle GPS-треков
-              Tooltip(
-                message: _showDriverTracks
-                    ? l10n.hideGpsTracks
-                    : l10n.showGpsTracks,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _showDriverTracks
-                        ? Colors.blue.shade100
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: _showDriverTracks
-                        ? Border.all(color: Colors.blue.shade400)
-                        : null,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      _showDriverTracks ? Icons.route : Icons.route_outlined,
-                      color: _showDriverTracks
-                          ? Colors.blue.shade700
-                          : Colors.grey.shade600,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _showDriverTracks = !_showDriverTracks;
-                        _clearMap = false;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              if (!widget.demoModeFromTour)
-                Tooltip(
-                  message: _effectiveDemoMode
-                      ? l10n.mapTooltipExitDemo
-                      : l10n.mapTooltipDemoMode,
-                  child: IconButton(
-                    icon: Icon(
-                      _effectiveDemoMode ? Icons.movie : Icons.movie_outlined,
-                      color: _effectiveDemoMode
-                          ? Colors.purple.shade700
-                          : Colors.grey.shade600,
-                    ),
-                    onPressed: () {
-                      setState(() => _demoMode = !_demoMode);
-                    },
-                  ),
-                ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: driverFilter),
+                  const SizedBox(width: 4),
+                  ...actions.expand((w) => [w, const SizedBox(width: 4)]),
+                ]..removeLast(),
+              );
+            },
           ),
         ),
         // Индикатор "показан предыдущий маршрут"

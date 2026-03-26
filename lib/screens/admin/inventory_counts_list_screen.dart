@@ -73,6 +73,7 @@ class InventoryCountsListScreen extends StatelessWidget {
     final isCompleted =
         count.status == 'completed' || count.status == 'approved';
     final isApproved = count.status == 'approved';
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -93,7 +94,10 @@ class InventoryCountsListScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Заголовок
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Icon(
                     isApproved
@@ -108,8 +112,8 @@ class InventoryCountsListScreen extends StatelessWidget {
                             : Colors.orange,
                     size: 32,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: narrow ? 260 : 420),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -164,8 +168,10 @@ class InventoryCountsListScreen extends StatelessWidget {
               const SizedBox(height: 12),
 
               // Статистика
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceAround,
                 children: [
                   _buildStatColumn(
                     icon: Icons.inventory,

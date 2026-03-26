@@ -407,26 +407,18 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
 
     return AppBar(
       titleSpacing: isNarrow ? 0 : null,
-      title: Row(
-        children: [
-          if (userModel.isSuperAdmin) ...[
-            const CompanySelectorWidget(),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: isNarrow ? 8 : 12, vertical: 6),
+      title: isNarrow
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.business,
                       size: 18, color: theme.colorScheme.onPrimaryContainer),
-                  SizedBox(width: isNarrow ? 6 : 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       companyName,
@@ -436,27 +428,60 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      companySettings.plan,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                  ),
                 ],
               ),
+            )
+          : Row(
+              children: [
+                if (userModel.isSuperAdmin) ...[
+                  const CompanySelectorWidget(),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.business,
+                            size: 18,
+                            color: theme.colorScheme.onPrimaryContainer),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            companyName,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            companySettings.plan,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSecondaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),

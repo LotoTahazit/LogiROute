@@ -177,13 +177,17 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
     final theme = Theme.of(context);
     final totals = _computedTotals;
     final docNum = widget.originalDoc.docNumber?.toString() ?? '—';
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 700),
+        constraints: BoxConstraints(
+          maxWidth: 700,
+          maxHeight: narrow ? MediaQuery.sizeOf(context).height * 0.92 : 700,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 12 : 24),
           child: Form(
             key: _formKey,
             child: Column(
@@ -192,13 +196,21 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                 // Title
                 Row(
                   children: [
-                    Icon(Icons.note_add_outlined,
-                        color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        'תעודת זיכוי — מסמך מקור #$docNum',
-                        style: theme.textTheme.titleLarge,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Icon(Icons.note_add_outlined,
+                              color: theme.colorScheme.primary),
+                          Text(
+                            'תעודת זיכוי — מסמך מקור #$docNum',
+                            style: narrow
+                                ? theme.textTheme.titleMedium
+                                : theme.textTheme.titleLarge,
+                          ),
+                        ],
                       ),
                     ),
                     IconButton(
@@ -229,15 +241,16 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 // Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
                   children: [
                     TextButton(
                       onPressed:
                           _saving ? null : () => Navigator.of(context).pop(),
                       child: const Text('ביטול'),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _saving ? null : _save,
                       child: _saving
@@ -264,6 +277,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
 
   Widget _buildOriginalDocInfo(ThemeData theme) {
     final doc = widget.originalDoc;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Card(
       color: theme.colorScheme.surfaceContainerHighest,
       child: Padding(
@@ -273,30 +287,46 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
           children: [
             Text('מסמך מקורי', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _ReadOnlyField(
-                    label: 'מספר מסמך',
-                    value: '#${doc.docNumber ?? "—"}',
+            if (narrow) ...[
+              _ReadOnlyField(
+                label: 'מספר מסמך',
+                value: '#${doc.docNumber ?? "—"}',
+              ),
+              const SizedBox(height: 12),
+              _ReadOnlyField(
+                label: 'לקוח',
+                value: doc.customerName,
+              ),
+              const SizedBox(height: 12),
+              _ReadOnlyField(
+                label: 'סכום מקורי',
+                value: '₪${doc.totals.gross.toStringAsFixed(2)}',
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: _ReadOnlyField(
+                      label: 'מספר מסמך',
+                      value: '#${doc.docNumber ?? "—"}',
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ReadOnlyField(
-                    label: 'לקוח',
-                    value: doc.customerName,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ReadOnlyField(
+                      label: 'לקוח',
+                      value: doc.customerName,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ReadOnlyField(
-                    label: 'סכום מקורי',
-                    value: '₪${doc.totals.gross.toStringAsFixed(2)}',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ReadOnlyField(
+                      label: 'סכום מקורי',
+                      value: '₪${doc.totals.gross.toStringAsFixed(2)}',
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -326,6 +356,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
   // ---------------------------------------------------------------------------
 
   Widget _buildCorrectionTypeSelector(ThemeData theme) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -334,34 +365,58 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
         RadioGroup<String>(
           groupValue: _correctionType,
           onChanged: _onCorrectionTypeChanged,
-          child: Row(
-            children: [
-              Expanded(
-                child: ListTile(
-                  leading: const Radio<String>(value: 'full'),
-                  title: const Text('תיקון מלא'),
-                  subtitle: const Text('כל השורות מהמסמך המקורי'),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onTap: () => _onCorrectionTypeChanged('full'),
+          child: narrow
+              ? Column(
+                  children: [
+                    ListTile(
+                      leading: const Radio<String>(value: 'full'),
+                      title: const Text('תיקון מלא'),
+                      subtitle: const Text('כל השורות מהמסמך המקורי'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      onTap: () => _onCorrectionTypeChanged('full'),
+                    ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Radio<String>(value: 'partial'),
+                      title: const Text('תיקון חלקי'),
+                      subtitle: const Text('עריכה/הסרה של שורות'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      onTap: () => _onCorrectionTypeChanged('partial'),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: ListTile(
+                        leading: const Radio<String>(value: 'full'),
+                        title: const Text('תיקון מלא'),
+                        subtitle: const Text('כל השורות מהמסמך המקורי'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        onTap: () => _onCorrectionTypeChanged('full'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ListTile(
+                        leading: const Radio<String>(value: 'partial'),
+                        title: const Text('תיקון חלקי'),
+                        subtitle: const Text('עריכה/הסרה של שורות'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        onTap: () => _onCorrectionTypeChanged('partial'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ListTile(
-                  leading: const Radio<String>(value: 'partial'),
-                  title: const Text('תיקון חלקי'),
-                  subtitle: const Text('עריכה/הסרה של שורות'),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onTap: () => _onCorrectionTypeChanged('partial'),
-                ),
-              ),
-            ],
           ),
-        ),
       ],
     );
   }
@@ -503,91 +558,152 @@ class _CreditLineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          flex: 3,
-          child: TextFormField(
-            controller: data.descriptionCtrl,
-            decoration: InputDecoration(
-              labelText: 'תיאור ${index + 1}',
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            readOnly: !editable,
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'שדה חובה' : null,
+        TextFormField(
+          controller: data.descriptionCtrl,
+          decoration: InputDecoration(
+            labelText: 'תיאור ${index + 1}',
+            border: const OutlineInputBorder(),
+            isDense: true,
           ),
+          readOnly: !editable,
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'שדה חובה' : null,
         ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 80,
-          child: TextFormField(
-            controller: data.quantityCtrl,
-            decoration: const InputDecoration(
-              labelText: 'כמות',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            readOnly: !editable,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              final val = double.tryParse(v ?? '');
-              if (val == null || val <= 0) return 'לא תקין';
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 100,
-          child: TextFormField(
-            controller: data.unitPriceCtrl,
-            decoration: const InputDecoration(
-              labelText: 'מחיר יח׳',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            readOnly: !editable,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              if (double.tryParse(v ?? '') == null) return 'לא תקין';
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 80,
-          child: TextFormField(
-            controller: data.vatRateCtrl,
-            decoration: const InputDecoration(
-              labelText: 'מע״מ',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            readOnly: !editable,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              final val = double.tryParse(v ?? '');
-              if (val == null || val < 0) return 'לא תקין';
-              return null;
-            },
-          ),
-        ),
-        if (canRemove)
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-            onPressed: onRemove,
-            tooltip: 'הסר שורה',
+        const SizedBox(height: 8),
+        if (narrow)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 110,
+                child: _numberField(
+                  controller: data.quantityCtrl,
+                  label: 'כמות',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val <= 0) return 'לא תקין';
+                    return null;
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 140,
+                child: _numberField(
+                  controller: data.unitPriceCtrl,
+                  label: 'מחיר יח׳',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) =>
+                      double.tryParse(v ?? '') == null ? 'לא תקין' : null,
+                ),
+              ),
+              SizedBox(
+                width: 110,
+                child: _numberField(
+                  controller: data.vatRateCtrl,
+                  label: 'מע״מ',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val < 0) return 'לא תקין';
+                    return null;
+                  },
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: 'הסר שורה',
+                ),
+            ],
           )
         else
-          const SizedBox(width: 48),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                child: _numberField(
+                  controller: data.quantityCtrl,
+                  label: 'כמות',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val <= 0) return 'לא תקין';
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 100,
+                child: _numberField(
+                  controller: data.unitPriceCtrl,
+                  label: 'מחיר יח׳',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) =>
+                      double.tryParse(v ?? '') == null ? 'לא תקין' : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 80,
+                child: _numberField(
+                  controller: data.vatRateCtrl,
+                  label: 'מע״מ',
+                  editable: editable,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val < 0) return 'לא תקין';
+                    return null;
+                  },
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: 'הסר שורה',
+                )
+              else
+                const SizedBox(width: 48),
+            ],
+          ),
       ],
+    );
+  }
+
+  Widget _numberField({
+    required TextEditingController controller,
+    required String label,
+    required bool editable,
+    required VoidCallback onChanged,
+    required String? Function(String?) validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      keyboardType: TextInputType.number,
+      readOnly: !editable,
+      onChanged: (_) => onChanged(),
+      validator: validator,
     );
   }
 }
@@ -615,8 +731,10 @@ class _TotalRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 4,
+        alignment: WrapAlignment.spaceBetween,
         children: [
           Text(label, style: style),
           Text('₪${value.toStringAsFixed(2)}', style: style),

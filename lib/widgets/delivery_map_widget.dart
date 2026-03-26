@@ -16,20 +16,10 @@ import '../utils/gps_utils.dart';
 import '../services/osrm_directions_service.dart';
 import '../services/route_progress_service.dart';
 import '../models/shift_schedule_config.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tzdata;
-
 part 'map_mixins/demo_mode_mixin.dart';
 part 'map_mixins/driver_markers_mixin.dart';
 part 'map_mixins/route_polylines_mixin.dart';
 part 'map_mixins/drag_drop_mixin.dart';
-
-bool _deliveryMapTzInited = false;
-void _deliveryMapEnsureTz() {
-  if (_deliveryMapTzInited) return;
-  tzdata.initializeTimeZones();
-  _deliveryMapTzInited = true;
-}
 
 /// Callback при drag & drop точки на водителя
 /// pointId, driverId, driverName
@@ -72,6 +62,45 @@ List<LatLng>? _polylineTailFromAnchor(List<LatLng> full, LatLng anchor) {
     tail.removeAt(0);
   }
   return PolylineDecoder.isValid(tail) ? tail : null;
+}
+
+List<LatLng>? _polylineHeadToAnchor(List<LatLng> full, LatLng anchor) {
+  if (full.length < 2) return null;
+  var best = double.infinity;
+  var bestSeg = 0;
+  LatLng? at;
+  for (var i = 0; i < full.length - 1; i++) {
+    final a = full[i];
+    final b = full[i + 1];
+    final abx = b.latitude - a.latitude;
+    final aby = b.longitude - a.longitude;
+    final apx = anchor.latitude - a.latitude;
+    final apy = anchor.longitude - a.longitude;
+    final ab2 = abx * abx + aby * aby + 1e-18;
+    final t = ((abx * apx + aby * apy) / ab2).clamp(0.0, 1.0);
+    final cx = a.latitude + abx * t;
+    final cy = a.longitude + aby * t;
+    final c = LatLng(cx, cy);
+    final dx = anchor.latitude - c.latitude;
+    final dy = anchor.longitude - c.longitude;
+    final d = dx * dx + dy * dy;
+    if (d < best) {
+      best = d;
+      bestSeg = i;
+      at = c;
+    }
+  }
+  if (best > 0.0025 || at == null) return null;
+  final head = <LatLng>[...full.sublist(0, bestSeg + 1), at];
+  if (head.length >= 2 &&
+      (head[head.length - 1].latitude - head[head.length - 2].latitude).abs() <
+          1e-9 &&
+      (head[head.length - 1].longitude - head[head.length - 2].longitude)
+              .abs() <
+          1e-9) {
+    head.removeLast();
+  }
+  return PolylineDecoder.isValid(head) ? head : null;
 }
 
 class DeliveryMapWidget extends StatefulWidget {
@@ -179,15 +208,10 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   Timer? _markerBatchTimer; // Батчинг setState
   bool _markersDirty = false; // Флаг что нужен setState
   Timer? _etaDebounce; // ⚡ Debounce ETA — не чаще раз в 5 сек
-  Timer? _shiftCheckTimer; // 🕐 Таймер проверки смены (каждые 30 секунд)
-  bool? _lastShiftState; // 🕐 Последнее состояние смены для оптимизации
   bool _showOffShiftDrivers =
       false; // 🔘 Toggle: показывать OFF_SHIFT водителей
-  /// `companies/{companyId}/settings/shifts`
   ShiftScheduleConfig _shiftSchedule = ShiftScheduleConfig.defaults;
-
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-      _shiftsSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shiftsSubscription;
   final Map<String, List<LatLng>> _decodedPolylineCache =
       {}; // routeId → decoded points
   /// Последняя дорожная полилиния по водителю (из OSRM/cached), для Waze-прогресса — не прямые между стопами.
@@ -214,15 +238,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     return Colors.green;
   }
 
-  // 🕐 Часы смены — по стеночным часам Asia/Jerusalem (как לוח משמרות).
-  DateTime nowIsrael() {
-    _deliveryMapEnsureTz();
-    return tz.TZDateTime.now(tz.getLocation('Asia/Jerusalem'));
-  }
-
-  // 🕐 Расписание смен — `companies/{companyId}/settings/shifts`
-  bool isWorkingShift(DateTime now) => _shiftSchedule.allows(now);
-
   // 📍 Проверка свежести GPS данных
   bool isGpsFresh(DateTime now, DateTime timestamp) {
     final difference = now.difference(timestamp).inMinutes;
@@ -231,9 +246,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
 
   // 🎯 Финальная проверка отображения водителя
   bool shouldShowDriver(DateTime timestamp) {
-    final now = nowIsrael();
+    final now = DateTime.now();
 
-    // Водители всегда видны, но меняют состояние вне смены
     // Единственный фильтр: слишком старый GPS (>2ч)
     if (!isGpsFresh(now, timestamp)) return false;
 
@@ -243,6 +257,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   // Оставляем для обратной совместимости (используется в треках)
   Color _getDriverColor(String driverKey, int index) =>
       _getRouteLoadColor(driverKey);
+
+  bool get _executionUsesDriverOrigin => _shiftSchedule.allows(DateTime.now());
 
   // =========================================================================
   // 🔧 SHARED HELPERS — used by multiple mixins
@@ -338,25 +354,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     return const LatLng(32.0853, 34.7818);
   }
 
-  // 🕐 Запуск таймера проверки смены (обновление только при смене состояния)
-  void _startShiftCheckTimer() {
-    _shiftCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-
-      final now = nowIsrael();
-      final currentShift = isWorkingShift(now);
-
-      // Обновляем только если состояние смены изменилось
-      if (_lastShiftState != currentShift) {
-        _lastShiftState = currentShift;
-        setState(() {});
-        debugPrint(
-          '🕐 [Shift] Shift state changed → ${currentShift ? "ACTIVE" : "INACTIVE"}',
-        );
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -365,10 +362,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     ); // 🔄 Добавляем observer для lifecycle
 
     _locationService = OptimizedLocationService(widget.companyId);
-
-    // 🕐 Инициализируем состояние смены чтобы избежать лишнего setState при запуске
-    final now = nowIsrael();
-    _lastShiftState = isWorkingShift(now);
 
     // 🏭 Маркер склада сразу при старте — карта не пустая
     _deliveryMarkers = {
@@ -382,22 +375,15 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
 
     _startDriverLocationTracking();
     _startMarkerAnimation();
-    _startShiftCheckTimer();
-
     _shiftsSubscription =
         FirestorePaths.companyShiftsOf(widget.companyId).snapshots().listen(
       (snap) {
-        if (!mounted) return;
-        final config = ShiftScheduleConfig.fromFirestore(snap.data());
-        debugPrint(
-            '🕐 [Shifts] loaded: exists=${snap.exists} days=${config.workingDays} '
-            'start=${config.startHour} end=${config.endHour}');
-        ShiftScheduleConfig.saveToPrefs(config);
+        final data = snap.data();
+        if (!mounted || data == null) return;
         setState(() {
-          _shiftSchedule = config;
+          _shiftSchedule = ShiftScheduleConfig.fromFirestore(data);
         });
       },
-      onError: (e) => debugPrint('⚠️ [Shifts] stream error: $e'),
     );
 
     if (widget.demoMode) {
@@ -418,20 +404,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // 🔄 Приложение вернулось на передний план - проверяем смену
-      final now = nowIsrael();
-      final currentShift = isWorkingShift(now);
-
-      if (_lastShiftState != currentShift) {
-        _lastShiftState = currentShift;
-        _updateDriverMarkers(
-          _driverLocations.values.toList(),
-        ); // пересчитать водителей
-        setState(() {});
-        debugPrint(
-          '🔄 [Lifecycle] App resumed - shift updated to: ${currentShift ? "ACTIVE" : "INACTIVE"}',
-        );
-      }
+      _updateDriverMarkers(_driverLocations.values.toList());
+      setState(() {});
     }
   }
 
@@ -498,7 +472,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     _markerAnimationTimer?.cancel();
     _markerBatchTimer?.cancel();
     _etaDebounce?.cancel();
-    _shiftCheckTimer?.cancel();
     _shiftsSubscription?.cancel();
     _driverMarkersNotifier.dispose();
     super.dispose();
@@ -556,7 +529,6 @@ class _DeliveryMapWidgetState extends _DeliveryMapWidgetStateBase
     _markerAnimationTimer?.cancel();
     _markerBatchTimer?.cancel();
     _etaDebounce?.cancel();
-    _shiftCheckTimer?.cancel();
     _demoTimer?.cancel();
     _pulseTimer?.cancel();
     _demoDriverMoveTimer?.cancel();

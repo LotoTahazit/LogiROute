@@ -20,9 +20,10 @@ import '../../widgets/notification_bell.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
 import '../../services/firestore_paths.dart';
+import '../../config/app_config.dart';
 
 // === ARRIVAL CONFIG ===
-const double kArrivalRadius = 150; // meters
+const double kArrivalRadius = AppConfig.autoCompleteRadius; // meters
 const double kStopSpeed = 2.0; // m/s (~7 km/h)
 const int kStopTimeSec = 12; // seconds
 
@@ -50,6 +51,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
   double? _arrivalPrevLat;
   double? _arrivalPrevLng;
   DateTime? _arrivalPrevTime;
+
+  // ── Foreground auto-close (основной механизм, Android) ──
+  Timer? _autoCloseTimer;
+  final Map<String, DateTime> _autoCloseArrivalTimes = {};
+  double? _lastKnownLat;
+  double? _lastKnownLng;
 
   bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
     if (local == null) return true;
@@ -194,6 +201,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // WebSocket GPS для live-карты диспетчера
     _realtimeGps.connectAsDriver();
 
+    // Foreground auto-close: таймер каждые 30 сек проверяет точки
+    _autoCloseTimer?.cancel();
+    _autoCloseTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _checkAutoClose(),
+    );
+
     setState(() => _isTrackingActive = true);
     _showGpsNotification();
     debugPrint('✅ [Driver] Tracking started: $driverName');
@@ -203,6 +217,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _locationService?.stopTracking();
     if (!kIsWeb) BackgroundLocationService.stop();
     _realtimeGps.dispose();
+    _autoCloseTimer?.cancel();
+    _autoCloseTimer = null;
+    _autoCloseArrivalTimes.clear();
     setState(() => _isTrackingActive = false);
     _hideGpsNotification();
     debugPrint('🛑 [Driver] Tracking stopped');
@@ -212,6 +229,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   void dispose() {
     _shiftsSub?.cancel();
     _scheduleStatusTimer?.cancel();
+    _autoCloseTimer?.cancel();
     _locationService?.stopTracking();
     _realtimeGps.dispose();
     // НЕ вызываем BackgroundLocationService.stop() —
@@ -228,6 +246,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   void _onLocationUpdate(double lat, double lon) {
     if (_routeService == null) return;
+
+    // Сохраняем последнюю GPS-позицию для таймера автозакрытия
+    _lastKnownLat = lat;
+    _lastKnownLng = lon;
+
     if (_isTrackingActive) {
       _showGpsNotification();
     }
@@ -251,7 +274,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
       _lastSentTime = now;
     }
 
-    // Автозакрытие точек обрабатывается BackgroundLocationService (единый механизм).
+    // Автозакрытие: основной механизм — _autoCloseTimer (foreground),
+    // резерв — BackgroundLocationService (когда приложение свёрнуто).
   }
 
   void _handleArrivalLogic(double lat, double lon) {
@@ -316,6 +340,85 @@ class _DriverDashboardState extends State<DriverDashboard> {
       debugPrint('ARRIVED: $pointId');
     } catch (e) {
       debugPrint('ARRIVAL ERROR: $e');
+    }
+  }
+
+  /// Foreground auto-close: каждые 30 сек проверяет ВСЕ активные точки водителя.
+  /// Если водитель в радиусе 100 м от точки ≥ 2 мин — автозакрытие.
+  /// Работает даже когда distanceFilter не генерирует GPS-апдейты (водитель стоит).
+  Future<void> _checkAutoClose() async {
+    final lat = _lastKnownLat;
+    final lng = _lastKnownLng;
+    if (lat == null || lng == null) return;
+    if (_routeService == null) return;
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final activePoints = _lastPoints.where((p) {
+      final s = DeliveryPoint.normalizeStatus(p.status);
+      return s == DeliveryPoint.statusAssigned ||
+          s == DeliveryPoint.statusInProgress;
+    }).toList();
+
+    for (final point in activePoints) {
+      final dist =
+          _simpleDistanceMeters(lat, lng, point.latitude, point.longitude);
+
+      if (dist <= AppConfig.autoCompleteRadius) {
+        if (!_autoCloseArrivalTimes.containsKey(point.id)) {
+          _autoCloseArrivalTimes[point.id] = point.arrivedAt ?? now;
+          debugPrint(
+            '📍 [AutoClose] В радиусе ${point.clientName} '
+            '(${dist.toStringAsFixed(0)} м), таймер запущен',
+          );
+        } else {
+          final arrived = _autoCloseArrivalTimes[point.id]!;
+          final waited = now.difference(arrived);
+          if (waited >= AppConfig.autoCompleteDuration) {
+            debugPrint(
+              '✅ [AutoClose] Автозакрытие: ${point.clientName} '
+              '(${waited.inSeconds} сек в радиусе)',
+            );
+            final ok = await _autoCompletePoint(point);
+            if (ok) {
+              _autoCloseArrivalTimes.remove(point.id);
+            }
+          }
+        }
+      } else if (dist > AppConfig.autoCompleteResetRadius) {
+        if (_autoCloseArrivalTimes.containsKey(point.id)) {
+          debugPrint(
+            '↩️ [AutoClose] Вышел из радиуса ${point.clientName}, таймер сброшен',
+          );
+          _autoCloseArrivalTimes.remove(point.id);
+        }
+      }
+    }
+
+    // Очистка таймеров для точек, которых больше нет в активных
+    final activeIds = activePoints.map((p) => p.id).toSet();
+    _autoCloseArrivalTimes.removeWhere((id, _) => !activeIds.contains(id));
+  }
+
+  Future<bool> _autoCompletePoint(DeliveryPoint point) async {
+    try {
+      if (_routeService == null) return false;
+      final authService = context.read<AuthService>();
+      final driverId = authService.currentUser?.uid ?? '';
+
+      // Используем updatePointStatus чтобы сработало обучение координат
+      await _routeService!.updatePointStatus(
+        point.id,
+        DeliveryPoint.statusCompleted,
+        updatedByUid: driverId,
+        autoCompleted: true,
+      );
+      debugPrint(
+          '✅ [AutoClose] Point ${point.clientName} auto-completed via RouteService');
+      return true;
+    } catch (e) {
+      debugPrint('❌ [AutoClose] Error auto-completing ${point.clientName}: $e');
+      return false;
     }
   }
 
@@ -571,7 +674,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                             point.id == _currentPoint!.id;
 
                                         return Opacity(
-                                          opacity: isCompleted ? 0.55 : 1.0,
+                                          opacity: isCompleted ? 0.38 : 1.0,
                                           child: Container(
                                             margin: const EdgeInsets.symmetric(
                                                 vertical: 2),
@@ -744,8 +847,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
 
     // Кнопки "Waze" и "Выполнено" для каждой незавершённой точки
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      runSpacing: 4,
       children: [
         // Кнопка Waze
         SizedBox(
@@ -753,11 +859,17 @@ class _DriverDashboardState extends State<DriverDashboard> {
           width: 32,
           child: IconButton(
             onPressed: () async {
-              final lat = point.latitude;
-              final lng = point.longitude;
-              final url =
-                  Uri.parse('https://waze.com/ul?ll=$lat,$lng&navigate=yes');
-              // Открываем Waze
+              // Waze лучше ведёт по адресу (свой геокодер для Израиля),
+              // координаты — fallback если адрес пуст.
+              final address = point.address;
+              final Uri url;
+              if (address.isNotEmpty) {
+                final encoded = Uri.encodeComponent(address);
+                url = Uri.parse('https://waze.com/ul?q=$encoded&navigate=yes');
+              } else {
+                url = Uri.parse(
+                    'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes');
+              }
               try {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } catch (e) {
@@ -835,8 +947,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
   /// Android fallback UI when Google Maps is not available
   Widget _buildAndroidMapFallback(
       List<DeliveryPoint> points, AppLocalizations l10n) {
-    final completedCount =
-        points.where((p) => p.status == DeliveryPoint.statusCompleted).length;
+    final completedCount = points
+        .where((p) =>
+            p.status == DeliveryPoint.statusCompleted ||
+            p.status == DeliveryPoint.statusCancelled)
+        .length;
     final totalCount = points.length;
     final remainingCount = totalCount - completedCount;
 

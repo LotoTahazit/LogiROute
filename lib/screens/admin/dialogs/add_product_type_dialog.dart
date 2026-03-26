@@ -94,15 +94,19 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return AlertDialog(
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       title: Text(l10n.addNewProduct),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      content: SizedBox(
+        width: narrow ? MediaQuery.sizeOf(context).width * 0.85 : 420,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -129,69 +133,134 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
               if (_loadingCategories)
                 const LinearProgressIndicator()
               else if (_addingNewCategory)
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _newCategoryController,
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          labelText: 'קטגוריה חדשה *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) => (value == null || value.isEmpty)
-                            ? l10n.requiredField
-                            : null,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      tooltip: 'ביטול',
-                      onPressed: () => setState(() {
-                        _addingNewCategory = false;
-                        _newCategoryController.clear();
-                      }),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
-                        decoration: InputDecoration(
-                          labelText: l10n.category,
-                          border: const OutlineInputBorder(),
-                        ),
-                        hint: const Text('בחר קטגוריה'),
-                        items: _categories
-                            .map((cat) => DropdownMenuItem(
-                                  value: cat,
-                                  child: Text(categoryDisplayName(cat, l10n)),
-                                ))
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedCategory = value),
-                        validator: (_) =>
-                            (_selectedCategory == null && !_addingNewCategory)
+                (narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _newCategoryController,
+                            autofocus: true,
+                            decoration: const InputDecoration(
+                              labelText: 'קטגוריה חדשה *',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) => (value == null || value.isEmpty)
                                 ? l10n.requiredField
                                 : null,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      tooltip: 'קטגוריה חדשה',
-                      onPressed: () =>
-                          setState(() => _addingNewCategory = true),
-                    ),
-                  ],
-                ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: 'ביטול',
+                              onPressed: () => setState(() {
+                                _addingNewCategory = false;
+                                _newCategoryController.clear();
+                              }),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _newCategoryController,
+                              autofocus: true,
+                              decoration: const InputDecoration(
+                                labelText: 'קטגוריה חדשה *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) =>
+                                  (value == null || value.isEmpty)
+                                      ? l10n.requiredField
+                                      : null,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            tooltip: 'ביטול',
+                            onPressed: () => setState(() {
+                              _addingNewCategory = false;
+                              _newCategoryController.clear();
+                            }),
+                          ),
+                        ],
+                      ))
+              else
+                (narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedCategory,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: l10n.category,
+                              border: const OutlineInputBorder(),
+                            ),
+                            hint: const Text('בחר קטגוריה'),
+                            items: _categories
+                                .map((cat) => DropdownMenuItem(
+                                      value: cat,
+                                      child: Text(categoryDisplayName(cat, l10n)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) =>
+                                setState(() => _selectedCategory = value),
+                            validator: (_) =>
+                                (_selectedCategory == null && !_addingNewCategory)
+                                    ? l10n.requiredField
+                                    : null,
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              tooltip: 'קטגוריה חדשה',
+                              onPressed: () =>
+                                  setState(() => _addingNewCategory = true),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _selectedCategory,
+                              decoration: InputDecoration(
+                                labelText: l10n.category,
+                                border: const OutlineInputBorder(),
+                              ),
+                              hint: const Text('בחר קטגוריה'),
+                              items: _categories
+                                  .map((cat) => DropdownMenuItem(
+                                        value: cat,
+                                        child: Text(categoryDisplayName(cat, l10n)),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => _selectedCategory = value),
+                              validator: (_) =>
+                                  (_selectedCategory == null && !_addingNewCategory)
+                                      ? l10n.requiredField
+                                      : null,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            tooltip: 'קטגוריה חדשה',
+                            onPressed: () =>
+                                setState(() => _addingNewCategory = true),
+                          ),
+                        ],
+                      )),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
+              if (narrow)
+                Column(
+                  children: [
+                    TextFormField(
                       controller: _unitsPerBoxController,
                       decoration: InputDecoration(
                         labelText: '${l10n.unitsPerBox} *',
@@ -208,10 +277,8 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
                         return null;
                       },
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: _boxesPerPalletController,
                       decoration: InputDecoration(
                         labelText: '${l10n.boxesPerPallet} *',
@@ -228,14 +295,57 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
                         return null;
                       },
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _unitsPerBoxController,
+                        decoration: InputDecoration(
+                          labelText: '${l10n.unitsPerBox} *',
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return l10n.requiredField;
+                          }
+                          if (int.tryParse(value) == null) {
+                            return l10n.invalidNumber;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _boxesPerPalletController,
+                        decoration: InputDecoration(
+                          labelText: '${l10n.boxesPerPallet} *',
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return l10n.requiredField;
+                          }
+                          if (int.tryParse(value) == null) {
+                            return l10n.invalidNumber;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
+              if (narrow)
+                Column(
+                  children: [
+                    TextFormField(
                       controller: _weightController,
                       decoration: InputDecoration(
                         labelText: l10n.weight,
@@ -243,10 +353,8 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
                       ),
                       keyboardType: TextInputType.number,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: _volumeController,
                       decoration: InputDecoration(
                         labelText: l10n.volume,
@@ -254,10 +362,36 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
                       ),
                       keyboardType: TextInputType.number,
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _weightController,
+                        decoration: InputDecoration(
+                          labelText: l10n.weight,
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _volumeController,
+                        decoration: InputDecoration(
+                          labelText: l10n.volume,
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

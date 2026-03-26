@@ -32,87 +32,118 @@ class AdminFiltersWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+
+    final viewAsDropdown = DropdownButton<String>(
+      value: viewAsRole ?? 'admin',
+      isExpanded: true,
+      items: [
+        DropdownMenuItem(value: 'admin', child: Text(l10n.roleAdmin)),
+        DropdownMenuItem(value: 'dispatcher', child: Text(l10n.roleDispatcher)),
+        DropdownMenuItem(
+            value: 'warehouse_keeper', child: Text(l10n.roleWarehouseKeeper)),
+        DropdownMenuItem(value: 'accountant', child: Text(l10n.roleAccountant)),
+        DropdownMenuItem(value: 'driver', child: Text(l10n.roleDriver)),
+      ],
+      onChanged: (value) async {
+        if (value == null) return;
+
+        if (value == 'driver') {
+          final selectedDriver = await onDriverSelectionRequired();
+          if (selectedDriver != null) {
+            onViewAsRoleChanged(
+                'driver:${selectedDriver['id']}:${selectedDriver['name']}');
+          }
+        } else {
+          onViewAsRoleChanged(value);
+        }
+      },
+    );
+
+    final companyDropdown = DropdownButton<String>(
+      value: selectedCompanyFilter ?? 'all',
+      isExpanded: true,
+      items: [
+        DropdownMenuItem(
+          value: 'all',
+          child: Text('${l10n.total} ($totalUsers)'),
+        ),
+        ...availableCompanies.map((company) {
+          return DropdownMenuItem(
+            value: company,
+            child: Text(company, overflow: TextOverflow.ellipsis),
+          );
+        }),
+      ],
+      onChanged: onCompanyFilterChanged,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
-          Row(
-            children: [
-              Text(
-                '${l10n.viewAs}:',
-                style: const TextStyle(fontSize: 16, color: Colors.black),
-              ),
-              const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: viewAsRole ?? 'admin',
-                items: [
-                  DropdownMenuItem(value: 'admin', child: Text(l10n.roleAdmin)),
-                  DropdownMenuItem(
-                      value: 'dispatcher', child: Text(l10n.roleDispatcher)),
-                  DropdownMenuItem(
-                      value: 'warehouse_keeper',
-                      child: Text(l10n.roleWarehouseKeeper)),
-                  DropdownMenuItem(
-                      value: 'accountant', child: Text(l10n.roleAccountant)),
-                  DropdownMenuItem(
-                      value: 'driver', child: Text(l10n.roleDriver)),
-                ],
-                onChanged: (value) async {
-                  if (value == null) return;
-
-                  if (value == 'driver') {
-                    final selectedDriver = await onDriverSelectionRequired();
-                    if (selectedDriver != null) {
-                      // ✅ Передаём данные водителя через onViewAsRoleChanged
-                      onViewAsRoleChanged(
-                          'driver:${selectedDriver['id']}:${selectedDriver['name']}');
-                    }
-                    // Если пользователь отменил выбор - ничего не делаем
-                  } else {
-                    onViewAsRoleChanged(value);
-                  }
-                },
-              ),
-              const Spacer(),
-              if (lastUpdatedText.isNotEmpty)
+          if (narrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
-                  '${l10n.lastUpdated}: $lastUpdatedText',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  '${l10n.viewAs}:',
+                  style: const TextStyle(fontSize: 16, color: Colors.black),
                 ),
-            ],
-          ),
-          if (authService.userModel?.isSuperAdmin == true &&
-              availableCompanies.isNotEmpty) ...[
-            const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                viewAsDropdown,
+                if (lastUpdatedText.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${l10n.lastUpdated}: $lastUpdatedText',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ],
+            )
+          else
             Row(
               children: [
                 Text(
-                  '${l10n.companyId}:',
+                  '${l10n.viewAs}:',
                   style: const TextStyle(fontSize: 16, color: Colors.black),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButton<String>(
-                    value: selectedCompanyFilter ?? 'all',
-                    isExpanded: true,
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text('${l10n.total} ($totalUsers)'),
-                      ),
-                      ...availableCompanies.map((company) {
-                        return DropdownMenuItem(
-                          value: company,
-                          child: Text(company),
-                        );
-                      }),
-                    ],
-                    onChanged: onCompanyFilterChanged,
+                viewAsDropdown,
+                const Spacer(),
+                if (lastUpdatedText.isNotEmpty)
+                  Text(
+                    '${l10n.lastUpdated}: $lastUpdatedText',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   ),
-                ),
               ],
             ),
+          if (authService.userModel?.isSuperAdmin == true &&
+              availableCompanies.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            if (narrow)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${l10n.companyId}:',
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                  const SizedBox(height: 8),
+                  companyDropdown,
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Text(
+                    '${l10n.companyId}:',
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: companyDropdown),
+                ],
+              ),
           ],
           if ((viewAsRole ?? 'admin') == 'driver' &&
               (selectedDriverName ?? '').isNotEmpty)

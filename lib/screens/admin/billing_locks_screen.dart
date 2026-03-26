@@ -198,6 +198,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Billing & Locks'),
@@ -276,31 +277,58 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                         const Text(
                             'When billingStatus = trial, access expires after this date.'),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _trialUntil != null
-                                    ? '${_trialUntil!.day}.${_trialUntil!.month}.${_trialUntil!.year}'
-                                    : 'Not set',
-                                style: const TextStyle(fontSize: 16),
+                        narrow
+                            ? Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    _trialUntil != null
+                                        ? '${_trialUntil!.day}.${_trialUntil!.month}.${_trialUntil!.year}'
+                                        : 'Not set',
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.calendar_today),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(_trialUntil,
+                                        (d) => setState(() => _trialUntil = d)),
+                                  ),
+                                  if (_trialUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          setState(() => _trialUntil = null),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _trialUntil != null
+                                          ? '${_trialUntil!.day}.${_trialUntil!.month}.${_trialUntil!.year}'
+                                          : 'Not set',
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.calendar_today),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(_trialUntil,
+                                        (d) => setState(() => _trialUntil = d)),
+                                  ),
+                                  if (_trialUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          setState(() => _trialUntil = null),
+                                    ),
+                                ],
                               ),
-                            ),
-                            TextButton.icon(
-                              icon: const Icon(Icons.calendar_today),
-                              label: const Text('Pick'),
-                              onPressed: () => _pickDate(_trialUntil,
-                                  (d) => setState(() => _trialUntil = d)),
-                            ),
-                            if (_trialUntil != null)
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.clear, color: Colors.red),
-                                onPressed: () =>
-                                    setState(() => _trialUntil = null),
-                              ),
-                          ],
-                        ),
                         if (_billingStatus == 'trial' &&
                             _trialUntil != null &&
                             _trialUntil!.isBefore(DateTime.now()))
@@ -329,31 +357,58 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                         const Text(
                             'Source of truth for billing automation. After this date → grace → suspended.'),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _paidUntil != null
-                                    ? '${_paidUntil!.day}.${_paidUntil!.month}.${_paidUntil!.year}'
-                                    : 'Not set',
-                                style: const TextStyle(fontSize: 16),
+                        narrow
+                            ? Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    _paidUntil != null
+                                        ? '${_paidUntil!.day}.${_paidUntil!.month}.${_paidUntil!.year}'
+                                        : 'Not set',
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.payment),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(_paidUntil,
+                                        (d) => setState(() => _paidUntil = d)),
+                                  ),
+                                  if (_paidUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          setState(() => _paidUntil = null),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _paidUntil != null
+                                          ? '${_paidUntil!.day}.${_paidUntil!.month}.${_paidUntil!.year}'
+                                          : 'Not set',
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.payment),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(_paidUntil,
+                                        (d) => setState(() => _paidUntil = d)),
+                                  ),
+                                  if (_paidUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          setState(() => _paidUntil = null),
+                                    ),
+                                ],
                               ),
-                            ),
-                            TextButton.icon(
-                              icon: const Icon(Icons.payment),
-                              label: const Text('Pick'),
-                              onPressed: () => _pickDate(_paidUntil,
-                                  (d) => setState(() => _paidUntil = d)),
-                            ),
-                            if (_paidUntil != null)
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.clear, color: Colors.red),
-                                onPressed: () =>
-                                    setState(() => _paidUntil = null),
-                              ),
-                          ],
-                        ),
                         if (_paidUntil != null &&
                             _paidUntil!.isBefore(DateTime.now()))
                           const Padding(
@@ -386,29 +441,64 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                         ),
                         const SizedBox(height: 12),
                         // Grace period days
-                        Row(
-                          children: [
-                            const Text('Grace period: '),
-                            SizedBox(
-                              width: 60,
-                              child: TextFormField(
-                                initialValue: _gracePeriodDays.toString(),
-                                keyboardType: TextInputType.number,
-                                onChanged: (v) {
-                                  final n = int.tryParse(v);
-                                  if (n != null && n >= 0) {
-                                    _gracePeriodDays = n;
-                                  }
-                                },
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
+                        narrow
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Grace period:'),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 80,
+                                        child: TextFormField(
+                                          initialValue:
+                                              _gracePeriodDays.toString(),
+                                          keyboardType: TextInputType.number,
+                                          onChanged: (v) {
+                                            final n = int.tryParse(v);
+                                            if (n != null && n >= 0) {
+                                              _gracePeriodDays = n;
+                                            }
+                                          },
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                            border: OutlineInputBorder(),
+                                          ),
+                                        ),
+                                      ),
+                                      const Text('days'),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  const Text('Grace period: '),
+                                  SizedBox(
+                                    width: 60,
+                                    child: TextFormField(
+                                      initialValue: _gracePeriodDays.toString(),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (v) {
+                                        final n = int.tryParse(v);
+                                        if (n != null && n >= 0) {
+                                          _gracePeriodDays = n;
+                                        }
+                                      },
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  const Text(' days'),
+                                ],
                               ),
-                            ),
-                            const Text(' days'),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -428,34 +518,64 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                         const Text(
                             'Documents with deliveryDate ≤ this date cannot be created or modified.'),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _accountingLockedUntil != null
-                                    ? '${_accountingLockedUntil!.day}.${_accountingLockedUntil!.month}.${_accountingLockedUntil!.year}'
-                                    : 'Not set (all periods open)',
-                                style: const TextStyle(fontSize: 16),
+                        narrow
+                            ? Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    _accountingLockedUntil != null
+                                        ? '${_accountingLockedUntil!.day}.${_accountingLockedUntil!.month}.${_accountingLockedUntil!.year}'
+                                        : 'Not set (all periods open)',
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.lock_clock),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(
+                                        _accountingLockedUntil,
+                                        (d) => setState(() =>
+                                            _accountingLockedUntil = d)),
+                                  ),
+                                  if (_accountingLockedUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.lock_open,
+                                          color: Colors.green),
+                                      tooltip: 'Unlock all periods',
+                                      onPressed: () => setState(
+                                          () => _accountingLockedUntil = null),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _accountingLockedUntil != null
+                                          ? '${_accountingLockedUntil!.day}.${_accountingLockedUntil!.month}.${_accountingLockedUntil!.year}'
+                                          : 'Not set (all periods open)',
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.lock_clock),
+                                    label: const Text('Pick'),
+                                    onPressed: () => _pickDate(
+                                        _accountingLockedUntil,
+                                        (d) => setState(() =>
+                                            _accountingLockedUntil = d)),
+                                  ),
+                                  if (_accountingLockedUntil != null)
+                                    IconButton(
+                                      icon: const Icon(Icons.lock_open,
+                                          color: Colors.green),
+                                      tooltip: 'Unlock all periods',
+                                      onPressed: () => setState(
+                                          () => _accountingLockedUntil = null),
+                                    ),
+                                ],
                               ),
-                            ),
-                            TextButton.icon(
-                              icon: const Icon(Icons.lock_clock),
-                              label: const Text('Pick'),
-                              onPressed: () => _pickDate(
-                                  _accountingLockedUntil,
-                                  (d) => setState(
-                                      () => _accountingLockedUntil = d)),
-                            ),
-                            if (_accountingLockedUntil != null)
-                              IconButton(
-                                icon: const Icon(Icons.lock_open,
-                                    color: Colors.green),
-                                tooltip: 'Unlock all periods',
-                                onPressed: () => setState(
-                                    () => _accountingLockedUntil = null),
-                              ),
-                          ],
-                        ),
                       ],
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/delivery_point.dart';
+import '../models/shift_schedule_config.dart';
 import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
 import 'osrm_navigation_service.dart';
@@ -120,6 +121,39 @@ class RouteBalanceService {
 
   /// Recalculates order and ETA for a set of reordered points
   Future<void> recalculateETAsForPoints(List<DeliveryPoint> points) async {
+    const planLat = AppConfig.defaultWarehouseLat;
+    const planLng = AppConfig.defaultWarehouseLng;
+
+    double originLat = planLat;
+    double originLng = planLng;
+    final shiftConfig = await ShiftScheduleConfig.loadFromPrefs();
+    final driverId = points.isNotEmpty ? points.first.driverId : null;
+    if (driverId != null &&
+        driverId.isNotEmpty &&
+        shiftConfig.allows(DateTime.now())) {
+      try {
+        final driverDoc =
+            await FirestorePaths.driverLocationsOf(companyId).doc(driverId).get();
+        if (driverDoc.exists) {
+          final data = driverDoc.data();
+          if (data != null) {
+            final lat = data['latitude'] ?? data['lat'];
+            final lng = data['longitude'] ?? data['lng'];
+            if (lat != null && lng != null) {
+              final la = (lat as num).toDouble();
+              final ln = (lng as num).toDouble();
+              if (la != 0 && ln != 0) {
+                originLat = la;
+                originLng = ln;
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // fallback: склад
+      }
+    }
+
     double cumulativeTimeMinutes = 0;
     const double avgSpeedKmh = 38.0;
     const double serviceTimeMinutes = 7.0;
@@ -132,8 +166,8 @@ class RouteBalanceService {
       double distanceKm = 0;
       if (i == 0) {
         distanceKm = RouteOptimizer.calculateDistance(
-          AppConfig.defaultWarehouseLat,
-          AppConfig.defaultWarehouseLng,
+          originLat,
+          originLng,
           point.latitude,
           point.longitude,
         );
@@ -163,8 +197,6 @@ class RouteBalanceService {
 
     // 🗺️ Обновляем кешированную полилинию после перестановки
     try {
-      final warehouseLat = AppConfig.defaultWarehouseLat;
-      final warehouseLng = AppConfig.defaultWarehouseLng;
       final osrm = OsrmNavigationService();
 
       final waypoints =
@@ -173,16 +205,16 @@ class RouteBalanceService {
       OsrmRoute? osrmRoute;
       if (waypoints.length <= 1) {
         osrmRoute = await osrm.getRoute(
-          startLat: warehouseLat,
-          startLng: warehouseLng,
+          startLat: planLat,
+          startLng: planLng,
           endLat: waypoints.first['lat']!,
           endLng: waypoints.first['lng']!,
         );
       } else {
         final endWp = waypoints.removeLast();
         osrmRoute = await osrm.getOptimizedRoute(
-          startLat: warehouseLat,
-          startLng: warehouseLng,
+          startLat: planLat,
+          startLng: planLng,
           waypoints: waypoints,
           endLat: endWp['lat']!,
           endLng: endWp['lng']!,

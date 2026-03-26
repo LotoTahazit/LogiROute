@@ -22,30 +22,37 @@ class CreateDocTypeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: narrow ? 16 : 40,
+        vertical: 24,
+      ),
       title: Text(l10n.selectDocType),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TypeOption(
-            icon: Icons.receipt_long,
-            label: l10n.taxInvoice,
-            subtitle: 'Tax Invoice',
-            onTap: () => onTypeSelected(AccountingDocType.taxInvoice),
-          ),
-          _TypeOption(
-            icon: Icons.receipt,
-            label: l10n.receipt,
-            subtitle: 'Receipt',
-            onTap: () => onTypeSelected(AccountingDocType.receipt),
-          ),
-          _TypeOption(
-            icon: Icons.description,
-            label: l10n.taxInvoiceReceipt,
-            subtitle: 'Tax Invoice Receipt',
-            onTap: () => onTypeSelected(AccountingDocType.taxInvoiceReceipt),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TypeOption(
+              icon: Icons.receipt_long,
+              label: l10n.taxInvoice,
+              subtitle: 'Tax Invoice',
+              onTap: () => onTypeSelected(AccountingDocType.taxInvoice),
+            ),
+            _TypeOption(
+              icon: Icons.receipt,
+              label: l10n.receipt,
+              subtitle: 'Receipt',
+              onTap: () => onTypeSelected(AccountingDocType.receipt),
+            ),
+            _TypeOption(
+              icon: Icons.description,
+              label: l10n.taxInvoiceReceipt,
+              subtitle: 'Tax Invoice Receipt',
+              onTap: () => onTypeSelected(AccountingDocType.taxInvoiceReceipt),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -231,13 +238,17 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     final totals = _computedTotals;
     final l10n = AppLocalizations.of(context)!;
     final typeLbl = docTypeLabel(context, widget.docType);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 700),
+        constraints: BoxConstraints(
+          maxWidth: 700,
+          maxHeight: narrow ? MediaQuery.sizeOf(context).height * 0.92 : 700,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 12 : 24),
           child: Form(
             key: _formKey,
             child: Column(
@@ -245,12 +256,23 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.add_circle_outline,
-                        color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(l10n.newDocumentTitle(typeLbl),
-                        style: theme.textTheme.titleLarge),
-                    const Spacer(),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Icon(Icons.add_circle_outline,
+                              color: theme.colorScheme.primary),
+                          Text(
+                            l10n.newDocumentTitle(typeLbl),
+                            style: narrow
+                                ? theme.textTheme.titleMedium
+                                : theme.textTheme.titleLarge,
+                          ),
+                        ],
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.of(context).pop(),
@@ -282,15 +304,16 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
                   children: [
                     TextButton(
                       onPressed:
                           _saving ? null : () => Navigator.of(context).pop(),
                       child: Text(l10n.cancel),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _saving ? null : _save,
                       child: _saving
@@ -313,13 +336,16 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   Widget _buildCustomerSection(ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(l10n.customerDetails, style: theme.textTheme.titleMedium),
-            const Spacer(),
             TextButton.icon(
               onPressed: () async {
                 final created = await showDialog<ClientModel>(
@@ -335,80 +361,95 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _customerNameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.customerNameRequired,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: _customerNameCtrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _customerNameCtrl.clear();
-                                setState(() {
-                                  _selectedClient = null;
-                                  _clientSearchResults = [];
-                                });
-                              },
-                            )
-                          : null,
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.requiredField
-                        : null,
-                    onChanged: (v) => _searchClients(v),
-                  ),
-                  if (_clientSearchResults.isNotEmpty)
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 160),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: theme.colorScheme.outline),
-                        borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(4)),
-                        color: theme.colorScheme.surface,
-                      ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _clientSearchResults.length,
-                        itemBuilder: (context, i) {
-                          final c = _clientSearchResults[i];
-                          return ListTile(
-                            dense: true,
-                            title:
-                                Text(c.name, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                              '${c.clientNumber} · ${c.address}',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                            onTap: () => _selectClient(c),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
+        if (narrow)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildCustomerNameField(theme, l10n),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _customerTaxIdCtrl,
                 decoration: InputDecoration(
                   labelText: l10n.taxIdLabel,
                   border: const OutlineInputBorder(),
                 ),
               ),
-            ),
-          ],
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildCustomerNameField(theme, l10n)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _customerTaxIdCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.taxIdLabel,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCustomerNameField(ThemeData theme, AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: _customerNameCtrl,
+          decoration: InputDecoration(
+            labelText: l10n.customerNameRequired,
+            border: const OutlineInputBorder(),
+            suffixIcon: _customerNameCtrl.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _customerNameCtrl.clear();
+                      setState(() {
+                        _selectedClient = null;
+                        _clientSearchResults = [];
+                      });
+                    },
+                  )
+                : null,
+          ),
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
+          onChanged: (v) => _searchClients(v),
         ),
+        if (_clientSearchResults.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 160),
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colorScheme.outline),
+              borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(4)),
+              color: theme.colorScheme.surface,
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _clientSearchResults.length,
+              itemBuilder: (context, i) {
+                final c = _clientSearchResults[i];
+                return ListTile(
+                  dense: true,
+                  title: Text(c.name, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(
+                    '${c.clientNumber} · ${c.address}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  onTap: () => _selectClient(c),
+                );
+              },
+            ),
+          ),
       ],
     );
   }
@@ -418,10 +459,12 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(l10n.documentLines, style: theme.textTheme.titleMedium),
-            const Spacer(),
             TextButton.icon(
               onPressed: () => setState(() => _lines.add(_LineItemData())),
               icon: const Icon(Icons.add, size: 18),
@@ -513,87 +556,143 @@ class _LineItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          flex: 3,
-          child: TextFormField(
-            controller: data.descriptionCtrl,
-            decoration: InputDecoration(
-              labelText: l10n.descriptionN(index + 1),
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
+        TextFormField(
+          controller: data.descriptionCtrl,
+          decoration: InputDecoration(
+            labelText: l10n.descriptionN(index + 1),
+            border: const OutlineInputBorder(),
+            isDense: true,
           ),
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
         ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 80,
-          child: TextFormField(
-            controller: data.quantityCtrl,
-            decoration: InputDecoration(
-              labelText: l10n.quantityShort,
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              final val = double.tryParse(v ?? '');
-              if (val == null || val <= 0) return l10n.invalidValue;
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 100,
-          child: TextFormField(
-            controller: data.unitPriceCtrl,
-            decoration: InputDecoration(
-              labelText: l10n.unitPriceLabel,
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              if (double.tryParse(v ?? '') == null) return l10n.invalidValue;
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 80,
-          child: TextFormField(
-            controller: data.vatRateCtrl,
-            decoration: InputDecoration(
-              labelText: l10n.vatRateLabel,
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (_) => onChanged(),
-            validator: (v) {
-              final val = double.tryParse(v ?? '');
-              if (val == null || val < 0) return l10n.invalidValue;
-              return null;
-            },
-          ),
-        ),
-        if (canRemove)
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-            onPressed: onRemove,
-            tooltip: AppLocalizations.of(context)!.removeLine,
+        const SizedBox(height: 8),
+        if (narrow)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 110,
+                child: _numberField(
+                  controller: data.quantityCtrl,
+                  label: l10n.quantityShort,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val <= 0) return l10n.invalidValue;
+                    return null;
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 140,
+                child: _numberField(
+                  controller: data.unitPriceCtrl,
+                  label: l10n.unitPriceLabel,
+                  onChanged: onChanged,
+                  validator: (v) =>
+                      double.tryParse(v ?? '') == null ? l10n.invalidValue : null,
+                ),
+              ),
+              SizedBox(
+                width: 110,
+                child: _numberField(
+                  controller: data.vatRateCtrl,
+                  label: l10n.vatRateLabel,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val < 0) return l10n.invalidValue;
+                    return null;
+                  },
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: AppLocalizations.of(context)!.removeLine,
+                ),
+            ],
           )
         else
-          const SizedBox(width: 48),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                child: _numberField(
+                  controller: data.quantityCtrl,
+                  label: l10n.quantityShort,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val <= 0) return l10n.invalidValue;
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 100,
+                child: _numberField(
+                  controller: data.unitPriceCtrl,
+                  label: l10n.unitPriceLabel,
+                  onChanged: onChanged,
+                  validator: (v) =>
+                      double.tryParse(v ?? '') == null ? l10n.invalidValue : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 80,
+                child: _numberField(
+                  controller: data.vatRateCtrl,
+                  label: l10n.vatRateLabel,
+                  onChanged: onChanged,
+                  validator: (v) {
+                    final val = double.tryParse(v ?? '');
+                    if (val == null || val < 0) return l10n.invalidValue;
+                    return null;
+                  },
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: AppLocalizations.of(context)!.removeLine,
+                )
+              else
+                const SizedBox(width: 48),
+            ],
+          ),
       ],
+    );
+  }
+
+  Widget _numberField({
+    required TextEditingController controller,
+    required String label,
+    required VoidCallback onChanged,
+    required String? Function(String?) validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      keyboardType: TextInputType.number,
+      onChanged: (_) => onChanged(),
+      validator: validator,
     );
   }
 }
@@ -620,8 +719,10 @@ class _TotalRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 12,
+        runSpacing: 4,
         children: [
           Text(label, style: style),
           Text('₪${value.toStringAsFixed(2)}', style: style),

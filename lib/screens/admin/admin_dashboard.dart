@@ -470,6 +470,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final l10n = AppLocalizations.of(context)!;
     final authService = context.watch<AuthService>();
     final localeService = context.watch<LocaleService>();
+    final isNarrow = MediaQuery.sizeOf(context).width < 600;
 
     return Directionality(
       textDirection: localeService.locale.languageCode == 'he'
@@ -477,13 +478,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
           : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: Row(
-            children: [
-              Text(l10n.admin),
-              const SizedBox(width: 16),
-              const CompanySelectorWidget(),
-            ],
-          ),
+          title: isNarrow
+              ? Text(l10n.admin)
+              : Row(
+                  children: [
+                    Text(l10n.admin),
+                    const SizedBox(width: 16),
+                    const Flexible(child: CompanySelectorWidget()),
+                  ],
+                ),
           backgroundColor: Colors.blue,
           elevation: 0,
           actions: [

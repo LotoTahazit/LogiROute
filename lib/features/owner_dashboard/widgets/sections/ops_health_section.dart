@@ -48,7 +48,7 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
 
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return SingleChildScrollView(
       padding: EdgeInsets.all(narrow ? 12 : 24),
       child: Column(
@@ -74,7 +74,7 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
   Widget _buildRetryStats(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return FutureBuilder<Map<String, dynamic>>(
       future: _systemEventsRepo.getRetryStats(),
       builder: (context, snapshot) {
@@ -126,14 +126,12 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
                 .toList(),
           );
         }
-        return Row(
-          children: [
-            Expanded(child: cards[0]),
-            const SizedBox(width: 16),
-            Expanded(child: cards[1]),
-            const SizedBox(width: 16),
-            Expanded(child: cards[2]),
-          ],
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: cards
+              .map((card) => SizedBox(width: 220, child: card))
+              .toList(),
         );
       },
     );
@@ -365,30 +363,56 @@ class _PrintEventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isError = event.status == PrintEventStatus.error;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final timeStr =
         event.printedAt != null ? _timeFmt.format(event.printedAt!) : '—';
 
-    return ListTile(
-      leading: Icon(
-        isError ? Icons.print_disabled : Icons.print,
-        color: isError ? Colors.red : Colors.green,
-      ),
-      title: Text(AppLocalizations.of(context)!.invoiceLabel(event.invoiceId)),
-      subtitle: Column(
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(AppLocalizations.of(context)!
-              .printerUserLabel(event.printerName ?? '—', event.printedBy)),
-          if (isError && event.errorMessage != null)
-            Text(
-              event.errorMessage!,
-              style: TextStyle(color: theme.colorScheme.error),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Icon(
+            isError ? Icons.print_disabled : Icons.print,
+            color: isError ? Colors.red : Colors.green,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (narrow) ...[
+                  Text(AppLocalizations.of(context)!.invoiceLabel(event.invoiceId)),
+                  const SizedBox(height: 2),
+                  Text(timeStr, style: theme.textTheme.bodySmall),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context)!.invoiceLabel(event.invoiceId),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(timeStr, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                const SizedBox(height: 2),
+                Text(AppLocalizations.of(context)!
+                    .printerUserLabel(event.printerName ?? '—', event.printedBy)),
+                if (isError && event.errorMessage != null)
+                  Text(
+                    event.errorMessage!,
+                    style: TextStyle(color: theme.colorScheme.error),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
+          ),
         ],
       ),
-      trailing: Text(timeStr, style: theme.textTheme.bodySmall),
     );
   }
 }
@@ -406,6 +430,7 @@ class _SystemEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final isErrorState = event.status == SystemEventStatus.error ||
         event.status == SystemEventStatus.failed;
     final statusColor = isErrorState
@@ -417,50 +442,93 @@ class _SystemEventTile extends StatelessWidget {
     final timeStr =
         event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
 
-    return ListTile(
-      leading: CircleAvatar(
-        radius: 16,
-        backgroundColor: statusColor.withValues(alpha: 0.15),
-        child: Icon(_sourceIcon(event.source), size: 18, color: statusColor),
-      ),
-      title: Row(
-        children: [
-          Text(event.message, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              event.status.value,
-              style: theme.textTheme.labelSmall?.copyWith(color: statusColor),
-            ),
-          ),
-        ],
-      ),
-      subtitle: Column(
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${event.type.value} · ${event.source.value}'
-            '${event.retryCount > 0 ? AppLocalizations.of(context)!.retryCountLabel(event.retryCount) : ""}',
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: statusColor.withValues(alpha: 0.15),
+            child: Icon(_sourceIcon(event.source), size: 18, color: statusColor),
           ),
-          // Webhook details (Req 9.5)
-          if (event.endpoint != null)
-            Text(
-              '${event.endpoint}'
-              '${event.responseStatus != null ? " → ${event.responseStatus}" : ""}'
-              '${event.responseTime != null ? " (${event.responseTime}ms)" : ""}',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (narrow) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(event.message),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          event.status.value,
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: statusColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(timeStr, style: theme.textTheme.bodySmall),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          event.message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          event.status.value,
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: statusColor),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(timeStr, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  '${event.type.value} · ${event.source.value}'
+                  '${event.retryCount > 0 ? AppLocalizations.of(context)!.retryCountLabel(event.retryCount) : ""}',
+                ),
+                if (event.endpoint != null)
+                  Text(
+                    '${event.endpoint}'
+                    '${event.responseStatus != null ? " → ${event.responseStatus}" : ""}'
+                    '${event.responseTime != null ? " (${event.responseTime}ms)" : ""}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline),
+                    maxLines: narrow ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
+          ),
         ],
       ),
-      trailing: Text(timeStr, style: theme.textTheme.bodySmall),
     );
   }
 

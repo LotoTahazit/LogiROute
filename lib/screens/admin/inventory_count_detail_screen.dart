@@ -215,6 +215,7 @@ class _InventoryCountDetailScreenState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     if (_isLoading) {
       return Scaffold(
@@ -270,7 +271,10 @@ class _InventoryCountDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Icon(
                       isApproved
@@ -285,15 +289,15 @@ class _InventoryCountDetailScreenState
                               : Colors.orange,
                       size: 40,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: narrow ? 260 : 500),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '${l10n.inventoryCount} — ${DateFormat('dd/MM/yyyy HH:mm').format(_count!.startedAt)}',
-                            style: const TextStyle(
-                              fontSize: 24,
+                            style: TextStyle(
+                              fontSize: narrow ? 20 : 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -331,8 +335,10 @@ class _InventoryCountDetailScreenState
                 ),
                 const SizedBox(height: 16),
                 // Статистика
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceAround,
                   children: [
                     _buildStatBox(
                       icon: Icons.inventory,
@@ -540,13 +546,13 @@ class _InventoryCountDetailScreenState
           '${item.type} ${item.number}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Row(
+        subtitle: Wrap(
+          spacing: 16,
+          runSpacing: 4,
           children: [
             Text('${l10n.expected}: ${item.expectedQuantity}'),
-            const SizedBox(width: 16),
             Text('${l10n.actualCounted}: ${item.actualQuantity ?? "-"}'),
-            if (item.hasDifference) ...[
-              const SizedBox(width: 16),
+            if (item.hasDifference)
               Text(
                 '${l10n.difference}: ${item.difference! > 0 ? "+" : ""}${item.difference}',
                 style: TextStyle(
@@ -554,7 +560,6 @@ class _InventoryCountDetailScreenState
                   color: item.isShortage ? Colors.red : Colors.green,
                 ),
               ),
-            ],
           ],
         ),
         children: [
@@ -585,20 +590,21 @@ class _InventoryCountDetailScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 order.icon,
                                 style: const TextStyle(fontSize: 20),
                               ),
-                              const SizedBox(width: 8),
                               Text(
                                 '${l10n.order} #${order.orderNumber}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const Spacer(),
                               Text(
                                 _getStatusText(order.status, l10n),
                                 style: TextStyle(

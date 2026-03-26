@@ -87,10 +87,10 @@ class _CountItemCardState extends State<CountItemCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Заголовок товара
-            Row(
-              children: [
-                // מק"ט
-                Container(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 420;
+                final codeBadge = Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -105,26 +105,66 @@ class _CountItemCardState extends State<CountItemCard> {
                       fontSize: 14,
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Название
-                Expanded(
-                  child: Text(
-                    '${widget.item.type} ${widget.item.number}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                );
+
+                final statusIcon = widget.item.isChecked
+                    ? const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 24,
+                      )
+                    : null;
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          codeBadge,
+                          if (statusIcon != null) ...[
+                            const SizedBox(width: 8),
+                            statusIcon,
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${widget.item.type} ${widget.item.number}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    codeBadge,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${widget.item.type} ${widget.item.number}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ),
-                // Статус
-                if (widget.item.isChecked)
-                  const Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 24,
-                  ),
-              ],
+                    if (statusIcon != null) ...[
+                      const SizedBox(width: 8),
+                      statusIcon,
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
 

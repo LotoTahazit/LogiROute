@@ -128,11 +128,14 @@ class _BillingSectionState extends State<BillingSection> {
         margin: const EdgeInsets.only(bottom: 16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Icon(Icons.block, color: Colors.red.shade700, size: 32),
-              const SizedBox(width: 16),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220, maxWidth: 560),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -180,12 +183,15 @@ class _BillingSectionState extends State<BillingSection> {
         margin: const EdgeInsets.only(bottom: 16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Icon(Icons.warning_amber_rounded,
                   color: Colors.orange.shade800, size: 32),
-              const SizedBox(width: 16),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220, maxWidth: 560),
                 child: Text(
                   graceMsg,
                   style: TextStyle(
@@ -211,12 +217,16 @@ class _BillingSectionState extends State<BillingSection> {
           margin: const EdgeInsets.only(bottom: 16),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Icon(Icons.hourglass_bottom,
                     color: Colors.blue.shade700, size: 32),
-                const SizedBox(width: 16),
-                Expanded(
+                ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(minWidth: 220, maxWidth: 560),
                   child: Text(
                     l10n.billingTrialRemaining(remaining),
                     style: TextStyle(
@@ -406,11 +416,13 @@ class _BillingSectionState extends State<BillingSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Icon(Icons.admin_panel_settings,
                     size: 20, color: theme.colorScheme.error),
-                const SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.billingSensitiveFields,
                     style: theme.textTheme.titleMedium),
               ],
@@ -576,24 +588,42 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Theme.of(context).colorScheme.outline),
+                ),
+                const SizedBox(height: 2),
+                Text(value, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    label,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: Theme.of(context).colorScheme.outline),
+                  ),
+                ),
+                Expanded(
+                  child:
+                      Text(value, style: Theme.of(context).textTheme.bodyMedium),
+                ),
+              ],
             ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
       ),
     );
   }
@@ -615,19 +645,40 @@ class _UsageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: theme.colorScheme.outline),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-          Text(
-            l10n.billingLimit(limit),
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline),
-          ),
-        ],
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 20, color: theme.colorScheme.outline),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(label)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.billingLimit(limit),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.outline),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label)),
+                Text(
+                  l10n.billingLimit(limit),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ],
+            ),
       ),
     );
   }
@@ -643,39 +694,83 @@ class _InvoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final dateStr =
         invoice.issuedAt != null ? _dateFmt.format(invoice.issuedAt!) : '—';
     final statusColor = _invoiceStatusColor(invoice.status);
 
     return ListTile(
       leading: Icon(Icons.receipt_outlined, color: theme.colorScheme.outline),
-      title: Text(invoice.description.isNotEmpty
-          ? invoice.description
-          : AppLocalizations.of(context)!.billingInvoiceDefault),
-      subtitle: Text(dateStr),
-      trailing: Row(
+      title: Text(
+        invoice.description.isNotEmpty
+            ? invoice.description
+            : AppLocalizations.of(context)!.billingInvoiceDefault,
+        maxLines: narrow ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${invoice.amount.toStringAsFixed(2)} ${invoice.currency}',
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
+          Text(dateStr),
+          if (narrow) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${invoice.amount.toStringAsFixed(2)} ${invoice.currency}',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _invoiceStatusLabel(
+                        invoice.status, AppLocalizations.of(context)!),
+                    style:
+                        theme.textTheme.labelSmall?.copyWith(color: statusColor),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              _invoiceStatusLabel(
-                  invoice.status, AppLocalizations.of(context)!),
-              style: theme.textTheme.labelSmall?.copyWith(color: statusColor),
-            ),
-          ),
+          ],
         ],
       ),
+      trailing: narrow
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${invoice.amount.toStringAsFixed(2)} ${invoice.currency}',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _invoiceStatusLabel(
+                        invoice.status, AppLocalizations.of(context)!),
+                    style:
+                        theme.textTheme.labelSmall?.copyWith(color: statusColor),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 

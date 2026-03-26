@@ -236,6 +236,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     debugPrint(
         '🏗️ [CompanySettings] build() called, _isLoading=$_isLoading, _companyId=$_companyId');
 
@@ -305,35 +306,60 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           label: l10n.addressEnglish,
                           icon: Icons.location_on_outlined,
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
+                        if (narrow)
+                          Column(
+                            children: [
+                              _buildTextField(
                                 controller: _poBoxController,
                                 label: l10n.poBox,
                                 icon: Icons.markunread_mailbox,
                                 required: false,
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildTextField(
+                              const SizedBox(height: 16),
+                              _buildTextField(
                                 controller: _cityController,
                                 label: l10n.city,
                                 icon: Icons.location_city,
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildTextField(
+                              const SizedBox(height: 16),
+                              _buildTextField(
                                 controller: _zipCodeController,
                                 label: l10n.zipCode,
                                 icon: Icons.pin_drop,
                                 required: false,
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          )
+                        else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _poBoxController,
+                                  label: l10n.poBox,
+                                  icon: Icons.markunread_mailbox,
+                                  required: false,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _cityController,
+                                  label: l10n.city,
+                                  icon: Icons.location_city,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _zipCodeController,
+                                  label: l10n.zipCode,
+                                  icon: Icons.pin_drop,
+                                  required: false,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -499,37 +525,90 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   Widget _integrationRow(
       IconData icon, String label, bool configured, VoidCallback onEdit) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: configured
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 20, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(label)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: configured
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        configured
+                            ? l10n.settingsConfigured
+                            : l10n.settingsNotConfigured,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: configured ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      onPressed: onEdit,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(icon, size: 20, color: Colors.grey),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label)),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: configured
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.grey.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    configured
+                        ? l10n.settingsConfigured
+                        : l10n.settingsNotConfigured,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: configured ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  onPressed: onEdit,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
             ),
-            child: Text(
-              configured ? l10n.settingsConfigured : l10n.settingsNotConfigured,
-              style: TextStyle(
-                fontSize: 12,
-                color: configured ? Colors.green : Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            onPressed: onEdit,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
-          ),
-        ],
       ),
     );
   }

@@ -108,6 +108,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       String? provider, String companyId, AppLocalizations l10n) {
     final info = _getPlanInfo(plan, l10n);
     final statusColor = _statusColor(status);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Card(
       color: Colors.blue.shade50,
@@ -116,11 +117,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Icon(info.icon, color: Colors.blue, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: narrow ? 220 : 360),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -197,6 +201,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget _buildPlanOption(String planKey, _PlanInfo info, String currentPlan,
       String companyId, AppLocalizations l10n) {
     final isCurrent = planKey == currentPlan;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
@@ -210,23 +215,49 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         title: Text(info.name,
             style: TextStyle(
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(info.description),
-        trailing: isCurrent
-            ? Chip(
-                label: Text(l10n.currentChip),
-                backgroundColor: Colors.blue,
-                labelStyle: const TextStyle(color: Colors.white, fontSize: 11))
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(l10n.monthlyPriceShort(info.promoPrice),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(l10n.afterPromoPrice(3, info.price),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                ],
-              ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(info.description),
+            if (narrow && isCurrent) ...[
+              const SizedBox(height: 6),
+              Chip(
+                  label: Text(l10n.currentChip),
+                  backgroundColor: Colors.blue,
+                  labelStyle:
+                      const TextStyle(color: Colors.white, fontSize: 11)),
+            ],
+            if (narrow && !isCurrent) ...[
+              const SizedBox(height: 6),
+              Text(l10n.monthlyPriceShort(info.promoPrice),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(l10n.afterPromoPrice(3, info.price),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+            ],
+          ],
+        ),
+        trailing: narrow
+            ? null
+            : isCurrent
+                ? Chip(
+                    label: Text(l10n.currentChip),
+                    backgroundColor: Colors.blue,
+                    labelStyle:
+                        const TextStyle(color: Colors.white, fontSize: 11))
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(l10n.monthlyPriceShort(info.promoPrice),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(l10n.afterPromoPrice(3, info.price),
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    ],
+                  ),
         onTap: isCurrent
             ? null
             : () => _requestPlanChange(planKey, info, companyId, l10n),

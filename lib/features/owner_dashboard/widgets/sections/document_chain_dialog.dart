@@ -58,12 +58,23 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
               // Header
               Row(
                 children: [
-                  Icon(Icons.account_tree_outlined,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)!.documentChainTitle,
-                      style: theme.textTheme.titleLarge),
-                  const Spacer(),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Icon(Icons.account_tree_outlined,
+                            color: theme.colorScheme.primary),
+                        Text(
+                          AppLocalizations.of(context)!.documentChainTitle,
+                          style: narrow
+                              ? theme.textTheme.titleMedium
+                              : theme.textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
@@ -157,6 +168,7 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
     final statusClr = docStatusColor(doc.status);
     final typeLbl = docTypeLabel(context, doc.type);
     final statusLbl = docStatusLabel(context, doc.status);
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     final dateStr = doc.issuedAt != null
         ? dateFmt.format(doc.issuedAt!)
         : doc.createdAt != null
@@ -210,7 +222,10 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
                   width: 36,
@@ -227,8 +242,8 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: narrow ? 220 : 320),
                   child: Text(
                     typeLbl,
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -262,8 +277,10 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
               children: [
                 Text(dateStr, style: theme.textTheme.bodySmall),
                 Text(

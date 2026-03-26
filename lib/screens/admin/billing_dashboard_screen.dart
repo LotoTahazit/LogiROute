@@ -224,6 +224,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final filterLabels = _filterLabels(l10n);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.billingDashboardTitle),
@@ -241,49 +242,88 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
           // Filter bar
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Status filter chips
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: filterLabels.entries.map((e) {
-                        final isSelected = _statusFilter == e.key;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: FilterChip(
-                            label: Text(e.value),
-                            selected: isSelected,
-                            onSelected: (_) =>
-                                setState(() => _statusFilter = e.key),
-                            selectedColor: e.key == 'all'
-                                ? Colors.deepPurple.shade100
-                                : _statusColor(e.key).withValues(alpha: 0.2),
+            child: narrow
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: filterLabels.entries.map((e) {
+                            final isSelected = _statusFilter == e.key;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: FilterChip(
+                                label: Text(e.value),
+                                selected: isSelected,
+                                onSelected: (_) =>
+                                    setState(() => _statusFilter = e.key),
+                                selectedColor: e.key == 'all'
+                                    ? Colors.deepPurple.shade100
+                                    : _statusColor(e.key).withValues(alpha: 0.2),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: l10n.billingDashboardSearchHint,
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 8),
+                        ),
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.toLowerCase()),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: filterLabels.entries.map((e) {
+                              final isSelected = _statusFilter == e.key;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: FilterChip(
+                                  label: Text(e.value),
+                                  selected: isSelected,
+                                  onSelected: (_) =>
+                                      setState(() => _statusFilter = e.key),
+                                  selectedColor: e.key == 'all'
+                                      ? Colors.deepPurple.shade100
+                                      : _statusColor(e.key)
+                                          .withValues(alpha: 0.2),
+                                ),
+                              );
+                            }).toList(),
                           ),
-                        );
-                      }).toList(),
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 200,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: l10n.billingDashboardSearchHint,
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 8),
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v.toLowerCase()),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                // Search
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: l10n.billingDashboardSearchHint,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    onChanged: (v) =>
-                        setState(() => _searchQuery = v.toLowerCase()),
-                  ),
-                ),
-              ],
-            ),
           ),
 
           // Company list
@@ -374,6 +414,7 @@ class _CompanyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final status = data['billingStatus'] as String? ?? 'active';
     final name = data['nameHebrew'] as String? ?? companyId;
     final nameEn = data['nameEnglish'] as String? ?? '';
@@ -405,9 +446,13 @@ class _CompanyCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header row: name + status badge
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: narrow ? 240 : 420),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -463,32 +508,31 @@ class _CompanyCard extends StatelessWidget {
             const SizedBox(height: 8),
 
             // Action buttons
-            Row(
+            Wrap(
+              spacing: 4,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _ActionBtn(
                     Icons.add_circle_outline,
                     l10n.billingActionExtend,
                     Colors.green,
                     onExtend),
-                const SizedBox(width: 4),
                 if (status != 'active')
                   _ActionBtn(
                       Icons.check_circle_outline,
                       l10n.billingActionActive,
                       Colors.green,
                       onSetActive),
-                if (status != 'active') const SizedBox(width: 4),
                 if (status == 'active')
                   _ActionBtn(
                       Icons.pause_circle_outline,
                       l10n.billingActionGrace,
                       Colors.orange,
                       onSetGrace),
-                if (status == 'active') const SizedBox(width: 4),
                 if (status != 'suspended' && status != 'cancelled')
                   _ActionBtn(
                       Icons.block, l10n.billingActionSuspend, Colors.red, onSuspend),
-                const Spacer(),
                 Text(companyId,
                     style:
                         TextStyle(fontSize: 10, color: Colors.grey.shade400)),

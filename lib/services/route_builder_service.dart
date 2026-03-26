@@ -2,115 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/delivery_route.dart';
 import '../models/route_status.dart';
 import '../config/app_config.dart';
-import 'firestore_paths.dart';
 
-/// Сервис для построения маршрутов и определения стартовой точки
+/// Сервис для построения маршрутов.
+/// **План (Route):** старт всегда склад из [AppConfig] — фиксированный, не меняется.
 class RouteBuilderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String companyId;
 
   RouteBuilderService(this.companyId);
 
-  /// Определяет стартовую точку маршрута
-  ///
-  /// Логика:
-  /// - planned → warehouse
-  /// - active → driver GPS
+  /// Только склад (TSP / метаданные маршрута). Без Firestore, без GPS, без смен.
   Future<Map<String, double>?> getRouteStartPoint(
     String driverId,
     RouteStatus status,
   ) async {
-    switch (status) {
-      case RouteStatus.planned:
-        return await _getWarehouseLocation();
-      case RouteStatus.active:
-        return await _getDriverCurrentLocation(driverId);
-      default:
-        return await _getWarehouseLocation();
-    }
-  }
-
-  /// Получает координаты склада из настроек компании
-  Future<Map<String, double>?> _getWarehouseLocation() async {
-    try {
-      // 1. Company config (основной путь)
-      final configDoc = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('config')
-          .get();
-
-      if (configDoc.exists) {
-        final data = configDoc.data()!;
-        final lat = (data['warehouseLat'] as num?)?.toDouble();
-        final lng = (data['lng'] as num?)?.toDouble();
-        if (lat != null && lng != null && lat != 0 && lng != 0) {
-          print(
-              '🏭 [RouteBuilder] Warehouse from company config: ($lat, $lng)');
-          return {'latitude': lat, 'longitude': lng};
-        }
-      }
-
-      // 2. Legacy warehouse doc
-      final legacyDoc = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('settings')
-          .doc('warehouse')
-          .get();
-
-      if (legacyDoc.exists) {
-        final data = legacyDoc.data()!;
-        final lat = (data['lat'] as num?)?.toDouble();
-        final lng = (data['lng'] as num?)?.toDouble();
-        if (lat != null && lng != null && lat != 0 && lng != 0) {
-          print('🏭 [RouteBuilder] Warehouse from legacy doc: ($lat, $lng)');
-          return {'latitude': lat, 'longitude': lng};
-        }
-      }
-
-      // 3. Fallback to AppConfig defaults
-      print('⚠️ [RouteBuilder] No warehouse config, using AppConfig defaults');
-      return {
-        'latitude': AppConfig.defaultWarehouseLat,
-        'longitude': AppConfig.defaultWarehouseLng,
-      };
-    } catch (e) {
-      print('❌ [RouteBuilder] Error getting warehouse location: $e');
-      return {
-        'latitude': AppConfig.defaultWarehouseLat,
-        'longitude': AppConfig.defaultWarehouseLng,
-      };
-    }
-  }
-
-  /// Получает текущее GPS положение водителя
-  Future<Map<String, double>?> _getDriverCurrentLocation(
-      String driverId) async {
-    try {
-      final driverDoc =
-          await FirestorePaths.driverLocationsOf(companyId).doc(driverId).get();
-
-      if (driverDoc.exists) {
-        final data = driverDoc.data();
-        if (data != null) {
-          final lat = (data['latitude'] as num?)?.toDouble();
-          final lng = (data['longitude'] as num?)?.toDouble();
-
-          if (lat != null && lng != null && lat != 0 && lng != 0) {
-            print('🚛 [RouteBuilder] Driver GPS location: ($lat, $lng)');
-            return {'latitude': lat, 'longitude': lng};
-          }
-        }
-      }
-
-      print('⚠️ [RouteBuilder] Driver GPS not available, using warehouse');
-      return await _getWarehouseLocation();
-    } catch (e) {
-      print('❌ [RouteBuilder] Error getting driver location: $e');
-      return await _getWarehouseLocation();
-    }
+    return {
+      'latitude': AppConfig.defaultWarehouseLat,
+      'longitude': AppConfig.defaultWarehouseLng,
+    };
   }
 
   /// Создаёт новый маршрут
@@ -213,12 +122,10 @@ class RouteBuilderService {
           .collection('routes');
 
       if (route.id == null) {
-        // Создание нового маршрута
         final docRef = await routesRef.add(route.toMap());
         print('✅ [RouteBuilder] Route created with ID: ${docRef.id}');
         return docRef.id;
       } else {
-        // Обновление существующего маршрута
         await routesRef.doc(route.id).update(route.toMap());
         print('✅ [RouteBuilder] Route updated: ${route.id}');
         return route.id!;

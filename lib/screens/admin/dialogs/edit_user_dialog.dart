@@ -58,94 +58,100 @@ class _EditUserDialogState extends State<EditUserDialog> {
     final l10n = AppLocalizations.of(context)!;
     final isSuperAdmin =
         context.read<AuthService>().userModel?.isSuperAdmin ?? false;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return AlertDialog(
       title: Text(l10n.editUser(widget.user.name)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: l10n.fullName,
-                border: const OutlineInputBorder(),
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
+      content: SizedBox(
+        width: narrow ? MediaQuery.sizeOf(context).width * 0.85 : 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: l10n.fullName,
+                  border: const OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _emailController,
-              decoration: InputDecoration(
-                labelText: l10n.email,
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: l10n.email,
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: '${l10n.password} (${l10n.leaveEmptyToKeep})',
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: '${l10n.password} (${l10n.leaveEmptyToKeep})',
+                  border: const OutlineInputBorder(),
+                ),
+                obscureText: true,
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedRole,
-              decoration: InputDecoration(
-                labelText: l10n.role,
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedRole,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.role,
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'driver', child: Text(l10n.driver)),
+                  DropdownMenuItem(
+                      value: 'dispatcher', child: Text(l10n.dispatcher)),
+                  DropdownMenuItem(
+                      value: 'warehouse_keeper',
+                      child: Text(l10n.roleWarehouseKeeper)),
+                  DropdownMenuItem(
+                      value: 'accountant', child: Text(l10n.roleAccountant)),
+                  DropdownMenuItem(
+                      value: 'admin', child: Text(l10n.systemManager)),
+                  if (isSuperAdmin)
+                    DropdownMenuItem(value: 'owner', child: Text(l10n.roleOwner)),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedRole = value ?? 'driver';
+                  });
+                },
               ),
-              items: [
-                DropdownMenuItem(value: 'driver', child: Text(l10n.driver)),
-                DropdownMenuItem(
-                    value: 'dispatcher', child: Text(l10n.dispatcher)),
-                DropdownMenuItem(
-                    value: 'warehouse_keeper',
-                    child: Text(l10n.roleWarehouseKeeper)),
-                DropdownMenuItem(
-                    value: 'accountant', child: Text(l10n.roleAccountant)),
-                DropdownMenuItem(
-                    value: 'admin', child: Text(l10n.systemManager)),
-                if (isSuperAdmin)
-                  DropdownMenuItem(value: 'owner', child: Text(l10n.roleOwner)),
+              if (_selectedRole == 'driver') ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _vehicleNumberController,
+                  decoration: InputDecoration(
+                    labelText: l10n.vehicleNumber,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _palletCapacityController,
+                  decoration: InputDecoration(
+                    labelText: l10n.palletCapacity,
+                    border: const OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _truckWeightController,
+                  decoration: InputDecoration(
+                    labelText: l10n.truckWeight,
+                    border: const OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedRole = value ?? 'driver';
-                });
-              },
-            ),
-            if (_selectedRole == 'driver') ...[
-              const SizedBox(height: 16),
-              TextField(
-                controller: _vehicleNumberController,
-                decoration: InputDecoration(
-                  labelText: l10n.vehicleNumber,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _palletCapacityController,
-                decoration: InputDecoration(
-                  labelText: l10n.palletCapacity,
-                  border: const OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _truckWeightController,
-                decoration: InputDecoration(
-                  labelText: l10n.truckWeight,
-                  border: const OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
             ],
-          ],
+          ),
         ),
       ),
       actions: [

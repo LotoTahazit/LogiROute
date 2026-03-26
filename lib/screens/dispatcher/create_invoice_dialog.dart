@@ -355,12 +355,17 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: narrow ? 16 : 40,
+        vertical: 24,
+      ),
       title: Text(widget.documentType == InvoiceDocumentType.delivery
           ? l10n.createDeliveryNoteTitle
           : l10n.createInvoiceTitle),
       content: SizedBox(
-        width: 600,
+        width: narrow ? MediaQuery.sizeOf(context).width * 0.9 : 600,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
@@ -459,7 +464,10 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             Text(
               l10n.deliveryDateLabel,
@@ -473,7 +481,6 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                   builder: (context, child) {
-                    // Use Material date picker for better Android experience
                     return Theme(
                       data: Theme.of(context).copyWith(
                         colorScheme: Theme.of(context).colorScheme.copyWith(
@@ -534,36 +541,36 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: SegmentedButton<int>(
-                segments: [
-                  ButtonSegment(value: 30, label: Text(l10n.days30)),
-                  ButtonSegment(value: 60, label: Text(l10n.days60)),
-                  ButtonSegment(value: 90, label: Text(l10n.days90)),
-                  ButtonSegment(value: -1, label: Text(l10n.manualEntry)),
-                ],
-                selected: {_customPaymentDate ? -1 : _paymentTermDays},
-                onSelectionChanged: (Set<int> selected) {
-                  setState(() {
-                    if (selected.first == -1) {
-                      _customPaymentDate = true;
-                      _manualPaymentDate ??=
-                          _deliveryDate.add(const Duration(days: 30));
-                    } else {
-                      _customPaymentDate = false;
-                      _paymentTermDays = selected.first;
-                    }
-                  });
-                },
-              ),
-            ),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<int>(
+            segments: [
+              ButtonSegment(value: 30, label: Text(l10n.days30)),
+              ButtonSegment(value: 60, label: Text(l10n.days60)),
+              ButtonSegment(value: 90, label: Text(l10n.days90)),
+              ButtonSegment(value: -1, label: Text(l10n.manualEntry)),
+            ],
+            selected: {_customPaymentDate ? -1 : _paymentTermDays},
+            onSelectionChanged: (Set<int> selected) {
+              setState(() {
+                if (selected.first == -1) {
+                  _customPaymentDate = true;
+                  _manualPaymentDate ??=
+                      _deliveryDate.add(const Duration(days: 30));
+                } else {
+                  _customPaymentDate = false;
+                  _paymentTermDays = selected.first;
+                }
+              });
+            },
+          ),
         ),
         const SizedBox(height: 8),
         if (_customPaymentDate)
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Text('${l10n.payUntilLabel} '),
               TextButton.icon(
@@ -626,17 +633,21 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Table(
-          border: TableBorder.all(color: Colors.grey),
-          columnWidths: const {
-            0: FlexColumnWidth(2),
-            1: FlexColumnWidth(1),
-            2: FlexColumnWidth(1.5),
-            3: FlexColumnWidth(1.5),
-          },
-          children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 520),
+            child: Table(
+              border: TableBorder.all(color: Colors.grey),
+              columnWidths: const {
+                0: FlexColumnWidth(2),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(1.5),
+                3: FlexColumnWidth(1.5),
+              },
+              children: [
             // Заголовок
-            TableRow(
+                TableRow(
               decoration: BoxDecoration(color: Colors.grey[200]),
               children: [
                 Padding(
@@ -670,11 +681,11 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
               ],
             ),
             // Строки товаров
-            ..._items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return TableRow(
-                children: [
+                ..._items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return TableRow(
+                    children: [
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Text('${item.type} ${item.number}'),
@@ -704,11 +715,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Text('₪${item.totalBeforeVAT.toStringAsFixed(2)}'),
-                  ),
-                ],
-              );
-            }),
-          ],
+                    ),
+                  ],
+                );
+              }),
+            ],
+            ),
+          ),
         ),
       ],
     );
@@ -716,11 +729,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   Widget _buildDiscountField() {
     final l10n = AppLocalizations.of(context)!;
-    return Row(
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
       children: [
         Text(l10n.discountLabel,
             style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(width: 8),
         SizedBox(
           width: 120,
           child: TextField(
@@ -743,30 +758,27 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Способ оплаты — всегда видим
-        Row(
-          children: [
-            Text('${l10n.paymentMethodLabel}: ',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 8),
-            DropdownButton<String>(
-              value: _paymentMethod,
-              items: [
-                DropdownMenuItem(value: 'מזומן', child: Text(l10n.cash)),
-                DropdownMenuItem(value: "צ'ק", child: Text(l10n.cheque)),
-                DropdownMenuItem(
-                    value: 'העברה בנקאית', child: Text(l10n.bankTransfer)),
-                DropdownMenuItem(
-                    value: 'כרטיס אשראי', child: Text(l10n.creditCard)),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _paymentMethod = val);
-              },
-            ),
-          ],
+        Text(
+          '${l10n.paymentMethodLabel}:',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        // Чекбокс "תשלום התקבל" — отдельно
+        DropdownButtonFormField<String>(
+          initialValue: _paymentMethod,
+          isExpanded: true,
+          items: [
+            DropdownMenuItem(value: 'מזומן', child: Text(l10n.cash)),
+            DropdownMenuItem(value: "צ'ק", child: Text(l10n.cheque)),
+            DropdownMenuItem(
+                value: 'העברה בנקאית', child: Text(l10n.bankTransfer)),
+            DropdownMenuItem(
+                value: 'כרטיס אשראי', child: Text(l10n.creditCard)),
+          ],
+          onChanged: (val) {
+            if (val != null) setState(() => _paymentMethod = val);
+          },
+        ),
+        const SizedBox(height: 8),
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
@@ -789,47 +801,50 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('${l10n.netBeforeVat}:', style: const TextStyle(fontSize: 16)),
-            Text(
-              '₪${_subtotalBeforeVAT.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
+        _buildTotalRow(
+          '${l10n.netBeforeVat}:',
+          '₪${_subtotalBeforeVAT.toStringAsFixed(2)}',
+          valueStyle:
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('${l10n.vatLabelCalc} (18%):',
-                style: const TextStyle(fontSize: 16)),
-            Text(
-              '₪${_vatAmount.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
+        _buildTotalRow(
+          '${l10n.vatLabelCalc} (18%):',
+          '₪${_vatAmount.toStringAsFixed(2)}',
+          valueStyle: const TextStyle(fontSize: 16),
         ),
         const SizedBox(height: 8),
         const Divider(thickness: 2),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '${l10n.totalToPay}:',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '₪${_totalWithVAT.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-          ],
+        _buildTotalRow(
+          '${l10n.totalToPay}:',
+          '₪${_totalWithVAT.toStringAsFixed(2)}',
+          labelStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          valueStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildTotalRow(
+    String label,
+    String value, {
+    TextStyle? labelStyle,
+    TextStyle? valueStyle,
+  }) {
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      runSpacing: 4,
+      spacing: 12,
+      children: [
+        Text(label, style: labelStyle ?? const TextStyle(fontSize: 16)),
+        Text(value, style: valueStyle ?? const TextStyle(fontSize: 16)),
       ],
     );
   }

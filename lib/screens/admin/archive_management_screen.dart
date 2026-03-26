@@ -183,6 +183,7 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Directionality(
       textDirection: ui.TextDirection.rtl,
@@ -220,9 +221,10 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 16,
+                                alignment: WrapAlignment.spaceAround,
                                 children: [
                                   _buildStatCard(
                                     l10n.totalArchives,
@@ -266,10 +268,11 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
+                            if (narrow)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ElevatedButton.icon(
                                     onPressed: _isLoading
                                         ? null
                                         : _archiveInventoryHistory,
@@ -279,10 +282,8 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                       padding: const EdgeInsets.all(16),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: ElevatedButton.icon(
+                                  const SizedBox(height: 12),
+                                  ElevatedButton.icon(
                                     onPressed: _isLoading
                                         ? null
                                         : _archiveCompletedOrders,
@@ -292,9 +293,38 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                       padding: const EdgeInsets.all(16),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _archiveInventoryHistory,
+                                      icon: const Icon(Icons.inventory),
+                                      label: Text(l10n.archiveInventoryHistory),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.all(16),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _archiveCompletedOrders,
+                                      icon: const Icon(Icons.shopping_cart),
+                                      label: Text(l10n.archiveOrders),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.all(16),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
                       ),
@@ -339,7 +369,11 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                 color: isHistory ? Colors.blue : Colors.green,
                                 size: 32,
                               ),
-                              title: Text(archive['name']),
+                              title: Text(
+                                archive['name'],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -356,6 +390,7 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                   ),
                                 ],
                               ),
+                              isThreeLine: narrow,
                               trailing: PopupMenuButton(
                                 itemBuilder: (context) => [
                                   PopupMenuItem(

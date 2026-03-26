@@ -484,18 +484,29 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
   }
 
   Widget _row(String label, String value) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-              width: 180,
-              child: Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w700))),
-          Expanded(
-              child:
-                  Text(value, style: TextStyle(color: Colors.grey.shade700))),
-        ],
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(value, style: TextStyle(color: Colors.grey.shade700)),
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(
+                    width: 180,
+                    child: Text(label,
+                        style: const TextStyle(fontWeight: FontWeight.w700))),
+                Expanded(
+                    child: Text(value,
+                        style: TextStyle(color: Colors.grey.shade700))),
+              ],
+            ),
       ),
     );
   }

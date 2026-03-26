@@ -216,6 +216,7 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: const Text('ייצוא להנהלת חשבונות'),
@@ -305,9 +306,11 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                       Text('תקופה',
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 12),
-                      Row(
+                      Flex(
+                        direction: narrow ? Axis.vertical : Axis.horizontal,
                         children: [
                           Expanded(
+                            flex: narrow ? 0 : 1,
                             child: OutlinedButton.icon(
                               onPressed: () => _pickDate(true),
                               icon: const Icon(Icons.calendar_today, size: 16),
@@ -315,11 +318,15 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                                   '${_fromDate.day}/${_fromDate.month}/${_fromDate.year}'),
                             ),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text('עד'),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: narrow ? 0 : 8,
+                              vertical: narrow ? 8 : 0,
+                            ),
+                            child: const Text('עד'),
                           ),
                           Expanded(
+                            flex: narrow ? 0 : 1,
                             child: OutlinedButton.icon(
                               onPressed: () => _pickDate(false),
                               icon: const Icon(Icons.calendar_today, size: 16),

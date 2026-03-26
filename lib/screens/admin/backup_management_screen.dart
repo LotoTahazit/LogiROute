@@ -106,6 +106,8 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final dialogWidth =
+              MediaQuery.sizeOf(ctx).width < 500 ? 320.0 : 400.0;
           final hint = storageTypes
                   .where((t) => t.$1 == selectedType)
                   .map((t) => t.$4)
@@ -117,7 +119,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
           return AlertDialog(
             title: Text(l10n.registerBackupTitle),
             content: SizedBox(
-              width: 400,
+              width: dialogWidth,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -131,7 +133,12 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                         child: Row(children: [
                           Icon(icon, size: 18, color: Colors.grey),
                           const SizedBox(width: 8),
-                          Text(label),
+                          Expanded(
+                            child: Text(
+                              label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ]),
                       );
                     }).toList(),
@@ -208,10 +215,13 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) {
+          final dialogWidth =
+              MediaQuery.sizeOf(ctx).width < 500 ? 320.0 : 400.0;
+          return AlertDialog(
           title: Text(l10n.registerRestoreTestTitle),
           content: SizedBox(
-            width: 400,
+            width: dialogWidth,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -265,7 +275,8 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                     : null,
                 child: Text(l10n.save)),
           ],
-        ),
+        );
+        },
       ),
     );
 
@@ -288,6 +299,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -295,6 +307,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
           title: Text(l10n.backupManagementTitle),
           bottom: TabBar(
             controller: _tabController,
+            isScrollable: narrow,
             tabs: [
               Tab(text: l10n.tabBackups),
               Tab(text: l10n.tabRestoreTests),
@@ -318,36 +331,67 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
 
   Widget _buildBackupsTab() {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              if (_backupService.isQuarterlyBackupDue())
-                Expanded(
-                  child: Card(
-                    color: Colors.orange.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber, color: Colors.orange),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(l10n.quarterlyBackupRequired)),
-                        ],
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_backupService.isQuarterlyBackupDue())
+                      Card(
+                        color: Colors.orange.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber,
+                                  color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(l10n.quarterlyBackupRequired)),
+                            ],
+                          ),
+                        ),
                       ),
+                    if (_backupService.isQuarterlyBackupDue())
+                      const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _recordBackup,
+                      icon: const Icon(Icons.backup),
+                      label: Text(l10n.registerBackup),
                     ),
-                  ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    if (_backupService.isQuarterlyBackupDue())
+                      Expanded(
+                        child: Card(
+                          color: Colors.orange.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber,
+                                    color: Colors.orange),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                    child: Text(l10n.quarterlyBackupRequired)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: _recordBackup,
+                      icon: const Icon(Icons.backup),
+                      label: Text(l10n.registerBackup),
+                    ),
+                  ],
                 ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _recordBackup,
-                icon: const Icon(Icons.backup),
-                label: Text(l10n.registerBackup),
-              ),
-            ],
-          ),
         ),
         Expanded(
           child: _backups.isEmpty
@@ -360,7 +404,12 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                     return ListTile(
                       leading:
                           const Icon(Icons.cloud_done, color: Colors.green),
-                      title: Text(b['backupLocation'] ?? ''),
+                      title: Text(
+                        b['backupLocation'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      isThreeLine: narrow,
                       subtitle: Text(
                         '${b['performedBy']} • ${b['quarter']} ${b['year']}'
                         '${ts != null ? ' • ${ts.toDate().toString().substring(0, 16)}' : ''}',
@@ -380,20 +429,30 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
 
   Widget _buildRestoreTestsTab() {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _recordRestoreTest,
-                icon: const Icon(Icons.restore),
-                label: Text(l10n.registerRestoreTest),
-              ),
-            ],
-          ),
+          child: narrow
+              ? SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _recordRestoreTest,
+                    icon: const Icon(Icons.restore),
+                    label: Text(l10n.registerRestoreTest),
+                  ),
+                )
+              : Row(
+                  children: [
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: _recordRestoreTest,
+                      icon: const Icon(Icons.restore),
+                      label: Text(l10n.registerRestoreTest),
+                    ),
+                  ],
+                ),
         ),
         Expanded(
           child: _restoreTests.isEmpty
@@ -431,7 +490,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     final r = _complianceReport!;
     final compliant = r['compliant'] == true;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,16 +545,27 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
   }
 
   Widget _infoRow(String label, String value) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-              width: 180,
-              child: Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w700))),
-          Expanded(child: Text(value)),
-        ],
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(value),
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(
+                    width: 180,
+                    child: Text(label,
+                        style: const TextStyle(fontWeight: FontWeight.w700))),
+                Expanded(child: Text(value)),
+              ],
+            ),
       ),
     );
   }

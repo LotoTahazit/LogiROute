@@ -91,6 +91,7 @@ class _MigrationScreenState extends State<MigrationScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Scaffold(
       appBar: AppBar(
@@ -113,11 +114,13 @@ class _MigrationScreenState extends State<MigrationScreen> {
                       children: [
                         Icon(Icons.info_outline, color: Colors.orange.shade700),
                         const SizedBox(width: 8),
-                        Text(
-                          l10n.oneTimeSetup,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            l10n.oneTimeSetup,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -137,10 +140,13 @@ class _MigrationScreenState extends State<MigrationScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
+            Flex(
+              direction: narrow ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment:
+                  narrow ? CrossAxisAlignment.start : CrossAxisAlignment.center,
               children: [
                 Text(l10n.daysToMigrate),
-                const SizedBox(width: 16),
+                SizedBox(width: narrow ? 0 : 16, height: narrow ? 8 : 0),
                 DropdownButton<int>(
                   value: _daysToMigrate,
                   items: [7, 14, 30, 60, 90]

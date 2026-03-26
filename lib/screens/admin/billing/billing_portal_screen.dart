@@ -145,6 +145,7 @@ class _PlanStatusSection extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final plan = companyData['plan'] as String? ?? 'full';
     final status = companyData['billingStatus'] as String? ?? 'active';
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final paidUntilTs = companyData['paidUntil'];
     final provider = companyData['paymentProvider'] as String?;
 
@@ -166,9 +167,13 @@ class _PlanStatusSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Plan badge + status chip
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: narrow ? 240 : 420),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -312,8 +317,10 @@ class _PlanChangeDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final plans = availablePlans(currentPlan);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return AlertDialog(
+      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       title: Text(l10n.changePlan),
       content: SizedBox(
         width: double.maxFinite,
@@ -342,12 +349,21 @@ class _PlanChangeDialog extends StatelessWidget {
                     Text(info.modules.join(', '),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    if (narrow) ...[
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: () => _confirmPlan(context, planKey),
+                        child: Text(l10n.select),
+                      ),
+                    ],
                   ],
                 ),
-                trailing: FilledButton(
-                  onPressed: () => _confirmPlan(context, planKey),
-                  child: Text(l10n.select),
-                ),
+                trailing: narrow
+                    ? null
+                    : FilledButton(
+                        onPressed: () => _confirmPlan(context, planKey),
+                        child: Text(l10n.select),
+                      ),
               ),
             );
           },
@@ -599,6 +615,7 @@ class _PaymentEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final type = data['type'] as String? ?? '';
     final provider = data['provider'] as String? ?? '';
     final processedAt = _formatTimestamp(data['processedAt']);
@@ -606,13 +623,35 @@ class _PaymentEventTile extends StatelessWidget {
 
     return ListTile(
       title: Text(type),
-      subtitle: Text('$provider  •  $processedAt  →  $paidUntil'),
-      trailing: IconButton(
-        icon: const Icon(Icons.download),
-        tooltip:
-            AppLocalizations.of(context)?.downloadReceipt ?? 'Download receipt',
-        onPressed: () => _showExportSheet(context),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$provider  •  $processedAt  →  $paidUntil'),
+          if (narrow) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                icon: const Icon(Icons.download),
+                tooltip: AppLocalizations.of(context)?.downloadReceipt ??
+                    'Download receipt',
+                onPressed: () => _showExportSheet(context),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ],
+        ],
       ),
+      trailing: narrow
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.download),
+              tooltip: AppLocalizations.of(context)?.downloadReceipt ??
+                  'Download receipt',
+              onPressed: () => _showExportSheet(context),
+            ),
     );
   }
 

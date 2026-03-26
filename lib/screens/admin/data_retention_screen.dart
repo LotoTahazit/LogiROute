@@ -63,6 +63,7 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -92,14 +93,18 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                     // Info card
                     Card(
                       color: Colors.blue.shade50,
-                      child: const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Row(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Icon(Icons.info_outline, color: Colors.blue),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
+                            const Icon(Icons.info_outline, color: Colors.blue),
+                            ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(maxWidth: narrow ? 260 : 520),
+                              child: const Text(
                                 'לפי חוק ניהול ספרים, יש לשמור מסמכים לפחות 7 שנים.\n'
                                 'הבדיקה מוודאת שלא נמחקו מסמכים ושאין פערים במספור.',
                                 style: TextStyle(fontSize: 14),
@@ -126,7 +131,10 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Icon(
                                     _lastResult!.isCompliant
@@ -136,8 +144,11 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                                         ? Colors.green
                                         : Colors.red,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: Text(_lastResult!.summary)),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                        maxWidth: narrow ? 250 : 520),
+                                    child: Text(_lastResult!.summary),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),

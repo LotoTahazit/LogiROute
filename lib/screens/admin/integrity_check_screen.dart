@@ -109,6 +109,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final counterKeys = _getCounterKeys(l10n);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -176,13 +177,18 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                   color: Colors.red.shade50,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Icon(Icons.error, color: Colors.red),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: Text(_error!,
-                                style: const TextStyle(color: Colors.red))),
+                        ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxWidth: narrow ? 250 : 560),
+                          child: Text(_error!,
+                              style: const TextStyle(color: Colors.red)),
+                        ),
                       ],
                     ),
                   ),
@@ -197,15 +203,19 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Icon(
                               _result!.ok ? Icons.check_circle : Icons.cancel,
                               color: _result!.ok ? Colors.green : Colors.red,
                               size: 32,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
+                            ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(maxWidth: narrow ? 240 : 520),
                               child: Text(
                                 _result!.summary,
                                 style: TextStyle(

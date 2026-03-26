@@ -129,7 +129,7 @@ class _AuditSectionState extends State<AuditSection> {
 
   Widget _buildFiltersBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final narrow = MediaQuery.of(context).size.width < 400;
+    final narrow = MediaQuery.of(context).size.width < 560;
     final padding = EdgeInsets.symmetric(
         horizontal: narrow ? 12 : 16, vertical: narrow ? 8 : 12);
 
@@ -233,9 +233,12 @@ class _AuditSectionState extends State<AuditSection> {
             const SizedBox(height: 8),
             userDropdown,
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(child: dateChip),
+                dateChip,
                 if (_dateRange != null)
                   IconButton(
                     icon: const Icon(Icons.clear, size: 20),
@@ -545,6 +548,7 @@ class _AuditEventTile extends StatelessWidget {
     final userName = _resolveUser(event.createdBy);
     final moduleLbl = _moduleLabel(event.moduleKey, l10n);
     final collectionLbl = _collectionLabel(event.entity.collection, l10n);
+    final narrow = MediaQuery.sizeOf(context).width < 560;
 
     final dateStr =
         event.createdAt != null ? _dateFmt.format(event.createdAt!) : '—';
@@ -568,58 +572,108 @@ class _AuditEventTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Row 1: type + module badge + info button
-              Row(
-                children: [
-                  _moduleIcon(event.moduleKey, theme),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      typeLabel,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                      overflow: TextOverflow.ellipsis,
+              if (narrow) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _moduleIcon(event.moduleKey, theme),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        moduleLbl,
+                        style: theme.textTheme.labelSmall,
+                      ),
                     ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      moduleLbl,
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  if (DocumentRouter.isSupported(event.entity.collection)) ...[
+                    if (DocumentRouter.isSupported(event.entity.collection))
+                      IconButton(
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        tooltip: 'פתח בלשונית חדשה',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => DocumentRouter.openInNewTab(
+                          context,
+                          companyId: companyId,
+                          collection: event.entity.collection,
+                          docId: event.entity.docId,
+                        ),
+                      ),
                     IconButton(
-                      icon: const Icon(Icons.open_in_new, size: 16),
-                      tooltip: 'פתח בלשונית חדשה',
+                      icon: const Icon(Icons.info_outline, size: 16),
+                      tooltip: 'פרטים',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      onPressed: () => DocumentRouter.openInNewTab(
-                        context,
-                        companyId: companyId,
-                        collection: event.entity.collection,
-                        docId: event.entity.docId,
+                      onPressed: () => _showDetailDialog(context),
+                    ),
+                    Icon(Icons.chevron_right,
+                        size: 20, color: theme.colorScheme.outline),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  typeLabel,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ] else
+                Row(
+                  children: [
+                    _moduleIcon(event.moduleKey, theme),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        typeLabel,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        moduleLbl,
+                        style: theme.textTheme.labelSmall,
                       ),
                     ),
                     const SizedBox(width: 4),
+                    if (DocumentRouter.isSupported(event.entity.collection)) ...[
+                      IconButton(
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        tooltip: 'פתח בלשונית חדשה',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => DocumentRouter.openInNewTab(
+                          context,
+                          companyId: companyId,
+                          collection: event.entity.collection,
+                          docId: event.entity.docId,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, size: 16),
+                      tooltip: 'פרטים',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showDetailDialog(context),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right,
+                        size: 20, color: theme.colorScheme.outline),
                   ],
-                  IconButton(
-                    icon: const Icon(Icons.info_outline, size: 16),
-                    tooltip: 'פרטים',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _showDetailDialog(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: theme.colorScheme.outline),
-                ],
-              ),
+                ),
               const SizedBox(height: 6),
               // Row 2: collection label (human-readable)
               Text(
@@ -629,33 +683,46 @@ class _AuditEventTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               // Row 3: immutable fields — date/time + user name
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Icon(Icons.lock_outline,
-                      size: 12, color: theme.colorScheme.tertiary),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$dateStr $timeStr',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.tertiary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Icon(Icons.person_outline,
-                      size: 12, color: theme.colorScheme.tertiary),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      userName,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.tertiary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock_outline,
+                          size: 12, color: theme.colorScheme.tertiary),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$dateStr $timeStr',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.tertiary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_outline,
+                          size: 12, color: theme.colorScheme.tertiary),
+                      const SizedBox(width: 4),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: narrow ? 220 : 280),
+                        child: Text(
+                          userName,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.tertiary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

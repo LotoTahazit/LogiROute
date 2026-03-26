@@ -258,6 +258,7 @@ class _FinalMigrationScreenState extends State<FinalMigrationScreen> {
   @override
   Widget build(BuildContext context) {
     final localeService = context.watch<LocaleService>();
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Directionality(
       textDirection: localeService.locale.languageCode == 'he'
@@ -284,11 +285,13 @@ class _FinalMigrationScreenState extends State<FinalMigrationScreen> {
                         children: [
                           Icon(Icons.info, color: Colors.orange.shade700),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Финальная миграция',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          const Expanded(
+                            child: Text(
+                              'Финальная миграция',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -314,10 +317,11 @@ class _FinalMigrationScreenState extends State<FinalMigrationScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
+              if (narrow)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton.icon(
                       onPressed: _isProcessing ? null : _checkStatus,
                       icon: const Icon(Icons.search),
                       label: const Text('Проверить статус'),
@@ -325,10 +329,8 @@ class _FinalMigrationScreenState extends State<FinalMigrationScreen> {
                         padding: const EdgeInsets.all(16),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
                       onPressed: _isProcessing ? null : _startMigration,
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('Начать миграцию'),
@@ -338,9 +340,36 @@ class _FinalMigrationScreenState extends State<FinalMigrationScreen> {
                         padding: const EdgeInsets.all(16),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isProcessing ? null : _checkStatus,
+                        icon: const Icon(Icons.search),
+                        label: const Text('Проверить статус'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isProcessing ? null : _startMigration,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Начать миграцию'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 16),
               Expanded(
                 child: Card(

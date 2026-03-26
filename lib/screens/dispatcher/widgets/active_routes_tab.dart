@@ -54,6 +54,12 @@ class ActiveRoutesTab extends StatelessWidget {
         s == DeliveryPoint.statusInProgress;
   }
 
+  bool _isClosed(DeliveryPoint p) {
+    final s = DeliveryPoint.normalizeStatus(p.status);
+    return s == DeliveryPoint.statusCompleted ||
+        s == DeliveryPoint.statusCancelled;
+  }
+
   String _getDisplayAddress(DeliveryPoint point) {
     if (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty) {
       return point.temporaryAddress!;
@@ -182,11 +188,8 @@ class ActiveRoutesTab extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     // Use live routes; fallback to cached only if live is empty.
-    // Filter cached routes to exclude removed/cancelled points.
-    final filteredCache = lastNonEmptyRoutes
-        .where((p) => DeliveryPoint.activeRouteStatuses.contains(p.status))
-        .toList();
-    final allRoutes = routes.isNotEmpty ? routes : filteredCache;
+    // Cache keeps completed points too, so the route does not visually shrink.
+    final allRoutes = routes.isNotEmpty ? routes : lastNonEmptyRoutes;
 
     // Группируем по driverId (один водитель = один маршрут)
     final Map<String, List<DeliveryPoint>> routesByRouteId = {};
@@ -214,7 +217,12 @@ class ActiveRoutesTab extends StatelessWidget {
 
       final hasInProgressPoints =
           routePoints.any((r) => r.status == 'in_progress');
-      final routeStatus = hasInProgressPoints ? 'in_progress' : 'assigned';
+      final allClosed = routePoints.every(_isClosed);
+      final routeStatus = allClosed
+          ? DeliveryPoint.statusCompleted
+          : hasInProgressPoints
+              ? 'in_progress'
+              : 'assigned';
 
       // Цвет загрузки маршрута: 🟢 ≤80%  🟡 80–100%  🔴 >100%
       final loadRatio = driverCap > 0 ? totalPallets / driverCap : 0.0;
@@ -258,7 +266,7 @@ class ActiveRoutesTab extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            '${routePoints.length} ${l10n.points} • $palletText$kmText • ${routeStatus == 'in_progress' ? l10n.active : l10n.assigned}',
+            '${routePoints.length} ${l10n.points} • $palletText$kmText • ${routeStatus == DeliveryPoint.statusCompleted ? l10n.statusCompleted : routeStatus == 'in_progress' ? l10n.active : l10n.assigned}',
           ),
           children: [
             // Совет по укладке — когда не влезает в грузовик
@@ -328,8 +336,10 @@ class ActiveRoutesTab extends StatelessWidget {
                   ],
                 ),
               ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 4,
+              runSpacing: 4,
               children: [
                 if (onOptimizeRoute != null &&
                     routePoints
@@ -388,128 +398,168 @@ class ActiveRoutesTab extends StatelessWidget {
                 (entry) {
                   final idx = entry.key;
                   final r = entry.value;
-                  return Padding(
-                    key: ValueKey(r.id),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Drag handle — явная иконка для перетягивания
-                        ReorderableDragStartListener(
-                          index: idx,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.grab,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 8),
-                              child: Icon(Icons.drag_handle,
-                                  color: Colors.grey.shade400, size: 24),
-                            ),
-                          ),
+                  final isClosed = _isClosed(r);
+                  final actionButtons = <Widget>[
+                    if (!isClosed &&
+                        onCompletePointManually != null &&
+                        _isAssignedOrInProgress(r))
+                      IconButton(
+                        icon: const Icon(Icons.task_alt, color: Colors.green),
+                        tooltip: l10n.dispatcherManualCompleteTooltip,
+                        onPressed: () => onCompletePointManually!(r),
+                      ),
+                    if (!isClosed) ...[
+                      IconButton(
+                        icon: const Icon(Icons.receipt, color: Colors.green),
+                        tooltip: l10n.createInvoiceTooltip,
+                        onPressed: () => onCreateInvoice(r),
+                      ),
+                      IconButton(
+                        icon:
+                            const Icon(Icons.local_shipping, color: Colors.blue),
+                        tooltip: l10n.createDeliveryNoteTooltip,
+                        onPressed: () => onCreateDeliveryNote(r),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        tooltip: l10n.edit,
+                        onPressed: () => onEditPoint(r),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline,
+                            color: Colors.red),
+                        tooltip: l10n.removeFromRoute,
+                        onPressed: () => onRemovePoint(r),
+                      ),
+                    ],
+                  ];
+
+                  final pointText = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        r.clientName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isClosed ? Colors.grey.shade700 : null,
+                          decoration: isClosed
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
                         ),
-                        CircleAvatar(
-                          backgroundColor: Colors.blue,
+                        textDirection: TextDirection.rtl,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${r.pallets} ${l10n.pallets}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                        textDirection: TextDirection.rtl,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _getDisplayAddress(r),
+                        style: TextStyle(
+                          color: isClosed
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                        textDirection: TextDirection.rtl,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                      if (r.eta != null && r.eta!.isNotEmpty ||
+                          r.distanceKm != null && r.distanceKm! > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            '${r.orderInRoute + 1}',
-                            style: const TextStyle(color: Colors.white),
+                            [
+                              if (r.distanceKm != null && r.distanceKm! > 0)
+                                '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
+                              if (r.eta != null && r.eta!.isNotEmpty)
+                                'ETA: ${r.eta}',
+                            ].join(' • '),
+                            style: TextStyle(
+                              color: Colors.blue.shade900,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            textDirection: TextDirection.ltr,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                    ],
+                  );
+
+                  return Opacity(
+                    key: ValueKey(r.id),
+                    opacity: isClosed ? 0.38 : 1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isNarrow = constraints.maxWidth < 640;
+                          return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                r.clientName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                                textDirection: TextDirection.rtl,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${r.pallets} ${l10n.pallets}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
-                                ),
-                                textDirection: TextDirection.rtl,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _getDisplayAddress(r),
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                ),
-                                textDirection: TextDirection.rtl,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
-                              ),
-                              if (r.eta != null && r.eta!.isNotEmpty ||
-                                  r.distanceKm != null && r.distanceKm! > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    [
-                                      if (r.distanceKm != null &&
-                                          r.distanceKm! > 0)
-                                        '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
-                                      if (r.eta != null && r.eta!.isNotEmpty)
-                                        'ETA: ${r.eta}',
-                                    ].join(' • '),
-                                    style: TextStyle(
-                                      color: Colors.blue.shade900,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (!isClosed)
+                                    ReorderableDragStartListener(
+                                      index: idx,
+                                      child: MouseRegion(
+                                        cursor: SystemMouseCursors.grab,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4, vertical: 8),
+                                          child: Icon(Icons.drag_handle,
+                                              color: Colors.grey.shade400,
+                                              size: 24),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    const SizedBox(width: 32),
+                                  CircleAvatar(
+                                    backgroundColor: isClosed
+                                        ? Colors.grey.shade500
+                                        : Colors.blue,
+                                    child: Text(
+                                      '${r.orderInRoute + 1}',
+                                      style:
+                                          const TextStyle(color: Colors.white),
                                     ),
-                                    textDirection: TextDirection.ltr,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: pointText),
+                                  if (!isNarrow && actionButtons.isNotEmpty)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: actionButtons,
+                                    ),
+                                ],
+                              ),
+                              if (isNarrow && actionButtons.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: actionButtons,
+                                    ),
                                   ),
                                 ),
                             ],
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (onCompletePointManually != null &&
-                                _isAssignedOrInProgress(r))
-                              IconButton(
-                                icon: const Icon(Icons.task_alt,
-                                    color: Colors.green),
-                                tooltip: l10n.dispatcherManualCompleteTooltip,
-                                onPressed: () =>
-                                    onCompletePointManually!(r),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.receipt,
-                                  color: Colors.green),
-                              tooltip: l10n.createInvoiceTooltip,
-                              onPressed: () => onCreateInvoice(r),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.local_shipping,
-                                  color: Colors.blue),
-                              tooltip: l10n.createDeliveryNoteTooltip,
-                              onPressed: () => onCreateDeliveryNote(r),
-                            ),
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.edit, color: Colors.orange),
-                              tooltip: l10n.edit,
-                              onPressed: () => onEditPoint(r),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline,
-                                  color: Colors.red),
-                              tooltip: l10n.removeFromRoute,
-                              onPressed: () => onRemovePoint(r),
-                            ),
-                          ],
-                        ),
-                      ],
+                          );
+                        },
+                      ),
                     ),
                   );
                 },

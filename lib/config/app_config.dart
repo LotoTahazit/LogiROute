@@ -17,7 +17,9 @@ class AppConfig {
       Duration(minutes: 5); // Порог устаревших данных
 
   // 🎯 Параметры автозакрытия точек
-  static const double autoCompleteRadius = 100.0; // Радиус автозакрытия (метры)
+  static const double autoCompleteRadius = 150.0; // Радиус автозакрытия (метры)
+  static const double autoCompleteResetRadius =
+      175.0; // Гистерезис против GPS-дрожания
   static const Duration autoCompleteDuration =
       Duration(minutes: 2); // Время ожидания до автозакрытия
 

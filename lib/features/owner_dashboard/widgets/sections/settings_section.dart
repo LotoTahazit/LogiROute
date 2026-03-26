@@ -159,10 +159,12 @@ class _SettingsSectionState extends State<SettingsSection>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.of(context).size.width < 600;
     return Column(
       children: [
         TabBar(
           controller: _tabController,
+          isScrollable: isNarrow,
           tabs: [
             Tab(
                 text: l10n.settingsCompanyProfile,
@@ -191,6 +193,7 @@ class _SettingsSectionState extends State<SettingsSection>
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final canEdit = _permissions.canEditCompanyProfile();
+    final isNarrow = MediaQuery.of(context).size.width < 600;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -200,13 +203,16 @@ class _SettingsSectionState extends State<SettingsSection>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Icon(Icons.business, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(l10n.settingsCompanyProfile,
-                    style: theme.textTheme.titleLarge),
-                const Spacer(),
+                Text(
+                  l10n.settingsCompanyProfile,
+                  style: theme.textTheme.titleLarge,
+                ),
                 if (!canEdit)
                   Chip(
                     avatar: const Icon(Icons.lock_outline, size: 16),
@@ -275,26 +281,40 @@ class _SettingsSectionState extends State<SettingsSection>
                       enabled: canEdit,
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _cityCtrl,
-                            label: l10n.settingsCity,
-                            enabled: canEdit,
+                    if (isNarrow) ...[
+                      _buildTextField(
+                        controller: _cityCtrl,
+                        label: l10n.settingsCity,
+                        enabled: canEdit,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        controller: _zipCodeCtrl,
+                        label: l10n.settingsZipCode,
+                        enabled: canEdit,
+                        keyboardType: TextInputType.number,
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _cityCtrl,
+                              label: l10n.settingsCity,
+                              enabled: canEdit,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _zipCodeCtrl,
-                            label: l10n.settingsZipCode,
-                            enabled: canEdit,
-                            keyboardType: TextInputType.number,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _zipCodeCtrl,
+                              label: l10n.settingsZipCode,
+                              enabled: canEdit,
+                              keyboardType: TextInputType.number,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                     const SizedBox(height: 12),
                     _buildTextField(
                       controller: _poBoxCtrl,
@@ -953,24 +973,45 @@ class _ReadOnlyInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: theme.colorScheme.outline),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 140,
-            child: Text(label, style: theme.textTheme.bodyMedium),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.outline),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 18, color: theme.colorScheme.outline),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(icon, size: 18, color: theme.colorScheme.outline),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 140,
+                  child: Text(label, style: theme.textTheme.bodyMedium),
+                ),
+                Expanded(
+                  child: Text(
+                    value,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
       ),
     );
   }
@@ -997,40 +1038,90 @@ class _IntegrationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: theme.colorScheme.outline),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: isConfigured
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 20, color: theme.colorScheme.outline),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isConfigured
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isConfigured ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                    ),
+                    if (enabled)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        onPressed: onEdit,
+                        tooltip: AppLocalizations.of(context)!.settingsEditTooltip,
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                        padding: EdgeInsets.zero,
+                      ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.outline),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isConfigured
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.grey.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isConfigured ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                ),
+                if (enabled) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    onPressed: onEdit,
+                    tooltip: AppLocalizations.of(context)!.settingsEditTooltip,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ],
             ),
-            child: Text(
-              statusLabel,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isConfigured ? Colors.green : Colors.grey,
-              ),
-            ),
-          ),
-          if (enabled) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              onPressed: onEdit,
-              tooltip: AppLocalizations.of(context)!.settingsEditTooltip,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        ],
       ),
     );
   }

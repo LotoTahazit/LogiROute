@@ -2,25 +2,6 @@ part of '../delivery_map_widget.dart';
 
 /// Маркеры водителей: GPS-фильтры, состояния, кластеризация, анимация, ETA.
 mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
-  // 🕐 Запуск таймера проверки смены (обновление только при смене состояния)
-  void _startShiftCheckTimer() {
-    _shiftCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-
-      final now = nowIsrael();
-      final currentShift = isWorkingShift(now);
-
-      // Обновляем только если состояние смены изменилось
-      if (_lastShiftState != currentShift) {
-        _lastShiftState = currentShift;
-        setState(() {});
-        debugPrint(
-          '🕐 [Shift] Shift state changed → ${currentShift ? "ACTIVE" : "INACTIVE"}',
-        );
-      }
-    });
-  }
-
   void _startDriverLocationTracking() {
     // ⚡ Поток позиций: фильтрация по активным маршрутам — в _updateDriverMarkers / UI.
     _driverLocationsSubscription = _locationService
@@ -380,15 +361,10 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
 
           String newState;
 
-          // Две оси: факт водителя (Firestore) ∧ разрешённый слот (settings/shifts)
-          // Старые документы без поля — как в OptimizedLocationService: считаем true
+          // Только факт из Firestore (без расписания смен на карте)
           final driverClaimsOnShift =
               (driverLocation['isOnShift'] as bool?) ?? true;
-          final scheduleAllows = _shiftSchedule.allows(nowIsrael());
-          if (!effectiveOnShift(
-            driverClaimsOnShift: driverClaimsOnShift,
-            scheduleAllowsNow: scheduleAllows,
-          )) {
+          if (!driverClaimsOnShift) {
             newState = 'OFF_SHIFT';
           } else if (minutesSinceUpdate < 4) {
             // мгновенное улучшение
@@ -541,7 +517,6 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
     _markerAnimationTimer?.cancel();
     _markerBatchTimer?.cancel();
     _etaDebounce?.cancel();
-    _shiftCheckTimer?.cancel();
     _driverMarkersNotifier.dispose();
   }
 }

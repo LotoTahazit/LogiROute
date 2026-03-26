@@ -232,13 +232,16 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
   }
 
   Widget _buildCustomForm(AppLocalizations l10n) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Form(
       key: _formKey,
       child: Column(
         children: [
-          Row(
+          Flex(
+            direction: narrow ? Axis.vertical : Axis.horizontal,
             children: [
               Expanded(
+                flex: narrow ? 0 : 1,
                 child: TextFormField(
                   controller: _unitNameController,
                   decoration: InputDecoration(
@@ -253,8 +256,9 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
                   },
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: narrow ? 0 : 16, height: narrow ? 16 : 0),
               Expanded(
+                flex: narrow ? 0 : 1,
                 child: TextFormField(
                   controller: _unitNamePluralController,
                   decoration: InputDecoration(
@@ -281,9 +285,11 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
           ),
           if (_usesPallets) ...[
             const SizedBox(height: 16),
-            Row(
+            Flex(
+              direction: narrow ? Axis.vertical : Axis.horizontal,
               children: [
                 Expanded(
+                  flex: narrow ? 0 : 1,
                   child: TextFormField(
                     controller: _palletNameController,
                     decoration: InputDecoration(
@@ -298,8 +304,9 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
                     },
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: narrow ? 0 : 16, height: narrow ? 16 : 0),
                 Expanded(
+                  flex: narrow ? 0 : 1,
                   child: TextFormField(
                     controller: _palletNamePluralController,
                     decoration: InputDecoration(

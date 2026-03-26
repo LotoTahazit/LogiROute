@@ -196,6 +196,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.moduleManagementTitle),
@@ -241,14 +242,17 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                                         : '₪1,490 → ₪4,900';
                                 return ListTile(
                                   leading: Radio<String>(value: planKey),
-                                  title: Row(
+                                  title: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
                                       Icon(icon,
                                           size: 20,
                                           color: isSelected
                                               ? Colors.blue
                                               : Colors.grey),
-                                      const SizedBox(width: 8),
                                       Text(label,
                                           style: TextStyle(
                                               fontWeight: isSelected
@@ -329,11 +333,15 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                     color: Colors.blue.shade50,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Icon(Icons.info_outline, color: Colors.blue),
-                          const SizedBox(width: 12),
-                          Expanded(
+                          ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxWidth: narrow ? 260 : 520),
                             child: Text(
                               l10n.moduleToggleInfo,
                               style: TextStyle(

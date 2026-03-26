@@ -180,17 +180,16 @@ class _AccountingSectionState extends State<AccountingSection> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Icon(Icons.receipt_long_outlined,
                   size: 24, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l10n.accountingDocuments,
-                  style: theme.textTheme.titleLarge,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Text(
+                l10n.accountingDocuments,
+                style: theme.textTheme.titleLarge,
               ),
             ],
           ),
@@ -367,6 +366,7 @@ class _AccountingSectionState extends State<AccountingSection> {
         doc.createdAt != null ? dateFmt.format(doc.createdAt!) : '\u2014';
     final statusColor = docStatusColor(doc.status);
     final isClickable = doc.id != null;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
@@ -378,74 +378,77 @@ class _AccountingSectionState extends State<AccountingSection> {
             isClickable ? () => _showDocumentChainDialog(context, doc) : null,
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            docTypeLabel(context, doc.type),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            docStatusLabel(context, doc.status),
-                            style: TextStyle(color: statusColor, fontSize: 12),
-                          ),
-                        ),
-                      ],
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: narrow ? 260 : 420,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      doc.customerName,
+                    child: Text(
+                      docTypeLabel(context, doc.type),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: theme.textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          doc.docNumber != null
-                              ? '#${doc.docNumber}'
-                              : l10n.draftStatus,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                        Text(
-                          '₪${doc.totals.gross.toStringAsFixed(2)}',
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    Text(dateStr, style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              if (isClickable)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.outline,
-                    size: 24,
                   ),
-                ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      docStatusLabel(context, doc.status),
+                      style: TextStyle(color: statusColor, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                doc.customerName,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    doc.docNumber != null
+                        ? '#${doc.docNumber}'
+                        : l10n.draftStatus,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  Text(
+                    '₪${doc.totals.gross.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Expanded(child: Text(dateStr, style: theme.textTheme.bodySmall)),
+                  if (isClickable)
+                    Icon(
+                      Icons.chevron_right,
+                      color: theme.colorScheme.outline,
+                      size: 24,
+                    ),
+                ],
+              ),
             ],
           ),
         ),

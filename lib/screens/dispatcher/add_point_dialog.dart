@@ -457,19 +457,23 @@ class _AddPointDialogState extends State<AddPointDialog> {
             // 'delete' = user chose to delete duplicates and continue
             final result = await showDialog<String>(
               context: context,
-              builder: (ctx) => AlertDialog(
-                title: Row(
+              builder: (ctx) {
+                final narrow = MediaQuery.sizeOf(ctx).width < 600;
+                return AlertDialog(
+                title: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Icon(
                       hasExactMatch ? Icons.warning : Icons.info_outline,
                       color: hasExactMatch ? Colors.red : Colors.orange,
                     ),
-                    const SizedBox(width: 8),
                     Text('⚠️ ${l10n.possibleDuplicateOrder}'),
                   ],
                 ),
                 content: SizedBox(
-                  width: 400,
+                  width: narrow ? 320 : 400,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,7 +542,8 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     child: Text(l10n.continueAnyway),
                   ),
                 ],
-              ),
+              );
+              },
             );
 
             if (result == 'delete') {
@@ -684,6 +689,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -697,9 +703,13 @@ class _AddPointDialogState extends State<AddPointDialog> {
         ),
       ),
       child: AlertDialog(
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: narrow ? 16 : 40,
+          vertical: 24,
+        ),
         title: Text(l10n.addPoint),
         content: SizedBox(
-          width: 400,
+          width: narrow ? MediaQuery.sizeOf(context).width * 0.9 : 400,
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(

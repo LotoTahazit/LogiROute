@@ -366,6 +366,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     // ✅ ЭТАЛОННЫЙ ПАТТЕРН: Используем CompanyContext.watch() для автообновления
     final companyCtx = CompanyContext.watch(context);
     final effectiveCompanyId = companyCtx.effectiveCompanyId ?? '';
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     // ✅ ЭТАЛОННЫЙ ПАТТЕРН: Отслеживаем смену компании
     if (_currentCompanyId != effectiveCompanyId) {
@@ -413,15 +414,250 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                   itemCount: _invoices.length,
                   itemBuilder: (context, index) {
                     final invoice = _invoices[index];
+                    final statusChips = <Widget>[
+                      if (invoice.documentType != InvoiceDocumentType.invoice)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(left: 4),
+                          decoration: BoxDecoration(
+                            color: invoice.documentType ==
+                                    InvoiceDocumentType.creditNote
+                                ? Colors.orange.shade100
+                                : Colors.purple.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            invoice.documentType ==
+                                    InvoiceDocumentType.creditNote
+                                ? 'זיכוי'
+                                : invoice.documentType ==
+                                        InvoiceDocumentType.receipt
+                                    ? 'קבלה'
+                                    : invoice.documentType ==
+                                            InvoiceDocumentType.taxInvoiceReceipt
+                                        ? 'חשבונית מס/קבלה'
+                                        : invoice.documentType ==
+                                                InvoiceDocumentType.delivery
+                                            ? 'ת. משלוח'
+                                            : '',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      if (invoice.status == InvoiceStatus.draft)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(left: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: const Text(
+                            'טיוטה',
+                            style: TextStyle(fontSize: 11, color: Colors.red),
+                          ),
+                        ),
+                      if (invoice.status == InvoiceStatus.cancelled)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(left: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'מבוטל',
+                            style: TextStyle(fontSize: 11, color: Colors.red),
+                          ),
+                        ),
+                      if (invoice.originalPrinted)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(left: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'מקור הודפס',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      if (invoice.copiesPrinted > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'עותקים: ${invoice.copiesPrinted}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      if (invoice.requiresAssignment)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: invoice.assignmentStatus ==
+                                    AssignmentStatus.approved
+                                ? Colors.green.shade100
+                                : invoice.assignmentStatus ==
+                                        AssignmentStatus.pending
+                                    ? Colors.orange.shade100
+                                    : invoice.assignmentStatus ==
+                                            AssignmentStatus.rejected
+                                        ? Colors.red.shade100
+                                        : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            invoice.assignmentStatus ==
+                                    AssignmentStatus.approved
+                                ? 'הקצאה: ${invoice.assignmentNumber ?? ''}'
+                                : invoice.assignmentStatus ==
+                                        AssignmentStatus.pending
+                                    ? 'ממתין להקצאה'
+                                    : invoice.assignmentStatus ==
+                                            AssignmentStatus.rejected
+                                        ? 'הקצאה נדחתה'
+                                        : invoice.assignmentStatus ==
+                                                AssignmentStatus.error
+                                            ? 'שגיאת הקצאה'
+                                            : 'נדרש הקצאה',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: invoice.assignmentStatus ==
+                                      AssignmentStatus.approved
+                                  ? Colors.green.shade800
+                                  : invoice.assignmentStatus ==
+                                          AssignmentStatus.rejected
+                                      ? Colors.red
+                                      : Colors.black87,
+                            ),
+                          ),
+                        ),
+                    ];
+                    final actionButtons = <Widget>[
+                      IconButton(
+                        icon: const Icon(Icons.history, color: Colors.grey),
+                        tooltip: 'היסטוריה',
+                        onPressed: () {
+                          final auth = context.read<AuthService>();
+                          final uid = auth.currentUser?.uid ?? '';
+                          if (uid.isNotEmpty) {
+                            AccessLogService(companyId: effectiveCompanyId)
+                                .logAccess(
+                              actorUid: uid,
+                              eventType: AccessEventType.viewDocument,
+                              actorName: auth.userModel?.name,
+                              targetEntityId: invoice.id,
+                              targetEntityType: invoice.documentType.name,
+                            );
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AuditLogScreen(
+                                invoiceId: invoice.id,
+                                companyId: effectiveCompanyId,
+                                invoiceTitle:
+                                    'חשבונית #${invoice.sequentialNumber}',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.print, color: Colors.blue),
+                        tooltip: 'הדפס מחדש',
+                        onPressed: () =>
+                            _reprintInvoice(effectiveCompanyId, invoice),
+                      ),
+                      if (invoice.status == InvoiceStatus.active &&
+                          invoice.documentType !=
+                              InvoiceDocumentType.creditNote)
+                        IconButton(
+                          icon: const Icon(Icons.receipt_long,
+                              color: Colors.orange),
+                          tooltip: 'צור זיכוי',
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final result = await showDialog<String>(
+                              context: context,
+                              builder: (_) => CreditNoteDialog(
+                                originalInvoice: invoice,
+                              ),
+                            );
+                            if (result != null && mounted) {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('✅ זיכוי נוצר בהצלחה'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              _loadInvoices(effectiveCompanyId);
+                            }
+                          },
+                        ),
+                      if (invoice.status == InvoiceStatus.active &&
+                          (invoice.documentType == InvoiceDocumentType.invoice ||
+                              invoice.documentType ==
+                                  InvoiceDocumentType.taxInvoiceReceipt))
+                        IconButton(
+                          icon: const Icon(Icons.payments, color: Colors.teal),
+                          tooltip: 'צור קבלה',
+                          onPressed: () =>
+                              _createReceipt(effectiveCompanyId, invoice),
+                        ),
+                      if (invoice.canBeCancelled)
+                        IconButton(
+                          icon: const Icon(Icons.cancel, color: Colors.red),
+                          tooltip: 'בטל חשבונית',
+                          onPressed: () =>
+                              _cancelInvoice(effectiveCompanyId, invoice),
+                        ),
+                      if (invoice.requiresAssignment &&
+                          (invoice.assignmentStatus == AssignmentStatus.error ||
+                              invoice.assignmentStatus ==
+                                  AssignmentStatus.rejected))
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: Colors.orange),
+                          tooltip: 'ניסיון חוזר להקצאה',
+                          onPressed: () =>
+                              _retryAssignment(effectiveCompanyId, invoice),
+                        ),
+                    ];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
+                        isThreeLine: narrow,
                         leading: const CircleAvatar(
                           backgroundColor: Colors.green,
                           child: Icon(Icons.receipt, color: Colors.white),
                         ),
                         title: Text(
                           invoice.clientName,
+                          maxLines: narrow ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Column(
@@ -438,271 +674,30 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                                 color: Colors.green,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                // סוג מסמך
-                                if (invoice.documentType !=
-                                    InvoiceDocumentType.invoice)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    margin: const EdgeInsets.only(left: 4),
-                                    decoration: BoxDecoration(
-                                      color: invoice.documentType ==
-                                              InvoiceDocumentType.creditNote
-                                          ? Colors.orange.shade100
-                                          : Colors.purple.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      invoice.documentType ==
-                                              InvoiceDocumentType.creditNote
-                                          ? 'זיכוי'
-                                          : invoice.documentType ==
-                                                  InvoiceDocumentType.receipt
-                                              ? 'קבלה'
-                                              : invoice.documentType ==
-                                                      InvoiceDocumentType
-                                                          .taxInvoiceReceipt
-                                                  ? 'חשבונית מס/קבלה'
-                                                  : invoice.documentType ==
-                                                          InvoiceDocumentType
-                                                              .delivery
-                                                      ? 'ת. משלוח'
-                                                      : '',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                  ),
-                                // טיוטה
-                                if (invoice.status == InvoiceStatus.draft)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    margin: const EdgeInsets.only(left: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                          color: Colors.red.shade300),
-                                    ),
-                                    child: const Text(
-                                      'טיוטה',
-                                      style: TextStyle(
-                                          fontSize: 11, color: Colors.red),
-                                    ),
-                                  ),
-                                // מבוטל
-                                if (invoice.status == InvoiceStatus.cancelled)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    margin: const EdgeInsets.only(left: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'מבוטל',
-                                      style: TextStyle(
-                                          fontSize: 11, color: Colors.red),
-                                    ),
-                                  ),
-                                if (invoice.originalPrinted)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    margin: const EdgeInsets.only(left: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'מקור הודפס',
-                                      style: TextStyle(fontSize: 11),
-                                    ),
-                                  ),
-                                if (invoice.copiesPrinted > 0) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'עותקים: ${invoice.copiesPrinted}',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                  ),
-                                ],
-                                // סטטוס מספר הקצאה
-                                if (invoice.requiresAssignment) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: invoice.assignmentStatus ==
-                                              AssignmentStatus.approved
-                                          ? Colors.green.shade100
-                                          : invoice.assignmentStatus ==
-                                                  AssignmentStatus.pending
-                                              ? Colors.orange.shade100
-                                              : invoice.assignmentStatus ==
-                                                      AssignmentStatus.rejected
-                                                  ? Colors.red.shade100
-                                                  : Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      invoice.assignmentStatus ==
-                                              AssignmentStatus.approved
-                                          ? 'הקצאה: ${invoice.assignmentNumber ?? ''}'
-                                          : invoice.assignmentStatus ==
-                                                  AssignmentStatus.pending
-                                              ? 'ממתין להקצאה'
-                                              : invoice.assignmentStatus ==
-                                                      AssignmentStatus.rejected
-                                                  ? 'הקצאה נדחתה'
-                                                  : invoice.assignmentStatus ==
-                                                          AssignmentStatus.error
-                                                      ? 'שגיאת הקצאה'
-                                                      : 'נדרש הקצאה',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: invoice.assignmentStatus ==
-                                                AssignmentStatus.approved
-                                            ? Colors.green.shade800
-                                            : invoice.assignmentStatus ==
-                                                    AssignmentStatus.rejected
-                                                ? Colors.red
-                                                : Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                            if (statusChips.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: statusChips,
+                              ),
+                            ],
+                            if (narrow) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: actionButtons,
+                              ),
+                            ],
                           ],
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.history, color: Colors.grey),
-                              tooltip: 'היסטוריה',
-                              onPressed: () {
-                                // רישום צפייה ביומן גישה
-                                final auth = context.read<AuthService>();
-                                final uid = auth.currentUser?.uid ?? '';
-                                if (uid.isNotEmpty) {
-                                  AccessLogService(
-                                          companyId: effectiveCompanyId)
-                                      .logAccess(
-                                    actorUid: uid,
-                                    eventType: AccessEventType.viewDocument,
-                                    actorName: auth.userModel?.name,
-                                    targetEntityId: invoice.id,
-                                    targetEntityType: invoice.documentType.name,
-                                  );
-                                }
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AuditLogScreen(
-                                      invoiceId: invoice.id,
-                                      companyId: effectiveCompanyId,
-                                      invoiceTitle:
-                                          'חשבונית #${invoice.sequentialNumber}',
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.print, color: Colors.blue),
-                              tooltip: 'הדפס מחדש',
-                              onPressed: () =>
-                                  _reprintInvoice(effectiveCompanyId, invoice),
-                            ),
-                            if (invoice.status == InvoiceStatus.active &&
-                                invoice.documentType !=
-                                    InvoiceDocumentType.creditNote)
-                              IconButton(
-                                icon: const Icon(Icons.receipt_long,
-                                    color: Colors.orange),
-                                tooltip: 'צור זיכוי',
-                                onPressed: () async {
-                                  final messenger =
-                                      ScaffoldMessenger.of(context);
-                                  final result = await showDialog<String>(
-                                    context: context,
-                                    builder: (_) => CreditNoteDialog(
-                                      originalInvoice: invoice,
-                                    ),
-                                  );
-                                  if (result != null && mounted) {
-                                    messenger.showSnackBar(
-                                      const SnackBar(
-                                        content: Text('✅ זיכוי נוצר בהצלחה'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                    _loadInvoices(effectiveCompanyId);
-                                  }
-                                },
+                        trailing: narrow
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: actionButtons,
                               ),
-                            // כפתור קבלה — רק לחשבוניות מס פעילות (לא לזיכוי/קבלה/ת.משלוח)
-                            if (invoice.status == InvoiceStatus.active &&
-                                (invoice.documentType ==
-                                        InvoiceDocumentType.invoice ||
-                                    invoice.documentType ==
-                                        InvoiceDocumentType.taxInvoiceReceipt))
-                              IconButton(
-                                icon: const Icon(Icons.payments,
-                                    color: Colors.teal),
-                                tooltip: 'צור קבלה',
-                                onPressed: () =>
-                                    _createReceipt(effectiveCompanyId, invoice),
-                              ),
-                            if (invoice.canBeCancelled)
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.cancel, color: Colors.red),
-                                tooltip: 'בטל חשבונית',
-                                onPressed: () =>
-                                    _cancelInvoice(effectiveCompanyId, invoice),
-                              ),
-                            // כפתור ניסיון חוזר למספר הקצאה
-                            if (invoice.requiresAssignment &&
-                                (invoice.assignmentStatus ==
-                                        AssignmentStatus.error ||
-                                    invoice.assignmentStatus ==
-                                        AssignmentStatus.rejected))
-                              IconButton(
-                                icon: const Icon(Icons.refresh,
-                                    color: Colors.orange),
-                                tooltip: 'ניסיון חוזר להקצאה',
-                                onPressed: () => _retryAssignment(
-                                    effectiveCompanyId, invoice),
-                              ),
-                          ],
-                        ),
                       ),
                     );
                   },

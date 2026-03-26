@@ -263,6 +263,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   ) {
     final authService = context.read<AuthService>();
     final isSuperAdmin = authService.userModel?.isSuperAdmin ?? false;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -276,6 +277,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         ),
         title: Text(
           product.name,
+          maxLines: narrow ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             decoration: product.isActive ? null : TextDecoration.lineThrough,
@@ -292,6 +295,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   '${l10n.category}: ${_getCategoryName(product.category, l10n)}'),
           ],
         ),
+        isThreeLine: narrow,
         trailing: PopupMenuButton<String>(
           onSelected: (value) async {
             if (value == 'edit') {

@@ -20,6 +20,7 @@ class _NestedMigrationScreenState extends State<NestedMigrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Миграция в Nested Collections'),
@@ -133,10 +134,11 @@ class _NestedMigrationScreenState extends State<NestedMigrationScreen> {
             const SizedBox(height: 16),
 
             // Кнопки
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
+            if (narrow)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton.icon(
                     onPressed: _isMigrating ? null : _startMigration,
                     icon: _isMigrating
                         ? const SizedBox(
@@ -155,10 +157,8 @@ class _NestedMigrationScreenState extends State<NestedMigrationScreen> {
                       padding: const EdgeInsets.all(16),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
                     onPressed: _isMigrating ? null : _checkStatus,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Проверить статус'),
@@ -166,9 +166,45 @@ class _NestedMigrationScreenState extends State<NestedMigrationScreen> {
                       padding: const EdgeInsets.all(16),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isMigrating ? null : _startMigration,
+                      icon: _isMigrating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.play_arrow),
+                      label: Text(
+                          _isMigrating ? 'Миграция...' : 'Начать миграцию'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isMigrating ? null : _checkStatus,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Проверить статус'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -207,11 +243,16 @@ class _NestedMigrationScreenState extends State<NestedMigrationScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(label),
+          ),
           Text(
             statusText,
             style: TextStyle(

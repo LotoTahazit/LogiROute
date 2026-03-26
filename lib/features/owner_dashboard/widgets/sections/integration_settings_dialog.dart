@@ -266,7 +266,35 @@ class _IntegrationSettingsDialogState extends State<IntegrationSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final actionButtons = <Widget>[
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text(l10n.cancel),
+      ),
+      if (widget.integrationKey == 'email' ||
+          widget.integrationKey == 'whatsapp')
+        OutlinedButton.icon(
+          onPressed: _saving ? null : _testIntegration,
+          icon: const Icon(Icons.send, size: 16),
+          label: Text(l10n.integrationTestConnection),
+        ),
+      FilledButton(
+        onPressed: _saving ? null : _save,
+        child: _saving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(l10n.save),
+      ),
+    ];
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: narrow ? 16 : 40,
+        vertical: 24,
+      ),
       title: Text(l10n.integrationDialogTitle(widget.integrationLabel)),
       content: _loading
           ? const SizedBox(
@@ -275,7 +303,7 @@ class _IntegrationSettingsDialogState extends State<IntegrationSettingsDialog> {
               child: Center(child: CircularProgressIndicator()),
             )
           : SizedBox(
-              width: 400,
+              width: narrow ? MediaQuery.sizeOf(context).width * 0.85 : 400,
               child: Form(
                 key: _formKey,
                 child: SingleChildScrollView(
@@ -294,34 +322,25 @@ class _IntegrationSettingsDialogState extends State<IntegrationSettingsDialog> {
                 ),
               ),
             ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancel),
-        ),
-        if (widget.integrationKey == 'email' ||
-            widget.integrationKey == 'whatsapp')
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _testIntegration,
-            icon: const Icon(Icons.send, size: 16),
-            label: Text(l10n.integrationTestConnection),
-          ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(l10n.save),
-        ),
-      ],
+      actions: narrow
+          ? [
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: actionButtons,
+                ),
+              ),
+            ]
+          : actionButtons,
     );
   }
 
   List<Widget> _buildFields(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     switch (widget.integrationKey) {
       case 'print':
         return [
@@ -373,25 +392,56 @@ class _IntegrationSettingsDialogState extends State<IntegrationSettingsDialog> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SelectableText(
-                        _apiKeyValue!,
-                        style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 12),
+                child: narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SelectableText(
+                            _apiKeyValue!,
+                            style: const TextStyle(
+                                fontFamily: 'monospace', fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.copy, size: 18),
+                              onPressed: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: _apiKeyValue!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text(l10n.integrationApiKeyCopied)),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              _apiKeyValue!,
+                              style: const TextStyle(
+                                  fontFamily: 'monospace', fontSize: 12),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 18),
+                            onPressed: () {
+                              Clipboard.setData(
+                                  ClipboardData(text: _apiKeyValue!));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text(l10n.integrationApiKeyCopied)),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy, size: 18),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _apiKeyValue!));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.integrationApiKeyCopied)),
-                        );
-                      },
-                    ),
-                  ],
                 ),
               ),
             ),

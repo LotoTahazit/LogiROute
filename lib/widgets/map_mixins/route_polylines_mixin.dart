@@ -95,6 +95,37 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
     );
   }
 
+  /// Исполнение: подключение водителя к плану (не меняет основной маршрут).
+  Set<Polyline> _buildDriverToRoutePolyline(
+    String driverId,
+    List<DeliveryPoint> activePoints,
+  ) {
+    final r = <Polyline>{};
+    if (!_executionUsesDriverOrigin) return r;
+    final driverPos = _driverCurrentPositions[driverId];
+    if (driverPos == null || activePoints.isEmpty) return r;
+    final firstPoint = activePoints.first;
+    const epsilon = 0.00005; // ~5 м (шум GPS)
+    if ((driverPos.latitude - firstPoint.latitude).abs() < epsilon &&
+        (driverPos.longitude - firstPoint.longitude).abs() < epsilon) {
+      return r;
+    }
+    r.add(
+      Polyline(
+        polylineId: PolylineId('driver_to_route_$driverId'),
+        points: [
+          driverPos,
+          LatLng(firstPoint.latitude, firstPoint.longitude),
+        ],
+        width: 4,
+        patterns: [PatternItem.dot, PatternItem.gap(10)],
+        color: Colors.blue,
+        zIndex: 2,
+      ),
+    );
+    return r;
+  }
+
   Set<Marker> _buildPointMarkers() {
     debugPrint(
       '🗺️ [Map] Updating markers with ${widget.points.length} points',
@@ -166,7 +197,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           ),
           alpha: (point.status == DeliveryPoint.statusCompleted ||
                   point.status == DeliveryPoint.statusCancelled)
-              ? 0.5
+              ? 0.32
               : 1.0, // Полупрозрачные для завершенных
         ),
       );
@@ -280,6 +311,78 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         final warehouseLat = widget.warehouseLat;
         final warehouseLng = widget.warehouseLng;
+        final driverColor = _getDriverColor(driverKey, driverIndex);
+        const passedRouteColor = Color(0xFF4A4A4A);
+
+        String? persistedPolyline;
+        for (final point in points) {
+          final encoded = point.routePolyline;
+          if (encoded != null && encoded.isNotEmpty) {
+            persistedPolyline = encoded;
+            break;
+          }
+        }
+        final routeId = points.first.routeId;
+        final cachedPolyline = routeId != null
+            ? (widget.routePolylines[routeId] ?? persistedPolyline)
+            : persistedPolyline;
+
+        if (cachedPolyline != null && cachedPolyline.isNotEmpty) {
+          final cacheKey = routeId ?? driverKey;
+          var decoded = _decodedPolylineCache[cacheKey];
+          if (decoded == null) {
+            decoded = PolylineDecoder.decode(cachedPolyline, precision: 5);
+            if (PolylineDecoder.isValid(decoded)) {
+              if (decoded.length > 500) {
+                final simplified = <LatLng>[];
+                for (var i = 0; i < decoded.length; i += 3) {
+                  simplified.add(decoded[i]);
+                }
+                simplified.add(decoded.last);
+                decoded = simplified;
+              }
+              _decodedPolylineCache[cacheKey] = decoded;
+            }
+          }
+          if (decoded.isNotEmpty && PolylineDecoder.isValid(decoded)) {
+            result.add(
+              Polyline(
+                polylineId: PolylineId('route_${driverKey}_active'),
+                points: decoded,
+                width: 8,
+                color: driverColor,
+                zIndex: 1,
+              ),
+            );
+            if (completedPoints.isNotEmpty) {
+              final completedHead = _polylineHeadToAnchor(
+                decoded,
+                LatLng(
+                  completedPoints.last.latitude,
+                  completedPoints.last.longitude,
+                ),
+              );
+              if (completedHead != null && completedHead.length > 1) {
+                result.add(
+                  Polyline(
+                    polylineId: PolylineId('route_${driverKey}_completed'),
+                    points: completedHead,
+                    width: 8,
+                    color: passedRouteColor,
+                    zIndex: 10,
+                  ),
+                );
+              }
+            }
+            if (activePoints.isNotEmpty) {
+              result.addAll(
+                _buildDriverToRoutePolyline(driverKey, activePoints),
+              );
+            }
+            driverIndex++;
+            continue;
+          }
+        }
 
         // Возврат на склад — по дорогам (все активные уже закрыты)
         if (activePoints.isEmpty && completedPoints.isNotEmpty) {
@@ -323,82 +426,18 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         // Строим цветной маршрут для активных точек
         if (activePoints.isNotEmpty) {
-          // Начальная точка - последняя завершенная или склад
-          final startLat = completedPoints.isNotEmpty
+          // План (полилиния маршрута): склад → стопы → склад; после стопов — от последней выполненной.
+          // GPS водителя — отдельный коннектор к первой активной точке.
+          final double startLat = completedPoints.isNotEmpty
               ? completedPoints.last.latitude
               : warehouseLat;
-          final startLng = completedPoints.isNotEmpty
+          final double startLng = completedPoints.isNotEmpty
               ? completedPoints.last.longitude
               : warehouseLng;
 
           debugPrint(
-            '🏭 [Map] Building active route for driver $driverKey from ($startLat, $startLng)',
+            '🏭 [Map] Planned route segment for $driverKey from ($startLat, $startLng)',
           );
-
-          final driverColor = _getDriverColor(driverKey, driverIndex);
-
-          // Кэш OSRM: полный маршрут; при completed — хвост от последней точки (без live OSRM на web).
-          final firstPoint =
-              activePoints.isNotEmpty ? activePoints.first : null;
-          final routeId = firstPoint?.routeId;
-          final cachedPolyline = routeId != null
-              ? widget.routePolylines[routeId]
-              : firstPoint?.routePolyline; // fallback для старых данных
-          if (cachedPolyline != null && cachedPolyline.isNotEmpty) {
-            final cacheKey = routeId ?? driverKey;
-            var decoded = _decodedPolylineCache[cacheKey];
-            if (decoded == null) {
-              decoded = PolylineDecoder.decode(cachedPolyline, precision: 5);
-              if (PolylineDecoder.isValid(decoded)) {
-                if (decoded.length > 500) {
-                  final simplified = <LatLng>[];
-                  for (var i = 0; i < decoded.length; i += 3) {
-                    simplified.add(decoded[i]);
-                  }
-                  simplified.add(decoded.last);
-                  decoded = simplified;
-                }
-                _decodedPolylineCache[cacheKey] = decoded;
-              }
-            }
-            if (decoded.isNotEmpty && PolylineDecoder.isValid(decoded)) {
-              List<LatLng>? toDraw;
-              if (completedPoints.isEmpty) {
-                toDraw = decoded;
-                debugPrint(
-                  '✅ [Map] Cached polyline full driver $driverKey (${cachedPolyline.length} chars)',
-                );
-              } else {
-                final last = completedPoints.last;
-                toDraw = _polylineTailFromAnchor(
-                  decoded,
-                  LatLng(last.latitude, last.longitude),
-                );
-                if (toDraw != null) {
-                  debugPrint(
-                    '✅ [Map] Cached polyline tail (${completedPoints.length} completed) driver $driverKey',
-                  );
-                } else {
-                  debugPrint(
-                    '⚠️ [Map] Cached tail failed — try OSRM driver $driverKey',
-                  );
-                }
-              }
-              if (toDraw != null) {
-                result.add(
-                  Polyline(
-                    polylineId: PolylineId('route_${driverKey}_active'),
-                    points: toDraw,
-                    width: 8,
-                    color: driverColor,
-                    zIndex: 1,
-                  ),
-                );
-                driverIndex++;
-                continue;
-              }
-            }
-          }
 
           // ⚠️ Нет cached polyline — OSRM fallback (только для старых маршрутов)
 
@@ -494,6 +533,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
               zIndex: 1,
             ),
           );
+          result.addAll(_buildDriverToRoutePolyline(driverKey, activePoints));
         }
 
         driverIndex++;
@@ -758,17 +798,15 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       // Цвет маршрута водителя
       final driverColor = _getRouteLoadColor(driverId);
 
-      // 🛣️ Пройденный маршрут (серый пунктир)
+      // 🛣️ Пройденный маршрут: тёмно-серый, той же толщины, что и основной.
       if (passedRoute.length > 1) {
         progressPolylines.add(
           Polyline(
             polylineId: PolylineId('passed_$driverId'),
             points: passedRoute,
-            color: Colors.grey
-                .withValues(alpha: (Colors.grey.a * 0.7).clamp(0.0, 1.0)),
-            width: 6,
-            zIndex: 2,
-            patterns: [PatternItem.dash(10)], // Пунктирная линия
+            color: const Color(0xFF4A4A4A),
+            width: 8,
+            zIndex: 12,
           ),
         );
       }
@@ -779,10 +817,9 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           Polyline(
             polylineId: PolylineId('remaining_$driverId'),
             points: remainingRoute,
-            color: driverColor.withValues(
-                alpha: (driverColor.a * 0.8).clamp(0.0, 1.0)),
-            width: 6,
-            zIndex: 11, // над полным polyline (zIndex 1)
+            color: driverColor,
+            width: 8,
+            zIndex: 13, // над полным polyline (zIndex 1)
           ),
         );
       }
