@@ -193,6 +193,20 @@ class BackgroundLocationService {
 
     /// Чтобы при стоянке в той же ячейке всё же обновлять `timestamp` в Firestore.
     DateTime? lastFirestoreWrite;
+    bool? lastReportedOnShift;
+
+    Future<void> syncOnShiftFlag(bool isOnShift) async {
+      if (driverId == null || companyId == null) return;
+      if (lastReportedOnShift == isOnShift) return;
+      await FirestorePaths.driverLocationsOf(companyId!).doc(driverId).set({
+        'driverId': driverId,
+        'driverName': driverName,
+        'role': 'driver',
+        'isOnShift': isOnShift,
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      lastReportedOnShift = isOnShift;
+    }
 
     final driverDataSub = service.on('setDriverData').listen((event) {
       driverId = event?['driverId'] as String?;
@@ -243,6 +257,11 @@ class BackgroundLocationService {
       if (!isWorkTime) {
         // ВАЖНО: не убиваем сервис после смены, иначе утром некому будет
         // автоматически возобновить GPS и автозакрытие точек.
+        try {
+          await syncOnShiftFlag(false);
+        } catch (e) {
+          debugPrint('⚠️ [BGService] Failed to mark off-shift: $e');
+        }
         debugPrint('⏸️ [BGService] Outside work hours, idle');
         if (service is AndroidServiceInstance) {
           final isDayOff = !shiftConfig.workingDays.contains(now.weekday);
@@ -297,6 +316,8 @@ class BackgroundLocationService {
             now.difference(lastFirestoreWrite!).inSeconds >= 60;
         final shouldWriteMainDoc = hasMovedBucket || needHeartbeat;
 
+        await syncOnShiftFlag(true);
+
         if (shouldWriteMainDoc) {
           await FirestorePaths.driverLocationsOf(companyId!).doc(driverId).set({
             'driverId': driverId,
@@ -308,7 +329,6 @@ class BackgroundLocationService {
             'speed': position.speed,
             'role': 'driver',
             'geoBucket': geoBucket,
-            'isOnShift': true,
           }, SetOptions(merge: true));
           lastGeoBucket = geoBucket;
           lastFirestoreWrite = now;

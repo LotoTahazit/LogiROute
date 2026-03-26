@@ -13,6 +13,7 @@ import '../../services/issuance_service.dart';
 import '../../services/box_type_service.dart';
 import '../../services/inventory_service.dart';
 import '../../services/company_cache.dart';
+import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
@@ -49,9 +50,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   DateTime? _accountingLockedUntil; // период закрытия бухгалтерии
   String? _periodLockError; // ошибка если дата в закрытом периоде
 
+  bool get _taxInvoiceReceiptBlocked =>
+      !AppConfig.enableTaxInvoiceReceipt &&
+      (widget.documentType == InvoiceDocumentType.taxInvoiceReceipt ||
+          _effectiveDocumentType == InvoiceDocumentType.taxInvoiceReceipt);
+
   /// Эффективный тип документа: если оплата получена — taxInvoiceReceipt
   InvoiceDocumentType get _effectiveDocumentType {
-    if (_paymentReceived &&
+    if (AppConfig.enableTaxInvoiceReceipt &&
+        _paymentReceived &&
         widget.documentType == InvoiceDocumentType.invoice) {
       return InvoiceDocumentType.taxInvoiceReceipt;
     }
@@ -236,8 +243,17 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   Future<void> _createInvoice() async {
     if (_isCreating) return;
-    setState(() => _isCreating = true);
     final l10n = AppLocalizations.of(context)!;
+    if (_taxInvoiceReceiptBlocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hashbonit is under construction'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    setState(() => _isCreating = true);
     try {
       // ✅ Берём данные из authService (виртуальный companyId для super_admin)
       final authService = context.read<AuthService>();
@@ -420,7 +436,10 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
-          onPressed: _items.isEmpty || _isCreating || _periodLockError != null
+          onPressed: _items.isEmpty ||
+                  _isCreating ||
+                  _periodLockError != null ||
+                  _taxInvoiceReceiptBlocked
               ? null
               : _createInvoice,
           icon: _isCreating
@@ -755,6 +774,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   Widget _buildPaymentReceivedSection() {
     final l10n = AppLocalizations.of(context)!;
+    final taxInvoiceReceiptEnabled = AppConfig.enableTaxInvoiceReceipt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,14 +803,22 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           contentPadding: EdgeInsets.zero,
           title: Text(
             l10n.paymentReceivedCheckbox,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: taxInvoiceReceiptEnabled ? null : Colors.grey,
+            ),
           ),
           subtitle: Text(
-            l10n.paymentReceivedHint,
+            taxInvoiceReceiptEnabled
+                ? l10n.paymentReceivedHint
+                : '${l10n.paymentReceivedHint}\nUnder construction',
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
-          value: _paymentReceived,
-          onChanged: (val) => setState(() => _paymentReceived = val ?? false),
+          value: taxInvoiceReceiptEnabled ? _paymentReceived : false,
+          onChanged: taxInvoiceReceiptEnabled
+              ? (val) => setState(() => _paymentReceived = val ?? false)
+              : null,
+          controlAffinity: ListTileControlAffinity.leading,
         ),
       ],
     );

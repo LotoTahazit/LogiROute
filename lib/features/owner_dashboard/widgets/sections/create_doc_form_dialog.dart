@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../../config/app_config.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/client_model.dart';
 import '../../../../screens/shared/dialogs/create_client_dialog.dart';
@@ -48,7 +49,8 @@ class CreateDocTypeDialog extends StatelessWidget {
             _TypeOption(
               icon: Icons.description,
               label: l10n.taxInvoiceReceipt,
-              subtitle: 'Tax Invoice Receipt',
+              subtitle: 'Tax Invoice Receipt • Under construction',
+              enabled: AppConfig.enableTaxInvoiceReceipt,
               onTap: () => onTypeSelected(AccountingDocType.taxInvoiceReceipt),
             ),
           ],
@@ -69,22 +71,38 @@ class _TypeOption extends StatelessWidget {
   final String label;
   final String subtitle;
   final VoidCallback onTap;
+  final bool enabled;
 
   const _TypeOption({
     required this.icon,
     required this.label,
     required this.subtitle,
     required this.onTap,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      subtitle: Text(subtitle),
-      onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    final disabledColor = Theme.of(context).disabledColor;
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: ListTile(
+        leading: Icon(icon, color: enabled ? null : disabledColor),
+        title: Text(
+          label,
+          style: enabled ? null : TextStyle(color: disabledColor),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: enabled ? null : TextStyle(color: disabledColor),
+        ),
+        trailing: enabled
+            ? null
+            : const Icon(Icons.construction_outlined, size: 18),
+        onTap: enabled ? onTap : null,
+        enabled: enabled,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 }
@@ -121,6 +139,10 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   List<ClientModel> _clientSearchResults = [];
   ClientModel? _selectedClient;
+
+  bool get _taxInvoiceReceiptBlocked =>
+      widget.docType == AccountingDocType.taxInvoiceReceipt &&
+      !AppConfig.enableTaxInvoiceReceipt;
 
   Future<void> _searchClients(String query) async {
     if (query.length < 2) {
@@ -190,6 +212,15 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_taxInvoiceReceiptBlocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hashbonit is under construction'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -254,6 +285,26 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_taxInvoiceReceiptBlocked) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.construction_outlined, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text('Hashbonit is under construction'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -315,7 +366,8 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                       child: Text(l10n.cancel),
                     ),
                     FilledButton(
-                      onPressed: _saving ? null : _save,
+                      onPressed:
+                          (_saving || _taxInvoiceReceiptBlocked) ? null : _save,
                       child: _saving
                           ? const SizedBox(
                               width: 20,

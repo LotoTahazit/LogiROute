@@ -49,4 +49,8 @@ class AppConfig {
     'GPS_WS_URL',
     defaultValue: '', // Empty = disabled. Must be set via --dart-define
   );
+
+  // 🧾 Tax invoice/receipt UI gate.
+  // Keep the document type in the domain model so Mas Hachnasa API can be added later.
+  static const bool enableTaxInvoiceReceipt = false;
 }
