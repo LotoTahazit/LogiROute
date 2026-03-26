@@ -391,7 +391,11 @@ service cloud.firestore {
           || (signedIn() && userDoc().companyId == companyId && hasAnyRole(['dispatcher']));
         allow create: if canWriteModule(companyId, 'warehouse')
           || (signedIn() && userDoc().companyId == companyId && hasAnyRole(['dispatcher']));
-        allow update, delete: if false;
+        allow update: if canWriteModule(companyId, 'warehouse')
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['archived', 'archivedAt', 'archiveFile'])
+          && request.resource.data.archived == true;
+        allow delete: if false;
       }
 
       // =========================================================

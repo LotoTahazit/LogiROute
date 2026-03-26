@@ -75,6 +75,10 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
   /// Пересоздаёт маркеры водителей из текущих (анимированных) позиций
   void _rebuildDriverMarkers() {
     if (!mounted) return;
+    if (widget.clearMapMode) {
+      _driverMarkersNotifier.value = {};
+      return;
+    }
 
     final isZoomedOut = _currentZoom < 11; // 🎯 Zoom-aware режим готов
 
@@ -229,6 +233,12 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
     List<Map<String, dynamic>> driverLocations,
   ) async {
     if (!mounted) return;
+    if (widget.clearMapMode) {
+      _driverCurrentPositions.clear();
+      _driverTargetPositions.clear();
+      _driverMarkersNotifier.value = {};
+      return;
+    }
 
     if (kDebugMode) debugPrint('📡 DRIVERS INPUT: ${driverLocations.length}');
 
@@ -440,6 +450,11 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
     if (kDebugMode) {
       debugPrint(
           '📍 AFTER FILTER: ${_driverCurrentPositions.length} drivers on map');
+    }
+
+    if (!_canApplyLiveMarkerRefresh) {
+      _markGpsRefreshPending();
+      return;
     }
 
     // 🔄 Пересобираем маркеры после всех обновлений

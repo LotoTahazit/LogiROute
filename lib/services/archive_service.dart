@@ -22,8 +22,8 @@ class ArchiveService {
       print('📅 [Archive] Cutoff date: ${cutoffDate.toIso8601String()}');
 
       // Получаем старые записи
-      final snapshot = await _firestore
-          .collection('inventory_history')
+      final snapshot = await FirestorePaths()
+          .inventoryHistory(companyId)
           .where('timestamp', isLessThan: Timestamp.fromDate(cutoffDate))
           .orderBy('timestamp')
           .limit(1000) // Порциями по 1000
@@ -285,7 +285,9 @@ class ArchiveService {
           record.remove('archivedAt');
           record.remove('archiveFile');
 
-          final docRef = _firestore.collection(collection).doc(id);
+          final docRef = isInventoryHistory
+              ? FirestorePaths().inventoryHistory(companyId).doc(id)
+              : FirestorePaths.deliveryPointsOf(companyId).doc(id);
           batch.set(docRef, record);
           restored++;
         }

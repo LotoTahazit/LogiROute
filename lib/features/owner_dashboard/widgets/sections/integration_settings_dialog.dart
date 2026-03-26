@@ -444,7 +444,6 @@ class _IntegrationSettingsDialogState extends State<IntegrationSettingsDialog> {
                       ),
                 ),
               ),
-            ),
             const SizedBox(height: 12),
           ],
           FilledButton.icon(

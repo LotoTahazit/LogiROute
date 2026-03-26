@@ -1012,7 +1012,6 @@ class _ReadOnlyInfoRow extends StatelessWidget {
                 ),
               ],
             ),
-      ),
     );
   }
 }
@@ -1122,7 +1121,6 @@ class _IntegrationRow extends StatelessWidget {
                 ],
               ],
             ),
-      ),
     );
   }
 }

@@ -609,7 +609,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                 ),
               ],
             ),
-      ),
     );
   }
 

@@ -107,6 +107,7 @@ class DeliveryMapWidget extends StatefulWidget {
   final List<DeliveryPoint> points;
   final String companyId;
   final bool showDriverTracks;
+  final bool clearMapMode;
   final Map<String, String> routePolylines; // routeId → encoded polyline
   final double warehouseLat;
   final double warehouseLng;
@@ -124,6 +125,7 @@ class DeliveryMapWidget extends StatefulWidget {
     required this.companyId,
     this.demoMode = false,
     this.showDriverTracks = false,
+    this.clearMapMode = false,
     this.routePolylines = const {},
     required this.warehouseLat,
     required this.warehouseLng,
@@ -150,6 +152,9 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   final Map<String, double> _driverAlphas =
       {}; // Плавные переходы alpha для маркеров
   double _currentZoom = 14.0; // 🎯 Zoom-aware режим
+  bool _isAppResumed = true;
+  bool _pendingGpsRefreshAfterResume = false;
+  bool _pendingZoomRefreshAfterResume = false;
   late final OptimizedLocationService _locationService;
   final SmartNavigationService _smartNavigationService =
       SmartNavigationService();
@@ -401,17 +406,72 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     }
   }
 
+  bool get _canApplyLiveMarkerRefresh => _isAppResumed;
+
+  void _markGpsRefreshPending() {
+    if (_isAppResumed) return;
+    _pendingGpsRefreshAfterResume = true;
+  }
+
+  void _handleCameraMove(CameraPosition position) {
+    final previousZoomedOut = _currentZoom < 11;
+    _currentZoom = position.zoom;
+    final currentZoomedOut = _currentZoom < 11;
+    if (previousZoomedOut != currentZoomedOut) {
+      if (_isAppResumed) {
+        _markersDirty = true;
+      } else {
+        _pendingZoomRefreshAfterResume = true;
+      }
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _updateDriverMarkers(_driverLocations.values.toList());
-      setState(() {});
+      _isAppResumed = true;
+      final shouldRefresh =
+          _pendingGpsRefreshAfterResume || _pendingZoomRefreshAfterResume;
+      _pendingGpsRefreshAfterResume = false;
+      _pendingZoomRefreshAfterResume = false;
+      if (shouldRefresh) {
+        _rebuildDriverMarkers();
+        _updateDriverProgressPolylines();
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isAppResumed = false;
     }
   }
 
   @override
   void didUpdateWidget(DeliveryMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.clearMapMode != widget.clearMapMode && widget.clearMapMode) {
+      _debounceTimer?.cancel();
+      _decodedPolylineCache.clear();
+      _driverRoadPolylinePoints.clear();
+      _lastRouteSignature = null;
+      _polylines = {};
+      _driverProgressPolylines = {};
+      _trackPolylines = {};
+      _driverCurrentPositions.clear();
+      _driverTargetPositions.clear();
+      _driverMarkersNotifier.value = {};
+      _deliveryMarkers = {
+        Marker(
+          markerId: const MarkerId('warehouse'),
+          position: LatLng(widget.warehouseLat, widget.warehouseLng),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          zIndexInt: 999,
+        ),
+      };
+      setState(() {});
+      return;
+    }
 
     if (oldWidget.demoMode != widget.demoMode) {
       if (widget.demoMode) {
@@ -441,6 +501,10 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
       _debounceTimer = Timer(const Duration(milliseconds: 800), () {
         if (mounted) _updateMapData();
       });
+      if (widget.showDriverTracks && !widget.clearMapMode) {
+        _trackPolylines = {};
+        _loadDriverTracks();
+      }
     }
 
     // Треки включили/выключили
@@ -450,6 +514,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         _trackPolylines = {};
         _loadDriverTracks();
       } else {
+        _trackPolylines = {};
         setState(() {}); // перерисовка polylines
       }
     }
@@ -552,18 +617,23 @@ class _DeliveryMapWidgetState extends _DeliveryMapWidgetStateBase
           scrollGesturesEnabled: true,
           zoomGesturesEnabled: true,
           tiltGesturesEnabled: false,
+          onCameraMove: _handleCameraMove,
           onMapCreated: (controller) {
             _controller = controller;
-            _updateMapData();
-            if (widget.showDriverTracks) {
+            if (!widget.clearMapMode) {
+              _updateMapData();
+            }
+            if (widget.showDriverTracks && !widget.clearMapMode) {
               _loadDriverTracks();
             }
           },
-          markers: {..._deliveryMarkers, ..._driverMarkersNotifier.value},
+          markers: widget.clearMapMode
+              ? _deliveryMarkers
+              : {..._deliveryMarkers, ..._driverMarkersNotifier.value},
           polylines: {
-            ..._polylines,
-            ..._driverProgressPolylines,
-            ..._trackPolylines
+            if (!widget.clearMapMode) ..._polylines,
+            if (!widget.clearMapMode) ..._driverProgressPolylines,
+            if (!widget.clearMapMode) ..._trackPolylines
           },
           circles: _driverZoneCircles,
           initialCameraPosition: CameraPosition(

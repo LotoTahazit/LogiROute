@@ -1528,16 +1528,22 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               _lastMapPoints,
                             );
                             _lastMapPoints = points;
-                            final carryRouteIds = incomingPoints
-                                .where(
-                                  (p) =>
-                                      p.routeId != null &&
-                                      p.routeId!.isNotEmpty &&
-                                      DeliveryPoint.activeRouteStatuses
-                                          .contains(p.status),
-                                )
-                                .map((p) => p.routeId!)
-                                .toSet();
+                            final carryRouteIds = {
+                              ...points
+                                  .where(
+                                    (p) =>
+                                        p.routeId != null &&
+                                        p.routeId!.isNotEmpty,
+                                  )
+                                  .map((p) => p.routeId!),
+                              ..._lastNonEmptyRoutes
+                                  .where(
+                                    (p) =>
+                                        p.routeId != null &&
+                                        p.routeId!.isNotEmpty,
+                                  )
+                                  .map((p) => p.routeId!),
+                            };
                             return FutureBuilder<List<Map<String, dynamic>>>(
                               future:
                                   RouteService(companyId: effectiveCompanyId)

@@ -311,8 +311,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         final warehouseLat = widget.warehouseLat;
         final warehouseLng = widget.warehouseLng;
-        final driverColor = _getDriverColor(driverKey, driverIndex);
-        const passedRouteColor = Color(0xFF4A4A4A);
+        const activeRouteColor = Color(0xFF1FA34A);
+        const passedRouteColor = Color(0xFF78A887);
 
         String? persistedPolyline;
         for (final point in points) {
@@ -350,7 +350,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
                 polylineId: PolylineId('route_${driverKey}_active'),
                 points: decoded,
                 width: 8,
-                color: driverColor,
+                color: activeRouteColor,
                 zIndex: 1,
               ),
             );
@@ -521,7 +521,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           }
 
           debugPrint(
-            '🎨 [Map] Driver $driverKey active route color: $driverColor',
+            '🎨 [Map] Driver $driverKey active route color: $activeRouteColor',
           );
 
           result.add(
@@ -529,7 +529,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
               polylineId: PolylineId('route_${driverKey}_active'),
               points: decoded,
               width: 8,
-              color: driverColor,
+              color: activeRouteColor,
               zIndex: 1,
             ),
           );
@@ -579,11 +579,18 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
     }
   }
 
-  /// GPS-треки по `history`: не режем по полуночи — незавершённый маршрут
-  /// остаётся сколько угодно дней, пока его не закрыли вручную / не завершили.
-  /// Только водители из текущих точек; фильтр GPS-прыжков > 2 км.
+  /// GPS-треки за последние 24 часа.
+  /// Только водители из текущих/показанных точек; фильтр GPS-прыжков > 2 км.
   Future<void> _loadDriverTracks() async {
     debugPrint('🛤️ [Track] _loadDriverTracks called');
+
+    if (widget.clearMapMode) {
+      if (!mounted) return;
+      setState(() {
+        _trackPolylines = {};
+      });
+      return;
+    }
 
     // Только водители из текущего маршрута
     final allDriverIds = widget.points
@@ -598,11 +605,18 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
     if (allDriverIds.isEmpty) {
       debugPrint('🛤️ [Track] No drivers in current route, skipping tracks');
+      if (!mounted) return;
+      setState(() {
+        _trackPolylines = {};
+      });
       return;
     }
 
     try {
       final tracks = <Polyline>{};
+      final cutoff = Timestamp.fromDate(
+        DateTime.now().subtract(const Duration(hours: 24)),
+      );
 
       for (final driverId in allDriverIds) {
         final driverRef = FirestorePaths.driverLocationsOf(
@@ -612,11 +626,14 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         // Загружаем историю (retention/cleanup — в сервисе локации, не по календарю)
         QuerySnapshot historySnap;
         try {
-          historySnap =
-              await driverRef.collection('history').orderBy('timestamp').get();
+          historySnap = await driverRef
+              .collection('history')
+              .where('timestamp', isGreaterThanOrEqualTo: cutoff)
+              .orderBy('timestamp')
+              .get();
         } catch (e) {
           debugPrint('⚠️ [Track] Firestore query failed for $driverId: $e');
-          // Fallback: последние 200 записей
+          // Fallback: последние 200 записей с локальной фильтрацией по 24 часам
           try {
             historySnap = await driverRef
                 .collection('history')
@@ -644,8 +661,11 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           final lat = (data['latitude'] as num?)?.toDouble();
           final lng = (data['longitude'] as num?)?.toDouble();
           final accuracy = (data['accuracy'] as num?)?.toDouble() ?? 50.0;
+          final timestamp = data['timestamp'];
+          final trackTime = timestamp is Timestamp ? timestamp.toDate() : null;
           if (lat == null || lng == null) continue;
           if (lat == 0 && lng == 0) continue;
+          if (trackTime == null || trackTime.isBefore(cutoff.toDate())) continue;
           // Отбрасываем точки с плохой точностью (> 200м)
           if (accuracy > 200) continue;
           rawPoints.add({'lat': lat, 'lng': lng});
@@ -795,16 +815,16 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       final passedRoute = routeSplit['passedRoute'] as List<LatLng>;
       final remainingRoute = routeSplit['remainingRoute'] as List<LatLng>;
 
-      // Цвет маршрута водителя
-      final driverColor = _getRouteLoadColor(driverId);
+      const activeRouteColor = Color(0xFF1FA34A);
+      const passedRouteColor = Color(0xFF78A887);
 
-      // 🛣️ Пройденный маршрут: тёмно-серый, той же толщины, что и основной.
+      // 🛣️ Пройденный маршрут: приглушённый зелёный, той же толщины.
       if (passedRoute.length > 1) {
         progressPolylines.add(
           Polyline(
             polylineId: PolylineId('passed_$driverId'),
             points: passedRoute,
-            color: const Color(0xFF4A4A4A),
+            color: passedRouteColor,
             width: 8,
             zIndex: 12,
           ),
@@ -817,7 +837,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           Polyline(
             polylineId: PolylineId('remaining_$driverId'),
             points: remainingRoute,
-            color: driverColor,
+            color: activeRouteColor,
             width: 8,
             zIndex: 13, // над полным polyline (zIndex 1)
           ),

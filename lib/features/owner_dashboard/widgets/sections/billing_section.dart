@@ -624,7 +624,6 @@ class _InfoRow extends StatelessWidget {
                 ),
               ],
             ),
-      ),
     );
   }
 }
@@ -679,7 +678,6 @@ class _UsageRow extends StatelessWidget {
                 ),
               ],
             ),
-      ),
     );
   }
 }

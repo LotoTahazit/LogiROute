@@ -507,7 +507,6 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
                         style: TextStyle(color: Colors.grey.shade700))),
               ],
             ),
-      ),
     );
   }
 

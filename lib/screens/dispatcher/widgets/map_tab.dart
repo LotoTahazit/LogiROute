@@ -297,6 +297,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             companyId: widget.companyId,
             demoMode: _effectiveDemoMode,
             onDemoFinished: widget.onTourDemoFinished,
+            clearMapMode: _clearMap,
             showDriverTracks: _clearMap ? false : _showDriverTracks,
             routePolylines: _clearMap ? {} : widget.routePolylines,
             warehouseLat: widget.warehouseLat,

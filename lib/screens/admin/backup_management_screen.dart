@@ -566,7 +566,6 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                 Expanded(child: Text(value)),
               ],
             ),
-      ),
     );
   }
 
