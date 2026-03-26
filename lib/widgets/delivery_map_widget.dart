@@ -557,6 +557,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   Future<void> _ensureDemoRoadGeometry();
   void _fitDemoSceneCamera();
   void _updateDriverMarkers(List<Map<String, dynamic>> driverLocations);
+  void _rebuildDriverMarkers();
   Future<void> _loadDriverTracks();
 
   // Demo fields (defined in _DemoModeMixin)
