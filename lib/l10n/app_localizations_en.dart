@@ -64,7 +64,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createRoute => 'Create Route';
 
   @override
+  String createRouteFromSelected(int count) {
+    return 'From Selected ($count)';
+  }
+
+  @override
   String get createRouteByZone => 'Route by Zone';
+
+  @override
+  String get clearSelection => 'Clear Selection';
+
+  @override
+  String selectedCount(int count) {
+    return 'Selected: $count';
+  }
+
+  @override
+  String get noZoneLabel => 'No zone';
+
+  @override
+  String selectedClientsDifferentZonesWarning(String zones) {
+    return 'Selected clients are from different zones: $zones. Create the route anyway?';
+  }
 
   @override
   String get address => 'Address';

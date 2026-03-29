@@ -40,7 +40,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   List<UserModel> _drivers = [];
   bool _isLoadingMap = false;
   List<DeliveryPoint> _lastNonEmptyRoutes = [];
+  List<DeliveryPoint> _previousRoutesForMap = [];
   DateTime? _lastNonEmptyRoutesDate;
+  DateTime? _previousRoutesForMapDate;
   String? _selectedDriverId;
   int _currentTabIndex = 0;
 
@@ -50,6 +52,55 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
   List<DeliveryPoint> _lastMapPoints = [];
+
+  Set<String> _activeRouteIdsOf(List<DeliveryPoint> points) => points
+      .where((p) =>
+          p.routeId != null &&
+          p.routeId!.isNotEmpty &&
+          DeliveryPoint.activeRouteStatuses.contains(
+            DeliveryPoint.normalizeStatus(p.status),
+          ))
+      .map((p) => p.routeId!)
+      .toSet();
+
+  bool _sameRouteIdSet(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.difference(b).isEmpty;
+
+  bool _isActivePoint(DeliveryPoint point) => DeliveryPoint.activeRouteStatuses
+      .contains(DeliveryPoint.normalizeStatus(point.status));
+
+  List<DeliveryPoint> _filterPointsForMap(List<DeliveryPoint> points) {
+    final activeRouteIds = <String>{};
+    final activeDrivers = <String>{};
+
+    for (final point in points) {
+      if (!_isActivePoint(point)) continue;
+      if (point.routeId != null && point.routeId!.isNotEmpty) {
+        activeRouteIds.add(point.routeId!);
+      }
+      if (point.driverId != null && point.driverId!.isNotEmpty) {
+        activeDrivers.add(point.driverId!);
+      }
+    }
+
+    return points.where((point) {
+      if (_isActivePoint(point)) return true;
+
+      final routeId = point.routeId;
+      if (routeId != null && routeId.isNotEmpty && activeRouteIds.contains(routeId)) {
+        return true;
+      }
+
+      final driverId = point.driverId;
+      if (driverId != null &&
+          driverId.isNotEmpty &&
+          !activeDrivers.contains(driverId)) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+  }
 
   /// סיור הדגמה: נקודות → מסלולים → דמו מפה (ללא שינוי לוגיקת prod).
   Timer? _tourTimer;
@@ -84,40 +135,50 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     return incoming.updatedAt!.isAfter(local.updatedAt!);
   }
 
-  List<DeliveryPoint> _mergePointsByUpdatedAt(
-    List<DeliveryPoint> incoming,
-    List<DeliveryPoint> local,
-  ) {
-    final map = {for (var p in local) p.id: p};
-
-    for (final p in incoming) {
-      final existing = map[p.id];
-      if (_shouldApplyUpdate(p, existing)) {
-        map[p.id] = p;
-      }
-    }
-
-    return map.values.toList();
-  }
-
   /// Инициализация потоков — вынесено из build() для предотвращения race condition
   void _initStreams(String companyId) {
+    _lastNonEmptyRoutes = [];
+    _previousRoutesForMap = [];
+    _lastNonEmptyRoutesDate = null;
+    _previousRoutesForMapDate = null;
+    _lastMapPoints = [];
+    _selectedDriverId = null;
     final routeService = RouteService(companyId: companyId);
     _pendingPointsStream = routeService.getAllPendingPoints();
-    _mapRoutesStream = routeService.getTodayRoutes();
+    // Для карты нужны completed-точки тоже: без них пропадает логика
+    // "после завершения маршрута показать возврат на склад".
+    _mapRoutesStream = routeService
+        .getTodayRoutes(includeCompleted: true)
+        .map(_filterPointsForMap);
     _routesStream = routeService.getTodayRoutes(includeCompleted: true).map((
       routes,
     ) {
       if (routes.isNotEmpty) {
+        final previousIds = _activeRouteIdsOf(_lastNonEmptyRoutes);
+        final currentIds = _activeRouteIdsOf(routes);
+        if (_lastNonEmptyRoutes.isNotEmpty &&
+            !_sameRouteIdSet(previousIds, currentIds)) {
+          _previousRoutesForMap = List<DeliveryPoint>.from(_lastNonEmptyRoutes);
+          _previousRoutesForMapDate = DateTime.now();
+        }
         _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
         _lastNonEmptyRoutesDate = DateTime.now();
       } else {
+        if (_lastNonEmptyRoutes.isNotEmpty) {
+          _previousRoutesForMap = List<DeliveryPoint>.from(_lastNonEmptyRoutes);
+          _previousRoutesForMapDate = DateTime.now();
+        }
         if (_lastNonEmptyRoutesDate != null) {
           final now = DateTime.now();
           final todayMidnight = DateTime(now.year, now.month, now.day);
           if (_lastNonEmptyRoutesDate!.isBefore(todayMidnight)) {
             _lastNonEmptyRoutes = [];
             _lastNonEmptyRoutesDate = null;
+          }
+          if (_previousRoutesForMapDate != null &&
+              _previousRoutesForMapDate!.isBefore(todayMidnight)) {
+            _previousRoutesForMap = [];
+            _previousRoutesForMapDate = null;
           }
         }
       }
@@ -529,6 +590,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         setState(() {
           _lastNonEmptyRoutes = [];
           _lastNonEmptyRoutesDate = null;
+          _previousRoutesForMap = [];
+          _previousRoutesForMapDate = null;
         });
         SnackbarHelper.showSuccess(context, l10n.routeCancelled);
       }
@@ -1422,6 +1485,11 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 effectiveCompanyId,
                                 snapshot.data ?? const [],
                               ),
+                              onCreateRouteFromSelection: (selectedPoints) =>
+                                  _createRoute(
+                                effectiveCompanyId,
+                                selectedPoints,
+                              ),
                               onAutoDistribute: () =>
                                   _autoDistributePallets(effectiveCompanyId),
                               onDeletePoint: (pointId, clientName) =>
@@ -1523,11 +1591,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               );
                             }
                             final incomingPoints = pointsSnapshot.data ?? [];
-                            final points = _mergePointsByUpdatedAt(
+                            final points = List<DeliveryPoint>.from(
                               incomingPoints,
-                              _lastMapPoints,
                             );
-                            _lastMapPoints = points;
+                            _lastMapPoints = List<DeliveryPoint>.from(points);
                             final carryRouteIds = {
                               ...points
                                   .where(
@@ -1567,7 +1634,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 }
                                 return MapTab(
                                   routes: points,
-                                  lastNonEmptyRoutes: _lastNonEmptyRoutes,
+                                  lastNonEmptyRoutes: _previousRoutesForMap,
                                   drivers: _drivers,
                                   selectedDriverId: _selectedDriverId,
                                   routePolylines: polylines,

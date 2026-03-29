@@ -18,14 +18,33 @@ const _adminOnlyTypes = {
 class InAppNotificationService {
   final String companyId;
   final String? userRole;
+  final String? currentUserId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  InAppNotificationService({required this.companyId, this.userRole});
+  InAppNotificationService({
+    required this.companyId,
+    this.userRole,
+    this.currentUserId,
+  });
 
   bool _canSeeNotification(InAppNotification n) {
     if (_adminOnlyTypes.contains(n.type)) {
       return _adminRoles.contains(userRole);
     }
+    final explicitUserIds = {
+      if (n.driverId != null && n.driverId!.isNotEmpty) n.driverId!,
+      if (n.userId != null && n.userId!.isNotEmpty) n.userId!,
+      if (n.uid != null && n.uid!.isNotEmpty) n.uid!,
+      if (n.recipientId != null && n.recipientId!.isNotEmpty) n.recipientId!,
+      ...n.targetUserIds,
+    };
+    if (explicitUserIds.isNotEmpty) {
+      return currentUserId != null && explicitUserIds.contains(currentUserId);
+    }
+    if (n.targetRoles.isNotEmpty) {
+      return userRole != null && n.targetRoles.contains(userRole);
+    }
+    if (n.broadcast) return true;
     return true;
   }
 
@@ -70,6 +89,8 @@ class InAppNotificationService {
     final snap = await _ref().where('read', isEqualTo: false).get();
     final batch = _firestore.batch();
     for (final doc in snap.docs) {
+      final notification = InAppNotification.fromMap(doc.data(), doc.id);
+      if (!_canSeeNotification(notification)) continue;
       batch.update(doc.reference, {
         'read': true,
         'readAt': FieldValue.serverTimestamp(),
@@ -95,6 +116,13 @@ class InAppNotification {
   final DateTime? createdAt;
   final DateTime? readAt;
   final Map<String, dynamic>? metadata;
+  final String? driverId;
+  final String? userId;
+  final String? uid;
+  final String? recipientId;
+  final List<String> targetUserIds;
+  final List<String> targetRoles;
+  final bool broadcast;
 
   InAppNotification({
     required this.id,
@@ -106,6 +134,13 @@ class InAppNotification {
     this.createdAt,
     this.readAt,
     this.metadata,
+    this.driverId,
+    this.userId,
+    this.uid,
+    this.recipientId,
+    this.targetUserIds = const [],
+    this.targetRoles = const [],
+    this.broadcast = false,
   });
 
   factory InAppNotification.fromMap(Map<String, dynamic> map, String id) {
@@ -122,6 +157,16 @@ class InAppNotification {
       readAt:
           map['readAt'] != null ? (map['readAt'] as Timestamp).toDate() : null,
       metadata: map['metadata'] as Map<String, dynamic>?,
+      driverId: map['driverId'] as String?,
+      userId: map['userId'] as String?,
+      uid: map['uid'] as String?,
+      recipientId: map['recipientId'] as String?,
+      targetUserIds: ((map['targetUserIds'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(),
+      targetRoles:
+          ((map['targetRoles'] as List?) ?? const []).whereType<String>().toList(),
+      broadcast: map['broadcast'] == true,
     );
   }
 

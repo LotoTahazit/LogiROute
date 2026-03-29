@@ -18,7 +18,33 @@
   "deliveryPoints": "Delivery Points",
   "addPoint": "Add Point",
   "createRoute": "Create Route",
+  "createRouteFromSelected": "From Selected ({count})",
+  "@createRouteFromSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "createRouteByZone": "Route by Zone",
+  "clearSelection": "Clear Selection",
+  "selectedCount": "Selected: {count}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noZoneLabel": "No zone",
+  "selectedClientsDifferentZonesWarning": "Selected clients are from different zones: {zones}. Create the route anyway?",
+  "@selectedClientsDifferentZonesWarning": {
+    "placeholders": {
+      "zones": {
+        "type": "String"
+      }
+    }
+  },
   "address": "Address",
   "clientName": "Client Name",
   "clientNumber": "Client Number",

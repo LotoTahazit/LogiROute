@@ -58,21 +58,71 @@ class _DriverDashboardState extends State<DriverDashboard> {
   double? _lastKnownLat;
   double? _lastKnownLng;
 
-  bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
-    if (local == null) return true;
-    if (incoming.updatedAt == null) return true;
-    if (local.updatedAt == null) return true;
-    return incoming.updatedAt!.isAfter(local.updatedAt!);
+  bool _isActiveRoutePoint(DeliveryPoint point) {
+    final status = DeliveryPoint.normalizeStatus(point.status);
+    return status == DeliveryPoint.statusAssigned ||
+        status == DeliveryPoint.statusInProgress;
   }
 
-  List<DeliveryPoint> _mergePointsByUpdatedAt(
-      List<DeliveryPoint> incomingPoints, List<DeliveryPoint> localPoints) {
-    if (localPoints.isEmpty) return incomingPoints;
-    final localById = {for (final p in localPoints) p.id: p};
-    return incomingPoints.map((incoming) {
-      final local = localById[incoming.id];
-      return _shouldApplyUpdate(incoming, local) ? incoming : local!;
-    }).toList();
+  String _routeKeyForPoint(DeliveryPoint point) =>
+      point.routeId?.isNotEmpty == true
+          ? point.routeId!
+          : '__driver__${point.driverId ?? ''}';
+
+  DateTime _pointSortTime(DeliveryPoint point) =>
+      point.updatedAt ??
+      point.completedAt ??
+      point.arrivedAt ??
+      point.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  String? _selectCurrentRouteKey(List<DeliveryPoint> points) {
+    if (points.isEmpty) return null;
+
+    final byRoute = <String, List<DeliveryPoint>>{};
+    for (final point in points) {
+      byRoute.putIfAbsent(_routeKeyForPoint(point), () => []).add(point);
+    }
+
+    String? bestKey;
+    DateTime? bestTime;
+
+    void consider(String key, List<DeliveryPoint> group) {
+      final latest = group
+          .map(_pointSortTime)
+          .fold<DateTime>(DateTime.fromMillisecondsSinceEpoch(0), (a, b) {
+        return a.isAfter(b) ? a : b;
+      });
+      if (bestTime == null || latest.isAfter(bestTime!)) {
+        bestTime = latest;
+        bestKey = key;
+      }
+    }
+
+    for (final entry in byRoute.entries) {
+      if (entry.value.any(_isActiveRoutePoint)) {
+        consider(entry.key, entry.value);
+      }
+    }
+    if (bestKey != null) return bestKey;
+
+    for (final entry in byRoute.entries) {
+      consider(entry.key, entry.value);
+    }
+    return bestKey;
+  }
+
+  List<DeliveryPoint> _filterDriverPointsToCurrentRoute(
+    List<DeliveryPoint> points,
+  ) {
+    final currentRouteKey = _selectCurrentRouteKey(points);
+    if (currentRouteKey == null) return [];
+
+    final filtered = points
+        .where((point) => _routeKeyForPoint(point) == currentRouteKey)
+        .toList()
+      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+    return filtered;
   }
 
   @override
@@ -213,8 +263,25 @@ class _DriverDashboardState extends State<DriverDashboard> {
     debugPrint('✅ [Driver] Tracking started: $driverName');
   }
 
-  void _stopTracking() {
+  void _stopTracking() async {
     _locationService?.stopTracking();
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    final driverId = authService.currentUser?.uid ?? '';
+    final driverName = authService.userModel?.name ?? '';
+    if (companyId.isNotEmpty && driverId.isNotEmpty) {
+      try {
+        await FirestorePaths.driverLocationsOf(companyId).doc(driverId).set({
+          'driverId': driverId,
+          'driverName': driverName,
+          'role': 'driver',
+          'isOnShift': false,
+          'timestamp': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('⚠️ [Driver] Failed to mark off-shift: $e');
+      }
+    }
     if (!kIsWeb) BackgroundLocationService.stop();
     _realtimeGps.dispose();
     _autoCloseTimer?.cancel();
@@ -611,8 +678,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         }
 
                         final incomingPoints = snapshot.data ?? [];
-                        final points = _mergePointsByUpdatedAt(
-                            incomingPoints, _lastPoints);
+                        final points =
+                            _filterDriverPointsToCurrentRoute(incomingPoints);
                         _lastPoints = points;
 
                         if (points.isNotEmpty) {
@@ -622,6 +689,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                 p.status != DeliveryPoint.statusCancelled,
                             orElse: () => points.first,
                           );
+                        } else {
+                          _currentPoint = null;
                         }
 
                         return Column(
@@ -859,11 +928,20 @@ class _DriverDashboardState extends State<DriverDashboard> {
           width: 32,
           child: IconButton(
             onPressed: () async {
-              // Waze лучше ведёт по адресу (свой геокодер для Израиля),
-              // координаты — fallback если адрес пуст.
-              final address = point.address;
+              final hasTemporaryAddress = point.temporaryAddress != null &&
+                  point.temporaryAddress!.trim().isNotEmpty;
+              final address = hasTemporaryAddress
+                  ? point.temporaryAddress!.trim()
+                  : point.address.trim();
+              final hasCoordinates =
+                  point.latitude != 0 || point.longitude != 0;
               final Uri url;
-              if (address.isNotEmpty) {
+              if (hasTemporaryAddress && hasCoordinates) {
+                // Для временного адреса используем уже пересчитанные координаты точки,
+                // чтобы Waze не уводил по старому клиентскому адресу.
+                url = Uri.parse(
+                    'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes');
+              } else if (address.isNotEmpty) {
                 final encoded = Uri.encodeComponent(address);
                 url = Uri.parse('https://waze.com/ul?q=$encoded&navigate=yes');
               } else {

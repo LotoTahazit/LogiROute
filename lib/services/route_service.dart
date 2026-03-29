@@ -49,6 +49,38 @@ class RouteService {
     await _deliveryPointsCollection().doc(pointId).update(data);
   }
 
+  String _buildUniqueRouteId(String driverId, DateTime now) =>
+      '${driverId}_${now.year}_${now.month}_${now.day}_${now.millisecondsSinceEpoch}';
+
+  Future<String> _resolveRouteIdForDriver(String driverId, DateTime now) async {
+    final activeSnapshot = await _deliveryPointsCollection()
+        .where('driverId', isEqualTo: driverId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+
+    String? latestRouteId;
+    DateTime? latestAt;
+    for (final doc in activeSnapshot.docs) {
+      final data = doc.data();
+      final routeId = data['routeId'] as String?;
+      if (routeId != null && routeId.isNotEmpty) {
+        final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate() ??
+            (data['routeDate'] as Timestamp?)?.toDate() ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        if (latestAt == null || updatedAt.isAfter(latestAt)) {
+          latestAt = updatedAt;
+          latestRouteId = routeId;
+        }
+      }
+    }
+
+    if (latestRouteId != null) {
+      return latestRouteId;
+    }
+
+    return _buildUniqueRouteId(driverId, now);
+  }
+
   /// 🚚 Автоматически распределяет все pending точки между всеми водителями по palletCapacity
   Future<void> autoDistributePalletsToDrivers(List<UserModel> drivers) async {
     // Prevent concurrent distribution
@@ -217,7 +249,7 @@ class RouteService {
       final assigned = assignments[driver.uid]!;
       if (assigned.isEmpty) continue;
 
-      final routeId = '${driver.uid}_${now.year}_${now.month}_${now.day}';
+      final routeId = await _resolveRouteIdForDriver(driver.uid, now);
 
       // Получаем текущее количество точек у водителя для orderInRoute
       final existingPoints = await _deliveryPointsCollection()
@@ -466,14 +498,15 @@ class RouteService {
   }
 
   /// Проверяет, относится ли routeId к сегодняшнему дню
-  /// Формат routeId: driverId_year_month_day
+  /// Формат routeId: driverId_year_month_day(_uniqueSuffix)?
   bool _isRouteFromToday(String routeId, DateTime today) {
-    final parts = routeId.split('_');
-    if (parts.length < 4) return false;
+    final match =
+        RegExp(r'_(\d{4})_(\d{1,2})_(\d{1,2})(?:_\d+)?$').firstMatch(routeId);
+    if (match == null) return false;
     try {
-      final year = int.parse(parts[parts.length - 3]);
-      final month = int.parse(parts[parts.length - 2]);
-      final day = int.parse(parts[parts.length - 1]);
+      final year = int.parse(match.group(1)!);
+      final month = int.parse(match.group(2)!);
+      final day = int.parse(match.group(3)!);
       return year == today.year && month == today.month && day == today.day;
     } catch (_) {
       return false;
@@ -1203,6 +1236,9 @@ class RouteService {
     int capacity,
     String? routeId, // ID конкретного маршрута
   ) async {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final targetRouteId = await _resolveRouteIdForDriver(newDriverId, now);
     Query query =
         _deliveryPointsCollection().where('driverId', isEqualTo: oldDriverId);
 
@@ -1212,17 +1248,66 @@ class RouteService {
     }
 
     final snapshot = await query.get();
+    if (snapshot.docs.isEmpty) return;
+
+    final sortedDocs = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+      snapshot.docs,
+    )..sort((a, b) {
+        final ao = (a.data()['orderInRoute'] as num?)?.toInt() ?? 0;
+        final bo = (b.data()['orderInRoute'] as num?)?.toInt() ?? 0;
+        return ao.compareTo(bo);
+      });
+
+    final targetMaxOrder = await _deliveryPointsCollection()
+        .where('routeId', isEqualTo: targetRouteId)
+        .orderBy('orderInRoute', descending: true)
+        .limit(1)
+        .get();
+    final startOrder = targetMaxOrder.docs.isNotEmpty
+        ? ((targetMaxOrder.docs.first.data()['orderInRoute'] as num?)?.toInt() ??
+                0) +
+            1
+        : 0;
 
     print(
-        '🔄 [RouteService] Changing driver from $oldDriverId to $newDriverName (${snapshot.docs.length} points, routeId: $routeId)');
+        '🔄 [RouteService] Changing driver from $oldDriverId to $newDriverName (${sortedDocs.length} points, routeId: $routeId -> $targetRouteId)');
 
-    for (final doc in snapshot.docs) {
+    for (int i = 0; i < sortedDocs.length; i++) {
+      final doc = sortedDocs[i];
       await doc.reference.update({
         'driverId': newDriverId,
         'driverName': newDriverName,
         'driverCapacity': capacity,
+        'routeId': targetRouteId,
+        'routeDate': Timestamp.fromDate(todayMidnight),
+        'orderInRoute': startOrder + i,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+    }
+
+    try {
+      await _routesCollection().doc(targetRouteId).set({
+        'routeId': targetRouteId,
+        'driverId': newDriverId,
+        'driverName': newDriverName,
+        'routeDate': Timestamp.fromDate(todayMidnight),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('⚠️ [RouteService] Failed to upsert target route doc: $e');
+    }
+
+    final updatedRoute = await _deliveryPointsCollection()
+        .where('routeId', isEqualTo: targetRouteId)
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+    final updatedPoints = updatedRoute.docs
+        .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+        .toList()
+      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+    if (updatedPoints.isNotEmpty) {
+      final balanceService = RouteBalanceService(companyId: companyId);
+      await balanceService.recalculateETAsForPoints(updatedPoints);
     }
 
     print('✅ [RouteService] Driver changed to $newDriverName');
@@ -1455,7 +1540,7 @@ class RouteService {
       String pointId, String driverId, String driverName, int capacity) async {
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
-    final routeId = '${driverId}_${now.year}_${now.month}_${now.day}';
+    final routeId = await _resolveRouteIdForDriver(driverId, now);
 
     await _firestore.runTransaction((transaction) async {
       // Получаем максимальный orderInRoute за 1 чтение
@@ -1512,7 +1597,7 @@ class RouteService {
     // Генерируем routeId для этого маршрута
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
-    final routeId = '${driverId}_${now.year}_${now.month}_${now.day}';
+    final routeId = await _resolveRouteIdForDriver(driverId, now);
 
     // Завершённые «вчерашние» точки уходят в архив (archived) через archiveStaleCompletedPoints,
     // незавершённые не трогаем — см. getTodayRoutes.

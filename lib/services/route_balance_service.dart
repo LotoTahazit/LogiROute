@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/delivery_point.dart';
-import '../models/shift_schedule_config.dart';
 import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
 import 'osrm_navigation_service.dart';
@@ -17,6 +16,38 @@ class RouteBalanceService {
 
   CollectionReference<Map<String, dynamic>> get _pointsRef =>
       FirestorePaths.deliveryPointsOf(companyId);
+
+  DateTime _pointSortTime(DeliveryPoint point) =>
+      point.updatedAt ??
+      point.completedAt ??
+      point.arrivedAt ??
+      point.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  String? _selectLatestRouteId(List<DeliveryPoint> points) {
+    final byRoute = <String, List<DeliveryPoint>>{};
+    for (final point in points) {
+      final routeId = point.routeId;
+      if (routeId == null || routeId.isEmpty) continue;
+      byRoute.putIfAbsent(routeId, () => []).add(point);
+    }
+    if (byRoute.isEmpty) return null;
+
+    String? bestRouteId;
+    DateTime? bestTime;
+    for (final entry in byRoute.entries) {
+      final latest = entry.value
+          .map(_pointSortTime)
+          .fold<DateTime>(DateTime.fromMillisecondsSinceEpoch(0), (a, b) {
+        return a.isAfter(b) ? a : b;
+      });
+      if (bestTime == null || latest.isAfter(bestTime)) {
+        bestTime = latest;
+        bestRouteId = entry.key;
+      }
+    }
+    return bestRouteId;
+  }
 
   /// Balances routes by moving points from overloaded to underloaded drivers.
   /// Returns the number of moved points.
@@ -80,7 +111,8 @@ class RouteBalanceService {
         final targetPoints = byDriver[targetDriver]!;
         final targetDriverName = targetPoints.first.driverName ?? '';
         final targetCapacity = targetPoints.first.driverCapacity;
-        final targetRouteId = targetPoints.first.routeId;
+        final targetRouteId = _selectLatestRouteId(targetPoints);
+        if (targetRouteId == null) continue;
 
         // Транзакция для атомарного перемещения точки
         await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -113,8 +145,8 @@ class RouteBalanceService {
       }
     }
 
-    // Recalculate orderInRoute and ETA for all affected routes
-    await _recalculateETAs(byDriver);
+    // Re-read from Firestore so recalculation follows actual routeId groups.
+    await _recalculateActiveRoutes();
 
     return movedCount;
   }
@@ -126,33 +158,6 @@ class RouteBalanceService {
 
     double originLat = planLat;
     double originLng = planLng;
-    final shiftConfig = await ShiftScheduleConfig.loadFromPrefs();
-    final driverId = points.isNotEmpty ? points.first.driverId : null;
-    if (driverId != null &&
-        driverId.isNotEmpty &&
-        shiftConfig.allows(DateTime.now())) {
-      try {
-        final driverDoc =
-            await FirestorePaths.driverLocationsOf(companyId).doc(driverId).get();
-        if (driverDoc.exists) {
-          final data = driverDoc.data();
-          if (data != null) {
-            final lat = data['latitude'] ?? data['lat'];
-            final lng = data['longitude'] ?? data['lng'];
-            if (lat != null && lng != null) {
-              final la = (lat as num).toDouble();
-              final ln = (lng as num).toDouble();
-              if (la != 0 && ln != 0) {
-                originLat = la;
-                originLng = ln;
-              }
-            }
-          }
-        }
-      } catch (_) {
-        // fallback: склад
-      }
-    }
 
     double cumulativeTimeMinutes = 0;
     const double avgSpeedKmh = 38.0;
@@ -241,11 +246,22 @@ class RouteBalanceService {
     }
   }
 
-  Future<void> _recalculateETAs(
-      Map<String, List<DeliveryPoint>> byDriver) async {
-    for (final entry in byDriver.entries) {
-      final points = entry.value
-        ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+  Future<void> _recalculateActiveRoutes() async {
+    final snapshot = await _pointsRef
+        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+        .get();
+
+    final byRoute = <String, List<DeliveryPoint>>{};
+    for (final doc in snapshot.docs) {
+      final point = DeliveryPoint.fromMap(doc.data(), doc.id);
+      final routeKey = point.routeId?.isNotEmpty == true
+          ? point.routeId!
+          : '${point.driverId ?? 'unknown'}:${point.id}';
+      byRoute.putIfAbsent(routeKey, () => []).add(point);
+    }
+
+    for (final points in byRoute.values) {
+      points.sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
       await recalculateETAsForPoints(points);
     }
   }

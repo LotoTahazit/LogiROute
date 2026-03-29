@@ -102,6 +102,23 @@ class BackgroundLocationService {
   }
 
   static Future<void> stop() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final driverId = prefs.getString(_prefDriverId);
+      final driverName = prefs.getString(_prefDriverName);
+      final companyId = prefs.getString(_prefCompanyId);
+      if (driverId != null && companyId != null) {
+        await FirestorePaths.driverLocationsOf(companyId).doc(driverId).set({
+          'driverId': driverId,
+          if (driverName != null) 'driverName': driverName,
+          'role': 'driver',
+          'isOnShift': false,
+          'timestamp': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('⚠️ [BGService] Failed to mark off-shift on stop: $e');
+    }
     await _clearDriverData();
     FlutterBackgroundService().invoke('stopService');
     debugPrint('🛑 [BGService] Stopped');

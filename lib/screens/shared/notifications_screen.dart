@@ -6,14 +6,19 @@ import '../../services/in_app_notification_service.dart';
 class NotificationsScreen extends StatelessWidget {
   final String companyId;
   final String? userRole;
+  final String? currentUserId;
 
   const NotificationsScreen(
-      {super.key, required this.companyId, this.userRole});
+      {super.key, required this.companyId, this.userRole, this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
     final service =
-        InAppNotificationService(companyId: companyId, userRole: userRole);
+        InAppNotificationService(
+          companyId: companyId,
+          userRole: userRole,
+          currentUserId: currentUserId,
+        );
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(

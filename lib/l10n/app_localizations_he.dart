@@ -63,7 +63,28 @@ class AppLocalizationsHe extends AppLocalizations {
   String get createRoute => 'צור מסלול';
 
   @override
+  String createRouteFromSelected(int count) {
+    return 'מהנבחרים ($count)';
+  }
+
+  @override
   String get createRouteByZone => 'מסלול לפי אזור';
+
+  @override
+  String get clearSelection => 'נקה בחירה';
+
+  @override
+  String selectedCount(int count) {
+    return 'נבחרו: $count';
+  }
+
+  @override
+  String get noZoneLabel => 'ללא אזור';
+
+  @override
+  String selectedClientsDifferentZonesWarning(String zones) {
+    return 'נבחרו לקוחות מאזורים שונים: $zones. ליצור את המסלול בכל זאת?';
+  }
 
   @override
   String get address => 'כתובת';

@@ -213,6 +213,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   Timer? _markerBatchTimer; // Батчинг setState
   bool _markersDirty = false; // Флаг что нужен setState
   Timer? _etaDebounce; // ⚡ Debounce ETA — не чаще раз в 5 сек
+  Timer? _trackReloadTimer;
   bool _showOffShiftDrivers =
       false; // 🔘 Toggle: показывать OFF_SHIFT водителей
   ShiftScheduleConfig _shiftSchedule = ShiftScheduleConfig.defaults;
@@ -404,6 +405,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         });
       });
     }
+
+    _syncTrackReloadLoop();
   }
 
   bool get _canApplyLiveMarkerRefresh => _isAppResumed;
@@ -426,6 +429,15 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     }
   }
 
+  void _syncTrackReloadLoop() {
+    _trackReloadTimer?.cancel();
+    if (!widget.showDriverTracks || widget.clearMapMode) return;
+    _trackReloadTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted || !_isAppResumed || !widget.showDriverTracks) return;
+      _loadDriverTracks();
+    });
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -438,10 +450,15 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         _rebuildDriverMarkers();
         _updateDriverProgressPolylines();
       }
+      if (widget.showDriverTracks && !widget.clearMapMode) {
+        _loadDriverTracks();
+      }
+      _syncTrackReloadLoop();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _isAppResumed = false;
+      _trackReloadTimer?.cancel();
     }
   }
 
@@ -451,6 +468,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
 
     if (oldWidget.clearMapMode != widget.clearMapMode && widget.clearMapMode) {
       _debounceTimer?.cancel();
+      _trackReloadTimer?.cancel();
       _decodedPolylineCache.clear();
       _driverRoadPolylinePoints.clear();
       _lastRouteSignature = null;
@@ -505,6 +523,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         _trackPolylines = {};
         _loadDriverTracks();
       }
+      _syncTrackReloadLoop();
     }
 
     // Треки включили/выключили
@@ -517,6 +536,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         _trackPolylines = {};
         setState(() {}); // перерисовка polylines
       }
+      _syncTrackReloadLoop();
     }
   }
 
@@ -537,6 +557,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     _markerAnimationTimer?.cancel();
     _markerBatchTimer?.cancel();
     _etaDebounce?.cancel();
+    _trackReloadTimer?.cancel();
     _shiftsSubscription?.cancel();
     _driverMarkersNotifier.dispose();
     super.dispose();

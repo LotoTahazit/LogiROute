@@ -18,7 +18,33 @@
   "deliveryPoints": "Точки доставки",
   "addPoint": "Добавить точку",
   "createRoute": "Создать маршрут",
+  "createRouteFromSelected": "Из выбранных ({count})",
+  "@createRouteFromSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "createRouteByZone": "Маршрут по зоне",
+  "clearSelection": "Сбросить выбор",
+  "selectedCount": "Выбрано: {count}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noZoneLabel": "Без района",
+  "selectedClientsDifferentZonesWarning": "Выбраны клиенты из разных районов: {zones}. Маршрут всё равно создать?",
+  "@selectedClientsDifferentZonesWarning": {
+    "placeholders": {
+      "zones": {
+        "type": "String"
+      }
+    }
+  },
   "address": "Адрес",
   "clientName": "Имя клиента",
   "clientNumber": "Номер клиента",

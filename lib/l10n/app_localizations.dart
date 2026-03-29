@@ -208,11 +208,41 @@ abstract class AppLocalizations {
   /// **'Create Route'**
   String get createRoute;
 
+  /// No description provided for @createRouteFromSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'From Selected ({count})'**
+  String createRouteFromSelected(int count);
+
   /// No description provided for @createRouteByZone.
   ///
   /// In en, this message translates to:
   /// **'Route by Zone'**
   String get createRouteByZone;
+
+  /// No description provided for @clearSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Selection'**
+  String get clearSelection;
+
+  /// No description provided for @selectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {count}'**
+  String selectedCount(int count);
+
+  /// No description provided for @noZoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'No zone'**
+  String get noZoneLabel;
+
+  /// No description provided for @selectedClientsDifferentZonesWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected clients are from different zones: {zones}. Create the route anyway?'**
+  String selectedClientsDifferentZonesWarning(String zones);
 
   /// No description provided for @address.
   ///

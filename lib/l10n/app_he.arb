@@ -18,7 +18,33 @@
   "deliveryPoints": "נקודות משלוח",
   "addPoint": "הוסף נקודה",
   "createRoute": "צור מסלול",
+  "createRouteFromSelected": "מהנבחרים ({count})",
+  "@createRouteFromSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "createRouteByZone": "מסלול לפי אזור",
+  "clearSelection": "נקה בחירה",
+  "selectedCount": "נבחרו: {count}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noZoneLabel": "ללא אזור",
+  "selectedClientsDifferentZonesWarning": "נבחרו לקוחות מאזורים שונים: {zones}. ליצור את המסלול בכל זאת?",
+  "@selectedClientsDifferentZonesWarning": {
+    "placeholders": {
+      "zones": {
+        "type": "String"
+      }
+    }
+  },
   "address": "כתובת",
   "clientName": "שם לקוח",
   "clientNumber": "מספר לקוח",

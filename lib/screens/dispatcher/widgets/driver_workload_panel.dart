@@ -19,19 +19,23 @@ class DriverWorkloadPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    // Группируем точки по водителям
-    final Map<String, List<DeliveryPoint>> byDriver = {};
+    // Группируем по routeId, чтобы completed старого маршрута не смешивались
+    // с active точками нового маршрута того же водителя.
+    final Map<String, List<DeliveryPoint>> byRoute = {};
     for (final point in routes) {
       if (point.driverId == null || point.driverId!.isEmpty) continue;
-      byDriver.putIfAbsent(point.driverId!, () => []).add(point);
+      final routeKey = point.routeId ?? point.driverId!;
+      byRoute.putIfAbsent(routeKey, () => []).add(point);
     }
 
-    // Только водители с маршрутами
-    final activeDrivers = drivers
-        .where((d) => byDriver.containsKey(d.uid))
-        .toList();
+    final routeGroups = byRoute.values.toList()
+      ..sort((a, b) {
+        final ao = a.map((p) => p.orderInRoute).fold<int>(0, (x, y) => x + y);
+        final bo = b.map((p) => p.orderInRoute).fold<int>(0, (x, y) => x + y);
+        return ao.compareTo(bo);
+      });
 
-    if (activeDrivers.isEmpty) {
+    if (routeGroups.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
@@ -46,10 +50,20 @@ class DriverWorkloadPanel extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        itemCount: activeDrivers.length,
+        itemCount: routeGroups.length,
         itemBuilder: (context, index) {
-          final driver = activeDrivers[index];
-          final points = byDriver[driver.uid] ?? [];
+          final points = List<DeliveryPoint>.from(routeGroups[index])
+            ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+          final driver = drivers.firstWhere(
+            (d) => d.uid == (points.first.driverId ?? ''),
+            orElse: () => UserModel(
+              uid: points.first.driverId ?? '',
+              email: '',
+              name: points.first.driverName ?? l10n.unknownDriver,
+              role: 'driver',
+              vehicleNumber: '',
+            ),
+          );
           return _DriverCard(driver: driver, points: points, l10n: l10n);
         },
       ),
@@ -79,7 +93,7 @@ class _DriverCard extends StatelessWidget {
               p.status == DeliveryPoint.statusCancelled,
         )
         .length;
-    final activeCount = points.length - completedCount;
+    final totalCount = points.length;
     final ratio = capacity > 0 ? totalPallets / capacity : 0.0;
 
     // Цвет по загрузке
@@ -161,7 +175,7 @@ class _DriverCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '$completedCount/$activeCount ✓',
+                '$completedCount/$totalCount ✓',
                 style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
             ],

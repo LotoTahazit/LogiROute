@@ -191,10 +191,10 @@ class ActiveRoutesTab extends StatelessWidget {
     // Cache keeps completed points too, so the route does not visually shrink.
     final allRoutes = routes.isNotEmpty ? routes : lastNonEmptyRoutes;
 
-    // Группируем по driverId (один водитель = один маршрут)
+    // Группируем по routeId, чтобы новый маршрут того же водителя не склеивался со старым.
     final Map<String, List<DeliveryPoint>> routesByRouteId = {};
     for (final route in allRoutes) {
-      final routeKey = route.driverId ?? route.routeId ?? 'unknown';
+      final routeKey = route.routeId ?? route.driverId ?? 'unknown';
       routesByRouteId.putIfAbsent(routeKey, () => []).add(route);
     }
 

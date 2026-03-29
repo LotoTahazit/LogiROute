@@ -10,6 +10,7 @@ class PendingPointsTab extends StatefulWidget {
   final String companyId;
   final bool isLoadingMap;
   final VoidCallback onCreateRoute;
+  final Function(List<DeliveryPoint> selectedPoints)? onCreateRouteFromSelection;
   final VoidCallback onAutoDistribute;
   final Function(String pointId, String clientName) onDeletePoint;
   final Function(DeliveryPoint point) onEditPoint;
@@ -23,6 +24,7 @@ class PendingPointsTab extends StatefulWidget {
     required this.companyId,
     required this.isLoadingMap,
     required this.onCreateRoute,
+    this.onCreateRouteFromSelection,
     required this.onAutoDistribute,
     required this.onDeletePoint,
     required this.onEditPoint,
@@ -38,6 +40,14 @@ class PendingPointsTab extends StatefulWidget {
 class _PendingPointsTabState extends State<PendingPointsTab> {
   String? selectedZone;
   final ScrollController _scrollController = ScrollController();
+  final Set<String> _selectedPointIds = {};
+
+  @override
+  void didUpdateWidget(covariant PendingPointsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final liveIds = widget.points.map((p) => p.id).toSet();
+    _selectedPointIds.removeWhere((id) => !liveIds.contains(id));
+  }
 
   @override
   void dispose() {
@@ -58,6 +68,62 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
 
   int _calculateTotalBoxes() {
     return widget.points.fold(0, (sum, p) => sum + p.boxes);
+  }
+
+  bool _isSelected(DeliveryPoint point) => _selectedPointIds.contains(point.id);
+
+  void _toggleSelection(DeliveryPoint point) {
+    setState(() {
+      if (!_selectedPointIds.add(point.id)) {
+        _selectedPointIds.remove(point.id);
+      }
+    });
+  }
+
+  List<DeliveryPoint> _selectedPoints() => widget.points
+      .where((point) => _selectedPointIds.contains(point.id))
+      .toList();
+
+  String _zoneNameForDialog(BuildContext context, String? zone) {
+    if (zone == null || zone.isEmpty) {
+      return AppLocalizations.of(context)!.noZoneLabel;
+    }
+    return ZoneUtils.getZoneName(zone, Localizations.localeOf(context).languageCode);
+  }
+
+  Future<void> _createRouteFromSelection(BuildContext context) async {
+    final selectedPoints = _selectedPoints();
+    if (selectedPoints.isEmpty || widget.onCreateRouteFromSelection == null) return;
+
+    final selectedZones =
+        selectedPoints.map((p) => _zoneNameForDialog(context, p.zone)).toSet();
+    if (selectedZones.length > 1) {
+      final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(AppLocalizations.of(context)!.warning),
+              content: Text(
+                AppLocalizations.of(context)!.selectedClientsDifferentZonesWarning(
+                  selectedZones.join(', '),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(AppLocalizations.of(context)!.continueAnyway),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!confirmed) return;
+    }
+
+    widget.onCreateRouteFromSelection!(selectedPoints);
   }
 
   Widget _buildZoneButton(String? zoneId, String text, String tooltip, int count) {
@@ -135,6 +201,25 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                   label: Text(l10n.createRoute),
                   onPressed: widget.onCreateRoute,
                 );
+                final selectedButton = ElevatedButton.icon(
+                  icon: const Icon(Icons.checklist),
+                  label:
+                      Text(l10n.createRouteFromSelected(_selectedPointIds.length)),
+                  onPressed: _selectedPointIds.isEmpty
+                      ? null
+                      : () => _createRouteFromSelection(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                );
+                final clearSelectionButton = OutlinedButton.icon(
+                  icon: const Icon(Icons.clear_all),
+                  label: Text(l10n.clearSelection),
+                  onPressed: _selectedPointIds.isEmpty
+                      ? null
+                      : () => setState(() => _selectedPointIds.clear()),
+                );
                 final secondButton = ElevatedButton.icon(
                   icon: const Icon(Icons.auto_awesome),
                   label: Text(l10n.autoDistributePallets),
@@ -149,15 +234,34 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      firstButton,
-                      const SizedBox(height: 8),
-                      secondButton,
+                      if (_selectedPointIds.isEmpty) ...[
+                        firstButton,
+                        const SizedBox(height: 8),
+                        secondButton,
+                      ] else ...[
+                        selectedButton,
+                        const SizedBox(height: 8),
+                        clearSelectionButton,
+                        const SizedBox(height: 8),
+                        secondButton,
+                      ],
+                    ],
+                  );
+                }
+                if (_selectedPointIds.isEmpty) {
+                  return Row(
+                    children: [
+                      Expanded(child: firstButton),
+                      const SizedBox(width: 12),
+                      Expanded(child: secondButton),
                     ],
                   );
                 }
                 return Row(
                   children: [
-                    Expanded(child: firstButton),
+                    Expanded(child: selectedButton),
+                    const SizedBox(width: 12),
+                    Expanded(child: clearSelectionButton),
                     const SizedBox(width: 12),
                     Expanded(child: secondButton),
                   ],
@@ -197,6 +301,14 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                       fontSize: 16,
                     ),
                   ),
+                  if (_selectedPointIds.isNotEmpty)
+                    Text(
+                      l10n.selectedCount(_selectedPointIds.length),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.print, color: Colors.deepPurple),
                     tooltip: 'תעודת ליקוט',
@@ -263,6 +375,7 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                   itemCount: filteredPoints.length,
                   itemBuilder: (context, index) {
                     final point = filteredPoints[index];
+                    final isSelected = _isSelected(point);
 
                     final showZoneHeader = index == 0 ||
                         point.zone != filteredPoints[index - 1].zone;
@@ -317,98 +430,100 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                     final card = Card(
                           margin: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
-                          color: zoneFill.withValues(
-                              alpha: (zoneFill.a * 0.15).clamp(0.0, 1.0)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final isNarrow = constraints.maxWidth < 520;
-                                final titleBlock = Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            point.clientName,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (point.zone != null &&
-                                            point.zone!.isNotEmpty)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: ZoneUtils.getZoneColor(
-                                                  point.zone ?? ''),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              ZoneUtils.getZoneName(
-                                                  point.zone ?? '',
-                                                  Localizations.localeOf(context)
-                                                      .languageCode),
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getDisplayAddress(point),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                );
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (isNarrow) ...[
-                                      titleBlock,
-                                      const SizedBox(height: 8),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.deepPurple.shade50,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            '${point.pallets} ${l10n.pallets}',
-                                            style: const TextStyle(
-                                              color: Colors.deepPurple,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ] else
+                          color: isSelected
+                              ? Colors.green.shade50
+                              : zoneFill.withValues(
+                                  alpha: (zoneFill.a * 0.15).clamp(0.0, 1.0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? Colors.green
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _toggleSelection(point),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isNarrow = constraints.maxWidth < 520;
+                                  final titleBlock = Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Row(
                                         children: [
-                                          Expanded(child: titleBlock),
-                                          Container(
+                                          Expanded(
+                                            child: Text(
+                                              point.clientName,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.only(right: 6),
+                                              child: Icon(
+                                                Icons.check_circle,
+                                                color: Colors.green.shade700,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          if (point.zone != null &&
+                                              point.zone!.isNotEmpty)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: ZoneUtils.getZoneColor(
+                                                    point.zone ?? ''),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                ZoneUtils.getZoneName(
+                                                    point.zone ?? '',
+                                                    Localizations.localeOf(context)
+                                                        .languageCode),
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 11),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _getDisplayAddress(point),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  );
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (isNarrow) ...[
+                                        titleBlock,
+                                        const SizedBox(height: 8),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 12,
                                               vertical: 6,
@@ -427,50 +542,79 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    if (point.boxTypes != null &&
-                                        point.boxTypes!.isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 4,
-                                        children: point.boxTypes!.map((bt) {
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.shade50,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                  color: Colors.green.shade200),
-                                            ),
-                                            child: Text(
-                                              bt.toShortString(),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.green.shade800,
+                                        ),
+                                      ] else
+                                        Row(
+                                          children: [
+                                            Expanded(child: titleBlock),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.deepPurple.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                '${point.pallets} ${l10n.pallets}',
+                                                style: const TextStyle(
+                                                  color: Colors.deepPurple,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
                                               ),
                                             ),
-                                          );
-                                        }).toList(),
+                                          ],
+                                        ),
+                                      if (point.boxTypes != null &&
+                                          point.boxTypes!.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: point.boxTypes!.map((bt) {
+                                            return Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color:
+                                                        Colors.green.shade200),
+                                              ),
+                                              child: Text(
+                                                bt.toShortString(),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      Colors.green.shade800,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Wrap(
+                                          spacing: 10,
+                                          runSpacing: 8,
+                                          children: actionButtons,
+                                        ),
                                       ),
                                     ],
-                                    const SizedBox(height: 8),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Wrap(
-                                        spacing: 10,
-                                        runSpacing: 8,
-                                        children: actionButtons,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         );

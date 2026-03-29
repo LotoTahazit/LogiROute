@@ -270,19 +270,23 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
     try {
       if (mounted) setState(() => _polylines = {});
-      final Map<String, List<DeliveryPoint>> routesByDriver = {};
+      final Map<String, List<DeliveryPoint>> routesByKey = {};
 
       for (final p in validRoutePoints) {
-        final driverKey = p.driverId ?? p.driverName ?? 'unknown';
-        routesByDriver.putIfAbsent(driverKey, () => []).add(p);
+        final routeKey =
+            (p.routeId != null && p.routeId!.isNotEmpty)
+                ? p.routeId!
+                : (p.driverId ?? p.driverName ?? 'unknown');
+        routesByKey.putIfAbsent(routeKey, () => []).add(p);
       }
 
       final Set<Polyline> result = {};
 
       int driverIndex = 0;
-      for (final entry in routesByDriver.entries) {
-        final driverKey = entry.key;
+      for (final entry in routesByKey.entries) {
+        final routeKey = entry.key;
         final points = entry.value;
+        final driverKey = points.first.driverId ?? routeKey;
 
         if (points.isEmpty) continue;
 
@@ -302,7 +306,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         }).toList();
 
         debugPrint(
-          '🏭 [Map] Driver $driverKey: ${completedPoints.length} completed, ${activePoints.length} active',
+          '🏭 [Map] Route $routeKey / driver $driverKey: ${completedPoints.length} completed, ${activePoints.length} active',
         );
 
         // 🏭 ВАЖНО: новый маршрут на карте НЕ проводим через выполненные остановки —
@@ -328,7 +332,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
             : persistedPolyline;
 
         if (cachedPolyline != null && cachedPolyline.isNotEmpty) {
-          final cacheKey = routeId ?? driverKey;
+          final cacheKey = routeId ?? routeKey;
           var decoded = _decodedPolylineCache[cacheKey];
           if (decoded == null) {
             decoded = PolylineDecoder.decode(cachedPolyline, precision: 5);
@@ -347,7 +351,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           if (decoded.isNotEmpty && PolylineDecoder.isValid(decoded)) {
             result.add(
               Polyline(
-                polylineId: PolylineId('route_${driverKey}_active'),
+                polylineId: PolylineId('route_${routeKey}_active'),
                 points: decoded,
                 width: 8,
                 color: activeRouteColor,
@@ -365,7 +369,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
               if (completedHead != null && completedHead.length > 1) {
                 result.add(
                   Polyline(
-                    polylineId: PolylineId('route_${driverKey}_completed'),
+                    polylineId: PolylineId('route_${routeKey}_completed'),
                     points: completedHead,
                     width: 8,
                     color: passedRouteColor,
@@ -398,7 +402,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
             if (PolylineDecoder.isValid(dec)) {
               result.add(
                 Polyline(
-                  polylineId: PolylineId('route_${driverKey}_return'),
+                  polylineId: PolylineId('route_${routeKey}_return'),
                   points: dec,
                   width: 6,
                   color: Colors.grey.shade300,
@@ -410,7 +414,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           } else {
             result.add(
               Polyline(
-                polylineId: PolylineId('route_${driverKey}_return'),
+                polylineId: PolylineId('route_${routeKey}_return'),
                 points: [
                   LatLng(lastCompleted.latitude, lastCompleted.longitude),
                   LatLng(warehouseLat, warehouseLng),
@@ -526,7 +530,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
           result.add(
             Polyline(
-              polylineId: PolylineId('route_${driverKey}_active'),
+              polylineId: PolylineId('route_${routeKey}_active'),
               points: decoded,
               width: 8,
               color: activeRouteColor,
@@ -652,10 +656,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           '🛤️ [Track] Driver $driverId: ${historySnap.docs.length} history docs',
         );
 
-        if (historySnap.docs.length < 2) continue;
-
-        // Фильтруем точки: убираем плохую точность и GPS-прыжки
-        final rawPoints = <Map<String, double>>[];
+        // Фильтруем точки: убираем плохую точность и готовим их в хронологическом порядке.
+        final rawPoints = <Map<String, dynamic>>[];
         for (final doc in historySnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final lat = (data['latitude'] as num?)?.toDouble();
@@ -668,36 +670,71 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           if (trackTime == null || trackTime.isBefore(cutoff.toDate())) continue;
           // Отбрасываем точки с плохой точностью (> 200м)
           if (accuracy > 200) continue;
-          rawPoints.add({'lat': lat, 'lng': lng});
+          rawPoints.add({'lat': lat, 'lng': lng, 'ts': trackTime});
         }
+
+        try {
+          final currentDoc = await driverRef.get();
+          final currentData = currentDoc.data();
+          final lat = (currentData?['latitude'] as num?)?.toDouble();
+          final lng = (currentData?['longitude'] as num?)?.toDouble();
+          final accuracy = (currentData?['accuracy'] as num?)?.toDouble() ?? 50.0;
+          final timestamp = currentData?['timestamp'];
+          final trackTime = timestamp is Timestamp ? timestamp.toDate() : null;
+          if (lat != null &&
+              lng != null &&
+              (lat != 0 || lng != 0) &&
+              trackTime != null &&
+              !trackTime.isBefore(cutoff.toDate()) &&
+              accuracy <= 200) {
+            rawPoints.add({'lat': lat, 'lng': lng, 'ts': trackTime});
+          }
+        } catch (e) {
+          debugPrint('⚠️ [Track] Failed to read current driver doc for $driverId: $e');
+        }
+
+        rawPoints.sort((a, b) =>
+            (a['ts'] as DateTime).compareTo(b['ts'] as DateTime));
 
         debugPrint(
           '🛤️ [Track] Driver $driverId: ${rawPoints.length} valid points after filtering',
         );
 
-        // Убираем GPS-прыжки: если расстояние между соседними точками > 2 км — пропускаем точку
-        final gpsPoints = <Map<String, double>>[];
+        if (rawPoints.length < 2) continue;
+
+        // Не обрубаем трек после одного большого разрыва: режем на отдельные сегменты.
+        final segments = <List<LatLng>>[];
+        var currentSegment = <LatLng>[];
         for (int i = 0; i < rawPoints.length; i++) {
-          if (i == 0) {
-            gpsPoints.add(rawPoints[i]);
+          final curr = rawPoints[i];
+          final currLatLng = LatLng(curr['lat'] as double, curr['lng'] as double);
+          if (currentSegment.isEmpty) {
+            currentSegment.add(currLatLng);
             continue;
           }
-          final prev = gpsPoints.last;
-          final curr = rawPoints[i];
+          final prev = rawPoints[i - 1];
           final dist = _gpsDistanceKm(
-            prev['lat']!,
-            prev['lng']!,
-            curr['lat']!,
-            curr['lng']!,
+            (prev['lat'] as double),
+            (prev['lng'] as double),
+            (curr['lat'] as double),
+            (curr['lng'] as double),
           );
-          if (dist <= 2.0) {
-            gpsPoints.add(curr);
+          if (dist > 2.0) {
+            if (currentSegment.length >= 2) {
+              segments.add(currentSegment);
+            }
+            currentSegment = [currLatLng];
+          } else {
+            currentSegment.add(currLatLng);
           }
         }
+        if (currentSegment.length >= 2) {
+          segments.add(currentSegment);
+        }
 
-        if (gpsPoints.length < 2) {
+        if (segments.isEmpty) {
           debugPrint(
-            '🛤️ [Track] Driver $driverId: not enough points after jump filter (${gpsPoints.length})',
+            '🛤️ [Track] Driver $driverId: no valid segments after gap split',
           );
           continue;
         }
@@ -707,22 +744,20 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         final trackColor =
             baseColor.withValues(alpha: (baseColor.a * 0.5).clamp(0.0, 1.0));
 
-        // ✅ GPS-треки — прямые линии по GPS точкам (OSRM не нужен для истории)
-        final trackPoints =
-            gpsPoints.map((p) => LatLng(p['lat']!, p['lng']!)).toList();
-
-        tracks.add(
-          Polyline(
-            polylineId: PolylineId('track_$driverId'),
-            points: trackPoints,
-            width: 4,
-            color: trackColor,
-            zIndex: 1,
-          ),
-        );
+        for (int i = 0; i < segments.length; i++) {
+          tracks.add(
+            Polyline(
+              polylineId: PolylineId('track_${driverId}_$i'),
+              points: segments[i],
+              width: 4,
+              color: trackColor,
+              zIndex: 1,
+            ),
+          );
+        }
 
         debugPrint(
-          '🛤️ [Track] Driver $driverId: ${trackPoints.length} track points added (direct GPS)',
+          '🛤️ [Track] Driver $driverId: ${segments.length} track segments added',
         );
       }
 
@@ -743,7 +778,18 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       final id = pl.polylineId.value;
       if (!id.startsWith('route_') || !id.endsWith('_active')) continue;
       if (pl.points.length < 2) continue;
-      final driverKey = id.substring(6, id.length - 7);
+      final routeKey = id.substring(6, id.length - 7);
+      String? driverKey;
+      for (final point in widget.points) {
+        final pointKey = point.routeId ?? point.driverId ?? point.driverName ?? 'unknown';
+        if (pointKey == routeKey &&
+            point.driverId != null &&
+            point.driverId!.isNotEmpty) {
+          driverKey = point.driverId;
+          break;
+        }
+      }
+      if (driverKey == null || driverKey.isEmpty) continue;
       _driverRoadPolylinePoints[driverKey] = List<LatLng>.from(pl.points);
     }
   }

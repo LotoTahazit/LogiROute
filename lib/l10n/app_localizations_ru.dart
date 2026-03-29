@@ -64,7 +64,28 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createRoute => 'Создать маршрут';
 
   @override
+  String createRouteFromSelected(int count) {
+    return 'Из выбранных ($count)';
+  }
+
+  @override
   String get createRouteByZone => 'Маршрут по зоне';
+
+  @override
+  String get clearSelection => 'Сбросить выбор';
+
+  @override
+  String selectedCount(int count) {
+    return 'Выбрано: $count';
+  }
+
+  @override
+  String get noZoneLabel => 'Без района';
+
+  @override
+  String selectedClientsDifferentZonesWarning(String zones) {
+    return 'Выбраны клиенты из разных районов: $zones. Маршрут всё равно создать?';
+  }
 
   @override
   String get address => 'Адрес';

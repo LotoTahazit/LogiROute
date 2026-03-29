@@ -19,12 +19,19 @@ class NotificationBell extends StatefulWidget {
 class _NotificationBellState extends State<NotificationBell> {
   InAppNotificationService? _service;
   String? _lastRole;
+  String? _lastUserId;
 
-  void _rebuildService(String? userRole) {
-    if (_service == null || _lastRole != userRole) {
+  void _rebuildService(String? userRole, String? currentUserId) {
+    if (_service == null ||
+        _lastRole != userRole ||
+        _lastUserId != currentUserId) {
       _lastRole = userRole;
+      _lastUserId = currentUserId;
       _service = InAppNotificationService(
-          companyId: widget.companyId, userRole: userRole);
+        companyId: widget.companyId,
+        userRole: userRole,
+        currentUserId: currentUserId,
+      );
     }
   }
 
@@ -32,8 +39,10 @@ class _NotificationBellState extends State<NotificationBell> {
   Widget build(BuildContext context) {
     if (widget.companyId.isEmpty) return const SizedBox.shrink();
 
-    final userRole = context.watch<AuthService>().userRole;
-    _rebuildService(userRole);
+    final auth = context.watch<AuthService>();
+    final userRole = auth.userRole;
+    final currentUserId = auth.currentUser?.uid;
+    _rebuildService(userRole, currentUserId);
 
     return StreamBuilder<int>(
       stream: _service!.watchUnreadCount(),
@@ -58,6 +67,7 @@ class _NotificationBellState extends State<NotificationBell> {
                 builder: (_) => NotificationsScreen(
                   companyId: widget.companyId,
                   userRole: userRole,
+                  currentUserId: currentUserId,
                 ),
               ),
             );

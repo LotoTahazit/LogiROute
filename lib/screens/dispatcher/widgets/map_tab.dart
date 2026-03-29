@@ -63,16 +63,37 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
     final l10n = AppLocalizations.of(context)!;
 
     final hasCurrentRoutes = widget.routes.isNotEmpty;
-    final hasPreviousRoutes = widget.lastNonEmptyRoutes.isNotEmpty;
+    final currentRouteIds = widget.routes
+        .where((p) {
+          final s = DeliveryPoint.normalizeStatus(p.status);
+          return s != DeliveryPoint.statusCompleted &&
+              s != DeliveryPoint.statusCancelled;
+        })
+        .where((p) => p.routeId != null && p.routeId!.isNotEmpty)
+        .map((p) => p.routeId!)
+        .toSet();
+    final inlinePreviousRoutes = widget.routes.where((point) {
+      final routeId = point.routeId;
+      if (routeId == null || routeId.isEmpty) return false;
+      return !currentRouteIds.contains(routeId);
+    }).toList();
+    final previousRoutes = inlinePreviousRoutes.isNotEmpty
+        ? inlinePreviousRoutes
+        : widget.lastNonEmptyRoutes.where((point) {
+            final routeId = point.routeId;
+            if (routeId == null || routeId.isEmpty) return true;
+            return !currentRouteIds.contains(routeId);
+          }).toList();
+    final hasPreviousRoutes = previousRoutes.isNotEmpty;
 
     // Если нет текущих маршрутов и есть предыдущие — показываем предыдущие
     // Если есть текущие — показываем текущие, предыдущие по кнопке
     final List<DeliveryPoint> displayPoints;
     if (!hasCurrentRoutes && hasPreviousRoutes) {
       // Нет активных — показываем предыдущие
-      displayPoints = widget.lastNonEmptyRoutes;
+      displayPoints = previousRoutes;
     } else if (_showPreviousRoutes && hasPreviousRoutes) {
-      displayPoints = widget.lastNonEmptyRoutes;
+      displayPoints = previousRoutes;
     } else {
       displayPoints = widget.routes;
     }

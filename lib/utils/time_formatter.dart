@@ -9,11 +9,12 @@ class TimeFormatter {
   /// - 120 minutes → "2 h"
   static String formatDuration(double minutes,
       {String hourSuffix = 'h', String minuteSuffix = 'm'}) {
-    if (minutes < 60) {
-      return '${minutes.round()} $minuteSuffix';
+    final roundedMinutes = minutes.round();
+    if (roundedMinutes < 60) {
+      return '$roundedMinutes $minuteSuffix';
     } else {
-      final hours = minutes ~/ 60;
-      final remainingMinutes = (minutes % 60).round();
+      final hours = roundedMinutes ~/ 60;
+      final remainingMinutes = roundedMinutes % 60;
 
       if (remainingMinutes > 0) {
         return '$hours $hourSuffix $remainingMinutes $minuteSuffix';
@@ -34,9 +35,9 @@ class TimeFormatter {
   static String formatArrivalTime(double cumulativeMinutes,
       {int shiftStartHour = 7, int shiftStartMinute = 0}) {
     final totalMinutes =
-        shiftStartHour * 60 + shiftStartMinute + cumulativeMinutes;
+        (shiftStartHour * 60 + shiftStartMinute + cumulativeMinutes).round();
     final hours = (totalMinutes ~/ 60) % 24;
-    final mins = (totalMinutes % 60).round();
+    final mins = totalMinutes % 60;
     final timeStr =
         '${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}';
     final durationStr = formatDuration(cumulativeMinutes);

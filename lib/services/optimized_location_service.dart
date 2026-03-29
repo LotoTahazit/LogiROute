@@ -262,7 +262,6 @@ class OptimizedLocationService {
         'speed': position.speed,
         'heading': position.heading,
         'geoBucket': geoBucket,
-        'isOnShift': true,
       }, SetOptions(merge: true));
 
       if (kDebugMode) {
