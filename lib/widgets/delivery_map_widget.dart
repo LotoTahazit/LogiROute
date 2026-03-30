@@ -306,19 +306,31 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
 
   /// Вычисляет bounds для списка точек полилинии
   LatLngBounds _calculatePolylineBounds(List<LatLng> points) {
-    if (points.isEmpty) {
+    final validPoints = points
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude >= 29.0 &&
+              p.latitude <= 34.0 &&
+              p.longitude >= 34.0 &&
+              p.longitude <= 36.5,
+        )
+        .toList();
+
+    if (validPoints.isEmpty) {
       return LatLngBounds(
         southwest: LatLng(widget.warehouseLat, widget.warehouseLng),
         northeast: LatLng(widget.warehouseLat, widget.warehouseLng),
       );
     }
 
-    double minLat = points.first.latitude;
-    double maxLat = points.first.latitude;
-    double minLng = points.first.longitude;
-    double maxLng = points.first.longitude;
+    double minLat = validPoints.first.latitude;
+    double maxLat = validPoints.first.latitude;
+    double minLng = validPoints.first.longitude;
+    double maxLng = validPoints.first.longitude;
 
-    for (final p in points) {
+    for (final p in validPoints) {
       if (p.latitude < minLat) minLat = p.latitude;
       if (p.latitude > maxLat) maxLat = p.latitude;
       if (p.longitude < minLng) minLng = p.longitude;

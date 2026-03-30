@@ -57,6 +57,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   final Map<String, DateTime> _autoCloseArrivalTimes = {};
   double? _lastKnownLat;
   double? _lastKnownLng;
+  String? _visibleRouteKey;
 
   bool _isActiveRoutePoint(DeliveryPoint point) {
     final status = DeliveryPoint.normalizeStatus(point.status);
@@ -76,7 +77,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
       point.createdAt ??
       DateTime.fromMillisecondsSinceEpoch(0);
 
-  String? _selectCurrentRouteKey(List<DeliveryPoint> points) {
+  String? _selectCurrentRouteKey(
+    List<DeliveryPoint> points, {
+    String? preferredRouteKey,
+  }) {
     if (points.isEmpty) return null;
 
     final byRoute = <String, List<DeliveryPoint>>{};
@@ -86,6 +90,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     String? bestKey;
     DateTime? bestTime;
+
+    if (preferredRouteKey != null && byRoute.containsKey(preferredRouteKey)) {
+      return preferredRouteKey;
+    }
 
     void consider(String key, List<DeliveryPoint> group) {
       final latest = group
@@ -115,8 +123,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
   List<DeliveryPoint> _filterDriverPointsToCurrentRoute(
     List<DeliveryPoint> points,
   ) {
-    final currentRouteKey = _selectCurrentRouteKey(points);
-    if (currentRouteKey == null) return [];
+    final currentRouteKey = _selectCurrentRouteKey(
+      points,
+      preferredRouteKey: _visibleRouteKey,
+    );
+    if (currentRouteKey == null) {
+      _visibleRouteKey = null;
+      return [];
+    }
+    _visibleRouteKey = currentRouteKey;
 
     final filtered = points
         .where((point) => _routeKeyForPoint(point) == currentRouteKey)
