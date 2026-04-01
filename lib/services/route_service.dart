@@ -9,7 +9,6 @@ import 'api_config_service.dart';
 import 'client_learning_service.dart';
 import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
-import 'route_safety_service.dart';
 import 'route_balance_service.dart';
 import 'osrm_navigation_service.dart';
 import 'route_builder_service.dart';
@@ -1603,6 +1602,32 @@ class RouteService {
       print(
           '👤 Point $pointId assigned to $driverName (order: $nextOrder, route: $routeId)');
     });
+
+    // Авто-оптимизация после добавления точки в маршрут (фоновая)
+    unawaited(_autoOptimizeAfterAssign(driverId, routeId));
+  }
+
+  /// Фоновая авто-оптимизация после назначения точки в существующий маршрут.
+  Future<void> _autoOptimizeAfterAssign(String driverId, String routeId) async {
+    try {
+      final snap = await _deliveryPointsCollection()
+          .where('routeId', isEqualTo: routeId)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
+      final points = snap.docs
+          .map((d) => DeliveryPoint.fromMap(d.data(), d.id))
+          .toList()
+        ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+
+      if (points.length >= 2) {
+        final changed = await optimizeRouteByTime(driverId, routeId, points);
+        if (changed) {
+          print('🔄 [RouteService] Auto-optimized after point assign');
+        }
+      }
+    } catch (e) {
+      print('⚠️ [RouteService] Auto-optimize after assign failed: $e');
+    }
   }
 
   /// Road safety checks moved to RouteSafetyService
@@ -1830,14 +1855,49 @@ class RouteService {
       print('⚠️ [RouteService] Failed to save route document: $e');
     }
 
-    // 🗺️ OSRM: до ~5s × 2 сервера при фейле — не блокируем отдачу маршрута водителю
-    unawaited(_saveOsrmPolylineBackground(
+    // 🗺️ OSRM: polyline + авто-оптимизация порядка (фоновые, не блокируют UI)
+    unawaited(_optimizeAndSavePolylineBackground(
       routeId: routeId,
+      driverId: driverId,
       startLocation: startLocation,
       clientNavPoints: clientNavPoints,
       points: points,
       driverName: driverName,
     ));
+  }
+
+  /// Фоновая оптимизация: OSRM Trip → перестановка точек → polyline.
+  /// Вызывается через unawaited после создания маршрута и после assignPointToDriver.
+  Future<void> _optimizeAndSavePolylineBackground({
+    required String routeId,
+    required String driverId,
+    Map<String, double>? startLocation,
+    required Map<String, Map<String, double>> clientNavPoints,
+    required List<DeliveryPoint> points,
+    required String driverName,
+  }) async {
+    // 1. Оптимизация порядка через OSRM Trip (если >= 2 точек)
+    if (points.length >= 2) {
+      try {
+        final changed = await optimizeRouteByTime(driverId, routeId, points);
+        if (changed) {
+          print('🔄 [RouteService] Auto-optimized route for $driverName');
+          // recalculateETAsForPoints уже сохраняет polyline — не нужен отдельный вызов
+          return;
+        }
+      } catch (e) {
+        print('⚠️ [RouteService] Auto-optimize failed: $e');
+      }
+    }
+
+    // 2. Если оптимизация не изменила порядок или < 2 точек — просто сохраняем polyline
+    await _saveOsrmPolylineBackground(
+      routeId: routeId,
+      startLocation: startLocation,
+      clientNavPoints: clientNavPoints,
+      points: points,
+      driverName: driverName,
+    );
   }
 
   /// Получает polyline от OSRM и сохраняет в routes документ.

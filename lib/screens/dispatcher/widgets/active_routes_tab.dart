@@ -653,6 +653,10 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
   bool? _isSuboptimal;
   String? _lastPointSignature;
 
+  /// После оптимизации не перепроверяем — OSRM Trip нестабилен
+  /// и может вернуть другой порядок для тех же точек.
+  bool _wasOptimized = false;
+
   @override
   void initState() {
     super.initState();
@@ -662,9 +666,15 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
   @override
   void didUpdateWidget(_OptimizeTimeButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Перепроверяем только если реально изменился порядок точек
     final sig = _buildSignature(widget.routePoints);
     if (sig != _lastPointSignature) {
+      // Точки реально изменились (не просто rebuild)
+      // Если это результат оптимизации — не перепроверяем
+      if (_wasOptimized) {
+        _lastPointSignature = sig;
+        _isSuboptimal = false;
+        return;
+      }
       _isSuboptimal = null;
       _check();
     }
@@ -708,8 +718,12 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => widget.onOptimizeRoute(
-                widget.driverId, widget.routeId, widget.routePoints),
+            onTap: () {
+              _wasOptimized = true;
+              setState(() => _isSuboptimal = false);
+              widget.onOptimizeRoute(
+                  widget.driverId, widget.routeId, widget.routePoints);
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
