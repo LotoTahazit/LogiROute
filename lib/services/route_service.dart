@@ -720,13 +720,10 @@ class RouteService {
     final optimizedPoints =
         RouteOptimizer.optimizeRouteOrder(points, startLocation);
 
-    // Check bridge heights
-    final bridgeCheckPassed =
-        await RouteSafetyService.checkBridgeHeights(optimizedPoints);
-
-    // Check weight restrictions
-    final weightCheckPassed = await RouteSafetyService.checkRoadWeightLimits(
-        optimizedPoints, truckWeight);
+    // RouteSafety (bridge/weight checks) отключён — Google Roads/Places API
+    // не настроен и всегда возвращает ошибку. Включить при необходимости:
+    // final bridgeCheckPassed = await RouteSafetyService.checkBridgeHeights(optimizedPoints);
+    // final weightCheckPassed = await RouteSafetyService.checkRoadWeightLimits(optimizedPoints, truckWeight);
 
     if (!bridgeCheckPassed || !weightCheckPassed) {
       final reason = !bridgeCheckPassed

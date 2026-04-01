@@ -440,7 +440,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   void _syncTrackReloadLoop() {
     _trackReloadTimer?.cancel();
     if (!widget.showDriverTracks || widget.clearMapMode) return;
-    _trackReloadTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _trackReloadTimer = Timer.periodic(const Duration(seconds: 120), (_) {
       if (!mounted || !_isAppResumed || !widget.showDriverTracks) return;
       _loadDriverTracks();
     });
