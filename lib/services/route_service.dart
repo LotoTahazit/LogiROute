@@ -725,36 +725,6 @@ class RouteService {
     // final bridgeCheckPassed = await RouteSafetyService.checkBridgeHeights(optimizedPoints);
     // final weightCheckPassed = await RouteSafetyService.checkRoadWeightLimits(optimizedPoints, truckWeight);
 
-    if (!bridgeCheckPassed || !weightCheckPassed) {
-      final reason = !bridgeCheckPassed
-          ? 'low bridge (< ${AppConfig.minBridgeHeight}m)'
-          : 'weight restriction (< ${AppConfig.minRoadWeightLimit}t)';
-      print(
-          '🚧 [RouteService] Route blocked by $reason! Trying alternative route...');
-
-      // Try alternative optimization
-      final alternativePoints =
-          RouteOptimizer.createAlternativeRoute(points, startLocation);
-      final altBridgeCheck =
-          await RouteSafetyService.checkBridgeHeights(alternativePoints);
-      final altWeightCheck = await RouteSafetyService.checkRoadWeightLimits(
-          alternativePoints, truckWeight);
-
-      if (!altBridgeCheck || !altWeightCheck) {
-        print('❌ [RouteService] Alternative route also blocked!');
-        final errorMsg = !altBridgeCheck
-            ? 'Route blocked by low bridges (< ${AppConfig.minBridgeHeight}m height)'
-            : 'Route blocked by weight restrictions (< ${AppConfig.minRoadWeightLimit}t limit)';
-        throw Exception('$errorMsg. Please contact dispatcher.');
-      } else {
-        print('✅ [RouteService] Alternative route approved!');
-        await _assignPointsToDriver(
-            driverId, driverName, driverCapacity, alternativePoints,
-            startLocation: startLocation);
-        return;
-      }
-    }
-
     print('✅ [RouteService] Route approved - no restrictions');
 
     // Назначаем точки водителю
