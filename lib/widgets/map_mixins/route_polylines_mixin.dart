@@ -273,10 +273,9 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       final Map<String, List<DeliveryPoint>> routesByKey = {};
 
       for (final p in validRoutePoints) {
-        final routeKey =
-            (p.routeId != null && p.routeId!.isNotEmpty)
-                ? p.routeId!
-                : (p.driverId ?? p.driverName ?? 'unknown');
+        final routeKey = (p.routeId != null && p.routeId!.isNotEmpty)
+            ? p.routeId!
+            : (p.driverId ?? p.driverName ?? 'unknown');
         routesByKey.putIfAbsent(routeKey, () => []).add(p);
       }
 
@@ -430,112 +429,10 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         // Строим цветной маршрут для активных точек
         if (activePoints.isNotEmpty) {
-          // План (полилиния маршрута): склад → стопы → склад; после стопов — от последней выполненной.
-          // GPS водителя — отдельный коннектор к первой активной точке.
-          final double startLat = completedPoints.isNotEmpty
-              ? completedPoints.last.latitude
-              : warehouseLat;
-          final double startLng = completedPoints.isNotEmpty
-              ? completedPoints.last.longitude
-              : warehouseLng;
-
+          // Нет cached polyline — ждём пока _saveOsrmPolylineBackground
+          // сохранит его в Firestore. StreamBuilder подхватит автоматически.
           debugPrint(
-            '🏭 [Map] Planned route segment for $driverKey from ($startLat, $startLng)',
-          );
-
-          // ⚠️ Нет cached polyline — OSRM fallback (только для старых маршрутов)
-
-          debugPrint(
-            '🏭 [Map] Start: Warehouse/Last completed ($startLat, $startLng)',
-          );
-          debugPrint('🏭 [Map] End: Warehouse (return leg)');
-
-          // Маршрут кольцевой: старт → все точки → махсан
-          final smartRoute = await _smartNavigationService.getMultiPointRoute(
-            startLat: startLat,
-            startLng: startLng,
-            waypoints: activePoints,
-            endLat: widget.warehouseLat,
-            endLng: widget.warehouseLng,
-            language: 'he',
-          );
-
-          debugPrint(
-            '🧭 [Map] SmartNavigationService result for driver $driverKey:',
-          );
-
-          String? rawPolyline =
-              (smartRoute != null && smartRoute.polyline.isNotEmpty)
-                  ? smartRoute.polyline
-                  : null;
-          if (rawPolyline == null) {
-            final wps = activePoints
-                .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-                .toList();
-            try {
-              final osrmDirect = await _osrmNavigation.getOptimizedRoute(
-                startLat: startLat,
-                startLng: startLng,
-                waypoints: wps,
-                endLat: widget.warehouseLat,
-                endLng: widget.warehouseLng,
-              );
-              if (osrmDirect != null && osrmDirect.polyline.isNotEmpty) {
-                rawPolyline = osrmDirect.polyline;
-              }
-            } catch (e) {
-              // Web: часто CORS к публичному OSRM — без своего прокси (OSRM_HOST) запрос падает.
-              debugPrint('⚠️ [Map] OSRM direct failed (web CORS?): $e');
-            }
-          }
-          if (rawPolyline == null || rawPolyline.isEmpty) {
-            debugPrint('⚠️ [Map] No OSRM polyline for active route');
-            driverIndex++;
-            continue;
-          }
-
-          var decoded = PolylineDecoder.decode(rawPolyline, precision: 5);
-
-          if (!PolylineDecoder.isValid(decoded)) {
-            final wps = activePoints
-                .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-                .toList();
-            try {
-              final osrmDirect = await _osrmNavigation.getOptimizedRoute(
-                startLat: startLat,
-                startLng: startLng,
-                waypoints: wps,
-                endLat: widget.warehouseLat,
-                endLng: widget.warehouseLng,
-              );
-              if (osrmDirect != null && osrmDirect.polyline.isNotEmpty) {
-                decoded =
-                    PolylineDecoder.decode(osrmDirect.polyline, precision: 5);
-              }
-            } catch (e) {
-              debugPrint('⚠️ [Map] OSRM retry failed: $e');
-            }
-            if (!PolylineDecoder.isValid(decoded)) {
-              debugPrint(
-                '⚠️ [Map] No road polyline — skip (no straight fallback). Web: настройте OSRM_HOST на прокси с CORS.',
-              );
-              driverIndex++;
-              continue;
-            }
-          }
-
-          debugPrint(
-            '🎨 [Map] Driver $driverKey active route color: $activeRouteColor',
-          );
-
-          result.add(
-            Polyline(
-              polylineId: PolylineId('route_${routeKey}_active'),
-              points: decoded,
-              width: 8,
-              color: activeRouteColor,
-              zIndex: 1,
-            ),
+            '⏳ [Map] No cached polyline for route $routeKey — waiting for background OSRM save',
           );
           result.addAll(_buildDriverToRoutePolyline(driverKey, activePoints));
         }
@@ -673,7 +570,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           final trackTime = timestamp is Timestamp ? timestamp.toDate() : null;
           if (lat == null || lng == null) continue;
           if (lat == 0 && lng == 0) continue;
-          if (trackTime == null || trackTime.isBefore(cutoff.toDate())) continue;
+          if (trackTime == null || trackTime.isBefore(cutoff.toDate()))
+            continue;
           // Отбрасываем точки с плохой точностью (> 200м)
           if (accuracy > 200) continue;
           rawPoints.add({'lat': lat, 'lng': lng, 'ts': trackTime});
@@ -684,7 +582,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           final currentData = currentDoc.data();
           final lat = (currentData?['latitude'] as num?)?.toDouble();
           final lng = (currentData?['longitude'] as num?)?.toDouble();
-          final accuracy = (currentData?['accuracy'] as num?)?.toDouble() ?? 50.0;
+          final accuracy =
+              (currentData?['accuracy'] as num?)?.toDouble() ?? 50.0;
           final timestamp = currentData?['timestamp'];
           final trackTime = timestamp is Timestamp ? timestamp.toDate() : null;
           if (lat != null &&
@@ -696,11 +595,12 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
             rawPoints.add({'lat': lat, 'lng': lng, 'ts': trackTime});
           }
         } catch (e) {
-          debugPrint('⚠️ [Track] Failed to read current driver doc for $driverId: $e');
+          debugPrint(
+              '⚠️ [Track] Failed to read current driver doc for $driverId: $e');
         }
 
-        rawPoints.sort((a, b) =>
-            (a['ts'] as DateTime).compareTo(b['ts'] as DateTime));
+        rawPoints.sort(
+            (a, b) => (a['ts'] as DateTime).compareTo(b['ts'] as DateTime));
 
         debugPrint(
           '🛤️ [Track] Driver $driverId: ${rawPoints.length} valid points after filtering',
@@ -715,7 +615,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         var currentSegment = <LatLng>[];
         for (int i = 0; i < rawPoints.length; i++) {
           final curr = rawPoints[i];
-          final currLatLng = LatLng(curr['lat'] as double, curr['lng'] as double);
+          final currLatLng =
+              LatLng(curr['lat'] as double, curr['lng'] as double);
           if (currentSegment.isEmpty) {
             currentSegment.add(currLatLng);
             continue;
@@ -731,7 +632,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           final currTs = curr['ts'] as DateTime;
           final seconds = math.max(1, currTs.difference(prevTs).inSeconds);
           final impliedSpeedKmh = dist / (seconds / 3600.0);
-          final isTeleport = dist > 20.0 || (dist > 3.0 && impliedSpeedKmh > 160.0);
+          final isTeleport =
+              dist > 20.0 || (dist > 3.0 && impliedSpeedKmh > 160.0);
           if (isTeleport) {
             if (currentSegment.length >= 2) {
               segments.add(currentSegment);
@@ -801,7 +703,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       final routeKey = id.substring(6, id.length - 7);
       String? driverKey;
       for (final point in widget.points) {
-        final pointKey = point.routeId ?? point.driverId ?? point.driverName ?? 'unknown';
+        final pointKey =
+            point.routeId ?? point.driverId ?? point.driverName ?? 'unknown';
         if (pointKey == routeKey &&
             point.driverId != null &&
             point.driverId!.isNotEmpty) {

@@ -44,8 +44,8 @@ class RouteSafetyService {
           for (final point in data['snappedPoints']) {
             final placeId = point['placeId'];
             if (placeId != null) {
-              final hasLowBridge = await _checkPlaceForLowBridge(
-                  placeId, apiKey);
+              final hasLowBridge =
+                  await _checkPlaceForLowBridge(placeId, apiKey);
               if (hasLowBridge) {
                 print(
                     '🚧 [RouteSafety] Low bridge detected! Height < ${AppConfig.minBridgeHeight}m');
@@ -55,13 +55,14 @@ class RouteSafetyService {
           }
         }
       } else if (response.statusCode == 403) {
-        print('⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
+        print(
+            '⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
         return true;
       }
 
       return true;
     } catch (e) {
-      print('❌ [RouteSafety] Error checking bridge heights: $e');
+      print('⚠️ [RouteSafety] Bridge check skipped: $e');
       return true; // Allow route on error
     }
   }
@@ -113,13 +114,14 @@ class RouteSafetyService {
           }
         }
       } else if (response.statusCode == 403) {
-        print('⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
+        print(
+            '⚠️ [RouteSafety] Roads API 403. Check API key/billing/restrictions.');
         return true;
       }
 
       return true;
     } catch (e) {
-      print('❌ [RouteSafety] Error checking road weight limits: $e');
+      print('⚠️ [RouteSafety] Weight check skipped: $e');
       return true;
     }
   }
