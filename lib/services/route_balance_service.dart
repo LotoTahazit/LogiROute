@@ -195,6 +195,7 @@ class RouteBalanceService {
         'orderInRoute': i,
         'eta': eta,
         'distanceKm': double.parse(distanceKm.toStringAsFixed(1)),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
 
