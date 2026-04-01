@@ -24,6 +24,7 @@ class RouteService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirestorePaths _paths = FirestorePaths();
   static bool _isDistributing = false;
+
   /// Один раз за сессию на компанию: архив completed + частичные маршруты → pending.
   static final Set<String> _scheduledPointHygiene = {};
 
@@ -457,7 +458,8 @@ class RouteService {
         if (snap.docs.length < 100) break;
       }
     } catch (e) {
-      debugPrint('⚠️ [RouteService] releasePartialRouteIncompleteToPending: $e');
+      debugPrint(
+          '⚠️ [RouteService] releasePartialRouteIncompleteToPending: $e');
     }
   }
 
@@ -476,7 +478,8 @@ class RouteService {
         hasCompleted = true;
         continue;
       }
-      if (st == DeliveryPoint.statusAssigned || st == DeliveryPoint.statusInProgress) {
+      if (st == DeliveryPoint.statusAssigned ||
+          st == DeliveryPoint.statusInProgress) {
         activeRefs.add(doc.reference);
       }
     }
@@ -550,7 +553,10 @@ class RouteService {
         .map((doc) => {'id': doc.id, ...doc.data()})
         .toList();
 
-    final haveIds = todayList.map((m) => m['id'] as String? ?? m['routeId']?.toString()).whereType<String>().toSet();
+    final haveIds = todayList
+        .map((m) => m['id'] as String? ?? m['routeId']?.toString())
+        .whereType<String>()
+        .toSet();
 
     final extra = <Map<String, dynamic>>[];
     for (final id in additionalRouteIds ?? {}) {
@@ -1194,8 +1200,7 @@ class RouteService {
     Query query;
 
     if (driverId.isEmpty || driverId == 'null') {
-      print(
-          '⚠️ [RouteService] Refusing (driverId is empty). Aborting.');
+      print('⚠️ [RouteService] Refusing (driverId is empty). Aborting.');
       return;
     } else if (routeId != null) {
       query = _deliveryPointsCollection().where('routeId', isEqualTo: routeId);
@@ -1269,7 +1274,8 @@ class RouteService {
         .limit(1)
         .get();
     final startOrder = targetMaxOrder.docs.isNotEmpty
-        ? ((targetMaxOrder.docs.first.data()['orderInRoute'] as num?)?.toInt() ??
+        ? ((targetMaxOrder.docs.first.data()['orderInRoute'] as num?)
+                    ?.toInt() ??
                 0) +
             1
         : 0;
@@ -1456,7 +1462,8 @@ class RouteService {
 
       // 3) Убираем выбросы: далеко от массы (>70м)
       final inliers = rawVisits.where((v) {
-        final meters = _calculateDistance(baseLat, baseLng, v.lat, v.lng) * 1000;
+        final meters =
+            _calculateDistance(baseLat, baseLng, v.lat, v.lng) * 1000;
         return meters <= 70;
       }).toList();
       if (inliers.length < 5) return;
@@ -1805,7 +1812,8 @@ class RouteService {
     }
 
     // 🗺️ OSRM: до ~5s × 2 сервера при фейле — не блокируем отдачу маршрута водителю
-    unawaited(_logOsrmPolylineBackground(
+    unawaited(_saveOsrmPolylineBackground(
+      routeId: routeId,
       startLocation: startLocation,
       clientNavPoints: clientNavPoints,
       points: points,
@@ -1813,8 +1821,10 @@ class RouteService {
     ));
   }
 
-  /// Только лог / проверка геометрии; в Firestore polyline не пишем.
-  Future<void> _logOsrmPolylineBackground({
+  /// Получает polyline от OSRM и сохраняет в routes документ.
+  /// Вызывается через unawaited — не блокирует создание маршрута.
+  Future<void> _saveOsrmPolylineBackground({
+    required String routeId,
     Map<String, double>? startLocation,
     required Map<String, Map<String, double>> clientNavPoints,
     required List<DeliveryPoint> points,
@@ -1837,6 +1847,7 @@ class RouteService {
         });
       }
 
+      // endLat/endLng = склад → OSRM строит маршрут с возвратом
       final osrmRoute = await osrm.getOptimizedRoute(
         startLat: originLat,
         startLng: originLng,
@@ -1846,11 +1857,15 @@ class RouteService {
       );
 
       if (osrmRoute != null && osrmRoute.polyline.isNotEmpty) {
+        await _routesCollection().doc(routeId).set({
+          'polyline': osrmRoute.polyline,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
         print(
-            '✅ [RouteService] Route polyline (bg) for $driverName: ${osrmRoute.polyline.length} chars');
+            '✅ [RouteService] Polyline saved for $driverName: ${osrmRoute.polyline.length} chars');
       }
     } catch (e) {
-      print('⚠️ [RouteService] OSRM background polyline log failed: $e');
+      print('⚠️ [RouteService] OSRM polyline save failed: $e');
     }
   }
 
