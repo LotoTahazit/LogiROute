@@ -17,7 +17,54 @@ bool effectiveOnShift({
 }) =>
     driverClaimsOnShift && scheduleAllowsNow;
 
-/// Расписание смен из `companies/{companyId}/settings/shifts`.
+/// Праздничный день с датой и названием.
+class HolidayEntry {
+  const HolidayEntry({
+    required this.date,
+    required this.title,
+    this.titleHe,
+    this.titleRu,
+  });
+
+  /// Дата в формате 'yyyy-MM-dd'
+  final String date;
+
+  /// Название на английском (fallback)
+  final String title;
+
+  /// Название на иврите
+  final String? titleHe;
+
+  /// Название на русском
+  final String? titleRu;
+
+  /// Возвращает название на нужном языке с fallback на английский
+  String localizedTitle(String langCode) {
+    switch (langCode) {
+      case 'he':
+        return titleHe?.isNotEmpty == true ? titleHe! : title;
+      case 'ru':
+        return titleRu?.isNotEmpty == true ? titleRu! : title;
+      default:
+        return title;
+    }
+  }
+
+  Map<String, dynamic> toMap() => {
+        'date': date,
+        'title': title,
+        if (titleHe != null) 'titleHe': titleHe,
+        if (titleRu != null) 'titleRu': titleRu,
+      };
+
+  static HolidayEntry fromMap(Map<String, dynamic> m) => HolidayEntry(
+        date: m['date']?.toString() ?? '',
+        title: m['title']?.toString() ?? '',
+        titleHe: m['titleHe']?.toString(),
+        titleRu: m['titleRu']?.toString(),
+      );
+}
+
 ///
 /// Поля документа (пример):
 /// ```json
@@ -49,14 +96,14 @@ class ShiftScheduleConfig {
   final int startHour;
   final int endHour;
 
-  /// Список праздничных дат в формате 'yyyy-MM-dd'. GPS не работает в эти дни.
-  final List<String> holidays;
+  /// Список праздников с датой и названием. GPS не работает в эти дни.
+  final List<HolidayEntry> holidays;
 
   /// Проверяет является ли дата праздником
   bool isHoliday(DateTime date) {
     final key =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return holidays.contains(key);
+    return holidays.any((h) => h.date == key);
   }
 
   bool isWithin(DateTime now) {
@@ -95,11 +142,18 @@ class ShiftScheduleConfig {
     );
   }
 
-  static List<String> _parseHolidays(dynamic raw) {
+  static List<HolidayEntry> _parseHolidays(dynamic raw) {
     if (raw is! List) return const [];
     return raw
-        .whereType<String>()
-        .where((s) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s))
+        .whereType<Map>()
+        .map((m) {
+          // Поддержка старого формата (просто строка с датой)
+          if (m is! Map<String, dynamic>) {
+            return HolidayEntry(date: m.toString(), title: '');
+          }
+          return HolidayEntry.fromMap(m);
+        })
+        .where((h) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(h.date))
         .toList();
   }
 
