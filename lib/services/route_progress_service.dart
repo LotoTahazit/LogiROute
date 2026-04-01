@@ -63,37 +63,38 @@ class RouteProgressService {
     LatLng segmentStart,
     LatLng segmentEnd,
   ) {
-    // Конвертируем в радианы для расчетов
-    final lat1 = segmentStart.latitude * 0.01745329252;
-    final lon1 = segmentStart.longitude * 0.01745329252;
-    final lat2 = segmentEnd.latitude * 0.01745329252;
-    final lon2 = segmentEnd.longitude * 0.01745329252;
-    final lat3 = point.latitude * 0.01745329252;
-    final lon3 = point.longitude * 0.01745329252;
+    // Equirectangular projection: приводим к плоским координатам
+    // с поправкой cos(lat) для долготы. Для Израиля погрешность <0.1%.
+    final midLat = (segmentStart.latitude + segmentEnd.latitude) / 2.0;
+    final cosLat = cos(midLat * pi / 180.0);
 
-    // Вектор отрезка
-    final dx = lat2 - lat1;
-    final dy = lon2 - lon1;
+    // Плоские координаты (в условных единицах, пропорциональных метрам)
+    final x1 = segmentStart.longitude * cosLat;
+    final y1 = segmentStart.latitude;
+    final x2 = segmentEnd.longitude * cosLat;
+    final y2 = segmentEnd.latitude;
+    final x3 = point.longitude * cosLat;
+    final y3 = point.latitude;
+
+    final dx = x2 - x1;
+    final dy = y2 - y1;
 
     // Если отрезок вырожден в точку
-    if (dx.abs() < 0.000001 && dy.abs() < 0.000001) {
+    if (dx.abs() < 1e-12 && dy.abs() < 1e-12) {
       return segmentStart;
     }
 
     // Параметр t для проекции точки на отрезок (0 <= t <= 1)
-    final t = ((lat3 - lat1) * dx + (lon3 - lon1) * dy) / (dx * dx + dy * dy);
+    final t = ((x3 - x1) * dx + (y3 - y1) * dy) / (dx * dx + dy * dy);
+    final clampedT = t.clamp(0.0, 1.0);
 
-    // Ограничиваем t в пределах отрезка
-    final clampedT = max(0.0, min(1.0, t));
+    // Интерполируем в исходных градусах (не в плоских координатах)
+    final closestLat = segmentStart.latitude +
+        clampedT * (segmentEnd.latitude - segmentStart.latitude);
+    final closestLng = segmentStart.longitude +
+        clampedT * (segmentEnd.longitude - segmentStart.longitude);
 
-    // Ближайшая точка на отрезке
-    final closestLat = lat1 + clampedT * dx;
-    final closestLon = lon1 + clampedT * dy;
-
-    return LatLng(
-      closestLat / 0.01745329252, // Обратно в градусы
-      closestLon / 0.01745329252,
-    );
+    return LatLng(closestLat, closestLng);
   }
 
   /// Проверяет, находится ли водитель на маршруте
