@@ -1155,9 +1155,20 @@ class RouteService {
 
   /// Оптимизация порядка точек в маршруте по времени через OSRM Trip API.
   /// Возвращает true если порядок был изменён.
+  static DateTime _lastOptimizeAt = DateTime(2000);
+  static bool _lastOptimizeRejected = false;
+
   Future<bool> optimizeRouteByTime(
       String driverId, String? routeId, List<DeliveryPoint> points) async {
     if (points.length < 2) return false;
+
+    // Кулдаун 10 секунд — защита от быстрых повторных нажатий
+    if (DateTime.now().difference(_lastOptimizeAt) <
+        const Duration(seconds: 10)) {
+      debugPrint('⏳ [RouteService] Optimization cooldown — skipping');
+      return false;
+    }
+    _lastOptimizeAt = DateTime.now();
 
     final activePoints = points
         .where((p) =>
@@ -1197,9 +1208,6 @@ class RouteService {
       return false;
     }
 
-    // Сравниваем выигрыш: текущий маршрут vs предложенный
-    // Текущий: ETA из последней точки (уже рассчитан, включает service time)
-    // Новый: OSRM Trip durationMinutes (чистое дорожное время)
     final reordered = <DeliveryPoint>[];
     for (final idx in result.waypointOrder) {
       if (idx >= 0 && idx < activePoints.length) {
@@ -1207,37 +1215,50 @@ class RouteService {
       }
     }
 
-    // Парсим ETA последней точки → минуты от 07:00
+    // Сравниваем: текущий ETA vs OSRM Trip duration
+    // Вычитаем service time из ETA для честного сравнения (движение vs движение)
     final lastEta = activePoints.last.eta ?? '';
-    final oldDurationMin = _parseEtaToMinutes(lastEta);
-    final newDurationMin = result.durationMinutes;
+    final oldEtaMin = _parseEtaToMinutes(lastEta);
 
-    if (oldDurationMin <= 0) {
+    if (oldEtaMin <= 0) {
       debugPrint(
           '⚠️ [RouteService] Invalid old ETA "$lastEta" — applying optimization');
     } else {
-      final improvementMinutes = oldDurationMin - newDurationMin;
-      final improvementPercent = (improvementMinutes / oldDurationMin) * 100;
+      // Service time: 7 мин × кол-во точек (заложено в ETA)
+      final serviceMin = activePoints.length * 7.0;
+      final oldDriveMin = oldEtaMin - serviceMin;
+      final newDriveMin = result.durationMinutes;
+
+      final improvementMinutes = oldDriveMin - newDriveMin;
+      final improvementPercent =
+          oldDriveMin > 0 ? (improvementMinutes / oldDriveMin) * 100 : 0.0;
 
       debugPrint('📊 [RouteService] Optimization comparison:\n'
-          '   Current: ~${oldDurationMin.toStringAsFixed(0)}min (from ETA)\n'
-          '   New:     ${newDurationMin.toStringAsFixed(0)}min, ${result.distanceKm.toStringAsFixed(1)}km (OSRM)\n'
+          '   Current: ~${oldDriveMin.toStringAsFixed(0)}min drive (ETA ${oldEtaMin.toStringAsFixed(0)} - service ${serviceMin.toStringAsFixed(0)})\n'
+          '   New:     ${newDriveMin.toStringAsFixed(0)}min drive, ${result.distanceKm.toStringAsFixed(1)}km (OSRM)\n'
           '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
 
-      // Комбинированный критерий: > 5% ИЛИ > 3 мин
-      if (improvementPercent <= 5.0 && improvementMinutes <= 3.0) {
+      // Hysteresis: повышенный порог если прошлый раз отклонили (защита от дрожания)
+      final pctThreshold = _lastOptimizeRejected ? 6.0 : 5.0;
+      final minThreshold = _lastOptimizeRejected ? 3.5 : 3.0;
+
+      if (improvementPercent <= pctThreshold &&
+          improvementMinutes <= minThreshold) {
         debugPrint(
             '⚠️ [RouteService] Improvement too small — keeping current order');
+        _lastOptimizeRejected = true;
         return false;
       }
 
-      final reason = improvementPercent > 5.0
-          ? 'distance ${improvementPercent.toStringAsFixed(1)}%'
-          : 'time ${improvementMinutes.toStringAsFixed(1)}min';
+      final reason = improvementPercent > pctThreshold
+          ? '${improvementPercent.toStringAsFixed(1)}% faster'
+          : '${improvementMinutes.toStringAsFixed(1)}min saved';
       debugPrint('✅ [RouteService] Applying optimization: $reason');
     }
 
-    // Обновляем orderInRoute + ETA, используем polyline из Trip (без лишнего OSRM запроса)
+    _lastOptimizeRejected = false;
+
+    // Обновляем orderInRoute + ETA, используем polyline из Trip
     final balanceService = RouteBalanceService(companyId: companyId);
     await balanceService.recalculateETAsForPoints(
       reordered,
