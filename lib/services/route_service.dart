@@ -1175,7 +1175,7 @@ class RouteService {
     }
 
     // Сравниваем выигрыш: текущий маршрут vs предложенный
-    // Считаем дистанцию текущего порядка (Haversine)
+    // 1. Дистанция текущего порядка (Haversine, по прямой)
     double currentDist = 0;
     final whLat = AppConfig.defaultWarehouseLat;
     final whLng = AppConfig.defaultWarehouseLng;
@@ -1185,11 +1185,10 @@ class RouteService {
       currentDist += RouteOptimizer.calculateDistance(prevLat, prevLng,
           activePoints[i].latitude, activePoints[i].longitude);
     }
-    // + возврат на склад
     currentDist += RouteOptimizer.calculateDistance(
         activePoints.last.latitude, activePoints.last.longitude, whLat, whLng);
 
-    // Дистанция предложенного порядка
+    // 2. Дистанция предложенного порядка
     final reordered = <DeliveryPoint>[];
     for (final idx in result.waypointOrder) {
       if (idx >= 0 && idx < activePoints.length) {
@@ -1206,16 +1205,33 @@ class RouteService {
     newDist += RouteOptimizer.calculateDistance(
         reordered.last.latitude, reordered.last.longitude, whLat, whLng);
 
-    final improvement = ((currentDist - newDist) / currentDist * 100);
-    debugPrint(
-        '📊 [RouteService] Optimization: current=${currentDist.toStringAsFixed(1)}km, '
-        'new=${newDist.toStringAsFixed(1)}km, improvement=${improvement.toStringAsFixed(1)}%');
+    // 3. Время из OSRM (реальное дорожное время)
+    // currentDuration оцениваем через среднюю скорость (нет OSRM для текущего порядка)
+    const avgSpeedKmh = 38.0;
+    final currentDurationMin = (currentDist / avgSpeedKmh) * 60;
+    final newDurationMin = result.durationMinutes;
 
-    // Применяем только если выигрыш > 5%
-    if (improvement < 5.0) {
-      debugPrint('⚠️ [RouteService] Improvement < 5% — keeping current order');
+    final improvementPercent =
+        currentDist > 0 ? ((currentDist - newDist) / currentDist * 100) : 0.0;
+    final improvementMinutes = currentDurationMin - newDurationMin;
+
+    debugPrint('📊 [RouteService] Optimization comparison:\n'
+        '   Current: ${currentDist.toStringAsFixed(1)}km, ~${currentDurationMin.toStringAsFixed(0)}min\n'
+        '   New:     ${newDist.toStringAsFixed(1)}km, ${newDurationMin.toStringAsFixed(0)}min (OSRM)\n'
+        '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
+
+    // Комбинированный критерий: применяем если > 5% по дистанции ИЛИ > 3 мин по времени
+    if (improvementPercent <= 5.0 && improvementMinutes <= 3.0) {
+      debugPrint(
+          '⚠️ [RouteService] Improvement too small (${improvementPercent.toStringAsFixed(1)}%, '
+          '${improvementMinutes.toStringAsFixed(1)}min) — keeping current order');
       return false;
     }
+
+    final reason = improvementPercent > 5.0
+        ? 'distance ${improvementPercent.toStringAsFixed(1)}%'
+        : 'time ${improvementMinutes.toStringAsFixed(1)}min';
+    debugPrint('✅ [RouteService] Applying optimization: $reason');
 
     // Обновляем orderInRoute + ETA, используем polyline из Trip (без лишнего OSRM запроса)
     final balanceService = RouteBalanceService(companyId: companyId);
