@@ -730,6 +730,8 @@ class RouteService {
     // Оптимизация порядка через OSRM Trip (реальное время на дорогах)
     List<DeliveryPoint> optimizedPoints;
     String? tripPolyline;
+    double? tripDurationMinutes;
+    double? tripDistanceKm;
 
     if (points.length >= 2) {
       final osrm = OsrmNavigationService();
@@ -752,6 +754,8 @@ class RouteService {
             if (idx >= 0 && idx < points.length) points[idx],
         ];
         tripPolyline = tripResult.polyline;
+        tripDurationMinutes = tripResult.durationMinutes;
+        tripDistanceKm = tripResult.distanceKm;
         print('🧭 [RouteService] OSRM Trip order: ${tripResult.waypointOrder}, '
             '${tripResult.distanceKm.toStringAsFixed(1)}km, '
             '${tripResult.durationMinutes.toStringAsFixed(0)}min');
@@ -770,7 +774,10 @@ class RouteService {
     // Назначаем точки водителю
     await _assignPointsToDriver(
         driverId, driverName, driverCapacity, optimizedPoints,
-        startLocation: startLocation, tripPolyline: tripPolyline);
+        startLocation: startLocation,
+        tripPolyline: tripPolyline,
+        tripDurationMinutes: tripDurationMinutes,
+        tripDistanceKm: tripDistanceKm);
   }
 
   /// � Начать маршрут — установить статус active
@@ -1220,24 +1227,76 @@ class RouteService {
     final lastEta = activePoints.last.eta ?? '';
     final oldEtaMin = _parseEtaToMinutes(lastEta);
 
-    if (oldEtaMin <= 0) {
-      debugPrint(
-          '⚠️ [RouteService] Invalid old ETA "$lastEta" — applying optimization');
-    } else {
-      // Сравниваем total time (drive + service) на одной базе:
-      // OLD = ETA (уже включает service + parking)
-      // NEW = OSRM drive + service (9 мин default на точку: 7 обслуживание + 2 парковка)
+    // Пробуем взять сохранённый tripDurationMinutes из routes документа (точнее чем ETA)
+    double? savedTripDuration;
+    if (routeId != null) {
+      try {
+        final routeDoc = await _routesCollection().doc(routeId).get();
+        savedTripDuration =
+            (routeDoc.data()?['tripDurationMinutes'] as num?)?.toDouble();
+      } catch (_) {}
+    }
+
+    if (savedTripDuration != null && savedTripDuration > 0) {
+      // Честное сравнение: оба с возвратом на склад, оба OSRM
       final totalServiceMin = activePoints.length * 9.0;
-      final oldTotalMin = oldEtaMin;
+      final oldTotalMin = savedTripDuration + totalServiceMin;
       final newTotalMin = result.durationMinutes + totalServiceMin;
 
       final improvementMinutes = oldTotalMin - newTotalMin;
       final improvementPercent =
           oldTotalMin > 0 ? (improvementMinutes / oldTotalMin) * 100 : 0.0;
 
+      debugPrint('📊 [RouteService] Optimization comparison (OSRM vs OSRM):\n'
+          '   Current: ${oldTotalMin.toStringAsFixed(0)}min (saved trip ${savedTripDuration.toStringAsFixed(0)} + service ${totalServiceMin.toStringAsFixed(0)})\n'
+          '   New:     ${newTotalMin.toStringAsFixed(0)}min (OSRM ${result.durationMinutes.toStringAsFixed(0)} + service ${totalServiceMin.toStringAsFixed(0)})\n'
+          '   Includes return to warehouse: BOTH ✅\n'
+          '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
+
+      final pctThreshold = _lastOptimizeRejected ? 6.0 : 5.0;
+      final minThreshold = _lastOptimizeRejected ? 3.5 : 3.0;
+
+      if (improvementPercent <= pctThreshold &&
+          improvementMinutes <= minThreshold) {
+        debugPrint(
+            '⚠️ [RouteService] Improvement too small — keeping current order');
+        _lastOptimizeRejected = true;
+        return false;
+      }
+
+      final reason = improvementPercent > pctThreshold
+          ? '${improvementPercent.toStringAsFixed(1)}% faster'
+          : '${improvementMinutes.toStringAsFixed(1)}min saved';
+      debugPrint('✅ [RouteService] Applying optimization: $reason');
+    } else if (oldEtaMin <= 0) {
+      debugPrint(
+          '⚠️ [RouteService] No saved trip duration, invalid ETA — applying optimization');
+    } else {
+      // ⚠️ OSRM Trip (roundtrip=true) включает возврат на склад.
+      // ETA последней точки НЕ включает возврат.
+      // Добавляем примерное время возврата к ETA для симметричного сравнения.
+      final whLat = AppConfig.defaultWarehouseLat;
+      final whLng = AppConfig.defaultWarehouseLng;
+      final lastPoint = activePoints.last;
+      final returnDistKm = RouteOptimizer.calculateDistance(
+              lastPoint.latitude, lastPoint.longitude, whLat, whLng) *
+          1.3;
+      const avgSpeedKmh = 38.0;
+      final returnTimeMin = (returnDistKm / avgSpeedKmh) * 60;
+
+      final totalServiceMin = activePoints.length * 9.0;
+      final oldTotalMin = oldEtaMin + returnTimeMin; // ETA + возврат на склад
+      final newTotalMin = result.durationMinutes +
+          totalServiceMin; // OSRM (с возвратом) + service
+
+      final improvementMinutes = oldTotalMin - newTotalMin;
+      final improvementPercent =
+          oldTotalMin > 0 ? (improvementMinutes / oldTotalMin) * 100 : 0.0;
+
       debugPrint('📊 [RouteService] Optimization comparison:\n'
-          '   Current: ~${oldTotalMin.toStringAsFixed(0)}min total (from ETA)\n'
-          '   New:     ${newTotalMin.toStringAsFixed(0)}min total (OSRM ${result.durationMinutes.toStringAsFixed(0)} + service ${totalServiceMin.toStringAsFixed(0)})\n'
+          '   Current: ~${oldTotalMin.toStringAsFixed(0)}min total (ETA ${oldEtaMin.toStringAsFixed(0)} + return ${returnTimeMin.toStringAsFixed(0)})\n'
+          '   New:     ${newTotalMin.toStringAsFixed(0)}min total (OSRM ${result.durationMinutes.toStringAsFixed(0)} roundtrip + service ${totalServiceMin.toStringAsFixed(0)})\n'
+          '   Includes return to warehouse: BOTH sides ✅\n'
           '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
 
       // Hysteresis: повышенный порог если прошлый раз отклонили (защита от дрожания)
@@ -1266,6 +1325,17 @@ class RouteService {
       reordered,
       polyline: result.polyline,
     );
+
+    // Сохраняем новый tripDurationMinutes для следующего сравнения
+    if (routeId != null) {
+      try {
+        await _routesCollection().doc(routeId).set({
+          'tripDurationMinutes': result.durationMinutes,
+          'tripDistanceKm': result.distanceKm,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+    }
 
     debugPrint(
         '✅ [RouteService] Route optimized: new order=${result.waypointOrder}');
@@ -1675,7 +1745,10 @@ class RouteService {
   /// 🚚 Назначает точки водителю (вынесенный метод)
   Future<void> _assignPointsToDriver(String driverId, String driverName,
       int driverCapacity, List<DeliveryPoint> points,
-      {Map<String, double>? startLocation, String? tripPolyline}) async {
+      {Map<String, double>? startLocation,
+      String? tripPolyline,
+      double? tripDurationMinutes,
+      double? tripDistanceKm}) async {
     // 🛡️ Жёсткая проверка перегрузки
     final existingLoad = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
@@ -1887,6 +1960,9 @@ class RouteService {
         'pointIds': points.map((p) => p.id).toList(),
         'totalPallets': newPallets + currentPallets,
         'expiresAt': Timestamp.fromDate(expiresAt),
+        if (tripDurationMinutes != null)
+          'tripDurationMinutes': tripDurationMinutes,
+        if (tripDistanceKm != null) 'tripDistanceKm': tripDistanceKm,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       print('📦 [RouteService] Route document saved: $routeId');
