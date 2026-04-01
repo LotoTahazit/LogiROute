@@ -1760,5 +1760,13 @@
   "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
   "shiftSaveError": "שגיאה: {error}",
   "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
-  "shiftNoCompanyId": "לא נבחרה חברה"
+  "shiftNoCompanyId": "לא נבחרה חברה",
+
+  "shiftHolidaysTitle": "ימי חג (GPS כבוי)",
+  "shiftLoadHolidays": "טען חגים",
+  "shiftNoHolidays": "אין ימי חג מוגדרים",
+  "shiftHolidaysLoaded": "נטענו {count} חגים",
+  "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
+  "shiftHolidaysLoadError": "שגיאה בטעינת חגים: {error}",
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
 }

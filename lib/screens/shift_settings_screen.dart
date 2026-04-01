@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/shift_schedule_config.dart';
 import '../services/firestore_paths.dart';
 import '../l10n/app_localizations.dart';
@@ -17,8 +19,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   List<int> _workingDays = [1, 2, 3, 4, 5];
   int _startHour = 6;
   int _endHour = 20;
+  List<String> _holidays = [];
   bool _loading = true;
   bool _saving = false;
+  bool _loadingHolidays = false;
 
   /// תצוגה: א׳→…→ש׳ (ראשון ראשון, שבת אחרונה). ערכי אחסון — עדיין `DateTime.weekday` (1=שני … 7=ראשון).
   static const List<int> _weekdayDisplayOrder = [7, 1, 2, 3, 4, 5, 6];
@@ -56,14 +60,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       return;
     }
     try {
-      final snap =
-          await FirestorePaths.companyShiftsOf(widget.companyId).get();
+      final snap = await FirestorePaths.companyShiftsOf(widget.companyId).get();
       final cfg = ShiftScheduleConfig.fromFirestore(snap.data());
       if (mounted) {
         setState(() {
           _workingDays = List<int>.from(cfg.workingDays)..sort();
           _startHour = cfg.startHour;
           _endHour = cfg.endHour;
+          _holidays = List<String>.from(cfg.holidays);
           _loading = false;
         });
       }
@@ -81,6 +85,61 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     }
   }
 
+  /// Загружает израильские праздники с Hebcal API для текущего и следующего года
+  Future<void> _loadHolidaysFromHebcal() async {
+    setState(() => _loadingHolidays = true);
+    try {
+      final years = [DateTime.now().year, DateTime.now().year + 1];
+      final fetched = <String>{};
+
+      for (final year in years) {
+        final url = Uri.parse(
+          'https://www.hebcal.com/hebcal?v=1&cfg=json&year=$year'
+          '&maj=on&mod=on&nx=on&i=on&geo=il&m=50',
+        );
+        final response =
+            await http.get(url).timeout(const Duration(seconds: 10));
+        if (response.statusCode != 200) continue;
+
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final items = data['items'] as List? ?? [];
+
+        for (final item in items) {
+          final date = item['date']?.toString();
+          final category = item['category']?.toString() ?? '';
+          // Берём только major holidays (yomtov) и Rosh Chodesh исключаем
+          if (date != null && category == 'holiday') {
+            // Берём только дату без времени (yyyy-MM-dd)
+            fetched.add(date.substring(0, 10));
+          }
+        }
+      }
+
+      if (fetched.isNotEmpty && mounted) {
+        setState(() {
+          // Объединяем с существующими праздниками
+          final merged = {..._holidays, ...fetched}.toList()..sort();
+          _holidays = merged;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!
+                  .shiftHolidaysLoaded(fetched.length))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!
+                  .shiftHolidaysLoadError(e.toString()))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingHolidays = false);
+    }
+  }
+
   Future<void> _save() async {
     if (widget.companyId.isEmpty) return;
     setState(() => _saving = true);
@@ -90,6 +149,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         'workingDays': _workingDays,
         'startHour': _startHour,
         'endHour': _endHour,
+        'holidays': _holidays,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -166,8 +226,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   DropdownButtonFormField<int>(
                     key: ValueKey(_startHour),
                     initialValue: _startHour,
-                    decoration: const InputDecoration(
-                        border: OutlineInputBorder()),
+                    decoration:
+                        const InputDecoration(border: OutlineInputBorder()),
                     items: List.generate(
                       24,
                       (h) => DropdownMenuItem(value: h, child: Text('$h:00')),
@@ -186,8 +246,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   DropdownButtonFormField<int>(
                     key: ValueKey(_endHour),
                     initialValue: _endHour,
-                    decoration: const InputDecoration(
-                        border: OutlineInputBorder()),
+                    decoration:
+                        const InputDecoration(border: OutlineInputBorder()),
                     items: List.generate(
                       24,
                       (h) => DropdownMenuItem(value: h, child: Text('$h:00')),
@@ -196,6 +256,58 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       if (v != null) setState(() => _endHour = v);
                     },
                   ),
+                  const SizedBox(height: 32),
+                  // Секция праздников
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.shiftHolidaysTitle,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed:
+                            _loadingHolidays ? null : _loadHolidaysFromHebcal,
+                        icon: _loadingHolidays
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.download, size: 18),
+                        label: Text(l10n.shiftLoadHolidays),
+                      ),
+                    ],
+                  ),
+                  if (_holidays.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        l10n.shiftNoHolidays,
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _holidays.map((date) {
+                        return Chip(
+                          label:
+                              Text(date, style: const TextStyle(fontSize: 12)),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () {
+                            setState(() {
+                              _holidays =
+                                  _holidays.where((d) => d != date).toList();
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
                   const SizedBox(height: 32),
                   FilledButton(
                     onPressed: _saving ? null : _save,

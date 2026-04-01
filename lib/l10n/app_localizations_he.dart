@@ -4505,4 +4505,23 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get shiftNoCompanyId => 'לא נבחרה חברה';
+
+  @override
+  String get shiftHolidaysTitle => 'ימי חג (GPS כבוי)';
+
+  @override
+  String get shiftLoadHolidays => 'טען חגים';
+
+  @override
+  String get shiftNoHolidays => 'אין ימי חג מוגדרים';
+
+  @override
+  String shiftHolidaysLoaded(int count) {
+    return 'נטענו $count חגים';
+  }
+
+  @override
+  String shiftHolidaysLoadError(String error) {
+    return 'שגיאה בטעינת חגים: $error';
+  }
 }

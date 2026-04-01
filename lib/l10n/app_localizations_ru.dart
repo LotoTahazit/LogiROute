@@ -4532,4 +4532,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get shiftNoCompanyId => 'Компания не выбрана';
+
+  @override
+  String get shiftHolidaysTitle => 'Праздники (GPS выкл.)';
+
+  @override
+  String get shiftLoadHolidays => 'Загрузить праздники';
+
+  @override
+  String get shiftNoHolidays => 'Праздники не заданы';
+
+  @override
+  String shiftHolidaysLoaded(int count) {
+    return 'Загружено $count праздников';
+  }
+
+  @override
+  String shiftHolidaysLoadError(String error) {
+    return 'Ошибка загрузки праздников: $error';
+  }
 }

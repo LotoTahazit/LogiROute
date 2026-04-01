@@ -35,6 +35,7 @@ class ShiftScheduleConfig {
     required this.workingDays,
     required this.startHour,
     required this.endHour,
+    this.holidays = const [],
   });
 
   /// Поведение как у старого [shouldShowDriver]: пн–пт, 6–20.
@@ -48,7 +49,18 @@ class ShiftScheduleConfig {
   final int startHour;
   final int endHour;
 
+  /// Список праздничных дат в формате 'yyyy-MM-dd'. GPS не работает в эти дни.
+  final List<String> holidays;
+
+  /// Проверяет является ли дата праздником
+  bool isHoliday(DateTime date) {
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return holidays.contains(key);
+  }
+
   bool isWithin(DateTime now) {
+    if (isHoliday(now)) return false;
     if (!workingDays.contains(now.weekday)) return false;
     final h = now.hour;
     return h >= startHour && h < endHour;
@@ -79,7 +91,16 @@ class ShiftScheduleConfig {
       workingDays: days,
       startHour: sh.clamp(0, 23),
       endHour: eh.clamp(0, 23),
+      holidays: _parseHolidays(data['holidays']),
     );
+  }
+
+  static List<String> _parseHolidays(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<String>()
+        .where((s) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s))
+        .toList();
   }
 
   /// Сериализация для SharedPreferences (BGService кеш)
@@ -87,6 +108,7 @@ class ShiftScheduleConfig {
         'workingDays': workingDays,
         'startHour': startHour,
         'endHour': endHour,
+        'holidays': holidays,
       };
 
   // ── SharedPreferences кеш (для BackgroundLocationService) ──

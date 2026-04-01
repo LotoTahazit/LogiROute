@@ -9,6 +9,7 @@ import '../models/shift_schedule_config.dart';
 class WorkScheduleService {
   Timer? _scheduleCheckTimer;
   bool _isTrackingActive = false;
+  bool _configLoaded = false; // защита от false-negative до загрузки Firestore
   Function()? _onStartTracking;
   Function()? _onStopTracking;
 
@@ -18,6 +19,9 @@ class WorkScheduleService {
   /// Подставлять из Firestore при загрузке/подписке на `settings/shifts`.
   void updateShiftSchedule(ShiftScheduleConfig config) {
     _shift = config;
+    _configLoaded = true;
+    // Перепроверяем сразу после загрузки конфига
+    _checkSchedule();
   }
 
   /// Запускает мониторинг расписания
@@ -58,10 +62,15 @@ class WorkScheduleService {
     }
   }
 
-  /// Проверяет должно ли быть активно отслеживание в данный момент
+  /// Проверяет должно ли быть активно отслеживание в данный момент.
+  /// GPS выключается если:
+  ///   - конфиг ещё не загружен из Firestore → разрешаем (fail-open)
+  ///   - день не входит в workingDays (пятница/суббота/праздник)
+  ///   - время вне рабочих часов (startHour–endHour)
   bool _shouldBeTracking(DateTime time) {
-    // GPS работает ВСЕГДА (см. продуктовые требования)
-    return true;
+    // Пока конфиг не загружен — не блокируем GPS (fail-open)
+    if (!_configLoaded) return true;
+    return _shift.allows(time);
   }
 
   /// Возвращает информацию о текущем статусе расписания
@@ -89,8 +98,7 @@ class WorkScheduleService {
           ? workEndsInFn(minutesUntilEnd)
           : 'Work ends in $minutesUntilEnd minutes';
     } else {
-      final start =
-          DateTime(now.year, now.month, now.day, cfg.startHour, 0, 0);
+      final start = DateTime(now.year, now.month, now.day, cfg.startHour, 0, 0);
       if (now.isBefore(start)) {
         final minutesUntilStart = start.difference(now).inMinutes;
         statusMessage = workStartsInFn != null

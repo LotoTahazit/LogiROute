@@ -1816,5 +1816,13 @@
   "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
   "shiftSaveError": "Error: {error}",
   "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
-  "shiftNoCompanyId": "Company not selected"
+  "shiftNoCompanyId": "Company not selected",
+
+  "shiftHolidaysTitle": "Holidays (GPS off)",
+  "shiftLoadHolidays": "Load holidays",
+  "shiftNoHolidays": "No holidays defined",
+  "shiftHolidaysLoaded": "Loaded {count} holidays",
+  "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
+  "shiftHolidaysLoadError": "Error loading holidays: {error}",
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
 }

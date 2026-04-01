@@ -4519,4 +4519,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shiftNoCompanyId => 'Company not selected';
+
+  @override
+  String get shiftHolidaysTitle => 'Holidays (GPS off)';
+
+  @override
+  String get shiftLoadHolidays => 'Load holidays';
+
+  @override
+  String get shiftNoHolidays => 'No holidays defined';
+
+  @override
+  String shiftHolidaysLoaded(int count) {
+    return 'Loaded $count holidays';
+  }
+
+  @override
+  String shiftHolidaysLoadError(String error) {
+    return 'Error loading holidays: $error';
+  }
 }

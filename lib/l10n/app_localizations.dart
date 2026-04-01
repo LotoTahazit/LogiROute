@@ -8382,6 +8382,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Company not selected'**
   String get shiftNoCompanyId;
+
+  /// No description provided for @shiftHolidaysTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Holidays (GPS off)'**
+  String get shiftHolidaysTitle;
+
+  /// No description provided for @shiftLoadHolidays.
+  ///
+  /// In en, this message translates to:
+  /// **'Load holidays'**
+  String get shiftLoadHolidays;
+
+  /// No description provided for @shiftNoHolidays.
+  ///
+  /// In en, this message translates to:
+  /// **'No holidays defined'**
+  String get shiftNoHolidays;
+
+  /// No description provided for @shiftHolidaysLoaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded {count} holidays'**
+  String shiftHolidaysLoaded(int count);
+
+  /// No description provided for @shiftHolidaysLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading holidays: {error}'**
+  String shiftHolidaysLoadError(String error);
 }
 
 class _AppLocalizationsDelegate

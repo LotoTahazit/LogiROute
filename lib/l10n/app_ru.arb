@@ -1746,5 +1746,13 @@
   "@shiftLoadError": { "placeholders": { "error": { "type": "String" } } },
   "shiftSaveError": "Ошибка: {error}",
   "@shiftSaveError": { "placeholders": { "error": { "type": "String" } } },
-  "shiftNoCompanyId": "Компания не выбрана"
+  "shiftNoCompanyId": "Компания не выбрана",
+
+  "shiftHolidaysTitle": "Праздники (GPS выкл.)",
+  "shiftLoadHolidays": "Загрузить праздники",
+  "shiftNoHolidays": "Праздники не заданы",
+  "shiftHolidaysLoaded": "Загружено {count} праздников",
+  "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
+  "shiftHolidaysLoadError": "Ошибка загрузки праздников: {error}",
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
 }
