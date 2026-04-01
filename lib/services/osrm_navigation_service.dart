@@ -6,6 +6,7 @@ import '../config/api_constants.dart';
 
 class OsrmNavigationService {
   static const Duration _routeHttpTimeout = Duration(seconds: 12);
+
   /// Trip — тяжёлый запрос; прокси/публичный OSRM часто >8s.
   static const Duration _tripHttpTimeout = Duration(seconds: 25);
 
@@ -20,12 +21,15 @@ class OsrmNavigationService {
             await http.get(Uri.parse(url)).timeout(_routeHttpTimeout);
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['code'] == 'Ok' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+          if (data['code'] == 'Ok' &&
+              data['routes'] != null &&
+              (data['routes'] as List).isNotEmpty) {
             final route = data['routes'][0];
             final distance = (route['distance'] as num) / 1000;
             final duration = (route['duration'] as num) / 60;
             final polyline = route['geometry'] as String;
-            debugPrint('✅ [OSRM] Route found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min (${polyline.length} chars)');
+            debugPrint(
+                '✅ [OSRM] Route found: ${distance.toStringAsFixed(1)}km, ${duration.toStringAsFixed(1)}min (${polyline.length} chars)');
             return OsrmRoute(
               distance: distance,
               duration: duration,
@@ -45,7 +49,8 @@ class OsrmNavigationService {
   }
 
   /// Общий метод: пробует список OSRM-серверов для trip endpoint
-  Future<OsrmRoute?> _tryTripUrls(String coordinates, String params, List<Map<String, double>> waypoints) async {
+  Future<OsrmRoute?> _tryTripUrls(String coordinates, String params,
+      List<Map<String, double>> waypoints) async {
     for (final baseUrl in ApiConstants.osrmTripUrls) {
       final url = '$baseUrl/$coordinates?$params';
       try {
@@ -55,7 +60,9 @@ class OsrmNavigationService {
             await http.get(Uri.parse(url)).timeout(_tripHttpTimeout);
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['code'] == 'Ok' && data['trips'] != null && (data['trips'] as List).isNotEmpty) {
+          if (data['code'] == 'Ok' &&
+              data['trips'] != null &&
+              (data['trips'] as List).isNotEmpty) {
             final trip = data['trips'][0];
             final distance = (trip['distance'] as num) / 1000;
             final duration = (trip['duration'] as num) / 60;
@@ -122,7 +129,8 @@ class OsrmNavigationService {
     }
     coordinates.write(';$endLng,$endLat');
 
-    final result = await _tryRouteUrls(coordinates.toString(), ApiConstants.osrmRouteParams);
+    final result = await _tryRouteUrls(
+        coordinates.toString(), ApiConstants.osrmRouteParams);
     if (result != null) {
       return OsrmRoute(
         distance: result.distance,
@@ -161,7 +169,8 @@ class OsrmNavigationService {
     }
     coordinates.write(';$endLng,$endLat');
 
-    return _tryTripUrls(coordinates.toString(), ApiConstants.osrmTripParams, waypoints);
+    return _tryTripUrls(
+        coordinates.toString(), ApiConstants.osrmTripParams, waypoints);
   }
 
   /// Оптимизирует порядок точек через OSRM Trip API (кольцевой маршрут).
@@ -201,17 +210,24 @@ class OsrmNavigationService {
         final distance = (trip['distance'] as num) / 1000;
         final polyline = trip['geometry'] as String? ?? '';
 
-        // waypoint_index: оптимальный порядок посещения
-        // Индекс 0 — склад, пропускаем его; остальные сдвигаем на -1
+        // waypoint_index: позиция этого waypoint в оптимальном маршруте.
+        // wpData[i].waypoint_index = j означает "точка i посещается j-й".
+        // Нам нужен обратный маппинг: "j-й посещается точка i".
+        // Индекс 0 в координатах — склад, пропускаем.
+        final wpIndices = <int, int>{}; // waypoint_index → original index
+        for (int i = 0; i < wpData.length; i++) {
+          final idx = wpData[i]['waypoint_index'] as int;
+          wpIndices[idx] = i;
+        }
         final order = <int>[];
-        for (final wp in wpData) {
-          final idx = wp['waypoint_index'] as int;
-          if (idx == 0) continue; // склад
-          order.add(idx - 1); // индекс в исходном списке waypoints
+        for (int pos = 0; pos < wpIndices.length; pos++) {
+          final origIdx = wpIndices[pos];
+          if (origIdx == null) continue;
+          if (origIdx == 0) continue; // склад
+          order.add(origIdx - 1); // индекс в исходном списке waypoints
         }
 
-        debugPrint(
-            '✅ [OSRM] Trip optimized: ${distance.toStringAsFixed(1)}km, '
+        debugPrint('✅ [OSRM] Trip optimized: ${distance.toStringAsFixed(1)}km, '
             '${duration.toStringAsFixed(1)}min, order=$order');
         return TripOptimizationResult(
           waypointOrder: order,
