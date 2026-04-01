@@ -1224,18 +1224,20 @@ class RouteService {
       debugPrint(
           '⚠️ [RouteService] Invalid old ETA "$lastEta" — applying optimization');
     } else {
-      // Service time: 7 мин × кол-во точек (заложено в ETA)
-      final serviceMin = activePoints.length * 7.0;
-      final oldDriveMin = oldEtaMin - serviceMin;
-      final newDriveMin = result.durationMinutes;
+      // Сравниваем total time (drive + service) на одной базе:
+      // OLD = ETA (уже включает service + parking)
+      // NEW = OSRM drive + service (9 мин default на точку: 7 обслуживание + 2 парковка)
+      final totalServiceMin = activePoints.length * 9.0;
+      final oldTotalMin = oldEtaMin;
+      final newTotalMin = result.durationMinutes + totalServiceMin;
 
-      final improvementMinutes = oldDriveMin - newDriveMin;
+      final improvementMinutes = oldTotalMin - newTotalMin;
       final improvementPercent =
-          oldDriveMin > 0 ? (improvementMinutes / oldDriveMin) * 100 : 0.0;
+          oldTotalMin > 0 ? (improvementMinutes / oldTotalMin) * 100 : 0.0;
 
       debugPrint('📊 [RouteService] Optimization comparison:\n'
-          '   Current: ~${oldDriveMin.toStringAsFixed(0)}min drive (ETA ${oldEtaMin.toStringAsFixed(0)} - service ${serviceMin.toStringAsFixed(0)})\n'
-          '   New:     ${newDriveMin.toStringAsFixed(0)}min drive, ${result.distanceKm.toStringAsFixed(1)}km (OSRM)\n'
+          '   Current: ~${oldTotalMin.toStringAsFixed(0)}min total (from ETA)\n'
+          '   New:     ${newTotalMin.toStringAsFixed(0)}min total (OSRM ${result.durationMinutes.toStringAsFixed(0)} + service ${totalServiceMin.toStringAsFixed(0)})\n'
           '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
 
       // Hysteresis: повышенный порог если прошлый раз отклонили (защита от дрожания)
