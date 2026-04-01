@@ -1635,31 +1635,8 @@ class RouteService {
           '👤 Point $pointId assigned to $driverName (order: $nextOrder, route: $routeId)');
     });
 
-    // Авто-оптимизация после добавления точки в маршрут (фоновая)
-    unawaited(_autoOptimizeAfterAssign(driverId, routeId));
-  }
-
-  /// Фоновая авто-оптимизация после назначения точки в существующий маршрут.
-  Future<void> _autoOptimizeAfterAssign(String driverId, String routeId) async {
-    try {
-      final snap = await _deliveryPointsCollection()
-          .where('routeId', isEqualTo: routeId)
-          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
-          .get();
-      final points = snap.docs
-          .map((d) => DeliveryPoint.fromMap(d.data(), d.id))
-          .toList()
-        ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
-
-      if (points.length >= 2) {
-        final changed = await optimizeRouteByTime(driverId, routeId, points);
-        if (changed) {
-          print('🔄 [RouteService] Auto-optimized after point assign');
-        }
-      }
-    } catch (e) {
-      print('⚠️ [RouteService] Auto-optimize after assign failed: $e');
-    }
+    // Авто-оптимизация отключена — вызывает каскад OSRM запросов.
+    // Диспетчер может оптимизировать вручную через кнопку.
   }
 
   /// Road safety checks moved to RouteSafetyService

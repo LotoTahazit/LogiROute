@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
-import '../../../services/route_service.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Вкладка с активными маршрутами
@@ -650,109 +649,36 @@ class _OptimizeTimeButton extends StatefulWidget {
 }
 
 class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
-  bool? _isSuboptimal;
-  String? _lastPointSignature;
-
-  /// После оптимизации не перепроверяем — OSRM Trip нестабилен
-  /// и может вернуть другой порядок для тех же точек.
-  bool _wasOptimized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  @override
-  void didUpdateWidget(_OptimizeTimeButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final sig = _buildSignature(widget.routePoints);
-    if (sig != _lastPointSignature) {
-      // Точки реально изменились (не просто rebuild)
-      // Если это результат оптимизации — не перепроверяем
-      if (_wasOptimized) {
-        _lastPointSignature = sig;
-        _isSuboptimal = false;
-        return;
-      }
-      _isSuboptimal = null;
-      _check();
-    }
-  }
-
-  String _buildSignature(List<DeliveryPoint> points) {
-    return points.map((p) => '${p.id}:${p.orderInRoute}').join('|');
-  }
-
-  Future<void> _check() async {
-    final sig = _buildSignature(widget.routePoints);
-    _lastPointSignature = sig;
-    final suboptimal = await RouteService(companyId: widget.companyId)
-        .isRouteOrderSuboptimal(widget.routePoints);
-    if (mounted && _lastPointSignature == sig) {
-      setState(() => _isSuboptimal = suboptimal);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final highlight = _isSuboptimal == true;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (highlight)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              widget.l10n.routeTimeNotOptimal,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.orange.shade800,
+    // Кнопка оптимизации — без автоматической OSRM проверки.
+    // OSRM Trip нестабилен и вызывает каскад запросов при автопроверке.
+    return Material(
+      color: Colors.grey.shade200,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => widget.onOptimizeRoute(
+            widget.driverId, widget.routeId, widget.routePoints),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.timer_outlined, color: Colors.grey.shade700, size: 22),
+              const SizedBox(width: 4),
+              Text(
+                widget.l10n.optimizeTime,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade700,
+                ),
               ),
-            ),
-          ),
-        Material(
-          color: highlight ? Colors.orange.shade100 : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              _wasOptimized = true;
-              setState(() => _isSuboptimal = false);
-              widget.onOptimizeRoute(
-                  widget.driverId, widget.routeId, widget.routePoints);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    color: highlight
-                        ? Colors.orange.shade800
-                        : Colors.grey.shade700,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.l10n.optimizeTime,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: highlight
-                          ? Colors.orange.shade800
-                          : Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
