@@ -151,8 +151,12 @@ class RouteBalanceService {
     return movedCount;
   }
 
-  /// Recalculates order and ETA for a set of reordered points
-  Future<void> recalculateETAsForPoints(List<DeliveryPoint> points) async {
+  /// Пересчитывает ETA и orderInRoute для списка точек.
+  /// [polyline] — если передан, сохраняется в routes документ (без OSRM запроса).
+  Future<void> recalculateETAsForPoints(
+    List<DeliveryPoint> points, {
+    String? polyline,
+  }) async {
     const planLat = AppConfig.defaultWarehouseLat;
     const planLng = AppConfig.defaultWarehouseLng;
 
@@ -201,49 +205,55 @@ class RouteBalanceService {
 
     await batch.commit();
 
-    // 🗺️ Обновляем кешированную полилинию после перестановки
-    try {
-      final osrm = OsrmNavigationService();
+    // Сохраняем polyline в routes документ
+    final routeId = points.first.routeId;
+    if (routeId == null) return;
 
-      final waypoints =
-          points.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList();
+    String? polylineToSave = polyline;
 
-      OsrmRoute? osrmRoute;
-      if (waypoints.length <= 1) {
-        osrmRoute = await osrm.getRoute(
-          startLat: planLat,
-          startLng: planLng,
-          endLat: waypoints.first['lat']!,
-          endLng: waypoints.first['lng']!,
-        );
-      } else {
-        final endWp = waypoints.removeLast();
-        osrmRoute = await osrm.getOptimizedRoute(
-          startLat: planLat,
-          startLng: planLng,
-          waypoints: waypoints,
-          endLat: endWp['lat']!,
-          endLng: endWp['lng']!,
-        );
-      }
-
-      if (osrmRoute != null && osrmRoute.polyline.isNotEmpty) {
-        // Сохраняем polyline в routes документ
-        final routeId = points.first.routeId;
-        if (routeId != null) {
-          await FirebaseFirestore.instance
-              .collection('companies')
-              .doc(companyId)
-              .collection('logistics')
-              .doc('_root')
-              .collection('routes')
-              .doc(routeId)
-              .set({'polyline': osrmRoute.polyline}, SetOptions(merge: true));
+    // Если polyline не передан — запрашиваем OSRM (для ручной перестановки)
+    if (polylineToSave == null || polylineToSave.isEmpty) {
+      try {
+        final osrm = OsrmNavigationService();
+        final waypoints =
+            points.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList();
+        OsrmRoute? osrmRoute;
+        if (waypoints.length <= 1) {
+          osrmRoute = await osrm.getRoute(
+            startLat: planLat,
+            startLng: planLng,
+            endLat: waypoints.first['lat']!,
+            endLng: waypoints.first['lng']!,
+          );
+        } else {
+          osrmRoute = await osrm.getOptimizedRoute(
+            startLat: planLat,
+            startLng: planLng,
+            waypoints: waypoints,
+            endLat: planLat,
+            endLng: planLng,
+          );
         }
-        debugPrint('✅ [RouteBalance] Polyline saved to routes/$routeId');
+        polylineToSave = osrmRoute?.polyline;
+      } catch (e) {
+        debugPrint('⚠️ [RouteBalance] OSRM polyline failed: $e');
       }
-    } catch (e) {
-      debugPrint('⚠️ [RouteBalance] Failed to update polyline cache: $e');
+    }
+
+    if (polylineToSave != null && polylineToSave.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .collection('logistics')
+            .doc('_root')
+            .collection('routes')
+            .doc(routeId)
+            .set({'polyline': polylineToSave}, SetOptions(merge: true));
+        debugPrint('✅ [RouteBalance] Polyline saved to routes/$routeId');
+      } catch (e) {
+        debugPrint('⚠️ [RouteBalance] Failed to save polyline: $e');
+      }
     }
   }
 

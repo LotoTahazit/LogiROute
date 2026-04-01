@@ -715,21 +715,50 @@ class RouteService {
     print(
         '🏭 [RouteService] Route build start (forced warehouse): ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
 
-    // Combined optimization algorithm with real position
-    final optimizedPoints =
-        RouteOptimizer.optimizeRouteOrder(points, startLocation);
+    // Оптимизация порядка через OSRM Trip (реальное время на дорогах)
+    List<DeliveryPoint> optimizedPoints;
+    String? tripPolyline;
 
-    // RouteSafety (bridge/weight checks) отключён — Google Roads/Places API
-    // не настроен и всегда возвращает ошибку. Включить при необходимости:
-    // final bridgeCheckPassed = await RouteSafetyService.checkBridgeHeights(optimizedPoints);
-    // final weightCheckPassed = await RouteSafetyService.checkRoadWeightLimits(optimizedPoints, truckWeight);
+    if (points.length >= 2) {
+      final osrm = OsrmNavigationService();
+      final waypoints =
+          points.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList();
+      final whLat = startLocation?['latitude'] ?? AppConfig.defaultWarehouseLat;
+      final whLng =
+          startLocation?['longitude'] ?? AppConfig.defaultWarehouseLng;
+
+      final tripResult = await osrm.getOptimizedTripOrder(
+        warehouseLat: whLat,
+        warehouseLng: whLng,
+        waypoints: waypoints,
+      );
+
+      if (tripResult != null &&
+          tripResult.waypointOrder.length == points.length) {
+        optimizedPoints = [
+          for (final idx in tripResult.waypointOrder)
+            if (idx >= 0 && idx < points.length) points[idx],
+        ];
+        tripPolyline = tripResult.polyline;
+        print('🧭 [RouteService] OSRM Trip order: ${tripResult.waypointOrder}, '
+            '${tripResult.distanceKm.toStringAsFixed(1)}km, '
+            '${tripResult.durationMinutes.toStringAsFixed(0)}min');
+      } else {
+        // Fallback: nearest-neighbor если OSRM недоступен
+        optimizedPoints =
+            RouteOptimizer.optimizeRouteOrder(points, startLocation);
+        print('⚠️ [RouteService] OSRM Trip failed, using nearest-neighbor');
+      }
+    } else {
+      optimizedPoints = List.from(points);
+    }
 
     print('✅ [RouteService] Route approved - no restrictions');
 
     // Назначаем точки водителю
     await _assignPointsToDriver(
         driverId, driverName, driverCapacity, optimizedPoints,
-        startLocation: startLocation);
+        startLocation: startLocation, tripPolyline: tripPolyline);
   }
 
   /// � Начать маршрут — установить статус active
@@ -1201,9 +1230,12 @@ class RouteService {
       }
     }
 
-    // Обновляем orderInRoute + ETA через RouteBalanceService
+    // Обновляем orderInRoute + ETA, используем polyline из Trip (без лишнего OSRM запроса)
     final balanceService = RouteBalanceService(companyId: companyId);
-    await balanceService.recalculateETAsForPoints(reordered);
+    await balanceService.recalculateETAsForPoints(
+      reordered,
+      polyline: result.polyline,
+    );
 
     debugPrint(
         '✅ [RouteService] Route optimized: new order=${result.waypointOrder}');
@@ -1636,7 +1668,7 @@ class RouteService {
   /// 🚚 Назначает точки водителю (вынесенный метод)
   Future<void> _assignPointsToDriver(String driverId, String driverName,
       int driverCapacity, List<DeliveryPoint> points,
-      {Map<String, double>? startLocation}) async {
+      {Map<String, double>? startLocation, String? tripPolyline}) async {
     // 🛡️ Жёсткая проверка перегрузки
     final existingLoad = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
@@ -1855,49 +1887,27 @@ class RouteService {
       print('⚠️ [RouteService] Failed to save route document: $e');
     }
 
-    // 🗺️ OSRM: polyline + авто-оптимизация порядка (фоновые, не блокируют UI)
-    unawaited(_optimizeAndSavePolylineBackground(
-      routeId: routeId,
-      driverId: driverId,
-      startLocation: startLocation,
-      clientNavPoints: clientNavPoints,
-      points: points,
-      driverName: driverName,
-    ));
-  }
-
-  /// Фоновая оптимизация: OSRM Trip → перестановка точек → polyline.
-  /// Вызывается через unawaited после создания маршрута и после assignPointToDriver.
-  Future<void> _optimizeAndSavePolylineBackground({
-    required String routeId,
-    required String driverId,
-    Map<String, double>? startLocation,
-    required Map<String, Map<String, double>> clientNavPoints,
-    required List<DeliveryPoint> points,
-    required String driverName,
-  }) async {
-    // 1. Оптимизация порядка через OSRM Trip (если >= 2 точек)
-    if (points.length >= 2) {
+    // 🗺️ Polyline: если OSRM Trip уже дал polyline — сохраняем напрямую.
+    // Иначе запрашиваем OSRM Route в фоне (для 1 точки или fallback).
+    if (tripPolyline != null && tripPolyline.isNotEmpty) {
       try {
-        final changed = await optimizeRouteByTime(driverId, routeId, points);
-        if (changed) {
-          print('🔄 [RouteService] Auto-optimized route for $driverName');
-          // recalculateETAsForPoints уже сохраняет polyline — не нужен отдельный вызов
-          return;
-        }
+        await _routesCollection().doc(routeId).set({
+          'polyline': tripPolyline,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        print('✅ [RouteService] Trip polyline saved for $driverName');
       } catch (e) {
-        print('⚠️ [RouteService] Auto-optimize failed: $e');
+        print('⚠️ [RouteService] Failed to save trip polyline: $e');
       }
+    } else {
+      unawaited(_saveOsrmPolylineBackground(
+        routeId: routeId,
+        startLocation: startLocation,
+        clientNavPoints: clientNavPoints,
+        points: points,
+        driverName: driverName,
+      ));
     }
-
-    // 2. Если оптимизация не изменила порядок или < 2 точек — просто сохраняем polyline
-    await _saveOsrmPolylineBackground(
-      routeId: routeId,
-      startLocation: startLocation,
-      clientNavPoints: clientNavPoints,
-      points: points,
-      driverName: driverName,
-    );
   }
 
   /// Получает polyline от OSRM и сохраняет в routes документ.
