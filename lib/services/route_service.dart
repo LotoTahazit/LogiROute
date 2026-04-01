@@ -697,6 +697,18 @@ class RouteService {
       {bool useDispatcherLocation = false}) async {
     if (points.isEmpty) return;
 
+    // Guard: если все точки уже назначены этому водителю — не создаём заново
+    final alreadyAssigned = points.every((p) =>
+        p.driverId == driverId &&
+        p.status == DeliveryPoint.statusAssigned &&
+        p.routeId != null &&
+        p.routeId!.isNotEmpty);
+    if (alreadyAssigned) {
+      print(
+          '⚠️ [RouteService] Route already exists for $driverName — skipping');
+      return;
+    }
+
     print(
         '🧭 [RouteService] Creating optimized route for $driverName (${points.length} points)');
 
@@ -1118,56 +1130,6 @@ class RouteService {
     }
   }
 
-  /// Кеш последнего результата OSRM Trip (чтобы не дублировать запрос при оптимизации)
-  static TripOptimizationResult? _lastTripResult;
-  static String? _lastTripSignature;
-
-  /// Совпадает с [optimizeRouteByTime]: неоптимально только если OSRM Trip
-  /// предлагает другой порядок (`waypointOrder[i] != i`).
-  Future<bool> isRouteOrderSuboptimal(List<DeliveryPoint> points) async {
-    final activePoints = points
-        .where((p) =>
-            p.status != 'completed' &&
-            p.status != 'cancelled' &&
-            p.status != 'delivered')
-        .toList()
-      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
-    if (activePoints.length < 2) return false;
-
-    final sig =
-        activePoints.map((p) => '${p.latitude},${p.longitude}').join(';');
-    if (sig == _lastTripSignature && _lastTripResult != null) {
-      // Используем кеш
-      final order = _lastTripResult!.waypointOrder;
-      for (var i = 0; i < order.length; i++) {
-        if (order[i] != i) return true;
-      }
-      return false;
-    }
-
-    final osrm = OsrmNavigationService();
-    final waypoints = activePoints
-        .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-        .toList();
-
-    final optimized = await osrm.getOptimizedTripOrder(
-      warehouseLat: AppConfig.defaultWarehouseLat,
-      warehouseLng: AppConfig.defaultWarehouseLng,
-      waypoints: waypoints,
-    );
-
-    _lastTripSignature = sig;
-    _lastTripResult = optimized;
-
-    if (optimized == null) return false;
-    if (optimized.waypointOrder.length != activePoints.length) return false;
-
-    for (var i = 0; i < optimized.waypointOrder.length; i++) {
-      if (optimized.waypointOrder[i] != i) return true;
-    }
-    return false;
-  }
-
   /// Оптимизация порядка точек в маршруте по времени через OSRM Trip API.
   /// Возвращает true если порядок был изменён.
   Future<bool> optimizeRouteByTime(
@@ -1184,25 +1146,15 @@ class RouteService {
 
     if (activePoints.length < 2) return false;
 
-    // Используем кеш от isRouteOrderSuboptimal если есть
-    final sig =
-        activePoints.map((p) => '${p.latitude},${p.longitude}').join(';');
-    TripOptimizationResult? result;
-    if (sig == _lastTripSignature && _lastTripResult != null) {
-      result = _lastTripResult;
-    } else {
-      final osrm = OsrmNavigationService();
-      final waypoints = activePoints
-          .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-          .toList();
-      result = await osrm.getOptimizedTripOrder(
-        warehouseLat: AppConfig.defaultWarehouseLat,
-        warehouseLng: AppConfig.defaultWarehouseLng,
-        waypoints: waypoints,
-      );
-      _lastTripSignature = sig;
-      _lastTripResult = result;
-    }
+    final osrm = OsrmNavigationService();
+    final waypoints = activePoints
+        .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+        .toList();
+    final result = await osrm.getOptimizedTripOrder(
+      warehouseLat: AppConfig.defaultWarehouseLat,
+      warehouseLng: AppConfig.defaultWarehouseLng,
+      waypoints: waypoints,
+    );
 
     if (result == null) return false;
 
@@ -1222,12 +1174,47 @@ class RouteService {
       return false;
     }
 
-    // Применяем новый порядок
+    // Сравниваем выигрыш: текущий маршрут vs предложенный
+    // Считаем дистанцию текущего порядка (Haversine)
+    double currentDist = 0;
+    final whLat = AppConfig.defaultWarehouseLat;
+    final whLng = AppConfig.defaultWarehouseLng;
+    for (int i = 0; i < activePoints.length; i++) {
+      final prevLat = i == 0 ? whLat : activePoints[i - 1].latitude;
+      final prevLng = i == 0 ? whLng : activePoints[i - 1].longitude;
+      currentDist += RouteOptimizer.calculateDistance(prevLat, prevLng,
+          activePoints[i].latitude, activePoints[i].longitude);
+    }
+    // + возврат на склад
+    currentDist += RouteOptimizer.calculateDistance(
+        activePoints.last.latitude, activePoints.last.longitude, whLat, whLng);
+
+    // Дистанция предложенного порядка
     final reordered = <DeliveryPoint>[];
     for (final idx in result.waypointOrder) {
       if (idx >= 0 && idx < activePoints.length) {
         reordered.add(activePoints[idx]);
       }
+    }
+    double newDist = 0;
+    for (int i = 0; i < reordered.length; i++) {
+      final prevLat = i == 0 ? whLat : reordered[i - 1].latitude;
+      final prevLng = i == 0 ? whLng : reordered[i - 1].longitude;
+      newDist += RouteOptimizer.calculateDistance(
+          prevLat, prevLng, reordered[i].latitude, reordered[i].longitude);
+    }
+    newDist += RouteOptimizer.calculateDistance(
+        reordered.last.latitude, reordered.last.longitude, whLat, whLng);
+
+    final improvement = ((currentDist - newDist) / currentDist * 100);
+    debugPrint(
+        '📊 [RouteService] Optimization: current=${currentDist.toStringAsFixed(1)}km, '
+        'new=${newDist.toStringAsFixed(1)}km, improvement=${improvement.toStringAsFixed(1)}%');
+
+    // Применяем только если выигрыш > 5%
+    if (improvement < 5.0) {
+      debugPrint('⚠️ [RouteService] Improvement < 5% — keeping current order');
+      return false;
     }
 
     // Обновляем orderInRoute + ETA, используем polyline из Trip (без лишнего OSRM запроса)
