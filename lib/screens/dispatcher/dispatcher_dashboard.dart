@@ -87,7 +87,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       if (_isActivePoint(point)) return true;
 
       final routeId = point.routeId;
-      if (routeId != null && routeId.isNotEmpty && activeRouteIds.contains(routeId)) {
+      if (routeId != null &&
+          routeId.isNotEmpty &&
+          activeRouteIds.contains(routeId)) {
         return true;
       }
 
@@ -1595,28 +1597,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               incomingPoints,
                             );
                             _lastMapPoints = List<DeliveryPoint>.from(points);
-                            final carryRouteIds = {
-                              ...points
-                                  .where(
-                                    (p) =>
-                                        p.routeId != null &&
-                                        p.routeId!.isNotEmpty,
-                                  )
-                                  .map((p) => p.routeId!),
-                              ..._lastNonEmptyRoutes
-                                  .where(
-                                    (p) =>
-                                        p.routeId != null &&
-                                        p.routeId!.isNotEmpty,
-                                  )
-                                  .map((p) => p.routeId!),
-                            };
-                            return FutureBuilder<List<Map<String, dynamic>>>(
-                              future:
+                            return StreamBuilder<List<Map<String, dynamic>>>(
+                              stream:
                                   RouteService(companyId: effectiveCompanyId)
-                                      .getTodayRoutesForMap(
-                                additionalRouteIds: carryRouteIds,
-                              ),
+                                      .watchTodayRoutesForMap(),
                               initialData: const [],
                               builder: (context, routesSnapshot) {
                                 final polylines = <String, String>{};

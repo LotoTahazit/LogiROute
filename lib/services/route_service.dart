@@ -521,6 +521,33 @@ class RouteService {
     }
   }
 
+  /// ✅ Stream маршрутов для карты — обновляется в реальном времени.
+  /// Нужен чтобы polyline появлялся сразу после сохранения OSRM фоновым запросом.
+  Stream<List<Map<String, dynamic>>> watchTodayRoutesForMap() {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+
+    return _routesCollection()
+        .snapshots(includeMetadataChanges: false)
+        .map((snapshot) {
+      return snapshot.docs
+          .where((doc) {
+            final data = doc.data();
+            final routeDate = data['routeDate'] as Timestamp?;
+            if (routeDate != null) {
+              final rd = routeDate.toDate();
+              return rd.year == todayMidnight.year &&
+                  rd.month == todayMidnight.month &&
+                  rd.day == todayMidnight.day;
+            }
+            final routeId = data['routeId'] as String? ?? doc.id;
+            return _isRouteFromToday(routeId, todayMidnight);
+          })
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
+    });
+  }
+
   /// ✅ Получить маршруты для карты (из коллекции routes — 1 чтение)
   /// [additionalRouteIds] — документы не за «сегодня», но нужны для polyline
   /// (незавершённый маршрут с вчерашней датой в routeId).
