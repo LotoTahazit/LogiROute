@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../models/shift_schedule_config.dart';
 import '../services/firestore_paths.dart';
 import '../l10n/app_localizations.dart';
+import 'holidays_screen.dart';
 
 /// Редактирование `companies/{companyId}/settings/shifts` (без Firebase Console).
 class ShiftSettingsScreen extends StatefulWidget {
@@ -19,10 +18,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   List<int> _workingDays = [1, 2, 3, 4, 5];
   int _startHour = 6;
   int _endHour = 20;
-  List<HolidayEntry> _holidays = [];
   bool _loading = true;
   bool _saving = false;
-  bool _loadingHolidays = false;
 
   /// תצוגה: א׳→…→ש׳ (ראשון ראשון, שבת אחרונה). ערכי אחסון — עדיין `DateTime.weekday` (1=שני … 7=ראשון).
   static const List<int> _weekdayDisplayOrder = [7, 1, 2, 3, 4, 5, 6];
@@ -67,7 +64,6 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           _workingDays = List<int>.from(cfg.workingDays)..sort();
           _startHour = cfg.startHour;
           _endHour = cfg.endHour;
-          _holidays = List<HolidayEntry>.from(cfg.holidays);
           _loading = false;
         });
       }
@@ -85,107 +81,6 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     }
   }
 
-  /// Загружает израильские праздники с Hebcal API для текущего и следующего года.
-  /// Загружает названия на английском, иврите и русском параллельно.
-  Future<void> _loadHolidaysFromHebcal() async {
-    setState(() => _loadingHolidays = true);
-    try {
-      final years = [DateTime.now().year, DateTime.now().year + 1];
-      // date → {en, he, ru}
-      final Map<String, Map<String, String>> fetched = {};
-
-      for (final year in years) {
-        // Запрашиваем все три языка параллельно
-        final results = await Future.wait([
-          _fetchHebcal(year, 'en'),
-          _fetchHebcal(year, 'he'),
-          _fetchHebcal(year, 'ru'),
-        ]);
-
-        final en = results[0];
-        final he = results[1];
-        final ru = results[2];
-
-        for (final date in en.keys) {
-          fetched[date] = {
-            'en': en[date] ?? '',
-            'he': he[date] ?? en[date] ?? '',
-            'ru': ru[date] ?? en[date] ?? '',
-          };
-        }
-      }
-
-      if (fetched.isNotEmpty && mounted) {
-        final newEntries = fetched.entries
-            .map((e) => HolidayEntry(
-                  date: e.key,
-                  title: e.value['en'] ?? '',
-                  titleHe: e.value['he'],
-                  titleRu: e.value['ru'],
-                ))
-            .toList();
-
-        setState(() {
-          // Объединяем: новые перезаписывают старые по дате
-          final existing =
-              Map.fromEntries(_holidays.map((h) => MapEntry(h.date, h)));
-          for (final e in newEntries) {
-            existing[e.date] = e;
-          }
-          _holidays = existing.values.toList()
-            ..sort((a, b) => a.date.compareTo(b.date));
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(AppLocalizations.of(context)!
-                    .shiftHolidaysLoaded(fetched.length))),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(AppLocalizations.of(context)!
-                  .shiftHolidaysLoadError(e.toString()))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loadingHolidays = false);
-    }
-  }
-
-  /// Один запрос к Hebcal для конкретного года и языка.
-  /// Возвращает Map<date, title>.
-  Future<Map<String, String>> _fetchHebcal(int year, String lang) async {
-    try {
-      final url = Uri.parse(
-        'https://www.hebcal.com/hebcal?v=1&cfg=json&year=$year'
-        '&maj=on&mod=on&nx=on&i=on&geo=il&m=50&lg=$lang',
-      );
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return {};
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final items = data['items'] as List? ?? [];
-      final result = <String, String>{};
-
-      for (final item in items) {
-        final date = item['date']?.toString();
-        final category = item['category']?.toString() ?? '';
-        final title = item['title']?.toString() ?? '';
-        if (date != null && category == 'holiday' && title.isNotEmpty) {
-          result[date.substring(0, 10)] = title;
-        }
-      }
-      return result;
-    } catch (_) {
-      return {};
-    }
-  }
-
   Future<void> _save() async {
     if (widget.companyId.isEmpty) return;
     setState(() => _saving = true);
@@ -195,7 +90,6 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         'workingDays': _workingDays,
         'startHour': _startHour,
         'endHour': _endHour,
-        'holidays': _holidays.map((h) => h.toMap()).toList(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -303,65 +197,19 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 32),
-                  // Секция праздников
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          l10n.shiftHolidaysTitle,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
+                  // Кнопка перехода на экран нерабочих дней
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            HolidaysScreen(companyId: widget.companyId),
                       ),
-                      TextButton.icon(
-                        onPressed:
-                            _loadingHolidays ? null : _loadHolidaysFromHebcal,
-                        icon: _loadingHolidays
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.download, size: 18),
-                        label: Text(l10n.shiftLoadHolidays),
-                      ),
-                    ],
-                  ),
-                  if (_holidays.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        l10n.shiftNoHolidays,
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: _holidays.map((holiday) {
-                        final lang =
-                            Localizations.localeOf(context).languageCode;
-                        final name = holiday.localizedTitle(lang);
-                        final label = name.isNotEmpty
-                            ? '$name\n${holiday.date}'
-                            : holiday.date;
-                        return Chip(
-                          label:
-                              Text(label, style: const TextStyle(fontSize: 11)),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () {
-                            setState(() {
-                              _holidays = _holidays
-                                  .where((h) => h.date != holiday.date)
-                                  .toList();
-                            });
-                          },
-                        );
-                      }).toList(),
                     ),
-                  const SizedBox(height: 32),
+                    icon: const Icon(Icons.event_busy),
+                    label: Text(l10n.shiftHolidaysTitle),
+                  ),
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: _saving
