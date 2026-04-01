@@ -332,7 +332,12 @@ class RouteService {
 
     final statuses = <String>[
       ...DeliveryPoint.activeRouteStatuses,
-      if (includeCompleted) DeliveryPoint.statusCompleted,
+      if (includeCompleted) ...[
+        DeliveryPoint.statusCompleted,
+        DeliveryPoint.statusCompletedHe,
+        DeliveryPoint.statusCompletedRu,
+        DeliveryPoint.statusCompletedRuAlt,
+      ],
     ];
     query = query.where('status', whereIn: statuses).limit(300);
 

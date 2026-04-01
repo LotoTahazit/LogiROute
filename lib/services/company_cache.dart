@@ -74,33 +74,21 @@ class CompanyCache {
 
   Future<void> _loadCompanyConfig(String companyId) async {
     try {
-      final settingsRef = FirebaseFirestore.instance
+      final doc = await FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
-          .collection('settings');
+          .collection('settings')
+          .doc('config')
+          .get();
 
-      final doc = await settingsRef.doc('config').get();
       if (doc.exists) {
         _config = CompanyConfig.fromMap(doc.data()!);
         debugPrint(
             '🏭 [CompanyCache] Config loaded: warehouse=(${_config.warehouseLat}, ${_config.warehouseLng})');
-        return;
+      } else {
+        _config = CompanyConfig.defaults;
+        debugPrint('🏭 [CompanyCache] No config doc, using defaults');
       }
-
-      final oldDoc = await settingsRef.doc('warehouse').get();
-      if (oldDoc.exists) {
-        final d = oldDoc.data()!;
-        _config = CompanyConfig(
-          warehouseLat: (d['lat'] as num?)?.toDouble() ?? 32.48698,
-          warehouseLng: (d['lng'] as num?)?.toDouble() ?? 34.982121,
-          warehouseAddress: d['address']?.toString() ?? '',
-        );
-        debugPrint('🏭 [CompanyCache] Config from legacy warehouse doc');
-        return;
-      }
-
-      _config = CompanyConfig.defaults;
-      debugPrint('🏭 [CompanyCache] No config found, using defaults');
     } catch (e) {
       debugPrint('⚠️ [CompanyCache] Config load error (using defaults): $e');
       _config = CompanyConfig.defaults;

@@ -77,6 +77,19 @@ class _DriverDashboardState extends State<DriverDashboard> {
       point.createdAt ??
       DateTime.fromMillisecondsSinceEpoch(0);
 
+  bool _isClosedPoint(DeliveryPoint point) {
+    final status = DeliveryPoint.normalizeStatus(point.status);
+    return status == DeliveryPoint.statusCompleted ||
+        status == DeliveryPoint.statusCancelled;
+  }
+
+  bool _shouldApplyPointUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
+    if (local == null) return true;
+    if (incoming.updatedAt == null) return true;
+    if (local.updatedAt == null) return true;
+    return incoming.updatedAt!.isAfter(local.updatedAt!);
+  }
+
   String? _selectCurrentRouteKey(
     List<DeliveryPoint> points, {
     String? preferredRouteKey,
@@ -138,6 +151,57 @@ class _DriverDashboardState extends State<DriverDashboard> {
         .toList()
       ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
     return filtered;
+  }
+
+  List<DeliveryPoint> _mergeVisibleRoutePoints(
+    List<DeliveryPoint> incomingPoints,
+  ) {
+    if (_lastPoints.isEmpty) return incomingPoints;
+
+    final incomingById = {
+      for (final point in incomingPoints) point.id: point,
+    };
+    final merged = <DeliveryPoint>[];
+
+    for (final incoming in incomingPoints) {
+      final local = _lastPoints.cast<DeliveryPoint?>().firstWhere(
+            (point) => point?.id == incoming.id,
+            orElse: () => null,
+          );
+      merged.add(_shouldApplyPointUpdate(incoming, local) ? incoming : local!);
+    }
+
+    for (final local in _lastPoints) {
+      if (incomingById.containsKey(local.id)) continue;
+      if (_routeKeyForPoint(local) != _visibleRouteKey) continue;
+      if (_isClosedPoint(local)) {
+        merged.add(local);
+      }
+    }
+
+    merged.sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+    return merged;
+  }
+
+  void _markPointCompletedLocally(String pointId) {
+    final now = DateTime.now();
+    _lastPoints = _lastPoints.map((point) {
+      if (point.id != pointId) return point;
+      return point.copyWith(
+        status: DeliveryPoint.statusCompleted,
+        completedAt: now,
+        updatedAt: now,
+      );
+    }).toList()
+      ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+
+    if (_currentPoint?.id == pointId) {
+      _currentPoint = _lastPoints.firstWhere(
+        (p) => !_isClosedPoint(p),
+        orElse: () =>
+            _lastPoints.isNotEmpty ? _lastPoints.first : _currentPoint!,
+      );
+    }
   }
 
   @override
@@ -363,8 +427,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   void _handleArrivalLogic(double lat, double lon) {
     final point = _currentPoint;
     if (point == null) return;
-    if (point.status == DeliveryPoint.statusCompleted ||
-        point.status == DeliveryPoint.statusCancelled) {
+    if (_isClosedPoint(point)) {
       _stopStartTime = null;
       return;
     }
@@ -418,6 +481,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       await FirestorePaths.deliveryPointsOf(companyId).doc(pointId).update({
         'status': DeliveryPoint.statusInProgress,
         'arrivedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       debugPrint('ARRIVED: $pointId');
     } catch (e) {
@@ -495,6 +559,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
         updatedByUid: driverId,
         autoCompleted: true,
       );
+      if (mounted) {
+        setState(() {
+          _markPointCompletedLocally(point.id);
+        });
+      }
       debugPrint(
           '✅ [AutoClose] Point ${point.clientName} auto-completed via RouteService');
       return true;
@@ -693,15 +762,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         }
 
                         final incomingPoints = snapshot.data ?? [];
-                        final points =
+                        final routePoints =
                             _filterDriverPointsToCurrentRoute(incomingPoints);
+                        final points = _mergeVisibleRoutePoints(routePoints);
                         _lastPoints = points;
 
                         if (points.isNotEmpty) {
                           _currentPoint = points.firstWhere(
-                            (p) =>
-                                p.status != DeliveryPoint.statusCompleted &&
-                                p.status != DeliveryPoint.statusCancelled,
+                            (p) => !_isClosedPoint(p),
                             orElse: () => points.first,
                           );
                         } else {
@@ -749,10 +817,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                       itemCount: points.length,
                                       itemBuilder: (context, index) {
                                         final point = points[index];
-                                        final isCompleted = point.status ==
-                                                DeliveryPoint.statusCompleted ||
-                                            point.status ==
-                                                DeliveryPoint.statusCancelled;
+                                        final isCompleted =
+                                            _isClosedPoint(point);
                                         final isActive = !isCompleted &&
                                             _currentPoint != null &&
                                             point.id == _currentPoint!.id;
@@ -915,6 +981,45 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return x;
   }
 
+  Future<void> _openWazeForPoint(
+    BuildContext context,
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) async {
+    final hasTemporaryAddress = point.temporaryAddress != null &&
+        point.temporaryAddress!.trim().isNotEmpty;
+    final address = hasTemporaryAddress
+        ? point.temporaryAddress!.trim()
+        : point.address.trim();
+    final hasCoordinates = point.latitude != 0 || point.longitude != 0;
+
+    final Uri url;
+    if (hasTemporaryAddress && hasCoordinates) {
+      // Для временного адреса используем уже пересчитанные координаты точки,
+      // чтобы Waze не уводил по старому клиентскому адресу.
+      url = Uri.parse(
+        'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes',
+      );
+    } else if (address.isNotEmpty) {
+      final encoded = Uri.encodeComponent(address);
+      url = Uri.parse('https://waze.com/ul?q=$encoded&navigate=yes');
+    } else {
+      url = Uri.parse(
+        'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes',
+      );
+    }
+
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.wazeOpenError(e.toString()))),
+        );
+      }
+    }
+  }
+
   Widget _buildTrailingWidget(
     BuildContext context,
     DeliveryPoint point,
@@ -922,11 +1027,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
     AppLocalizations l10n,
     List<DeliveryPoint> allPoints,
   ) {
-    if (point.status == DeliveryPoint.statusCompleted) {
+    final isClosed = _isClosedPoint(point);
+    if (isClosed &&
+        DeliveryPoint.normalizeStatus(point.status) ==
+            DeliveryPoint.statusCompleted) {
       return const Icon(Icons.check_circle, color: Colors.green, size: 22);
     }
 
-    if (point.status == DeliveryPoint.statusCancelled) {
+    if (isClosed) {
       return const Icon(Icons.cancel, color: Colors.grey, size: 22);
     }
 
@@ -942,37 +1050,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           height: 32,
           width: 32,
           child: IconButton(
-            onPressed: () async {
-              final hasTemporaryAddress = point.temporaryAddress != null &&
-                  point.temporaryAddress!.trim().isNotEmpty;
-              final address = hasTemporaryAddress
-                  ? point.temporaryAddress!.trim()
-                  : point.address.trim();
-              final hasCoordinates =
-                  point.latitude != 0 || point.longitude != 0;
-              final Uri url;
-              if (hasTemporaryAddress && hasCoordinates) {
-                // Для временного адреса используем уже пересчитанные координаты точки,
-                // чтобы Waze не уводил по старому клиентскому адресу.
-                url = Uri.parse(
-                    'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes');
-              } else if (address.isNotEmpty) {
-                final encoded = Uri.encodeComponent(address);
-                url = Uri.parse('https://waze.com/ul?q=$encoded&navigate=yes');
-              } else {
-                url = Uri.parse(
-                    'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes');
-              }
-              try {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.wazeOpenError(e.toString()))),
-                  );
-                }
-              }
-            },
+            onPressed: () => _openWazeForPoint(context, point, l10n),
             icon: const Icon(Icons.navigation, color: Colors.blue, size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -993,6 +1071,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 DeliveryPoint.statusCompleted,
                 updatedByUid: authService.currentUser?.uid,
               );
+              if (mounted) {
+                setState(() {
+                  _markPointCompletedLocally(point.id);
+                });
+              }
               // Шаг: фиксируем факт визита (координата водителя в момент ручного закрытия)
               try {
                 final companyId = authService.userModel?.companyId ?? '';
@@ -1040,11 +1123,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   /// Android fallback UI when Google Maps is not available
   Widget _buildAndroidMapFallback(
       List<DeliveryPoint> points, AppLocalizations l10n) {
-    final completedCount = points
-        .where((p) =>
-            p.status == DeliveryPoint.statusCompleted ||
-            p.status == DeliveryPoint.statusCancelled)
-        .length;
+    final completedCount = points.where(_isClosedPoint).length;
     final totalCount = points.length;
     final remainingCount = totalCount - completedCount;
 
@@ -1173,13 +1252,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         itemCount: points.length,
                         itemBuilder: (context, index) {
                           final point = points[index];
-                          final isCompleted =
-                              point.status == DeliveryPoint.statusCompleted;
+                          final isCompleted = _isClosedPoint(point);
                           final isNext = !isCompleted &&
                               index ==
-                                  points.indexWhere((p) =>
-                                      p.status !=
-                                      DeliveryPoint.statusCompleted);
+                                  points.indexWhere((p) => !_isClosedPoint(p));
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8),
@@ -1251,14 +1327,26 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                       color: Colors.green, size: 20)
                                   : (isNext
                                       ? Container(
-                                          padding: const EdgeInsets.all(4),
                                           decoration: BoxDecoration(
                                             color: Colors.blue,
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
-                                          child: const Icon(Icons.navigation,
-                                              color: Colors.white, size: 16),
+                                          child: IconButton(
+                                            onPressed: () => _openWazeForPoint(
+                                              context,
+                                              point,
+                                              l10n,
+                                            ),
+                                            icon: const Icon(
+                                              Icons.navigation,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                            padding: const EdgeInsets.all(4),
+                                            constraints: const BoxConstraints(),
+                                            tooltip: 'Waze',
+                                          ),
                                         )
                                       : null),
                             ),

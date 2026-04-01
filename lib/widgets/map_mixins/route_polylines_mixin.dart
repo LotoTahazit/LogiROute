@@ -596,15 +596,21 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       return;
     }
 
-    // Только водители из текущего маршрута
-    final allDriverIds = widget.points
+    // Обычно треки привязаны к водителям из текущего маршрута.
+    // Fallback нужен, когда GPS есть, а points временно пусты/не догрузились.
+    final routeDriverIds = widget.points
         .where((p) => p.driverId != null && p.driverId!.isNotEmpty)
         .map((p) => p.driverId!)
         .toSet()
         .toList();
+    final allDriverIds = routeDriverIds.isNotEmpty
+        ? routeDriverIds
+        : _driverCurrentPositions.keys.where((id) => id.isNotEmpty).toList();
 
     debugPrint(
-      '🛤️ [Track] Found ${allDriverIds.length} drivers: $allDriverIds',
+      routeDriverIds.isNotEmpty
+          ? '🛤️ [Track] Found ${allDriverIds.length} drivers in route: $allDriverIds'
+          : '🛤️ [Track] Route drivers missing, fallback to live GPS drivers: $allDriverIds',
     );
 
     if (allDriverIds.isEmpty) {
@@ -702,7 +708,9 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         if (rawPoints.length < 2) continue;
 
-        // Не обрубаем трек после одного большого разрыва: режем на отдельные сегменты.
+        // Режем только нереалистичные "телепорты".
+        // Простого порога по расстоянию мало: между редкими валидными GPS-точками
+        // водитель может реально проехать >2 км, особенно между двумя маршрутами.
         final segments = <List<LatLng>>[];
         var currentSegment = <LatLng>[];
         for (int i = 0; i < rawPoints.length; i++) {
@@ -719,7 +727,12 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
             (curr['lat'] as double),
             (curr['lng'] as double),
           );
-          if (dist > 2.0) {
+          final prevTs = prev['ts'] as DateTime;
+          final currTs = curr['ts'] as DateTime;
+          final seconds = math.max(1, currTs.difference(prevTs).inSeconds);
+          final impliedSpeedKmh = dist / (seconds / 3600.0);
+          final isTeleport = dist > 20.0 || (dist > 3.0 && impliedSpeedKmh > 160.0);
+          if (isTeleport) {
             if (currentSegment.length >= 2) {
               segments.add(currentSegment);
             }
@@ -739,19 +752,26 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           continue;
         }
 
-        final driverIndex = allDriverIds.indexOf(driverId);
-        final baseColor = _getDriverColor(driverId, driverIndex);
-        final trackColor =
-            baseColor.withValues(alpha: (baseColor.a * 0.5).clamp(0.0, 1.0));
+        const trackOuterColor = Color(0x6677AFFF);
+        const trackInnerColor = Color(0xFF2F80ED);
 
         for (int i = 0; i < segments.length; i++) {
           tracks.add(
             Polyline(
-              polylineId: PolylineId('track_${driverId}_$i'),
+              polylineId: PolylineId('track_${driverId}_${i}_outer'),
               points: segments[i],
-              width: 4,
-              color: trackColor,
-              zIndex: 1,
+              width: 12,
+              color: trackOuterColor,
+              zIndex: 5,
+            ),
+          );
+          tracks.add(
+            Polyline(
+              polylineId: PolylineId('track_${driverId}_${i}_inner'),
+              points: segments[i],
+              width: 7,
+              color: trackInnerColor,
+              zIndex: 6,
             ),
           );
         }
