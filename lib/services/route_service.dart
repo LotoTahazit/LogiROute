@@ -867,6 +867,29 @@ class RouteService {
     return RouteOptimizer.calculateDistance(lat1, lng1, lat2, lng2);
   }
 
+  /// Парсит ETA строку "07:50 (50 m)" или "10:51 (3 h 51 m)" → минуты от 07:00
+  double _parseEtaToMinutes(String eta) {
+    // Пробуем парсить из скобок: "(50 m)" или "(3 h 51 m)"
+    final bracketMatch = RegExp(r'\((\d+)\s*h\s*(\d+)\s*m\)').firstMatch(eta);
+    if (bracketMatch != null) {
+      final h = int.tryParse(bracketMatch.group(1) ?? '') ?? 0;
+      final m = int.tryParse(bracketMatch.group(2) ?? '') ?? 0;
+      return h * 60.0 + m;
+    }
+    final minOnly = RegExp(r'\((\d+)\s*m\)').firstMatch(eta);
+    if (minOnly != null) {
+      return (int.tryParse(minOnly.group(1) ?? '') ?? 0).toDouble();
+    }
+    // Fallback: парсим время "10:51" → минуты от 07:00
+    final timeParts = eta.split(' ').first.split(':');
+    if (timeParts.length == 2) {
+      final h = int.tryParse(timeParts[0]) ?? 0;
+      final m = int.tryParse(timeParts[1]) ?? 0;
+      return (h - 7) * 60.0 + m;
+    }
+    return 0;
+  }
+
   /// ✏️ Обновить точку доставки
   Future<void> updatePoint(String pointId, String urgency, int? orderInRoute,
       String? temporaryAddress) async {
@@ -1175,63 +1198,44 @@ class RouteService {
     }
 
     // Сравниваем выигрыш: текущий маршрут vs предложенный
-    // 1. Дистанция текущего порядка (Haversine, по прямой)
-    double currentDist = 0;
-    final whLat = AppConfig.defaultWarehouseLat;
-    final whLng = AppConfig.defaultWarehouseLng;
-    for (int i = 0; i < activePoints.length; i++) {
-      final prevLat = i == 0 ? whLat : activePoints[i - 1].latitude;
-      final prevLng = i == 0 ? whLng : activePoints[i - 1].longitude;
-      currentDist += RouteOptimizer.calculateDistance(prevLat, prevLng,
-          activePoints[i].latitude, activePoints[i].longitude);
-    }
-    currentDist += RouteOptimizer.calculateDistance(
-        activePoints.last.latitude, activePoints.last.longitude, whLat, whLng);
-
-    // 2. Дистанция предложенного порядка
+    // Текущий: ETA из последней точки (уже рассчитан, включает service time)
+    // Новый: OSRM Trip durationMinutes (чистое дорожное время)
     final reordered = <DeliveryPoint>[];
     for (final idx in result.waypointOrder) {
       if (idx >= 0 && idx < activePoints.length) {
         reordered.add(activePoints[idx]);
       }
     }
-    double newDist = 0;
-    for (int i = 0; i < reordered.length; i++) {
-      final prevLat = i == 0 ? whLat : reordered[i - 1].latitude;
-      final prevLng = i == 0 ? whLng : reordered[i - 1].longitude;
-      newDist += RouteOptimizer.calculateDistance(
-          prevLat, prevLng, reordered[i].latitude, reordered[i].longitude);
-    }
-    newDist += RouteOptimizer.calculateDistance(
-        reordered.last.latitude, reordered.last.longitude, whLat, whLng);
 
-    // 3. Время из OSRM (реальное дорожное время)
-    // currentDuration оцениваем через среднюю скорость (нет OSRM для текущего порядка)
-    const avgSpeedKmh = 38.0;
-    final currentDurationMin = (currentDist / avgSpeedKmh) * 60;
+    // Парсим ETA последней точки → минуты от 07:00
+    final lastEta = activePoints.last.eta ?? '';
+    final oldDurationMin = _parseEtaToMinutes(lastEta);
     final newDurationMin = result.durationMinutes;
 
-    final improvementPercent =
-        currentDist > 0 ? ((currentDist - newDist) / currentDist * 100) : 0.0;
-    final improvementMinutes = currentDurationMin - newDurationMin;
-
-    debugPrint('📊 [RouteService] Optimization comparison:\n'
-        '   Current: ${currentDist.toStringAsFixed(1)}km, ~${currentDurationMin.toStringAsFixed(0)}min\n'
-        '   New:     ${newDist.toStringAsFixed(1)}km, ${newDurationMin.toStringAsFixed(0)}min (OSRM)\n'
-        '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
-
-    // Комбинированный критерий: применяем если > 5% по дистанции ИЛИ > 3 мин по времени
-    if (improvementPercent <= 5.0 && improvementMinutes <= 3.0) {
+    if (oldDurationMin <= 0) {
       debugPrint(
-          '⚠️ [RouteService] Improvement too small (${improvementPercent.toStringAsFixed(1)}%, '
-          '${improvementMinutes.toStringAsFixed(1)}min) — keeping current order');
-      return false;
-    }
+          '⚠️ [RouteService] Invalid old ETA "$lastEta" — applying optimization');
+    } else {
+      final improvementMinutes = oldDurationMin - newDurationMin;
+      final improvementPercent = (improvementMinutes / oldDurationMin) * 100;
 
-    final reason = improvementPercent > 5.0
-        ? 'distance ${improvementPercent.toStringAsFixed(1)}%'
-        : 'time ${improvementMinutes.toStringAsFixed(1)}min';
-    debugPrint('✅ [RouteService] Applying optimization: $reason');
+      debugPrint('📊 [RouteService] Optimization comparison:\n'
+          '   Current: ~${oldDurationMin.toStringAsFixed(0)}min (from ETA)\n'
+          '   New:     ${newDurationMin.toStringAsFixed(0)}min, ${result.distanceKm.toStringAsFixed(1)}km (OSRM)\n'
+          '   Improvement: ${improvementPercent.toStringAsFixed(1)}%, ${improvementMinutes.toStringAsFixed(1)}min');
+
+      // Комбинированный критерий: > 5% ИЛИ > 3 мин
+      if (improvementPercent <= 5.0 && improvementMinutes <= 3.0) {
+        debugPrint(
+            '⚠️ [RouteService] Improvement too small — keeping current order');
+        return false;
+      }
+
+      final reason = improvementPercent > 5.0
+          ? 'distance ${improvementPercent.toStringAsFixed(1)}%'
+          : 'time ${improvementMinutes.toStringAsFixed(1)}min';
+      debugPrint('✅ [RouteService] Applying optimization: $reason');
+    }
 
     // Обновляем orderInRoute + ETA, используем polyline из Trip (без лишнего OSRM запроса)
     final balanceService = RouteBalanceService(companyId: companyId);
