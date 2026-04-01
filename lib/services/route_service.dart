@@ -1123,9 +1123,12 @@ class RouteService {
     }
   }
 
+  /// Кеш последнего результата OSRM Trip (чтобы не дублировать запрос при оптимизации)
+  static TripOptimizationResult? _lastTripResult;
+  static String? _lastTripSignature;
+
   /// Совпадает с [optimizeRouteByTime]: неоптимально только если OSRM Trip
-  /// предлагает другой порядок (`waypointOrder[i] != i`). Раньше сравнивали
-  /// длительности route vs trip — разные инстансы OSRM давали ложный «неоптимально».
+  /// предлагает другой порядок (`waypointOrder[i] != i`).
   Future<bool> isRouteOrderSuboptimal(List<DeliveryPoint> points) async {
     final activePoints = points
         .where((p) =>
@@ -1136,18 +1139,31 @@ class RouteService {
       ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
     if (activePoints.length < 2) return false;
 
+    final sig =
+        activePoints.map((p) => '${p.latitude},${p.longitude}').join(';');
+    if (sig == _lastTripSignature && _lastTripResult != null) {
+      // Используем кеш
+      final order = _lastTripResult!.waypointOrder;
+      for (var i = 0; i < order.length; i++) {
+        if (order[i] != i) return true;
+      }
+      return false;
+    }
+
     final osrm = OsrmNavigationService();
     final waypoints = activePoints
         .map((p) => {'lat': p.latitude, 'lng': p.longitude})
         .toList();
-    final whLat = AppConfig.defaultWarehouseLat;
-    final whLng = AppConfig.defaultWarehouseLng;
 
     final optimized = await osrm.getOptimizedTripOrder(
-      warehouseLat: whLat,
-      warehouseLng: whLng,
+      warehouseLat: AppConfig.defaultWarehouseLat,
+      warehouseLng: AppConfig.defaultWarehouseLng,
       waypoints: waypoints,
     );
+
+    _lastTripSignature = sig;
+    _lastTripResult = optimized;
+
     if (optimized == null) return false;
     if (optimized.waypointOrder.length != activePoints.length) return false;
 
@@ -1173,16 +1189,25 @@ class RouteService {
 
     if (activePoints.length < 2) return false;
 
-    final osrm = OsrmNavigationService();
-    final waypoints = activePoints
-        .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-        .toList();
-
-    final result = await osrm.getOptimizedTripOrder(
-      warehouseLat: AppConfig.defaultWarehouseLat,
-      warehouseLng: AppConfig.defaultWarehouseLng,
-      waypoints: waypoints,
-    );
+    // Используем кеш от isRouteOrderSuboptimal если есть
+    final sig =
+        activePoints.map((p) => '${p.latitude},${p.longitude}').join(';');
+    TripOptimizationResult? result;
+    if (sig == _lastTripSignature && _lastTripResult != null) {
+      result = _lastTripResult;
+    } else {
+      final osrm = OsrmNavigationService();
+      final waypoints = activePoints
+          .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+          .toList();
+      result = await osrm.getOptimizedTripOrder(
+        warehouseLat: AppConfig.defaultWarehouseLat,
+        warehouseLng: AppConfig.defaultWarehouseLng,
+        waypoints: waypoints,
+      );
+      _lastTripSignature = sig;
+      _lastTripResult = result;
+    }
 
     if (result == null) return false;
 

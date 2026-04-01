@@ -8,8 +8,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/delivery_point.dart';
 import '../l10n/app_localizations.dart';
 import '../services/optimized_location_service.dart';
-import '../services/smart_navigation_service.dart';
-import '../services/osrm_navigation_service.dart';
 import '../services/firestore_paths.dart';
 import '../utils/polyline_decoder.dart';
 import '../utils/gps_utils.dart';
@@ -156,9 +154,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   bool _pendingGpsRefreshAfterResume = false;
   bool _pendingZoomRefreshAfterResume = false;
   late final OptimizedLocationService _locationService;
-  final SmartNavigationService _smartNavigationService =
-      SmartNavigationService();
-  final OsrmNavigationService _osrmNavigation = OsrmNavigationService();
 
   StreamSubscription<List<Map<String, dynamic>>>? _driverLocationsSubscription;
   Timer? _debounceTimer;
@@ -217,7 +212,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   bool _showOffShiftDrivers =
       false; // 🔘 Toggle: показывать OFF_SHIFT водителей
   ShiftScheduleConfig _shiftSchedule = ShiftScheduleConfig.defaults;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shiftsSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _shiftsSubscription;
   final Map<String, List<LatLng>> _decodedPolylineCache =
       {}; // routeId → decoded points
   /// Последняя дорожная полилиния по водителю (из OSRM/cached), для Waze-прогресса — не прямые между стопами.

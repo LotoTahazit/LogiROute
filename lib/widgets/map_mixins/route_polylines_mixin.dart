@@ -387,44 +387,22 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           }
         }
 
-        // Возврат на склад — по дорогам (все активные уже закрыты)
+        // Возврат на склад — прямая пунктирная линия (без OSRM запроса)
         if (activePoints.isEmpty && completedPoints.isNotEmpty) {
           final lastCompleted = completedPoints.last;
-          final ret = await _osrmNavigation.getRoute(
-            startLat: lastCompleted.latitude,
-            startLng: lastCompleted.longitude,
-            endLat: warehouseLat,
-            endLng: warehouseLng,
+          result.add(
+            Polyline(
+              polylineId: PolylineId('route_${routeKey}_return'),
+              points: [
+                LatLng(lastCompleted.latitude, lastCompleted.longitude),
+                LatLng(warehouseLat, warehouseLng),
+              ],
+              width: 6,
+              color: Colors.grey.shade300,
+              patterns: [PatternItem.dash(12), PatternItem.gap(8)],
+              zIndex: 4,
+            ),
           );
-          if (ret != null && ret.polyline.isNotEmpty) {
-            final dec = PolylineDecoder.decode(ret.polyline, precision: 5);
-            if (PolylineDecoder.isValid(dec)) {
-              result.add(
-                Polyline(
-                  polylineId: PolylineId('route_${routeKey}_return'),
-                  points: dec,
-                  width: 6,
-                  color: Colors.grey.shade300,
-                  patterns: [PatternItem.dash(12), PatternItem.gap(8)],
-                  zIndex: 4,
-                ),
-              );
-            }
-          } else {
-            result.add(
-              Polyline(
-                polylineId: PolylineId('route_${routeKey}_return'),
-                points: [
-                  LatLng(lastCompleted.latitude, lastCompleted.longitude),
-                  LatLng(warehouseLat, warehouseLng),
-                ],
-                width: 6,
-                color: Colors.grey.shade300,
-                patterns: [PatternItem.dash(12), PatternItem.gap(8)],
-                zIndex: 4,
-              ),
-            );
-          }
         }
 
         // Строим цветной маршрут для активных точек

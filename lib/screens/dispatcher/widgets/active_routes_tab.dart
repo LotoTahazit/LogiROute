@@ -415,8 +415,8 @@ class ActiveRoutesTab extends StatelessWidget {
                         onPressed: () => onCreateInvoice(r),
                       ),
                       IconButton(
-                        icon:
-                            const Icon(Icons.local_shipping, color: Colors.blue),
+                        icon: const Icon(Icons.local_shipping,
+                            color: Colors.blue),
                         tooltip: l10n.createDeliveryNoteTooltip,
                         onPressed: () => onCreateDeliveryNote(r),
                       ),
@@ -651,6 +651,7 @@ class _OptimizeTimeButton extends StatefulWidget {
 
 class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
   bool? _isSuboptimal;
+  String? _lastPointSignature;
 
   @override
   void initState() {
@@ -661,14 +662,26 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
   @override
   void didUpdateWidget(_OptimizeTimeButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _isSuboptimal = null;
-    _check();
+    // Перепроверяем только если реально изменился порядок точек
+    final sig = _buildSignature(widget.routePoints);
+    if (sig != _lastPointSignature) {
+      _isSuboptimal = null;
+      _check();
+    }
+  }
+
+  String _buildSignature(List<DeliveryPoint> points) {
+    return points.map((p) => '${p.id}:${p.orderInRoute}').join('|');
   }
 
   Future<void> _check() async {
+    final sig = _buildSignature(widget.routePoints);
+    _lastPointSignature = sig;
     final suboptimal = await RouteService(companyId: widget.companyId)
         .isRouteOrderSuboptimal(widget.routePoints);
-    if (mounted) setState(() => _isSuboptimal = suboptimal);
+    if (mounted && _lastPointSignature == sig) {
+      setState(() => _isSuboptimal = suboptimal);
+    }
   }
 
   @override
