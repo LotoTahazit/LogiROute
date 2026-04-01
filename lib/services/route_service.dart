@@ -1947,6 +1947,23 @@ class RouteService {
       }
     }
 
+    // Расчёт ETA возврата на склад (после последней точки)
+    String? returnEta;
+    if (points.isNotEmpty) {
+      final lastPoint = points.last;
+      final lastCn = lastPoint.clientNumber ?? '';
+      final lastNav = clientNavPoints[lastCn];
+      final lastLat = lastNav?['lat'] ?? lastPoint.latitude;
+      final lastLng = lastNav?['lng'] ?? lastPoint.longitude;
+      final returnDistKm = _calculateDistance(lastLat, lastLng,
+          AppConfig.defaultWarehouseLat, AppConfig.defaultWarehouseLng);
+      final returnTravelMin = (returnDistKm / avgSpeedKmh) * 60;
+      cumulativeTimeMinutes += returnTravelMin;
+      returnEta = TimeFormatter.formatArrivalTime(cumulativeTimeMinutes);
+      print(
+          '🏭 [RouteService] Return to warehouse ETA: $returnEta (${returnDistKm.toStringAsFixed(1)}km)');
+    }
+
     print('✅ [RouteService] Route successfully created for $driverName');
 
     // 📦 Сразу после назначения точек — документ маршрута (не ждём OSRM)
@@ -1963,6 +1980,7 @@ class RouteService {
         if (tripDurationMinutes != null)
           'tripDurationMinutes': tripDurationMinutes,
         if (tripDistanceKm != null) 'tripDistanceKm': tripDistanceKm,
+        if (returnEta != null) 'returnEta': returnEta,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       print('📦 [RouteService] Route document saved: $routeId');

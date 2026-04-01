@@ -249,6 +249,12 @@ class ActiveRoutesTab extends StatelessWidget {
       final kmText =
           totalKm > 0 ? ' • ${totalKm.toStringAsFixed(1)} ${l10n.km}' : '';
 
+      // ETA последней точки
+      final lastEta =
+          routePoints.isNotEmpty ? (routePoints.last.eta ?? '') : '';
+      final etaText =
+          lastEta.isNotEmpty ? ' • ETA: ${lastEta.split(' ').first}' : '';
+
       return Card(
         margin: const EdgeInsets.all(8),
         child: ExpansionTile(
@@ -265,7 +271,7 @@ class ActiveRoutesTab extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            '${routePoints.length} ${l10n.points} • $palletText$kmText • ${routeStatus == DeliveryPoint.statusCompleted ? l10n.statusCompleted : routeStatus == 'in_progress' ? l10n.active : l10n.assigned}',
+            '${routePoints.length} ${l10n.points} • $palletText$kmText$etaText',
           ),
           children: [
             // Совет по укладке — когда не влезает в грузовик

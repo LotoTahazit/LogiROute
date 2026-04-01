@@ -205,6 +205,32 @@ class RouteBalanceService {
 
     await batch.commit();
 
+    // Расчёт ETA возврата на склад
+    if (points.isNotEmpty) {
+      final lastPoint = points.last;
+      final returnDistKm = RouteOptimizer.calculateDistance(
+          lastPoint.latitude, lastPoint.longitude, planLat, planLng);
+      final returnTravelMin = (returnDistKm / avgSpeedKmh) * 60;
+      cumulativeTimeMinutes += returnTravelMin;
+      final returnEta = TimeFormatter.formatArrivalTime(cumulativeTimeMinutes);
+      debugPrint('🏭 [RouteBalance] Return ETA: $returnEta');
+
+      // Сохраняем returnEta в routes документ
+      final routeId = points.first.routeId;
+      if (routeId != null) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('companies')
+              .doc(companyId)
+              .collection('logistics')
+              .doc('_root')
+              .collection('routes')
+              .doc(routeId)
+              .set({'returnEta': returnEta}, SetOptions(merge: true));
+        } catch (_) {}
+      }
+    }
+
     // Сохраняем polyline в routes документ
     final routeId = points.first.routeId;
     if (routeId == null) return;
