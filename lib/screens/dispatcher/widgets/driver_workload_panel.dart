@@ -106,8 +106,8 @@ class _DriverCard extends StatelessWidget {
       loadColor = Colors.green;
     }
 
-    // Ближайший ETA
-    final nextEta = _getNextEta();
+    // ETA возврата на склад (динамическое)
+    final returnEta = _getReturnEta();
 
     return Container(
       width: 160,
@@ -117,7 +117,8 @@ class _DriverCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: loadColor.withValues(alpha: (loadColor.a * 0.4).clamp(0.0, 1.0)),
+          color:
+              loadColor.withValues(alpha: (loadColor.a * 0.4).clamp(0.0, 1.0)),
         ),
         boxShadow: [
           BoxShadow(
@@ -180,10 +181,10 @@ class _DriverCard extends StatelessWidget {
               ),
             ],
           ),
-          // ETA
-          if (nextEta != null)
+          // ETA возврата на склад
+          if (returnEta != null)
             Text(
-              'ETA: $nextEta',
+              'ETA: $returnEta',
               style: TextStyle(
                 fontSize: 10,
                 color: Colors.grey.shade700,
@@ -195,16 +196,57 @@ class _DriverCard extends StatelessWidget {
     );
   }
 
-  String? _getNextEta() {
-    try {
-      final nextActive = points.firstWhere(
-        (p) =>
+  /// Динамическое ETA возврата на склад.
+  /// Считается: ETA последней активной точки + время возврата до склада.
+  /// Обновляется автоматически по мере выполнения точек.
+  String? _getReturnEta() {
+    final active = points
+        .where((p) =>
             p.status != DeliveryPoint.statusCompleted &&
-            p.status != DeliveryPoint.statusCancelled,
-      );
-      return nextActive.eta;
-    } catch (_) {
-      return null;
+            p.status != DeliveryPoint.statusCancelled)
+        .toList();
+    if (active.isEmpty) return null;
+    active.sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+
+    final lastEtaStr = active.last.eta ?? '';
+    final lastEtaMin = _parseEtaMin(lastEtaStr);
+    if (lastEtaMin <= 0) return null;
+
+    // Расстояние от последней точки до склада (Haversine approx)
+    const whLat = 32.48698;
+    const whLng = 34.982121;
+    final last = active.last;
+    final dLat = (last.latitude - whLat) * 111.0;
+    final dLng = (last.longitude - whLng) * 111.0 * 0.848;
+    final straightKm = _sqrt(dLat * dLat + dLng * dLng);
+    final returnMin = (straightKm * 1.3 / 38.0) * 60;
+
+    final totalMin = lastEtaMin + returnMin;
+    final h = (7 + totalMin ~/ 60) % 24;
+    final m = (totalMin % 60).round();
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  static double _sqrt(double x) {
+    if (x <= 0) return 0;
+    double r = x;
+    for (int i = 0; i < 10; i++) r = (r + x / r) / 2;
+    return r;
+  }
+
+  static double _parseEtaMin(String eta) {
+    final hm = RegExp(r'\((\d+)\s*h\s*(\d+)\s*m\)').firstMatch(eta);
+    if (hm != null) {
+      return (int.tryParse(hm.group(1) ?? '') ?? 0) * 60.0 +
+          (int.tryParse(hm.group(2) ?? '') ?? 0);
     }
+    final mo = RegExp(r'\((\d+)\s*m\)').firstMatch(eta);
+    if (mo != null) return (int.tryParse(mo.group(1) ?? '') ?? 0).toDouble();
+    final parts = eta.split(' ').first.split(':');
+    if (parts.length == 2) {
+      return ((int.tryParse(parts[0]) ?? 7) - 7) * 60.0 +
+          (int.tryParse(parts[1]) ?? 0);
+    }
+    return 0;
   }
 }
