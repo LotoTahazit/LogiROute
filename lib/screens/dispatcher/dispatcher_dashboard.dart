@@ -1222,56 +1222,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
-  /// Автоматическая балансировка маршрутов
-  /// Переносит точки с перегруженных маршрутов на лёгкие
-  Future<void> _optimizeRouteByTime(
-    String companyId,
-    String driverId,
-    String? routeId,
-    List<DeliveryPoint> points,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white)),
-          const SizedBox(width: 12),
-          Text(l10n.optimizeTime),
-        ]),
-        duration: const Duration(seconds: 10),
-      ),
-    );
-
-    try {
-      final routeService = RouteService(companyId: companyId);
-      final changed =
-          await routeService.optimizeRouteByTime(driverId, routeId, points);
-
-      messenger.hideCurrentSnackBar();
-      if (mounted) {
-        messenger.showSnackBar(SnackBar(
-          content:
-              Text(changed ? l10n.routeOptimized : l10n.routeAlreadyOptimal),
-          backgroundColor: changed ? Colors.green : null,
-        ));
-      }
-    } catch (e) {
-      messenger.hideCurrentSnackBar();
-      if (mounted) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(l10n.routeOptimizationFailed),
-          backgroundColor: Colors.red,
-        ));
-      }
-    }
-  }
-
   Future<void> _balanceRoutes() async {
     final l10n = AppLocalizations.of(context)!;
     final companyCtx = CompanyContext.watch(context);
@@ -1566,14 +1516,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                     point,
                                   ),
                                   onBalanceRoutes: _balanceRoutes,
-                                  onOptimizeRoute:
-                                      (driverId, routeId, points) =>
-                                          _optimizeRouteByTime(
-                                    effectiveCompanyId,
-                                    driverId,
-                                    routeId,
-                                    points,
-                                  ),
                                 );
                               },
                             );
