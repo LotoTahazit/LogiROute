@@ -23,6 +23,8 @@ class ActiveRoutesTab extends StatelessWidget {
   final Function(DeliveryPoint point)? onReopenPoint;
   final void Function(DeliveryPoint point)? onCompletePointManually;
   final VoidCallback? onBalanceRoutes;
+  final Function(String driverId, String? routeId, List<DeliveryPoint> points)?
+      onOptimizeRoute;
 
   const ActiveRoutesTab({
     super.key,
@@ -42,6 +44,7 @@ class ActiveRoutesTab extends StatelessWidget {
     this.onReopenPoint,
     this.onCompletePointManually,
     this.onBalanceRoutes,
+    this.onOptimizeRoute,
   });
 
   bool _isAssignedOrInProgress(DeliveryPoint p) {
@@ -343,6 +346,19 @@ class ActiveRoutesTab extends StatelessWidget {
               spacing: 4,
               runSpacing: 4,
               children: [
+                if (onOptimizeRoute != null &&
+                    routePoints
+                            .where((p) =>
+                                p.status != 'completed' &&
+                                p.status != 'cancelled')
+                            .length >=
+                        2)
+                  IconButton(
+                    icon: const Icon(Icons.route),
+                    tooltip: l10n.optimizeTime,
+                    onPressed: () =>
+                        onOptimizeRoute!(driverId, routeId, routePoints),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
                   tooltip: l10n.changeDriver,
