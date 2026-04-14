@@ -1201,6 +1201,26 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
+  /// Строит текст с фактическим временем на точке
+  String _buildPointTiming(DeliveryPoint p) {
+    final parts = <String>[];
+    if (p.arrivedAt != null) {
+      final t = p.arrivedAt!;
+      parts.add(
+          '⏱ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    }
+    if (p.completedAt != null) {
+      final t = p.completedAt!;
+      parts.add(
+          '✅ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    }
+    if (p.arrivedAt != null && p.completedAt != null) {
+      final min = p.completedAt!.difference(p.arrivedAt!).inMinutes;
+      if (min > 0) parts.add('(${min}m)');
+    }
+    return parts.join(' → ');
+  }
+
   Widget _buildTrailingWidget(
     BuildContext context,
     DeliveryPoint point,
@@ -1499,6 +1519,17 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                         fontSize: 11,
                                         color: Colors.blue.shade700,
                                         fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  // Фактическое время
+                                  if (point.arrivedAt != null ||
+                                      point.completedAt != null)
+                                    Text(
+                                      _buildPointTiming(point),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.green.shade700,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                 ],

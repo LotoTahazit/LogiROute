@@ -66,6 +66,43 @@ class ActiveRoutesTab extends StatelessWidget {
     return point.address;
   }
 
+  /// Среднее время на точке (минуты) из завершённых точек
+  int _calcAvgTimeOnPoint(List<DeliveryPoint> completed) {
+    if (completed.isEmpty) return 0;
+    int totalMin = 0;
+    int count = 0;
+    for (final p in completed) {
+      if (p.arrivedAt != null && p.completedAt != null) {
+        totalMin += p.completedAt!.difference(p.arrivedAt!).inMinutes;
+        count++;
+      }
+    }
+    return count > 0 ? (totalMin / count).round() : 0;
+  }
+
+  /// Строит текст с фактическим временем: прибытие → на точке → завершение
+  String _buildTimingText(DeliveryPoint r) {
+    final parts = <String>[];
+    if (r.arrivedAt != null) {
+      final t = r.arrivedAt!;
+      parts.add(
+          '⏱ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    }
+    if (r.completedAt != null) {
+      final t = r.completedAt!;
+      parts.add(
+          '✅ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    }
+    if (r.arrivedAt != null && r.completedAt != null) {
+      final duration = r.completedAt!.difference(r.arrivedAt!);
+      final min = duration.inMinutes;
+      if (min > 0) {
+        parts.add('(${min}m)');
+      }
+    }
+    return parts.join(' → ');
+  }
+
   /// Генерирует рекомендации по объединению миштахов
   /// Советы ТОЛЬКО когда totalPallets > driverCapacity (не влезает)
   Map<String, dynamic> _buildPalletAdvice(
@@ -255,6 +292,16 @@ class ActiveRoutesTab extends StatelessWidget {
       final etaText =
           lastEta.isNotEmpty ? ' • ETA: ${lastEta.split(' ').first}' : '';
 
+      // Прогресс: выполнено / всего + среднее время на точке
+      final completedPts = routePoints.where((p) {
+        final s = DeliveryPoint.normalizeStatus(p.status);
+        return s == DeliveryPoint.statusCompleted;
+      }).toList();
+      final avgTimeOnPoint = _calcAvgTimeOnPoint(completedPts);
+      final progressText = completedPts.isNotEmpty && avgTimeOnPoint > 0
+          ? ' • ~${avgTimeOnPoint}m/pt'
+          : '';
+
       return Card(
         margin: const EdgeInsets.all(8),
         child: ExpansionTile(
@@ -271,7 +318,7 @@ class ActiveRoutesTab extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            '${routePoints.length} ${l10n.points} • $palletText$kmText$etaText',
+            '${routePoints.length} ${l10n.points} • $palletText$kmText$etaText$progressText',
           ),
           children: [
             // Совет по укладке — когда не влезает в грузовик
@@ -491,6 +538,20 @@ class ActiveRoutesTab extends StatelessWidget {
                               color: Colors.blue.shade900,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
+                            ),
+                            textDirection: TextDirection.ltr,
+                          ),
+                        ),
+                      // Фактическое время: прибытие, на точке, завершение
+                      if (r.arrivedAt != null || r.completedAt != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            _buildTimingText(r),
+                            style: TextStyle(
+                              color: Colors.green.shade800,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                             textDirection: TextDirection.ltr,
                           ),
