@@ -45,6 +45,20 @@ class DeliveryPoint {
         statusPendingHe,
         statusPendingRu,
       ];
+
+  /// 🛡️ ЕДИНСТВЕННЫЙ валидатор координат во всём приложении.
+  /// Используй ТОЛЬКО этот метод для проверки lat/lng — ВЕЗДЕ.
+  /// Израиль: lat 29.0–34.0, lng 34.0–36.5 (с запасом).
+  static bool isValidCoordinates(double lat, double lng) {
+    if (lat == 0 || lng == 0) return false;
+    if (lat < 29.0 || lat > 34.0) return false;
+    if (lng < 34.0 || lng > 36.5) return false;
+    return true;
+  }
+
+  /// Валидны ли координаты этой точки
+  bool get hasValidCoordinates => isValidCoordinates(latitude, longitude);
+
   final String id;
   final String companyId; // ID компании для изоляции данных
   final String address;

@@ -303,15 +303,7 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   /// Вычисляет bounds для списка точек полилинии
   LatLngBounds _calculatePolylineBounds(List<LatLng> points) {
     final validPoints = points
-        .where(
-          (p) =>
-              p.latitude != 0 &&
-              p.longitude != 0 &&
-              p.latitude >= 29.0 &&
-              p.latitude <= 34.0 &&
-              p.longitude >= 34.0 &&
-              p.longitude <= 36.5,
-        )
+        .where((p) => DeliveryPoint.isValidCoordinates(p.latitude, p.longitude))
         .toList();
 
     if (validPoints.isEmpty) {
@@ -339,10 +331,30 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     );
   }
 
+  /// Проверяет, находится ли точка в пределах Израиля (с запасом).
+  /// Делегирует в DeliveryPoint.isValidCoordinates — единый валидатор.
+  bool _isInIsraelBounds(double lat, double lng) {
+    return DeliveryPoint.isValidCoordinates(lat, lng);
+  }
+
   /// Безопасная анимация camera к bounds (с guard от ошибок Google Maps)
+  /// 🛡️ GUARD: если bounds выходят за пределы Израиля — игнорируем.
   Future<void> _moveToBoundsSafe(LatLngBounds bounds,
       {bool animated = true}) async {
     if (_controller == null || !mounted) return;
+
+    // 🛡️ Валидация: bounds должны быть в пределах Израиля
+    if (!_isInIsraelBounds(
+            bounds.southwest.latitude, bounds.southwest.longitude) ||
+        !_isInIsraelBounds(
+            bounds.northeast.latitude, bounds.northeast.longitude)) {
+      debugPrint(
+        '⚠️ [Map] Bounds outside Israel, ignoring camera move: '
+        'SW(${bounds.southwest.latitude}, ${bounds.southwest.longitude}) '
+        'NE(${bounds.northeast.latitude}, ${bounds.northeast.longitude})',
+      );
+      return;
+    }
 
     try {
       final update = CameraUpdate.newLatLngBounds(bounds, 56);
@@ -360,8 +372,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   LatLng _safeWarehouseTarget() {
     final lat = widget.warehouseLat;
     final lng = widget.warehouseLng;
-    // Validate Israel bounds roughly
-    if (lat >= 29.0 && lat <= 34.0 && lng >= 34.0 && lng <= 36.5) {
+    // Validate Israel bounds via centralized validator
+    if (DeliveryPoint.isValidCoordinates(lat, lng)) {
       return LatLng(lat, lng);
     }
     // Default to Tel Aviv if warehouse coords are invalid

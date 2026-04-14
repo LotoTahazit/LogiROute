@@ -665,80 +665,81 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                 3: FlexColumnWidth(1.5),
               },
               children: [
-            // Заголовок
+                // Заголовок
                 TableRow(
-              decoration: BoxDecoration(color: Colors.grey[200]),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    l10n.itemLabel,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  decoration: BoxDecoration(color: Colors.grey[200]),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        l10n.itemLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        l10n.cartonsLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        l10n.pricePerUnitLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        l10n.totalLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    l10n.cartonsLabel,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    l10n.pricePerUnitLabel,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    l10n.totalLabel,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            // Строки товаров
+                // Строки товаров
                 ..._items.asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
                   return TableRow(
                     children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text('${item.type} ${item.number}'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text('${item.quantity}'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: TextField(
-                      controller: _priceControllers[index],
-                      decoration: const InputDecoration(
-                        prefixText: '₪',
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(8),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('${item.type} ${item.number}'),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('${item.quantity}'),
                       ),
-                      onChanged: (value) {
-                        final price = double.tryParse(value) ?? 0.0;
-                        _updateItemPrice(index, price);
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text('₪${item.totalBeforeVAT.toStringAsFixed(2)}'),
-                    ),
-                  ],
-                );
-              }),
-            ],
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: TextField(
+                          controller: _priceControllers[index],
+                          decoration: const InputDecoration(
+                            prefixText: '₪',
+                            isDense: true,
+                            contentPadding: EdgeInsets.all(8),
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (value) {
+                            final price = double.tryParse(value) ?? 0.0;
+                            _updateItemPrice(index, price);
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child:
+                            Text('₪${item.totalBeforeVAT.toStringAsFixed(2)}'),
+                      ),
+                    ],
+                  );
+                }),
+              ],
             ),
           ),
         ),

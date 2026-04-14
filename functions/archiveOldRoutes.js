@@ -11,7 +11,7 @@ const db = admin.firestore();
 exports.archiveOldRoutes = functions.pubsub
   .schedule('0 1 * * *')
   .timeZone('Asia/Jerusalem')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('🗄️ Starting daily route archiving...');
 
     try {
@@ -38,10 +38,10 @@ exports.archiveOldRoutes = functions.pubsub
           .doc('_root')
           .collection('archive_routes');
 
-        // Находим старые completed точки с routeDate < сегодня
+        // Находим completed точки, завершённые ДО сегодня (по completedAt)
         const oldPoints = await pointsRef
           .where('status', '==', 'completed')
-          .where('routeDate', '<', todayTs)
+          .where('completedAt', '<', todayTs)
           .limit(500)
           .get();
 
@@ -68,6 +68,7 @@ exports.archiveOldRoutes = functions.pubsub
       }
 
       // Также архивируем старые документы из routes коллекции
+      // 🛡️ SAFETY: проверяем что у маршрута нет активных точек перед удалением
       for (const companyDoc of companiesSnap.docs) {
         const companyId = companyDoc.id;
         const routesRef = db
@@ -77,6 +78,13 @@ exports.archiveOldRoutes = functions.pubsub
           .doc('_root')
           .collection('routes');
 
+        const pointsRefCheck = db
+          .collection('companies')
+          .doc(companyId)
+          .collection('logistics')
+          .doc('_root')
+          .collection('delivery_points');
+
         const oldRoutes = await routesRef
           .where('routeDate', '<', todayTs)
           .limit(200)
@@ -84,11 +92,25 @@ exports.archiveOldRoutes = functions.pubsub
 
         if (!oldRoutes.empty) {
           const batch = db.batch();
+          let deleteCount = 0;
           for (const doc of oldRoutes.docs) {
+            // 🛡️ Проверяем нет ли активных точек у этого маршрута
+            const activePoints = await pointsRefCheck
+              .where('routeId', '==', doc.id)
+              .where('status', 'in', ['assigned', 'in_progress', 'מוקצה', 'בתהליך'])
+              .limit(1)
+              .get();
+            if (!activePoints.empty) {
+              console.log(`🛡️ ${companyId}: SKIPPING route ${doc.id} — still has active points`);
+              continue;
+            }
             batch.delete(doc.ref);
+            deleteCount++;
           }
-          await batch.commit();
-          console.log(`🗑️ ${companyId}: cleaned ${oldRoutes.size} old route docs`);
+          if (deleteCount > 0) {
+            await batch.commit();
+            console.log(`🗑️ ${companyId}: cleaned ${deleteCount} old route docs`);
+          }
         }
       }
 

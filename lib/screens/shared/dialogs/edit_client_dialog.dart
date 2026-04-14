@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/client_model.dart';
+import '../../../models/delivery_point.dart';
 import '../../../utils/geocoding_helper.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../l10n/app_localizations.dart';
@@ -79,6 +80,22 @@ class _EditClientDialogState extends State<EditClientDialog> {
       if (_manualCoordinates) {
         latitude = double.parse(_latitudeController.text);
         longitude = double.parse(_longitudeController.text);
+        // 🛡️ GUARD: проверяем ручные координаты
+        if (!DeliveryPoint.isValidCoordinates(latitude, longitude)) {
+          debugPrint(
+              '⚠️ [Edit Client] REJECTED manual coords outside Israel: ($latitude, $longitude)');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    '${l10n.error}: координаты ($latitude, $longitude) вне Израиля'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() => _isGeocoding = false);
+          return;
+        }
         debugPrint(
             '✅ [Edit Client] Using manual coordinates: ($latitude, $longitude)');
       } else {

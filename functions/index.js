@@ -78,7 +78,7 @@ exports.onRoutePointChanged = onRoutePointChanged;
 exports.cleanupDeliveryLogs = functions.pubsub
   .schedule('0 3 * * 0') // каждое воскресенье в 03:00
   .timeZone('Asia/Jerusalem')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('🧹 Cleaning up old delivery logs...');
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
@@ -126,7 +126,7 @@ exports.cleanupDeliveryLogs = functions.pubsub
 exports.archiveInventoryHistory = functions.pubsub
   .schedule('0 2 1 * *')
   .timeZone('Asia/Jerusalem')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('🗄️ Starting automatic inventory history archiving...');
     
     try {
@@ -220,7 +220,7 @@ exports.archiveInventoryHistory = functions.pubsub
 exports.archiveCompletedOrders = functions.pubsub
   .schedule('0 3 1 * *')
   .timeZone('Asia/Jerusalem')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('🗄️ Starting automatic completed orders archiving...');
     
     try {
@@ -311,14 +311,13 @@ exports.archiveCompletedOrders = functions.pubsub
   });
 
 /**
- * Очистка старых архивированных записей из Firestore
- * Запускается каждый месяц 15-го числа в 02:00
+ * Очистка старых архивированных записей
  * Удаляет записи, которые были архивированы более 6 месяцев назад
  */
 exports.cleanupArchivedRecords = functions.pubsub
   .schedule('0 2 15 * *')
   .timeZone('Asia/Jerusalem')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('🧹 Starting cleanup of old archived records...');
     
     try {

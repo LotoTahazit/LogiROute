@@ -6,8 +6,9 @@ const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 
 /**
- * Billing Enforcer — ежедневная проверка подписок.
- * Запускается каждый день в 04:00 по Иерусалиму.
+ * Billing Enforcer — callable function для проверки подписок.
+ * Вызывается вручную из админки или автоматически (webhook/trigger).
+ * Убрана зависимость от Cloud Scheduler для экономии.
  *
  * State machine (строго однонаправленная):
  *   trial expired → grace

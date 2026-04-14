@@ -64,15 +64,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
     if (markers.isEmpty || _controller == null) return;
     final positions = markers
         .map((m) => m.position)
-        .where(
-          (p) =>
-              p.latitude != 0 &&
-              p.longitude != 0 &&
-              p.latitude >= 29.0 &&
-              p.latitude <= 34.0 &&
-              p.longitude >= 34.0 &&
-              p.longitude <= 36.5,
-        )
+        .where((p) => DeliveryPoint.isValidCoordinates(p.latitude, p.longitude))
         .toList();
     if (positions.length < 2) return;
 
@@ -150,8 +142,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
     // Добавляем маркеры точек доставки
     for (final point in widget.points) {
-      // Пропускаем точки с нулевыми координатами
-      if (point.latitude == 0 && point.longitude == 0) continue;
+      // 🛡️ Пропускаем точки с невалидными координатами (за пределами Израиля)
+      if (!_isInIsraelBounds(point.latitude, point.longitude)) continue;
 
       // Определяем цвет маркера в зависимости от статуса
       BitmapDescriptor markerColor;
@@ -436,17 +428,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
     try {
       // Фильтруем точки с нулевыми координатами и за пределами Израиля
-      final validPoints = widget.points
-          .where(
-            (p) =>
-                p.latitude != 0 &&
-                p.longitude != 0 &&
-                p.latitude >= 29.0 &&
-                p.latitude <= 34.0 &&
-                p.longitude >= 34.0 &&
-                p.longitude <= 36.5,
-          )
-          .toList();
+      final validPoints =
+          widget.points.where((p) => p.hasValidCoordinates).toList();
       if (validPoints.isEmpty) return;
 
       final latLngPoints =

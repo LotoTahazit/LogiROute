@@ -2651,7 +2651,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get integrityCheckTitle => 'Проверка целостности цепочки';
+  String get integrityCheckTitle => 'Проверка целостности данных';
 
   @override
   String get documentTypeLabel => 'Тип документа:';

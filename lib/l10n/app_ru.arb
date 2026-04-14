@@ -1754,5 +1754,49 @@
   "shiftHolidaysLoaded": "Загружено {count} праздников",
   "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
   "shiftHolidaysLoadError": "Ошибка загрузки праздников: {error}",
-  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } },
+
+  "systemMaintenance": "Обслуживание системы",
+  "maintenanceInfo": "О функциях обслуживания",
+  "maintenanceDescription": "Эти функции раньше запускались автоматически по расписанию. Теперь их нужно запускать вручную для экономии расходов.\n\nРекомендуемая частота запуска указана для каждой функции.",
+  "dailyTasks": "Ежедневные задачи",
+  "weeklyTasks": "Еженедельные задачи",
+  "monthlyTasks": "Ежемесячные задачи",
+  "runButton": "Запустить",
+  "runningButton": "Выполняется...",
+  "runAllDailyTasks": "Запустить все ежедневные задачи",
+  "accessDenied": "Доступ запрещён. Требуются права администратора.",
+  
+  "billingEnforcerTitle": "Проверка подписок",
+  "billingEnforcerDesc": "Проверяет статус подписок всех компаний, переводит в grace/suspended при необходимости",
+  "billingEnforcerFreq": "Ежедневно в 04:00",
+  
+  "archiveOldRoutesTitle": "Архивация маршрутов",
+  "archiveOldRoutesDesc": "Архивирует завершённые маршруты старше 1 дня",
+  "archiveOldRoutesFreq": "Ежедневно в 01:00",
+  
+  "integrityCheckTitle": "Проверка целостности данных",
+  "integrityCheckDesc": "Проверяет целостность счетов, накладных и других документов",
+  "integrityCheckFreq": "Еженедельно (понедельник)",
+  
+  "cleanupLogsTitle": "Очистка логов доставки",
+  "cleanupLogsDesc": "Удаляет логи push-уведомлений и email старше 30 дней",
+  "cleanupLogsFreq": "Еженедельно (воскресенье)",
+  
+  "archiveInventoryTitle": "Архивация истории инвентаря",
+  "archiveInventoryDesc": "Архивирует историю инвентаря старше 3 месяцев в Storage",
+  "archiveInventoryFreq": "1-го числа месяца",
+  
+  "archiveOrdersTitle": "Архивация завершённых заказов",
+  "archiveOrdersDesc": "Архивирует завершённые заказы старше 1 месяца в Storage",
+  "archiveOrdersFreq": "1-го числа месяца",
+  
+  "cleanupArchivesTitle": "Очистка старых архивов",
+  "cleanupArchivesDesc": "Удаляет из Firestore записи, архивированные более 6 месяцев назад",
+  "cleanupArchivesFreq": "15-го числа месяца",
+  
+  "functionSuccess": "✅ {name} выполнен успешно",
+  "@functionSuccess": { "placeholders": { "name": { "type": "String" } } },
+  "functionError": "❌ {name}: ошибка",
+  "@functionError": { "placeholders": { "name": { "type": "String" } } }
 }

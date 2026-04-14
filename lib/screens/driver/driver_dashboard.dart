@@ -1,7 +1,9 @@
 import 'dart:io' show Platform;
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -58,6 +60,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   double? _lastKnownLat;
   double? _lastKnownLng;
   String? _visibleRouteKey;
+
+  // 🛡️ Cached stream — НЕ пересоздаётся на каждый build()
+  Stream<List<DeliveryPoint>>? _cachedStream;
+  String? _cachedStreamDriverId;
 
   bool _isActiveRoutePoint(DeliveryPoint point) {
     final status = DeliveryPoint.normalizeStatus(point.status);
@@ -141,7 +147,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
       preferredRouteKey: _visibleRouteKey,
     );
     if (currentRouteKey == null) {
-      _visibleRouteKey = null;
+      // НЕ сбрасываем _visibleRouteKey — merge использует его
+      // чтобы сохранить завершённые точки маршрута в UI
       return [];
     }
     _visibleRouteKey = currentRouteKey;
@@ -153,10 +160,23 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return filtered;
   }
 
+  /// Merge incoming stream data with local state.
+  ///
+  /// INVARIANT: Если маршрут завершён (все точки closed), данные
+  /// НИКОГДА не должны обнуляться. Три уровня защиты:
+  ///   1) _filterDriverPointsToCurrentRoute НЕ сбрасывает _visibleRouteKey
+  ///   2) Этот метод сохраняет closed точки из _lastPoints
+  ///   3) StreamBuilder НЕ затирает _lastPoints пустым списком
   List<DeliveryPoint> _mergeVisibleRoutePoints(
     List<DeliveryPoint> incomingPoints,
   ) {
     if (_lastPoints.isEmpty) return incomingPoints;
+
+    // 🛡️ Защита: incoming пуст, но у нас есть данные завершённого маршрута.
+    // Сохраняем предыдущее состояние как есть.
+    if (incomingPoints.isEmpty && _visibleRouteKey != null) {
+      return List.of(_lastPoints);
+    }
 
     final incomingById = {
       for (final point in incomingPoints) point.id: point,
@@ -204,9 +224,152 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // 🛡️ PERSISTENT CACHE — точки переживают рефреш страницы
+  static const _cacheKey = 'driver_last_points';
+  static const _cacheRouteKey = 'driver_visible_route_key';
+  static const _cacheTsKey = 'driver_cache_ts';
+
+  /// JSON-safe сериализация точки (без Firestore Timestamp/FieldValue)
+  Map<String, dynamic> _pointToJson(DeliveryPoint p) => {
+        'id': p.id,
+        'companyId': p.companyId,
+        'address': p.address,
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+        'clientName': p.clientName,
+        'clientNumber': p.clientNumber,
+        'urgency': p.urgency,
+        'pallets': p.pallets,
+        'boxes': p.boxes,
+        'status': p.status,
+        'orderInRoute': p.orderInRoute,
+        'driverId': p.driverId,
+        'driverName': p.driverName,
+        'driverCapacity': p.driverCapacity,
+        'temporaryAddress': p.temporaryAddress,
+        'autoCompleted': p.autoCompleted,
+        'routeId': p.routeId,
+        'routePolyline': p.routePolyline,
+        'zone': p.zone,
+        'eta': p.eta,
+        'distanceKm': p.distanceKm,
+        if (p.openingTime != null)
+          'openingTime': p.openingTime!.millisecondsSinceEpoch,
+        if (p.completedAt != null)
+          'completedAt': p.completedAt!.millisecondsSinceEpoch,
+        if (p.arrivedAt != null)
+          'arrivedAt': p.arrivedAt!.millisecondsSinceEpoch,
+        if (p.updatedAt != null)
+          'updatedAt': p.updatedAt!.millisecondsSinceEpoch,
+        if (p.createdAt != null)
+          'createdAt': p.createdAt!.millisecondsSinceEpoch,
+      };
+
+  DeliveryPoint _pointFromJson(Map<String, dynamic> m) => DeliveryPoint(
+        id: m['id'] ?? '',
+        companyId: m['companyId'] ?? '',
+        address: m['address'] ?? '',
+        latitude: (m['latitude'] as num?)?.toDouble() ?? 0,
+        longitude: (m['longitude'] as num?)?.toDouble() ?? 0,
+        clientName: m['clientName'] ?? '',
+        clientNumber: m['clientNumber'],
+        urgency: m['urgency'] ?? 'normal',
+        pallets: m['pallets'] ?? 0,
+        boxes: m['boxes'] ?? 0,
+        status: m['status'] ?? 'pending',
+        orderInRoute: m['orderInRoute'] ?? 0,
+        driverId: m['driverId'],
+        driverName: m['driverName'],
+        driverCapacity: m['driverCapacity'],
+        temporaryAddress: m['temporaryAddress'],
+        autoCompleted: m['autoCompleted'] ?? false,
+        routeId: m['routeId'],
+        routePolyline: m['routePolyline'],
+        zone: m['zone'],
+        eta: m['eta'],
+        distanceKm: (m['distanceKm'] as num?)?.toDouble(),
+        openingTime: m['openingTime'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(m['openingTime'])
+            : null,
+        completedAt: m['completedAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(m['completedAt'])
+            : null,
+        arrivedAt: m['arrivedAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(m['arrivedAt'])
+            : null,
+        updatedAt: m['updatedAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(m['updatedAt'])
+            : null,
+        createdAt: m['createdAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(m['createdAt'])
+            : null,
+      );
+
+  Future<void> _savePointsToCache() async {
+    if (_lastPoints.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList =
+          _lastPoints.map((p) => jsonEncode(_pointToJson(p))).toList();
+      await prefs.setStringList(_cacheKey, jsonList);
+      if (_visibleRouteKey != null) {
+        await prefs.setString(_cacheRouteKey, _visibleRouteKey!);
+      }
+      await prefs.setInt(_cacheTsKey, DateTime.now().millisecondsSinceEpoch);
+    } catch (e) {
+      debugPrint('⚠️ [DriverCache] Save failed: $e');
+    }
+  }
+
+  Future<void> _restorePointsFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ts = prefs.getInt(_cacheTsKey) ?? 0;
+      final cacheAge = DateTime.now().millisecondsSinceEpoch - ts;
+      // Кеш актуален не более 12 часов
+      if (cacheAge > 12 * 60 * 60 * 1000) {
+        debugPrint(
+            '🗑️ [DriverCache] Cache too old (${cacheAge ~/ 3600000}h), ignoring');
+        return;
+      }
+      final jsonList = prefs.getStringList(_cacheKey);
+      if (jsonList == null || jsonList.isEmpty) return;
+
+      final restored = <DeliveryPoint>[];
+      for (final jsonStr in jsonList) {
+        try {
+          final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+          restored.add(_pointFromJson(map));
+        } catch (_) {}
+      }
+      if (restored.isNotEmpty) {
+        _lastPoints = restored;
+        _visibleRouteKey = prefs.getString(_cacheRouteKey);
+        debugPrint('✅ [DriverCache] Restored ${restored.length} points, '
+            'routeKey=$_visibleRouteKey');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [DriverCache] Restore failed: $e');
+    }
+  }
+
+  Stream<List<DeliveryPoint>> _getOrCreateStream(String driverId) {
+    if (_cachedStream != null && _cachedStreamDriverId == driverId) {
+      return _cachedStream!;
+    }
+    _cachedStreamDriverId = driverId;
+    _cachedStream = _routeService!.getTodayRoutes(driverId: driverId);
+    debugPrint('🔄 [Driver] Created new stream for driver $driverId');
+    return _cachedStream!;
+  }
+
   @override
   void initState() {
     super.initState();
+
+    // 🛡️ Восстанавливаем кеш при старте (до первого build)
+    _restorePointsFromCache();
 
     // Инициализируем уведомления, затем запускаем расписание
     _initializeAndStartSchedule();
@@ -740,19 +903,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
               child: _routeService == null
                   ? const Center(child: CircularProgressIndicator())
                   : StreamBuilder<List<DeliveryPoint>>(
-                      stream: _routeService!.getTodayRoutes(
-                          driverId: authService.viewAsDriverId ??
-                              authService.currentUser!.uid),
+                      // 🛡️ Кешированный stream — НЕ пересоздаётся на каждый build()
+                      stream: _getOrCreateStream(authService.viewAsDriverId ??
+                          authService.currentUser!.uid),
                       initialData: const [],
                       builder: (context, snapshot) {
+                        // 🛡️ Waiting/Error: если есть кеш — используем его,
+                        // иначе спиннер или ошибка
                         if (snapshot.connectionState ==
                                 ConnectionState.waiting &&
-                            !snapshot.hasData) {
+                            !snapshot.hasData &&
+                            _lastPoints.isEmpty) {
                           return const Center(
                               child: CircularProgressIndicator());
                         }
 
-                        if (snapshot.hasError) {
+                        if (snapshot.hasError && _lastPoints.isEmpty) {
+                          debugPrint(
+                              '❌ [Driver] Stream error: ${snapshot.error}');
                           return Center(
                             child: Text(
                               '${l10n.error}: ${snapshot.error}',
@@ -761,11 +929,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
                           );
                         }
 
-                        final incomingPoints = snapshot.data ?? [];
-                        final routePoints =
-                            _filterDriverPointsToCurrentRoute(incomingPoints);
-                        final points = _mergeVisibleRoutePoints(routePoints);
-                        _lastPoints = points;
+                        // 🛡️ Основная логика merge
+                        var points = _lastPoints;
+                        if (snapshot.hasData && snapshot.data != null) {
+                          final incomingPoints = snapshot.data!;
+                          final routePoints =
+                              _filterDriverPointsToCurrentRoute(incomingPoints);
+                          points = _mergeVisibleRoutePoints(routePoints);
+
+                          // 🛡️ GUARD: никогда не затираем _lastPoints пустым
+                          // списком, если у нас был завершённый маршрут.
+                          if (points.isNotEmpty || _lastPoints.isEmpty) {
+                            _lastPoints = points;
+                            // 🛡️ Сохраняем в persistent cache
+                            _savePointsToCache();
+                          } else {
+                            points = _lastPoints;
+                          }
+                        }
 
                         if (points.isNotEmpty) {
                           _currentPoint = points.firstWhere(

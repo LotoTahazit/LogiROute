@@ -67,8 +67,7 @@ class WebGeocodingService {
 
       void onGeocode(JSAny? results, JSAny? status) {
         try {
-          final statusStr =
-              status != null ? (status as JSString).toDart : '';
+          final statusStr = status != null ? (status as JSString).toDart : '';
 
           if (statusStr != 'OK' || results == null) {
             debugPrint('❌ [WebGeocoding] Статус: $statusStr');
@@ -105,8 +104,7 @@ class WebGeocodingService {
               formattedAddress = (fa as JSString).toDart;
             }
           } catch (e) {
-            debugPrint(
-                '⚠️ [WebGeocoding] Error parsing formatted_address: $e');
+            debugPrint('⚠️ [WebGeocoding] Error parsing formatted_address: $e');
           }
 
           final cityChecks = {
@@ -130,6 +128,16 @@ class WebGeocodingService {
                 return;
               }
             }
+          }
+
+          // 🛡️ GUARD: отклоняем координаты за пределами Израиля
+          if (lat < 29.0 || lat > 34.0 || lng < 34.0 || lng > 36.5) {
+            debugPrint(
+                '⚠️ [WebGeocoding] REJECTED — coords outside Israel: ($lat, $lng) for "$address"');
+            if (!completer.isCompleted) {
+              completer.complete(null);
+            }
+            return;
           }
 
           if (!completer.isCompleted) {

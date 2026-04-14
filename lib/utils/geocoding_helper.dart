@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:geocoding/geocoding.dart' as geocoding;
+import '../models/delivery_point.dart';
 import '../services/web_geocoding_service.dart';
 
 class GeocodingHelper {
@@ -74,6 +75,13 @@ class GeocodingHelper {
       for (String variant in variants) {
         final result = await WebGeocodingService.geocode(variant);
         if (result != null) {
+          // 🛡️ GUARD: двойная проверка координат
+          if (!DeliveryPoint.isValidCoordinates(
+              result.latitude, result.longitude)) {
+            debugPrint('⚠️ [GeoHelper] REJECTED web — outside Israel: '
+                '(${result.latitude}, ${result.longitude}) for "$variant"');
+            continue;
+          }
           return {'latitude': result.latitude, 'longitude': result.longitude};
         }
       }
@@ -82,10 +90,15 @@ class GeocodingHelper {
         try {
           final locations = await geocoding.locationFromAddress(variant);
           if (locations.isNotEmpty) {
-            return {
-              'latitude': locations.first.latitude,
-              'longitude': locations.first.longitude,
-            };
+            final lat = locations.first.latitude;
+            final lng = locations.first.longitude;
+            // 🛡️ GUARD: отклоняем координаты за пределами Израиля
+            if (!DeliveryPoint.isValidCoordinates(lat, lng)) {
+              debugPrint(
+                  '⚠️ [GeoHelper] REJECTED — outside Israel: ($lat, $lng) for "$variant"');
+              continue;
+            }
+            return {'latitude': lat, 'longitude': lng};
           }
         } catch (e) {
           continue;

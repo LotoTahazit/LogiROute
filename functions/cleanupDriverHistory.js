@@ -8,7 +8,7 @@ const db = admin.firestore();
  * Путь: companies/{companyId}/driver_locations/{driverId}/history
  */
 exports.cleanupDriverHistory = functions.pubsub
-  .schedule('0 */6 * * *') // каждые 6 часов
+  .schedule('0 2 * * *') // ежедневно в 02:00 (оптимизация: было каждые 6ч)
   .timeZone('Asia/Jerusalem')
   .onRun(async () => {
     const cutoff = admin.firestore.Timestamp.fromDate(

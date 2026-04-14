@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../models/user_model.dart';
@@ -17,7 +18,7 @@ class MapTab extends StatefulWidget {
   final double warehouseLat;
   final double warehouseLng;
   final void Function(String pointId, String driverId, String driverName)?
-  onPointDragToDriver;
+      onPointDragToDriver;
 
   /// סיור מלא מהדשבורד — מפעיל דמו במפה בלי ללחוץ על כפתור המפה.
   final bool demoModeFromTour;
@@ -49,6 +50,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   bool _showDriverTracks = false;
   bool _showPreviousRoutes = false;
   bool _clearMap = false;
+
   /// Демо-сценарий на карте (только UI; prod — false).
   bool _demoMode = false;
 
@@ -56,6 +58,205 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
 
   @override
   bool get wantKeepAlive => true;
+
+  bool _isMobileWeb(BuildContext context) {
+    if (!kIsWeb) return false;
+    final width = MediaQuery.of(context).size.width;
+    return width < 600;
+  }
+
+  Widget _buildMobileWebFallback(
+      List<DeliveryPoint> points, AppLocalizations l10n) {
+    // Группируем по водителям
+    final byDriver = <String, List<DeliveryPoint>>{};
+    for (final p in points) {
+      final key = p.driverName ?? p.driverId ?? l10n.noDriverAssigned;
+      byDriver.putIfAbsent(key, () => []).add(p);
+    }
+
+    final totalCount = points.length;
+    final completedCount = points.where((p) {
+      final s = DeliveryPoint.normalizeStatus(p.status);
+      return s == DeliveryPoint.statusCompleted ||
+          s == DeliveryPoint.statusCancelled;
+    }).length;
+    final remainingCount = totalCount - completedCount;
+
+    if (points.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              l10n.noActivePoints,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Статистика
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade200,
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _statChip(l10n.totalLabel, totalCount, Colors.blue),
+                  _statChip(l10n.completedLabel, completedCount, Colors.green),
+                  _statChip(l10n.remainingLabel, remainingCount, Colors.orange),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: totalCount > 0 ? completedCount / totalCount : 0,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+              ),
+            ],
+          ),
+        ),
+        // Список по водителям
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: byDriver.entries.map((entry) {
+              final driverName = entry.key;
+              final driverPoints = entry.value
+                ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+              final done = driverPoints.where((p) {
+                final s = DeliveryPoint.normalizeStatus(p.status);
+                return s == DeliveryPoint.statusCompleted;
+              }).length;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ExpansionTile(
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: done == driverPoints.length
+                        ? Colors.green.shade100
+                        : Colors.blue.shade100,
+                    child: Text(
+                      '$done/${driverPoints.length}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: done == driverPoints.length
+                            ? Colors.green.shade800
+                            : Colors.blue.shade800,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    driverName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  children: driverPoints.map((p) {
+                    final s = DeliveryPoint.normalizeStatus(p.status);
+                    final isDone = s == DeliveryPoint.statusCompleted;
+                    final isCancelled = s == DeliveryPoint.statusCancelled;
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        isDone
+                            ? Icons.check_circle
+                            : isCancelled
+                                ? Icons.cancel
+                                : Icons.circle_outlined,
+                        color: isDone
+                            ? Colors.green
+                            : isCancelled
+                                ? Colors.red
+                                : Colors.grey,
+                        size: 20,
+                      ),
+                      title: Text(
+                        p.clientName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          decoration:
+                              isDone ? TextDecoration.lineThrough : null,
+                          color: isDone ? Colors.grey : Colors.black,
+                        ),
+                      ),
+                      subtitle: Text(
+                        p.address,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: p.pallets > 0
+                          ? Text(
+                              '${p.pallets}P',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700,
+                              ),
+                            )
+                          : null,
+                    );
+                  }).toList(),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statChip(String label, int value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -313,19 +514,21 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             ),
           ),
         Expanded(
-          child: DeliveryMapWidget(
-            points: _clearMap ? [] : filteredPoints,
-            companyId: widget.companyId,
-            demoMode: _effectiveDemoMode,
-            onDemoFinished: widget.onTourDemoFinished,
-            clearMapMode: _clearMap,
-            showDriverTracks: _clearMap ? false : _showDriverTracks,
-            routePolylines: _clearMap ? {} : widget.routePolylines,
-            warehouseLat: widget.warehouseLat,
-            warehouseLng: widget.warehouseLng,
-            enableDragDrop: widget.onPointDragToDriver != null,
-            onPointDragToDriver: widget.onPointDragToDriver,
-          ),
+          child: _isMobileWeb(context)
+              ? _buildMobileWebFallback(filteredPoints, l10n)
+              : DeliveryMapWidget(
+                  points: _clearMap ? [] : filteredPoints,
+                  companyId: widget.companyId,
+                  demoMode: _effectiveDemoMode,
+                  onDemoFinished: widget.onTourDemoFinished,
+                  clearMapMode: _clearMap,
+                  showDriverTracks: _clearMap ? false : _showDriverTracks,
+                  routePolylines: _clearMap ? {} : widget.routePolylines,
+                  warehouseLat: widget.warehouseLat,
+                  warehouseLng: widget.warehouseLng,
+                  enableDragDrop: widget.onPointDragToDriver != null,
+                  onPointDragToDriver: widget.onPointDragToDriver,
+                ),
         ),
       ],
     );

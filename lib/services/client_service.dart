@@ -340,6 +340,15 @@ class ClientService {
           }
 
           final location = locations.first;
+          // 🛡️ GUARD: проверяем координаты
+          if (location.latitude < 29.0 ||
+              location.latitude > 34.0 ||
+              location.longitude < 34.0 ||
+              location.longitude > 36.5) {
+            debugPrint(
+                '⚠️ [TestData] REJECTED — outside Israel: (${location.latitude}, ${location.longitude})');
+            continue;
+          }
           final client = ClientModel(
             id: '',
             clientNumber: data['number']!,

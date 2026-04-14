@@ -367,8 +367,20 @@ class _AddPointDialogState extends State<AddPointDialog> {
                 final locations = await geocoding.locationFromAddress(variant);
 
                 if (locations.isNotEmpty) {
-                  latitude = locations.first.latitude;
-                  longitude = locations.first.longitude;
+                  final nLat = locations.first.latitude;
+                  final nLng = locations.first.longitude;
+                  // 🛡️ GUARD: отклоняем координаты за пределами Израиля
+                  if (nLat < 29.0 ||
+                      nLat > 34.0 ||
+                      nLng < 34.0 ||
+                      nLng > 36.5) {
+                    debugPrint(
+                      '⚠️ [Native] REJECTED — outside Israel: ($nLat, $nLng) for "$variant"',
+                    );
+                    continue;
+                  }
+                  latitude = nLat;
+                  longitude = nLng;
                   debugPrint(
                     '✅ [Native] Success with "$variant": ($latitude, $longitude)',
                   );
@@ -460,89 +472,89 @@ class _AddPointDialogState extends State<AddPointDialog> {
               builder: (ctx) {
                 final narrow = MediaQuery.sizeOf(ctx).width < 600;
                 return AlertDialog(
-                title: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Icon(
-                      hasExactMatch ? Icons.warning : Icons.info_outline,
-                      color: hasExactMatch ? Colors.red : Colors.orange,
-                    ),
-                    Text('⚠️ ${l10n.possibleDuplicateOrder}'),
-                  ],
-                ),
-                content: SizedBox(
-                  width: narrow ? 320 : 400,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  title: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Text(
-                        hasExactMatch
-                            ? l10n.exactDuplicateFound(client.name)
-                            : l10n.existingOrdersFound(client.name),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: hasExactMatch
-                              ? Colors.red
-                              : Colors.orange.shade800,
-                        ),
+                      Icon(
+                        hasExactMatch ? Icons.warning : Icons.info_outline,
+                        color: hasExactMatch ? Colors.red : Colors.orange,
                       ),
-                      const SizedBox(height: 8),
-                      ...duplicates.take(5).map((d) {
-                        final statusText = d.status == 'completed'
-                            ? l10n.statusCompleted
-                            : l10n.statusActive;
-                        final products = d.boxTypes
-                                ?.map((b) =>
-                                    '${b.type} ${b.number} x${b.quantity}')
-                                .join(', ') ??
-                            '';
-                        final isExact =
-                            _hasMatchingProducts(_selectedBoxTypes, d.boxTypes);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            '${isExact ? "🔴" : "🟡"} [$statusText] $products',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isExact ? Colors.red.shade700 : null,
-                            ),
-                          ),
-                        );
-                      }),
-                      const SizedBox(height: 12),
-                      Text(
-                        l10n.checkNotDuplicate,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      Text('⚠️ ${l10n.possibleDuplicateOrder}'),
                     ],
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, 'cancel'),
-                    child: Text(l10n.cancel),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, 'delete'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                  content: SizedBox(
+                    width: narrow ? 320 : 400,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasExactMatch
+                              ? l10n.exactDuplicateFound(client.name)
+                              : l10n.existingOrdersFound(client.name),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: hasExactMatch
+                                ? Colors.red
+                                : Colors.orange.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...duplicates.take(5).map((d) {
+                          final statusText = d.status == 'completed'
+                              ? l10n.statusCompleted
+                              : l10n.statusActive;
+                          final products = d.boxTypes
+                                  ?.map((b) =>
+                                      '${b.type} ${b.number} x${b.quantity}')
+                                  .join(', ') ??
+                              '';
+                          final isExact = _hasMatchingProducts(
+                              _selectedBoxTypes, d.boxTypes);
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '${isExact ? "🔴" : "🟡"} [$statusText] $products',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isExact ? Colors.red.shade700 : null,
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.checkNotDuplicate,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                    child: Text(l10n.deleteDuplicates),
                   ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, 'continue'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          hasExactMatch ? Colors.red : Colors.orange,
-                      foregroundColor: Colors.white,
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, 'cancel'),
+                      child: Text(l10n.cancel),
                     ),
-                    child: Text(l10n.continueAnyway),
-                  ),
-                ],
-              );
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, 'delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      child: Text(l10n.deleteDuplicates),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, 'continue'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            hasExactMatch ? Colors.red : Colors.orange,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(l10n.continueAnyway),
+                    ),
+                  ],
+                );
               },
             );
 

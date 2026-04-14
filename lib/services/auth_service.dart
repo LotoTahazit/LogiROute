@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/locale_service_stub.dart'
     if (dart.library.html) '../services/locale_service_web.dart';
@@ -96,6 +97,10 @@ class AuthService extends ChangeNotifier {
       await _loadUserModel(user.uid);
       debugPrint(
           '✅ [AuthService] User model loaded: ${_userModel?.email}, role=${_userModel?.role}');
+      // 🛡️ Восстанавливаем viewAsRole из SharedPreferences (только для админов)
+      if (_userModel?.isAdmin == true) {
+        await _restoreViewAsFromPrefs();
+      }
       // Сохраняем статус логина для веба (для кнопки скачивания)
       saveLoginStatusToWeb(true);
     } else {
@@ -182,6 +187,8 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     _viewAsRole = null;
+    _viewAsDriverId = null;
+    await _clearViewAsPrefs();
     // ✅ Останавливаем фоновый GPS-сервис при logout
     try {
       await BackgroundLocationService.stop();
@@ -189,11 +196,58 @@ class AuthService extends ChangeNotifier {
     await _auth.signOut();
   }
 
+  // 🛡️ Persistent keys for viewAsRole
+  static const _kViewAsRole = 'auth_view_as_role';
+  static const _kViewAsDriverId = 'auth_view_as_driver_id';
+
   void setViewAsRole(String? role, {String? driverId}) {
     if (_userModel?.isAdmin == true) {
       _viewAsRole = role;
       _viewAsDriverId = driverId;
+      _saveViewAsToPrefs();
       notifyListeners();
+    }
+  }
+
+  Future<void> _saveViewAsToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_viewAsRole != null) {
+        await prefs.setString(_kViewAsRole, _viewAsRole!);
+      } else {
+        await prefs.remove(_kViewAsRole);
+      }
+      if (_viewAsDriverId != null) {
+        await prefs.setString(_kViewAsDriverId, _viewAsDriverId!);
+      } else {
+        await prefs.remove(_kViewAsDriverId);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] Failed to save viewAs prefs: $e');
+    }
+  }
+
+  Future<void> _restoreViewAsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _viewAsRole = prefs.getString(_kViewAsRole);
+      _viewAsDriverId = prefs.getString(_kViewAsDriverId);
+      if (_viewAsRole != null) {
+        debugPrint(
+            '✅ [AuthService] Restored viewAs: role=$_viewAsRole, driverId=$_viewAsDriverId');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] Failed to restore viewAs prefs: $e');
+    }
+  }
+
+  Future<void> _clearViewAsPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kViewAsRole);
+      await prefs.remove(_kViewAsDriverId);
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] Failed to clear viewAs prefs: $e');
     }
   }
 
@@ -211,8 +265,9 @@ class AuthService extends ChangeNotifier {
     try {
       // ✅ Проверяем существует ли компания
       if (companyId.isNotEmpty) {
-        final companyDoc =
-            await FirestorePaths(firestore: _firestore).companyDoc(companyId).get();
+        final companyDoc = await FirestorePaths(firestore: _firestore)
+            .companyDoc(companyId)
+            .get();
 
         // ✅ Если компании нет - создаём её с инициализацией
         if (!companyDoc.exists) {
@@ -314,7 +369,8 @@ class AuthService extends ChangeNotifier {
       }
       final snapshot = await query.get();
       return snapshot.docs
-          .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) =>
+              UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       debugPrint('Error getting users: $e');

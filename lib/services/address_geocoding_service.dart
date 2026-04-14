@@ -248,7 +248,16 @@ class AddressGeocodingService {
             }
           }
 
-          return {'latitude': location['lat'], 'longitude': location['lng']};
+          // 🛡️ GUARD: отклоняем координаты за пределами Израиля
+          final lat = (location['lat'] as num).toDouble();
+          final lng = (location['lng'] as num).toDouble();
+          if (lat < 29.0 || lat > 34.0 || lng < 34.0 || lng > 36.5) {
+            debugPrint(
+                '⚠️ [Google API] REJECTED — coords outside Israel: ($lat, $lng) for "$address"');
+            return null;
+          }
+
+          return {'latitude': lat, 'longitude': lng};
         } else {
           debugPrint('❌ [Google API] Status: ${data['status']}');
         }

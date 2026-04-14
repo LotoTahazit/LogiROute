@@ -355,6 +355,12 @@ class RouteService {
           if (DeliveryPoint.activeRouteStatuses.contains(p.status)) {
             return true;
           }
+          // 🛡️ Cross-day: маршрут вчерашний, но точка завершена СЕГОДНЯ → показываем
+          if (includeCompleted &&
+              p.completedAt != null &&
+              p.completedAt!.isAfter(todayMidnight)) {
+            return true;
+          }
           return false;
         }
 
@@ -412,6 +418,13 @@ class RouteService {
         var n = 0;
         for (final doc in snap.docs) {
           if (doc.data()['archived'] == true) continue;
+          // 🛡️ DOUBLE SAFETY: не архивируем точки сегодняшнего маршрута
+          final rid = doc.data()['routeId'] as String?;
+          if (rid != null && _isRouteFromToday(rid, todayMidnight)) {
+            debugPrint(
+                '🛡️ [RouteService] BLOCKED archive of today\'s point: ${doc.id}');
+            continue;
+          }
           batch.update(doc.reference, {
             'archived': true,
             'archivedAt': FieldValue.serverTimestamp(),
@@ -419,7 +432,10 @@ class RouteService {
           });
           n++;
         }
-        if (n > 0) await batch.commit();
+        if (n > 0) {
+          await batch.commit();
+          debugPrint('🗄️ [RouteService] Archived $n stale completed points');
+        }
         if (snap.docs.length < 500) break;
       }
     } catch (e) {
@@ -463,6 +479,15 @@ class RouteService {
   }
 
   Future<void> _releasePartialRouteIfNeeded(String routeId) async {
+    // 🛡️ DOUBLE SAFETY: ещё раз проверяем, что это НЕ сегодняшний маршрут
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    if (_isRouteFromToday(routeId, todayMidnight)) {
+      debugPrint(
+          '🛡️ [RouteService] BLOCKED: refusing to release today\'s route $routeId');
+      return;
+    }
+
     final snap = await _deliveryPointsCollection()
         .where('routeId', isEqualTo: routeId)
         .get();
@@ -470,9 +495,11 @@ class RouteService {
 
     var hasCompleted = false;
     final activeRefs = <DocumentReference<Map<String, dynamic>>>[];
+    final activeNames = <String>[];
 
     for (final doc in snap.docs) {
-      final st = DeliveryPoint.normalizeStatus(doc.data()['status']);
+      final data = doc.data();
+      final st = DeliveryPoint.normalizeStatus(data['status']);
       if (st == DeliveryPoint.statusCompleted) {
         hasCompleted = true;
         continue;
@@ -480,10 +507,16 @@ class RouteService {
       if (st == DeliveryPoint.statusAssigned ||
           st == DeliveryPoint.statusInProgress) {
         activeRefs.add(doc.reference);
+        activeNames.add(data['clientName'] as String? ?? doc.id);
       }
     }
 
     if (!hasCompleted || activeRefs.isEmpty) return;
+
+    debugPrint(
+      '📤 [RouteService] Releasing partial OLD route $routeId: '
+      '${activeRefs.length} points → pending: $activeNames',
+    );
 
     final batch = _firestore.batch();
     for (final ref in activeRefs) {
@@ -499,9 +532,6 @@ class RouteService {
       });
     }
     await batch.commit();
-    debugPrint(
-      '📤 [RouteService] Partial route $routeId: ${activeRefs.length} points → pending',
-    );
   }
 
   /// Проверяет, относится ли routeId к сегодняшнему дню
@@ -696,6 +726,21 @@ class RouteService {
       List<DeliveryPoint> points, int driverCapacity,
       {bool useDispatcherLocation = false}) async {
     if (points.isEmpty) return;
+
+    // 🛡️ GUARD: фильтруем точки с невалидными координатами
+    final invalidPoints = points.where((p) => !p.hasValidCoordinates).toList();
+    if (invalidPoints.isNotEmpty) {
+      for (final p in invalidPoints) {
+        print(
+            '⚠️ [RouteService] SKIPPING point "${p.clientName}" — invalid coords '
+            '(${p.latitude}, ${p.longitude})');
+      }
+      points = points.where((p) => p.hasValidCoordinates).toList();
+      if (points.isEmpty) {
+        print('❌ [RouteService] No valid points left after filtering!');
+        return;
+      }
+    }
 
     // Guard: если все точки уже назначены этому водителю — не создаём заново
     final alreadyAssigned = points.every((p) =>

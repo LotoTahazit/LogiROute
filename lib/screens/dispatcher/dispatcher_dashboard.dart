@@ -28,6 +28,7 @@ import 'widgets/dispatcher_demo_process_visual.dart';
 import 'widgets/driver_workload_panel.dart';
 import '../../widgets/notification_bell.dart';
 import '../../services/company_cache.dart';
+import '../../services/route_cache_service.dart';
 
 class DispatcherDashboard extends StatefulWidget {
   const DispatcherDashboard({super.key});
@@ -52,6 +53,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
   List<DeliveryPoint> _lastMapPoints = [];
+  RouteCacheService? _dispatcherCache;
 
   Set<String> _activeRouteIdsOf(List<DeliveryPoint> points) => points
       .where((p) =>
@@ -145,6 +147,18 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     _previousRoutesForMapDate = null;
     _lastMapPoints = [];
     _selectedDriverId = null;
+    _dispatcherCache = RouteCacheService.dispatcher(companyId: companyId);
+    // 🛡️ Восстанавливаем кеш до подключения потоков
+    _dispatcherCache!.restorePoints().then((result) {
+      if (result != null && _lastNonEmptyRoutes.isEmpty && mounted) {
+        setState(() {
+          _lastNonEmptyRoutes = result.points;
+          _lastNonEmptyRoutesDate = DateTime.now();
+          debugPrint(
+              '✅ [DispatcherCache] Restored ${result.points.length} points');
+        });
+      }
+    });
     final routeService = RouteService(companyId: companyId);
     _pendingPointsStream = routeService.getAllPendingPoints();
     // Для карты нужны completed-точки тоже: без них пропадает логика
@@ -165,6 +179,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         }
         _lastNonEmptyRoutes = List<DeliveryPoint>.from(routes);
         _lastNonEmptyRoutesDate = DateTime.now();
+        // 🛡️ Сохраняем в persistent cache
+        _dispatcherCache?.savePoints(routes);
       } else {
         if (_lastNonEmptyRoutes.isNotEmpty) {
           _previousRoutesForMap = List<DeliveryPoint>.from(_lastNonEmptyRoutes);
