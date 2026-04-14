@@ -78,6 +78,7 @@ class DeliveryPoint {
   final String? driverName;
   final int? driverCapacity;
   final String? temporaryAddress; // Временный адрес для этой доставки
+  final String? taskNote; // Задание без товара: забрать чек, возврат, и т.д.
   final bool autoCompleted; // Завершено автоматически
   final List<BoxType>? boxTypes; // Типы коробок в заказе
   final String? eta; // Расчётное время прибытия (ETA)
@@ -112,6 +113,7 @@ class DeliveryPoint {
     this.driverName,
     this.driverCapacity,
     this.temporaryAddress,
+    this.taskNote,
     this.autoCompleted = false,
     this.boxTypes,
     this.eta,
@@ -173,6 +175,7 @@ class DeliveryPoint {
             ? (map['driverCapacity'] as num).toInt()
             : null,
         temporaryAddress: map['temporaryAddress']?.toString(),
+        taskNote: map['taskNote']?.toString(),
         autoCompleted: map['autoCompleted'] ?? false,
         boxTypes: map['boxTypes'] != null && map['boxTypes'] is List
             ? (map['boxTypes'] as List)
@@ -236,6 +239,7 @@ class DeliveryPoint {
       if (driverName != null) 'driverName': driverName,
       if (driverCapacity != null) 'driverCapacity': driverCapacity,
       if (temporaryAddress != null) 'temporaryAddress': temporaryAddress,
+      if (taskNote != null) 'taskNote': taskNote,
       'autoCompleted': autoCompleted,
       if (boxTypes != null)
         'boxTypes': boxTypes!.map((box) => box.toMap()).toList(),
@@ -287,6 +291,7 @@ class DeliveryPoint {
       driverName: driverName,
       driverCapacity: driverCapacity,
       temporaryAddress: temporaryAddress,
+      taskNote: taskNote,
       autoCompleted: autoCompleted,
       boxTypes: boxTypes,
       eta: eta ?? this.eta,

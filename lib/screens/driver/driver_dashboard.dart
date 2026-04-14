@@ -248,6 +248,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         'driverName': p.driverName,
         'driverCapacity': p.driverCapacity,
         'temporaryAddress': p.temporaryAddress,
+        'taskNote': p.taskNote,
         'autoCompleted': p.autoCompleted,
         'routeId': p.routeId,
         'routePolyline': p.routePolyline,
@@ -283,6 +284,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         driverName: m['driverName'],
         driverCapacity: m['driverCapacity'],
         temporaryAddress: m['temporaryAddress'],
+        taskNote: m['taskNote'],
         autoCompleted: m['autoCompleted'] ?? false,
         routeId: m['routeId'],
         routePolyline: m['routePolyline'],
@@ -1512,6 +1514,16 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                       color: Colors.grey.shade600,
                                     ),
                                   ),
+                                  if (point.taskNote != null &&
+                                      point.taskNote!.isNotEmpty)
+                                    Text(
+                                      '📋 ${point.taskNote}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   if (point.eta != null)
                                     Text(
                                       'ETA: ${point.eta}',

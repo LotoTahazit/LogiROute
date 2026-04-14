@@ -1768,5 +1768,8 @@
   "shiftHolidaysLoaded": "נטענו {count} חגים",
   "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
   "shiftHolidaysLoadError": "שגיאה בטעינת חגים: {error}",
-  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } },
+
+  "taskNoteLabel": "משימה (ללא סחורה)",
+  "taskNoteHint": "לאסוף צ׳ק, החזרה, וכו׳"
 }

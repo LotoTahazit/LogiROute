@@ -35,6 +35,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
   final TextEditingController _contactController = TextEditingController();
   final TextEditingController _palletsController = TextEditingController();
   final TextEditingController _boxesController = TextEditingController();
+  final TextEditingController _taskNoteController = TextEditingController();
 
   ClientModel? _selectedClient;
   bool _isLoading = false;
@@ -229,6 +230,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
     _contactController.dispose();
     _palletsController.dispose();
     _boxesController.dispose();
+    _taskNoteController.dispose();
     super.dispose();
   }
 
@@ -671,6 +673,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
         driverName: null,
         driverCapacity: null,
         temporaryAddress: isTemporaryAddress ? deliveryAddress : null,
+        taskNote: _taskNoteController.text.trim().isNotEmpty
+            ? _taskNoteController.text.trim()
+            : null,
         boxTypes: _selectedBoxTypes.isNotEmpty ? _selectedBoxTypes : null,
         eta: null,
       );
@@ -941,6 +946,27 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       ),
                     ),
                     keyboardType: TextInputType.number,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  /// 🔹 Задание (без товара: забрать чек, возврат, и т.д.)
+                  TextFormField(
+                    controller: _taskNoteController,
+                    style: const TextStyle(
+                      fontFamily: 'NotoSansHebrew',
+                      fontFamilyFallback: ['Noto Sans Hebrew', 'Arial'],
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.taskNoteLabel,
+                      hintText: l10n.taskNoteHint,
+                      labelStyle: const TextStyle(
+                        fontFamily: 'NotoSansHebrew',
+                        fontFamilyFallback: ['Noto Sans Hebrew', 'Arial'],
+                      ),
+                      suffixIcon: const Icon(Icons.assignment, size: 20),
+                    ),
+                    maxLines: 2,
                   ),
 
                   const SizedBox(height: 16),

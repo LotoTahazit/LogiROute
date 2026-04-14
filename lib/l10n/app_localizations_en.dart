@@ -4538,4 +4538,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String shiftHolidaysLoadError(String error) {
     return 'Error loading holidays: $error';
   }
+
+  @override
+  String get taskNoteLabel => 'Task (no goods)';
+
+  @override
+  String get taskNoteHint => 'Collect check, return, etc.';
 }

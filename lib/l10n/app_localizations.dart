@@ -8412,6 +8412,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error loading holidays: {error}'**
   String shiftHolidaysLoadError(String error);
+
+  /// No description provided for @taskNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Task (no goods)'**
+  String get taskNoteLabel;
+
+  /// No description provided for @taskNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect check, return, etc.'**
+  String get taskNoteHint;
 }
 
 class _AppLocalizationsDelegate

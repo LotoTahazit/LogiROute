@@ -4551,4 +4551,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String shiftHolidaysLoadError(String error) {
     return 'Ошибка загрузки праздников: $error';
   }
+
+  @override
+  String get taskNoteLabel => 'Задание (без товара)';
+
+  @override
+  String get taskNoteHint => 'Забрать чек, возврат, и т.д.';
 }

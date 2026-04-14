@@ -523,6 +523,19 @@ class ActiveRoutesTab extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         maxLines: 2,
                       ),
+                      if (r.taskNote != null && r.taskNote!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '📋 ${r.taskNote}',
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textDirection: TextDirection.rtl,
+                          ),
+                        ),
                       if (r.eta != null && r.eta!.isNotEmpty ||
                           r.distanceKm != null && r.distanceKm! > 0)
                         Padding(

@@ -1824,5 +1824,8 @@
   "shiftHolidaysLoaded": "Loaded {count} holidays",
   "@shiftHolidaysLoaded": { "placeholders": { "count": { "type": "int" } } },
   "shiftHolidaysLoadError": "Error loading holidays: {error}",
-  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } }
+  "@shiftHolidaysLoadError": { "placeholders": { "error": { "type": "String" } } },
+
+  "taskNoteLabel": "Task (no goods)",
+  "taskNoteHint": "Collect check, return, etc."
 }

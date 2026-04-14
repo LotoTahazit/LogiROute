@@ -1798,5 +1798,8 @@
   "functionSuccess": "✅ {name} выполнен успешно",
   "@functionSuccess": { "placeholders": { "name": { "type": "String" } } },
   "functionError": "❌ {name}: ошибка",
-  "@functionError": { "placeholders": { "name": { "type": "String" } } }
+  "@functionError": { "placeholders": { "name": { "type": "String" } } },
+
+  "taskNoteLabel": "Задание (без товара)",
+  "taskNoteHint": "Забрать чек, возврат, и т.д."
 }
