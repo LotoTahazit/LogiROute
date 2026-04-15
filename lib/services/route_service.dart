@@ -518,26 +518,17 @@ class RouteService {
   }
 
   /// ✅ Stream маршрутов для карты — обновляется в реальном времени.
-  /// Нужен чтобы polyline появлялся сразу после сохранения OSRM фоновым запросом.
+  /// Возвращает ВСЕ routes с polyline — карта сама фильтрует по routeId точек.
   Stream<List<Map<String, dynamic>>> watchTodayRoutesForMap() {
-    final now = DateTime.now();
-    final todayMidnight = DateTime(now.year, now.month, now.day);
-
     return _routesCollection()
         .snapshots(includeMetadataChanges: false)
         .map((snapshot) {
       return snapshot.docs
           .where((doc) {
             final data = doc.data();
-            final routeDate = data['routeDate'] as Timestamp?;
-            if (routeDate != null) {
-              final rd = routeDate.toDate();
-              return rd.year == todayMidnight.year &&
-                  rd.month == todayMidnight.month &&
-                  rd.day == todayMidnight.day;
-            }
-            final routeId = data['routeId'] as String? ?? doc.id;
-            return _isRouteFromToday(routeId, todayMidnight);
+            // Только routes с polyline (остальные бесполезны для карты)
+            final polyline = data['polyline'] as String?;
+            return polyline != null && polyline.isNotEmpty;
           })
           .map((doc) => {'id': doc.id, ...doc.data()})
           .toList();
