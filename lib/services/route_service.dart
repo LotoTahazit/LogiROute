@@ -479,59 +479,14 @@ class RouteService {
   }
 
   Future<void> _releasePartialRouteIfNeeded(String routeId) async {
-    // 🛡️ DOUBLE SAFETY: ещё раз проверяем, что это НЕ сегодняшний маршрут
-    final now = DateTime.now();
-    final todayMidnight = DateTime(now.year, now.month, now.day);
-    if (_isRouteFromToday(routeId, todayMidnight)) {
-      debugPrint(
-          '🛡️ [RouteService] BLOCKED: refusing to release today\'s route $routeId');
-      return;
-    }
-
-    final snap = await _deliveryPointsCollection()
-        .where('routeId', isEqualTo: routeId)
-        .get();
-    if (snap.docs.isEmpty) return;
-
-    var hasCompleted = false;
-    final activeRefs = <DocumentReference<Map<String, dynamic>>>[];
-    final activeNames = <String>[];
-
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final st = DeliveryPoint.normalizeStatus(data['status']);
-      if (st == DeliveryPoint.statusCompleted) {
-        hasCompleted = true;
-        continue;
-      }
-      if (st == DeliveryPoint.statusAssigned ||
-          st == DeliveryPoint.statusInProgress) {
-        activeRefs.add(doc.reference);
-        activeNames.add(data['clientName'] as String? ?? doc.id);
-      }
-    }
-
-    if (!hasCompleted || activeRefs.isEmpty) return;
-
+    // 🛡️ Не трогаем маршруты с активными точками — они в работе.
+    // Эта функция только для полностью "мёртвых" маршрутов:
+    // все точки completed/cancelled, routeId старый, но не архивированы.
+    // Такие маршруты обрабатывает archiveStaleCompletedPoints.
+    // Частично выполненные маршруты (completed + active) — НЕ ТРОГАЕМ.
     debugPrint(
-      '📤 [RouteService] Releasing partial OLD route $routeId: '
-      '${activeRefs.length} points → pending: $activeNames',
-    );
-
-    final batch = _firestore.batch();
-    for (final ref in activeRefs) {
-      batch.update(ref, {
-        'status': DeliveryPoint.statusPending,
-        'driverId': FieldValue.delete(),
-        'driverName': FieldValue.delete(),
-        'routeId': FieldValue.delete(),
-        'routePolyline': FieldValue.delete(),
-        'routeDate': FieldValue.delete(),
-        'orderInRoute': 0,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
+        '🛡️ [RouteService] _releasePartialRouteIfNeeded DISABLED for $routeId — active points stay in route');
+    return;
   }
 
   /// Проверяет, относится ли routeId к сегодняшнему дню
