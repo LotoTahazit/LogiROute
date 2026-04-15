@@ -342,40 +342,44 @@ class RouteService {
     query = query.where('status', whereIn: statuses).limit(300);
 
     return query.snapshots(includeMetadataChanges: false).map((snapshot) {
-      final points = snapshot.docs
+      final allPoints = snapshot.docs
           .map((doc) =>
               DeliveryPoint.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-          .where((p) {
-        if (p.archived) return false;
-        // 1️⃣ routeId = driverId_year_month_day → парсим дату
-        if (p.routeId != null && p.routeId!.isNotEmpty) {
-          if (_isRouteFromToday(p.routeId!, todayMidnight)) return true;
-          // Незавершённый маршрут с вчерашним routeId остаётся, только если
-          // по маршруту ещё не было ни одной доставки (см. _syncPointHygiene).
-          if (DeliveryPoint.activeRouteStatuses.contains(p.status)) {
-            return true;
+          .where((p) => !p.archived)
+          .toList();
+
+      // Если есть active точки — не показываем completed из ДРУГИХ маршрутов
+      final activeRouteIds = allPoints
+          .where((p) => DeliveryPoint.activeRouteStatuses
+              .contains(DeliveryPoint.normalizeStatus(p.status)))
+          .map((p) => p.routeId)
+          .whereType<String>()
+          .toSet();
+
+      final points = allPoints.where((p) {
+        final normalizedStatus = DeliveryPoint.normalizeStatus(p.status);
+
+        // Active точки — всегда показываем
+        if (DeliveryPoint.activeRouteStatuses.contains(normalizedStatus)) {
+          return true;
+        }
+
+        // Completed/cancelled — показываем только из активного маршрута
+        if (normalizedStatus == DeliveryPoint.statusCompleted ||
+            normalizedStatus == DeliveryPoint.statusCancelled) {
+          if (!includeCompleted) return false;
+          // Если есть активный маршрут — показываем completed только из него
+          if (activeRouteIds.isNotEmpty) {
+            return p.routeId != null && activeRouteIds.contains(p.routeId);
           }
-          // 🛡️ Cross-day: маршрут вчерашний, но точка завершена СЕГОДНЯ → показываем
-          if (includeCompleted &&
-              p.completedAt != null &&
-              p.completedAt!.isAfter(todayMidnight)) {
+          // Нет активного маршрута — показываем completed за сегодня
+          if (p.completedAt != null && p.completedAt!.isAfter(todayMidnight)) {
             return true;
           }
           return false;
         }
 
-        // 2️⃣ Completed сегодня (без routeId)
-        if (p.status == DeliveryPoint.statusCompleted &&
-            p.completedAt != null) {
-          return p.completedAt!.isAfter(todayMidnight);
-        }
-
-        // 3️⃣ Активные точки без routeId — показываем (pending/assigned/in_progress)
-        if (p.status != DeliveryPoint.statusCompleted) {
-          return true;
-        }
-
-        return false;
+        return true;
       }).toList();
 
       points.sort((a, b) {
