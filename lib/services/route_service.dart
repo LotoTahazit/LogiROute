@@ -392,7 +392,8 @@ class RouteService {
   /// Архив completed (до сегодняшней полночи), затем частичные маршруты → pending.
   Future<void> _syncPointHygiene() async {
     await archiveStaleCompletedPoints();
-    await releasePartialRouteIncompleteToPending();
+    // releasePartialRouteIncompleteToPending отключён —
+    // маршруты с active точками не разбираются автоматически.
   }
 
   /// Завершённые точки с completedAt до начала сегодняшнего дня → в архив (поле archived).
@@ -1529,6 +1530,73 @@ class RouteService {
 
     if (newStatus == DeliveryPoint.statusCompleted) {
       unawaited(_recordDeliveryLearning(pointId));
+      unawaited(_recalcRemainingEtaAfterCompletion(pointId));
+    }
+  }
+
+  /// Пересчитывает ETA оставшихся точек от фактического времени завершения.
+  /// Без OSRM — локальный расчёт: completedAt + drive_time + service_time.
+  Future<void> _recalcRemainingEtaAfterCompletion(String pointId) async {
+    try {
+      final completedDoc = await _deliveryPointsCollection().doc(pointId).get();
+      if (!completedDoc.exists) return;
+      final data = completedDoc.data()!;
+      final routeId = data['routeId'] as String?;
+      if (routeId == null || routeId.isEmpty) return;
+
+      // Фактическое время завершения
+      final completedAt = (data['completedAt'] as Timestamp?)?.toDate();
+      if (completedAt == null) return;
+
+      // Все точки этого маршрута
+      final snap = await _deliveryPointsCollection()
+          .where('routeId', isEqualTo: routeId)
+          .get();
+
+      final remaining = snap.docs
+          .map((d) => DeliveryPoint.fromMap(d.data(), d.id))
+          .where((p) =>
+              p.status != DeliveryPoint.statusCompleted &&
+              p.status != DeliveryPoint.statusCancelled)
+          .toList()
+        ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+
+      if (remaining.isEmpty) return;
+
+      // Пересчитываем ETA от фактического completedAt
+      const avgSpeedKmh = 38.0;
+      const serviceMin = 7.0;
+      const parkingMin = 2.0;
+
+      // Минуты от 07:00 до completedAt
+      final baseMinutes =
+          completedAt.hour * 60.0 + completedAt.minute - 420; // 420 = 7*60
+
+      double cumMin = baseMinutes > 0 ? baseMinutes : 0;
+      double prevLat = (data['latitude'] as num?)?.toDouble() ?? 0;
+      double prevLng = (data['longitude'] as num?)?.toDouble() ?? 0;
+
+      final batch = _firestore.batch();
+      for (final point in remaining) {
+        final distKm = RouteOptimizer.calculateDistance(
+            prevLat, prevLng, point.latitude, point.longitude);
+        final driveMin = (distKm / avgSpeedKmh) * 60;
+        cumMin += driveMin + serviceMin + parkingMin;
+
+        final eta = TimeFormatter.formatArrivalTime(cumMin);
+        batch.update(_deliveryPointsCollection().doc(point.id), {
+          'eta': eta,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        prevLat = point.latitude;
+        prevLng = point.longitude;
+      }
+      await batch.commit();
+      debugPrint(
+          '🔄 [RouteService] Recalculated ETA for ${remaining.length} remaining points from ${completedAt.hour}:${completedAt.minute.toString().padLeft(2, '0')}');
+    } catch (e) {
+      debugPrint('⚠️ [RouteService] ETA recalc failed: $e');
     }
   }
 
