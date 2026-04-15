@@ -273,7 +273,6 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
       final Set<Polyline> result = {};
 
-      int driverIndex = 0;
       for (final entry in routesByKey.entries) {
         final routeKey = entry.key;
         final points = entry.value;
@@ -374,7 +373,6 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
                 _buildDriverToRoutePolyline(driverKey, activePoints),
               );
             }
-            driverIndex++;
             continue;
           }
         }
@@ -406,8 +404,6 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           );
           result.addAll(_buildDriverToRoutePolyline(driverKey, activePoints));
         }
-
-        driverIndex++;
       }
 
       _lastRouteSignature = routeSignature;

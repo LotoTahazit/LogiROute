@@ -255,15 +255,6 @@ class ActiveRoutesTab extends StatelessWidget {
       // Пересчёт ETA от фактического прогресса (0 Firestore запросов)
       final recalcEtas = EtaCalculator.recalculate(routePoints);
 
-      final hasInProgressPoints =
-          routePoints.any((r) => r.status == 'in_progress');
-      final allClosed = routePoints.every(_isClosed);
-      final routeStatus = allClosed
-          ? DeliveryPoint.statusCompleted
-          : hasInProgressPoints
-              ? 'in_progress'
-              : 'assigned';
-
       // Цвет загрузки маршрута: 🟢 ≤80%  🟡 80–100%  🔴 >100%
       final loadRatio = driverCap > 0 ? totalPallets / driverCap : 0.0;
       final loadColor = loadRatio > 1.0

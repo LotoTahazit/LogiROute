@@ -270,9 +270,6 @@ class ArchiveService {
 
       // Определяем тип архива по пути
       final isInventoryHistory = path.contains('inventory_history');
-      final collection =
-          isInventoryHistory ? 'inventory_history' : 'delivery_points';
-
       // Восстанавливаем записи
       final batch = _firestore.batch();
       int restored = 0;

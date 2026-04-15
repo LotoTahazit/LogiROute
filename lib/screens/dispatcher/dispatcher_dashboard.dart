@@ -52,7 +52,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _mapRoutesStream;
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
-  List<DeliveryPoint> _lastMapPoints = [];
   RouteCacheService? _dispatcherCache;
 
   Set<String> _activeRouteIdsOf(List<DeliveryPoint> points) => points
@@ -131,21 +130,12 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
-  bool _shouldApplyUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
-    if (local == null) return true;
-    if (incoming.updatedAt == null) return true;
-    if (local.updatedAt == null) return true;
-
-    return incoming.updatedAt!.isAfter(local.updatedAt!);
-  }
-
   /// Инициализация потоков — вынесено из build() для предотвращения race condition
   void _initStreams(String companyId) {
     _lastNonEmptyRoutes = [];
     _previousRoutesForMap = [];
     _lastNonEmptyRoutesDate = null;
     _previousRoutesForMapDate = null;
-    _lastMapPoints = [];
     _selectedDriverId = null;
     _dispatcherCache = RouteCacheService.dispatcher(companyId: companyId);
     // 🛡️ Восстанавливаем кеш до подключения потоков
@@ -1610,7 +1600,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             final points = List<DeliveryPoint>.from(
                               incomingPoints,
                             );
-                            _lastMapPoints = List<DeliveryPoint>.from(points);
                             return StreamBuilder<List<Map<String, dynamic>>>(
                               stream:
                                   RouteService(companyId: effectiveCompanyId)
