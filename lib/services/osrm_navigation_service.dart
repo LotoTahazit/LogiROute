@@ -368,7 +368,7 @@ class OsrmRoute {
       return '${duration.round()}ד'; // Hebrew: ד = דקות (minutes)
     } else {
       final hours = (duration / 60).floor();
-      final minutes = (duration % 60).round();
+      final minutes = duration.round() % 60;
       return '$hoursש $minutesד'; // Hebrew: ש = שעות (hours), ד = דקות (minutes)
     }
   }

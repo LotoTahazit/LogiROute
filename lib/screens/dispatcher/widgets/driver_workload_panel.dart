@@ -222,8 +222,9 @@ class _DriverCard extends StatelessWidget {
     final returnMin = (straightKm * 1.3 / 38.0) * 60;
 
     final totalMin = lastEtaMin + returnMin;
-    final h = (7 + totalMin ~/ 60) % 24;
-    final m = (totalMin % 60).round();
+    final totalMinInt = totalMin.round();
+    final h = (7 + totalMinInt ~/ 60) % 24;
+    final m = totalMinInt % 60;
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
