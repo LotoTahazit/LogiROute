@@ -348,13 +348,18 @@ class RouteService {
           .where((p) => !p.archived)
           .toList();
 
-      // Если есть active точки — не показываем completed из ДРУГИХ маршрутов
-      final activeRouteIds = allPoints
-          .where((p) => DeliveryPoint.activeRouteStatuses
-              .contains(DeliveryPoint.normalizeStatus(p.status)))
-          .map((p) => p.routeId)
-          .whereType<String>()
-          .toSet();
+      // Per-driver: если у водителя есть active точки — completed показываем только из его active маршрута
+      final activeRouteIdsByDriver = <String, Set<String>>{};
+      for (final p in allPoints) {
+        final did = p.driverId ?? '';
+        if (did.isEmpty) continue;
+        if (DeliveryPoint.activeRouteStatuses
+            .contains(DeliveryPoint.normalizeStatus(p.status))) {
+          if (p.routeId != null) {
+            activeRouteIdsByDriver.putIfAbsent(did, () => {}).add(p.routeId!);
+          }
+        }
+      }
 
       final points = allPoints.where((p) {
         final normalizedStatus = DeliveryPoint.normalizeStatus(p.status);
@@ -364,15 +369,17 @@ class RouteService {
           return true;
         }
 
-        // Completed/cancelled — показываем только из активного маршрута
+        // Completed/cancelled
         if (normalizedStatus == DeliveryPoint.statusCompleted ||
             normalizedStatus == DeliveryPoint.statusCancelled) {
           if (!includeCompleted) return false;
-          // Если есть активный маршрут — показываем completed только из него
-          if (activeRouteIds.isNotEmpty) {
-            return p.routeId != null && activeRouteIds.contains(p.routeId);
+          final did = p.driverId ?? '';
+          final driverActiveRoutes = activeRouteIdsByDriver[did];
+          // Водитель имеет active маршрут → completed только из него
+          if (driverActiveRoutes != null && driverActiveRoutes.isNotEmpty) {
+            return p.routeId != null && driverActiveRoutes.contains(p.routeId);
           }
-          // Нет активного маршрута — показываем completed за сегодня
+          // Нет active маршрута → completed за сегодня
           if (p.completedAt != null && p.completedAt!.isAfter(todayMidnight)) {
             return true;
           }
