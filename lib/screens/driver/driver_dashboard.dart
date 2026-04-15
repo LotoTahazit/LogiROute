@@ -18,6 +18,7 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/shift_schedule_config.dart';
+import '../../utils/eta_calculator.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
@@ -1450,133 +1451,139 @@ class _DriverDashboardState extends State<DriverDashboard> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: points.length,
-                        itemBuilder: (context, index) {
-                          final point = points[index];
-                          final isCompleted = _isClosedPoint(point);
-                          final isNext = !isCompleted &&
-                              index ==
-                                  points.indexWhere((p) => !_isClosedPoint(p));
+                    : Builder(builder: (context) {
+                        final recalcEtas = EtaCalculator.recalculate(points);
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: points.length,
+                          itemBuilder: (context, index) {
+                            final point = points[index];
+                            final isCompleted = _isClosedPoint(point);
+                            final isNext = !isCompleted &&
+                                index ==
+                                    points
+                                        .indexWhere((p) => !_isClosedPoint(p));
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? Colors.green.shade50
-                                  : (isNext
-                                      ? Colors.blue.shade50
-                                      : Colors.white),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
                                 color: isCompleted
-                                    ? Colors.green.shade200
+                                    ? Colors.green.shade50
                                     : (isNext
-                                        ? Colors.blue.shade200
-                                        : Colors.grey.shade200),
-                              ),
-                            ),
-                            child: ListTile(
-                              dense: true,
-                              leading: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: isCompleted
-                                    ? Colors.green
-                                    : (isNext ? Colors.blue : Colors.grey),
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                point.clientName,
-                                style: TextStyle(
-                                  fontWeight: isNext
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                                        ? Colors.blue.shade50
+                                        : Colors.white),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
                                   color: isCompleted
-                                      ? Colors.grey.shade600
-                                      : Colors.black,
+                                      ? Colors.green.shade200
+                                      : (isNext
+                                          ? Colors.blue.shade200
+                                          : Colors.grey.shade200),
                                 ),
                               ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    point.address,
-                                    style: TextStyle(
+                              child: ListTile(
+                                dense: true,
+                                leading: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: isCompleted
+                                      ? Colors.green
+                                      : (isNext ? Colors.blue : Colors.grey),
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  if (point.taskNote != null &&
-                                      point.taskNote!.isNotEmpty)
+                                ),
+                                title: Text(
+                                  point.clientName,
+                                  style: TextStyle(
+                                    fontWeight: isNext
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isCompleted
+                                        ? Colors.grey.shade600
+                                        : Colors.black,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      '📋 ${point.taskNote}',
+                                      point.address,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.orange.shade800,
-                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
-                                  if (point.eta != null)
-                                    Text(
-                                      'ETA: ${point.eta}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.blue.shade700,
-                                        fontWeight: FontWeight.w700,
+                                    if (point.taskNote != null &&
+                                        point.taskNote!.isNotEmpty)
+                                      Text(
+                                        '📋 ${point.taskNote}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.orange.shade800,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                  // Фактическое время
-                                  if (point.arrivedAt != null ||
-                                      point.completedAt != null)
-                                    Text(
-                                      _buildPointTiming(point),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.green.shade700,
-                                        fontWeight: FontWeight.w600,
+                                    if (point.eta != null)
+                                      Text(
+                                        'ETA: ${recalcEtas[point.id] ?? point.eta}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
-                                    ),
-                                ],
+                                    // Фактическое время
+                                    if (point.arrivedAt != null ||
+                                        point.completedAt != null)
+                                      Text(
+                                        _buildPointTiming(point),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.green.shade700,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                trailing: isCompleted
+                                    ? const Icon(Icons.check_circle,
+                                        color: Colors.green, size: 20)
+                                    : (isNext
+                                        ? Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: IconButton(
+                                              onPressed: () =>
+                                                  _openWazeForPoint(
+                                                context,
+                                                point,
+                                                l10n,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.navigation,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                              padding: const EdgeInsets.all(4),
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              tooltip: 'Waze',
+                                            ),
+                                          )
+                                        : null),
                               ),
-                              trailing: isCompleted
-                                  ? const Icon(Icons.check_circle,
-                                      color: Colors.green, size: 20)
-                                  : (isNext
-                                      ? Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: IconButton(
-                                            onPressed: () => _openWazeForPoint(
-                                              context,
-                                              point,
-                                              l10n,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.navigation,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                            padding: const EdgeInsets.all(4),
-                                            constraints: const BoxConstraints(),
-                                            tooltip: 'Waze',
-                                          ),
-                                        )
-                                      : null),
-                            ),
-                          );
-                        },
-                      ),
+                            );
+                          },
+                        );
+                      }),
               ),
             ),
           ],

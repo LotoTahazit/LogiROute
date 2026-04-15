@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/eta_calculator.dart';
 
 /// Вкладка с активными маршрутами
 class ActiveRoutesTab extends StatelessWidget {
@@ -250,6 +251,9 @@ class ActiveRoutesTab extends StatelessWidget {
       final driverName = routePoints.first.driverName ?? l10n.unknownDriver;
       final totalPallets = routePoints.fold(0, (sum, r) => sum + r.pallets);
       final driverCap = routePoints.first.driverCapacity ?? 0;
+
+      // Пересчёт ETA от фактического прогресса (0 Firestore запросов)
+      final recalcEtas = EtaCalculator.recalculate(routePoints);
 
       final hasInProgressPoints =
           routePoints.any((r) => r.status == 'in_progress');
@@ -544,8 +548,8 @@ class ActiveRoutesTab extends StatelessWidget {
                             [
                               if (r.distanceKm != null && r.distanceKm! > 0)
                                 '${r.distanceKm!.toStringAsFixed(1)} ${l10n.km}',
-                              if (r.eta != null && r.eta!.isNotEmpty)
-                                'ETA: ${r.eta}',
+                              if ((recalcEtas[r.id] ?? r.eta ?? '').isNotEmpty)
+                                'ETA: ${recalcEtas[r.id] ?? r.eta}',
                             ].join(' • '),
                             style: TextStyle(
                               color: Colors.blue.shade900,

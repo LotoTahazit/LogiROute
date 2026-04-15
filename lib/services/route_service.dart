@@ -1530,7 +1530,7 @@ class RouteService {
 
     if (newStatus == DeliveryPoint.statusCompleted) {
       unawaited(_recordDeliveryLearning(pointId));
-      unawaited(_recalcRemainingEtaAfterCompletion(pointId));
+      // ETA пересчитывается на клиенте (в UI), без Firestore запросов
     }
   }
 
