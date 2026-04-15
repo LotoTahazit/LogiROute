@@ -10,7 +10,8 @@ class PendingPointsTab extends StatefulWidget {
   final String companyId;
   final bool isLoadingMap;
   final VoidCallback onCreateRoute;
-  final Function(List<DeliveryPoint> selectedPoints)? onCreateRouteFromSelection;
+  final Function(List<DeliveryPoint> selectedPoints)?
+      onCreateRouteFromSelection;
   final VoidCallback onAutoDistribute;
   final Function(String pointId, String clientName) onDeletePoint;
   final Function(DeliveryPoint point) onEditPoint;
@@ -88,12 +89,14 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
     if (zone == null || zone.isEmpty) {
       return AppLocalizations.of(context)!.noZoneLabel;
     }
-    return ZoneUtils.getZoneName(zone, Localizations.localeOf(context).languageCode);
+    return ZoneUtils.getZoneName(
+        zone, Localizations.localeOf(context).languageCode);
   }
 
   Future<void> _createRouteFromSelection(BuildContext context) async {
     final selectedPoints = _selectedPoints();
-    if (selectedPoints.isEmpty || widget.onCreateRouteFromSelection == null) return;
+    if (selectedPoints.isEmpty || widget.onCreateRouteFromSelection == null)
+      return;
 
     final selectedZones =
         selectedPoints.map((p) => _zoneNameForDialog(context, p.zone)).toSet();
@@ -103,7 +106,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
             builder: (context) => AlertDialog(
               title: Text(AppLocalizations.of(context)!.warning),
               content: Text(
-                AppLocalizations.of(context)!.selectedClientsDifferentZonesWarning(
+                AppLocalizations.of(context)!
+                    .selectedClientsDifferentZonesWarning(
                   selectedZones.join(', '),
                 ),
               ),
@@ -126,7 +130,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
     widget.onCreateRouteFromSelection!(selectedPoints);
   }
 
-  Widget _buildZoneButton(String? zoneId, String text, String tooltip, int count) {
+  Widget _buildZoneButton(
+      String? zoneId, String text, String tooltip, int count) {
     final isSelected = selectedZone == zoneId;
     final Color zoneColor =
         zoneId != null ? ZoneUtils.getZoneColor(zoneId) : Colors.grey;
@@ -179,12 +184,20 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
         return za.compareTo(zb);
       });
     } else {
-      filteredPoints = widget.points.where((p) => p.zone == selectedZone).toList();
+      filteredPoints = widget.points.where((p) {
+        if (p.zone == null) return false;
+        return p.zone!.split(',').map((z) => z.trim()).contains(selectedZone);
+      }).toList();
     }
     final zoneCounts = <String, int>{};
     for (final p in widget.points) {
       if (p.zone != null) {
-        zoneCounts[p.zone!] = (zoneCounts[p.zone!] ?? 0) + 1;
+        for (final z in p.zone!.split(',')) {
+          final zoneId = z.trim();
+          if (zoneId.isNotEmpty) {
+            zoneCounts[zoneId] = (zoneCounts[zoneId] ?? 0) + 1;
+          }
+        }
       }
     }
 
@@ -203,8 +216,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                 );
                 final selectedButton = ElevatedButton.icon(
                   icon: const Icon(Icons.checklist),
-                  label:
-                      Text(l10n.createRouteFromSelected(_selectedPointIds.length)),
+                  label: Text(
+                      l10n.createRouteFromSelected(_selectedPointIds.length)),
                   onPressed: _selectedPointIds.isEmpty
                       ? null
                       : () => _createRouteFromSelection(context),
@@ -269,7 +282,6 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
               },
             ),
           ),
-
         if (widget.points.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -320,7 +332,6 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
               ),
             ),
           ),
-
         if (widget.points.isNotEmpty)
           Container(
             height: 60,
@@ -334,8 +345,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                   ...ZoneUtils.allZones.map((zone) {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: _buildZoneButton(
-                          zone.id, zone.nameHe, zone.nameHe, zoneCounts[zone.id] ?? 0),
+                      child: _buildZoneButton(zone.id, zone.nameHe, zone.nameHe,
+                          zoneCounts[zone.id] ?? 0),
                     );
                   }),
                   const SizedBox(width: 16),
@@ -347,7 +358,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ZoneUtils.getZoneColor(selectedZone!),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                       ),
                       onPressed: () {
                         if (widget.onCreateRouteByZone != null) {
@@ -380,8 +392,7 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                     final showZoneHeader = index == 0 ||
                         point.zone != filteredPoints[index - 1].zone;
 
-                    final zoneFill =
-                        ZoneUtils.getZoneColor(point.zone ?? '');
+                    final zoneFill = ZoneUtils.getZoneColor(point.zone ?? '');
                     final actionButtons = <Widget>[
                       IconButton(
                         icon: const Icon(Icons.person_add,
@@ -400,16 +411,16 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                         constraints: const BoxConstraints(),
                       ),
                       IconButton(
-                        icon:
-                            const Icon(Icons.edit, color: Colors.orange, size: 20),
+                        icon: const Icon(Icons.edit,
+                            color: Colors.orange, size: 20),
                         tooltip: 'Edit Point',
                         onPressed: () => widget.onEditPoint(point),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       IconButton(
-                        icon:
-                            const Icon(Icons.list_alt, color: Colors.teal, size: 20),
+                        icon: const Icon(Icons.list_alt,
+                            color: Colors.teal, size: 20),
                         tooltip: 'תעודת ליקוט',
                         onPressed: () => PrintService.printPickingList(
                           points: [point],
@@ -418,7 +429,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                         constraints: const BoxConstraints(),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                        icon: const Icon(Icons.delete,
+                            color: Colors.red, size: 20),
                         tooltip: l10n.delete,
                         onPressed: () =>
                             widget.onDeletePoint(point.id, point.clientName),
@@ -428,196 +440,196 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                     ];
 
                     final card = Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          color: isSelected
-                              ? Colors.green.shade50
-                              : zoneFill.withValues(
-                                  alpha: (zoneFill.a * 0.15).clamp(0.0, 1.0)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.green
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => _toggleSelection(point),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final isNarrow = constraints.maxWidth < 520;
-                                  final titleBlock = Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      color: isSelected
+                          ? Colors.green.shade50
+                          : zoneFill.withValues(
+                              alpha: (zoneFill.a * 0.15).clamp(0.0, 1.0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isSelected ? Colors.green : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _toggleSelection(point),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 520;
+                              final titleBlock = Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              point.clientName,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                      Expanded(
+                                        child: Text(
+                                          point.clientName,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          if (isSelected)
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(right: 6),
-                                              child: Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green.shade700,
-                                                size: 20,
-                                              ),
-                                            ),
-                                          if (point.zone != null &&
-                                              point.zone!.isNotEmpty)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: ZoneUtils.getZoneColor(
-                                                    point.zone ?? ''),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                ZoneUtils.getZoneName(
-                                                    point.zone ?? '',
-                                                    Localizations.localeOf(context)
-                                                        .languageCode),
-                                                style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 11),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _getDisplayAddress(point),
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade700,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ],
-                                  );
-
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (isNarrow) ...[
-                                        titleBlock,
-                                        const SizedBox(height: 8),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Container(
+                                      if (isSelected)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 6),
+                                          child: Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green.shade700,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      if (point.zone != null &&
+                                          point.zone!.isNotEmpty)
+                                        ...point.zone!.split(',').map((z) {
+                                          final zoneId = z.trim();
+                                          if (zoneId.isEmpty)
+                                            return const SizedBox.shrink();
+                                          return Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
+                                                horizontal: 8, vertical: 2),
+                                            margin:
+                                                const EdgeInsets.only(right: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.deepPurple.shade50,
+                                              color: ZoneUtils.getZoneColor(
+                                                  zoneId),
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Text(
-                                              '${point.pallets} ${l10n.pallets}',
+                                              ZoneUtils.getZoneName(
+                                                  zoneId,
+                                                  Localizations.localeOf(
+                                                          context)
+                                                      .languageCode),
                                               style: const TextStyle(
-                                                color: Colors.deepPurple,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
+                                                  color: Colors.white,
+                                                  fontSize: 11),
                                             ),
+                                          );
+                                        }),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getDisplayAddress(point),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              );
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (isNarrow) ...[
+                                    titleBlock,
+                                    const SizedBox(height: 8),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${point.pallets} ${l10n.pallets}',
+                                          style: const TextStyle(
+                                            color: Colors.deepPurple,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
                                           ),
                                         ),
-                                      ] else
-                                        Row(
-                                          children: [
-                                            Expanded(child: titleBlock),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 6,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.deepPurple.shade50,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                '${point.pallets} ${l10n.pallets}',
-                                                style: const TextStyle(
-                                                  color: Colors.deepPurple,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
+                                      ),
+                                    ),
+                                  ] else
+                                    Row(
+                                      children: [
+                                        Expanded(child: titleBlock),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.deepPurple.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            '${point.pallets} ${l10n.pallets}',
+                                            style: const TextStyle(
+                                              color: Colors.deepPurple,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
                                             ),
-                                          ],
-                                        ),
-                                      if (point.boxTypes != null &&
-                                          point.boxTypes!.isNotEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          children: point.boxTypes!.map((bt) {
-                                            return Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 3,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green.shade50,
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                    color:
-                                                        Colors.green.shade200),
-                                              ),
-                                              child: Text(
-                                                bt.toShortString(),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color:
-                                                      Colors.green.shade800,
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
+                                          ),
                                         ),
                                       ],
-                                      const SizedBox(height: 8),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Wrap(
-                                          spacing: 10,
-                                          runSpacing: 8,
-                                          children: actionButtons,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ),
+                                    ),
+                                  if (point.boxTypes != null &&
+                                      point.boxTypes!.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: point.boxTypes!.map((bt) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                                color: Colors.green.shade200),
+                                          ),
+                                          child: Text(
+                                            bt.toShortString(),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.green.shade800,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Wrap(
+                                      spacing: 10,
+                                      runSpacing: 8,
+                                      children: actionButtons,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                        );
+                        ),
+                      ),
+                    );
 
                     if (!showZoneHeader ||
                         point.zone == null ||
