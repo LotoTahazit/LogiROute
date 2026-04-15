@@ -40,16 +40,28 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       _updateDriverProgressPolylines();
 
       // Фитим камеру по полилиниям (точнее, чем по маркерам)
-      if (!_initialCameraFitDone &&
-          _polylines.isNotEmpty &&
-          _controller != null) {
+      // Fallback: если нет polyline — фитим по маркерам точек
+      if (!_initialCameraFitDone && _controller != null) {
         _initialCameraFitDone = true;
         await Future.delayed(const Duration(milliseconds: 300));
         if (!mounted || _controller == null) return;
+
         final allPolyPoints = <LatLng>[];
         for (final pl in _polylines) {
           allPolyPoints.addAll(pl.points);
         }
+
+        // Fallback: маркеры точек если нет polyline
+        if (allPolyPoints.isEmpty && widget.points.isNotEmpty) {
+          for (final p in widget.points) {
+            if (DeliveryPoint.isValidCoordinates(p.latitude, p.longitude)) {
+              allPolyPoints.add(LatLng(p.latitude, p.longitude));
+            }
+          }
+          // Добавляем склад
+          allPolyPoints.add(LatLng(widget.warehouseLat, widget.warehouseLng));
+        }
+
         if (allPolyPoints.isEmpty) return;
         final bounds = _calculatePolylineBounds(allPolyPoints);
         await _moveToBoundsSafe(bounds, animated: true);
