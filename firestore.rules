@@ -144,28 +144,33 @@ service cloud.firestore {
     // Users (global)
     // =========================================================
     match /users/{userId} {
-      // Read: only same company members or super_admin
+      // Read: same company members or super_admin
       allow read: if signedIn() && (
         isSuperAdmin() ||
         request.auth.uid == userId ||
         (resource.data.companyId == userDoc().companyId)
       );
+      // Create: admin/owner in same company, super_admin anywhere, self-onboarding
       allow create: if signedIn() && (
         isSuperAdmin() ||
-        (isRole('admin') && request.resource.data.companyId == userDoc().companyId) ||
-        // Self-service onboarding: user creates their own profile
+        (hasAnyRole(['admin', 'owner']) && request.resource.data.companyId == userDoc().companyId) ||
         request.auth.uid == userId
       );
+      // Update: self (no role/company change), admin/owner in same company, super_admin
       allow update: if signedIn() && (
-        // Self-update: cannot change role or companyId
         (request.auth.uid == userId
           && request.resource.data.role == resource.data.role
           && request.resource.data.companyId == resource.data.companyId) ||
-        // Admin: can update users in same company
-        (isRole('admin') && resource.data.companyId == userDoc().companyId) ||
+        (hasAnyRole(['admin', 'owner']) && resource.data.companyId == userDoc().companyId) ||
         isSuperAdmin()
       );
-      allow delete: if false;
+      // Delete: admin/owner in same company (not self), super_admin
+      allow delete: if signedIn() && (
+        (hasAnyRole(['admin', 'owner'])
+          && resource.data.companyId == userDoc().companyId
+          && request.auth.uid != userId) ||
+        isSuperAdmin()
+      );
     }
 
     // =========================================================
