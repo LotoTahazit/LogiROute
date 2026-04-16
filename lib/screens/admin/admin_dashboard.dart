@@ -478,15 +478,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
           : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: isNarrow
-              ? Text(l10n.admin)
-              : Row(
-                  children: [
-                    Text(l10n.admin),
-                    const SizedBox(width: 16),
-                    const Flexible(child: CompanySelectorWidget()),
-                  ],
-                ),
+          title: Row(
+            children: [
+              Text(l10n.admin),
+              if (!isNarrow) ...[
+                const SizedBox(width: 16),
+                const Flexible(child: CompanySelectorWidget()),
+              ],
+            ],
+          ),
           backgroundColor: Colors.blue,
           elevation: 0,
           actions: [
@@ -509,6 +509,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  // Переключатель компаний для super_admin на мобильном
+                  if (isNarrow && authService.userModel?.isSuperAdmin == true)
+                    const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: CompanySelectorWidget(),
+                    ),
                   AdminFiltersWidget(
                     authService: authService,
                     viewAsRole: authService.viewAsRole,
