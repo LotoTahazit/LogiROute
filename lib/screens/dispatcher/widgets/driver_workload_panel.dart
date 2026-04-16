@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../models/user_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/eta_calculator.dart';
 
 /// Панель загрузки водителей — показывает capacity %, палеты, ETA, статус
 /// Используется в диспетчерской для быстрого обзора всех водителей
@@ -197,8 +198,7 @@ class _DriverCard extends StatelessWidget {
   }
 
   /// Динамическое ETA возврата на склад.
-  /// Считается: ETA последней активной точки + время возврата до склада.
-  /// Обновляется автоматически по мере выполнения точек.
+  /// Считается: пересчитанный ETA последней активной точки + время возврата до склада.
   String? _getReturnEta() {
     final active = points
         .where((p) =>
@@ -208,11 +208,13 @@ class _DriverCard extends StatelessWidget {
     if (active.isEmpty) return null;
     active.sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
 
-    final lastEtaStr = active.last.eta ?? '';
+    // Пересчитанный ETA от фактического прогресса
+    final recalcEtas = EtaCalculator.recalculate(points);
+    final lastEtaStr = recalcEtas[active.last.id] ?? active.last.eta ?? '';
     final lastEtaMin = _parseEtaMin(lastEtaStr);
     if (lastEtaMin <= 0) return null;
 
-    // Расстояние от последней точки до склада (Haversine approx)
+    // Расстояние от последней точки до склада
     const whLat = 32.48698;
     const whLng = 34.982121;
     final last = active.last;
@@ -221,11 +223,10 @@ class _DriverCard extends StatelessWidget {
     final straightKm = _sqrt(dLat * dLat + dLng * dLng);
     final returnMin = (straightKm * 1.3 / 38.0) * 60;
 
-    final totalMin = lastEtaMin + returnMin;
-    final totalMinInt = totalMin.round();
+    final totalMinInt = (lastEtaMin + returnMin).round();
     final h = (7 + totalMinInt ~/ 60) % 24;
     final m = totalMinInt % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+    return '🏭 ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
   static double _sqrt(double x) {

@@ -67,6 +67,13 @@ class ActiveRoutesTab extends StatelessWidget {
     return point.address;
   }
 
+  static double _sqrtApprox(double x) {
+    if (x <= 0) return 0;
+    double r = x;
+    for (int i = 0; i < 10; i++) r = (r + x / r) / 2;
+    return r;
+  }
+
   /// Среднее время на точке (минуты) из завершённых точек
   int _calcAvgTimeOnPoint(List<DeliveryPoint> completed) {
     if (completed.isEmpty) return 0;
@@ -281,11 +288,49 @@ class ActiveRoutesTab extends StatelessWidget {
       final kmText =
           totalKm > 0 ? ' • ${totalKm.toStringAsFixed(1)} ${l10n.km}' : '';
 
-      // ETA последней точки
-      final lastEta =
-          routePoints.isNotEmpty ? (routePoints.last.eta ?? '') : '';
-      final etaText =
-          lastEta.isNotEmpty ? ' • ETA: ${lastEta.split(' ').first}' : '';
+      // ETA возврата на склад (динамическое)
+      String etaText = '';
+      if (routePoints.isNotEmpty) {
+        final activeForEta = routePoints
+            .where((p) =>
+                DeliveryPoint.normalizeStatus(p.status) !=
+                    DeliveryPoint.statusCompleted &&
+                DeliveryPoint.normalizeStatus(p.status) !=
+                    DeliveryPoint.statusCancelled)
+            .toList()
+          ..sort((a, b) => a.orderInRoute.compareTo(b.orderInRoute));
+        if (activeForEta.isNotEmpty) {
+          // Берём пересчитанный ETA последней активной точки
+          final lastRecalcEta =
+              recalcEtas[activeForEta.last.id] ?? activeForEta.last.eta ?? '';
+          if (lastRecalcEta.isNotEmpty) {
+            // Добавляем время возврата на склад
+            final lastPt = activeForEta.last;
+            final dLat = (lastPt.latitude - 32.48698) * 111.0;
+            final dLng = (lastPt.longitude - 34.982121) * 111.0 * 0.848;
+            final distKm = (dLat * dLat + dLng * dLng);
+            final straightKm = distKm > 0 ? _sqrtApprox(distKm) : 0.0;
+            final returnMin = (straightKm * 1.3 / 38.0) * 60;
+            // Парсим ETA → добавляем returnMin
+            final timeParts = lastRecalcEta.split(' ').first.split(':');
+            if (timeParts.length == 2) {
+              final h = int.tryParse(timeParts[0]) ?? 0;
+              final m = int.tryParse(timeParts[1]) ?? 0;
+              final totalMin = (h * 60 + m + returnMin).round();
+              final rh = (totalMin ~/ 60) % 24;
+              final rm = totalMin % 60;
+              etaText =
+                  ' • 🏭 ${rh.toString().padLeft(2, '0')}:${rm.toString().padLeft(2, '0')}';
+            }
+          }
+        } else {
+          // Все completed — показываем ETA последней
+          final lastEta = routePoints.last.eta ?? '';
+          if (lastEta.isNotEmpty) {
+            etaText = ' • ETA: ${lastEta.split(' ').first}';
+          }
+        }
+      }
 
       // Прогресс: выполнено / всего + среднее время на точке
       final completedPts = routePoints.where((p) {
