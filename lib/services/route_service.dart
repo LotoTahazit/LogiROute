@@ -1557,6 +1557,20 @@ class RouteService {
         driverLng = (locDoc.data()?['longitude'] as num?)?.toDouble() ?? 0;
       }
       final hasDriverCoord = driverLat != 0 && driverLng != 0;
+
+      // 🛡️ Guard: не обучаем если водитель > 1 км от клиента (закрыл с дороги)
+      final pointLat = (data['latitude'] as num?)?.toDouble() ?? 0;
+      final pointLng = (data['longitude'] as num?)?.toDouble() ?? 0;
+      if (hasDriverCoord && pointLat != 0 && pointLng != 0) {
+        final distToClient =
+            _calculateDistance(driverLat, driverLng, pointLat, pointLng);
+        if (distToClient > 1.0) {
+          debugPrint(
+              '⚠️ [Learning] Skipping: driver ${distToClient.toStringAsFixed(1)}km from client');
+          return;
+        }
+      }
+
       if (hasDriverCoord) {
         await pointRef.collection('visit_logs').add({
           'lat': driverLat,
