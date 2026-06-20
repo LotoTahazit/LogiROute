@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
+import '../../../../services/accounting_sync_service.dart';
+import '../../../../widgets/accounting_sync_panel.dart';
 import '../../models/accounting_doc.dart';
 import '../../repositories/accounting_docs_repository.dart';
 import '../credit_note_form.dart';
@@ -36,6 +38,7 @@ class AccountingSection extends StatefulWidget {
 
 class _AccountingSectionState extends State<AccountingSection> {
   late final AccountingDocsRepository _docsRepo;
+  late final AccountingSyncService _syncService;
 
   AccountingDocType? _filterType;
   AccountingDocStatus? _filterStatus;
@@ -44,12 +47,18 @@ class _AccountingSectionState extends State<AccountingSection> {
   void initState() {
     super.initState();
     _docsRepo = AccountingDocsRepository(companyId: widget.companyId);
+    _syncService = AccountingSyncService(companyId: widget.companyId);
   }
 
   AccountingDocFilter get _currentFilter => AccountingDocFilter(
         type: _filterType,
         status: _filterStatus,
       );
+
+  bool get _hasExternalAccounting {
+    final p = widget.companySettings.accountingProvider;
+    return p == 'greeninvoice' || p == 'icount' || p == 'export';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,12 +73,29 @@ class _AccountingSectionState extends State<AccountingSection> {
             children: [
               _buildHeader(context),
               const SizedBox(height: 16),
+              if (_hasExternalAccounting) ...[
+                AccountingSyncPanel(companyId: widget.companyId),
+                const SizedBox(height: 16),
+              ],
               // Summary cards — KPIs for accountant
               _buildSummaryCards(context, snapshot),
               const SizedBox(height: 16),
+              _buildStatusChips(context, snapshot.data ?? []),
+              const SizedBox(height: 12),
               _buildFilters(context),
               const SizedBox(height: 16),
-              _buildDocsList(context, snapshot),
+              StreamBuilder<Map<String, AccountingSyncEntry>>(
+                stream: _hasExternalAccounting
+                    ? _syncService.watchLedgerMap()
+                    : Stream.value(const {}),
+                builder: (context, syncSnap) {
+                  return _buildDocsList(
+                    context,
+                    snapshot,
+                    syncSnap.data ?? const {},
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -191,6 +217,14 @@ class _AccountingSectionState extends State<AccountingSection> {
                 l10n.accountingDocuments,
                 style: theme.textTheme.titleLarge,
               ),
+              if (_hasExternalAccounting)
+                Chip(
+                  label: Text(
+                    _providerLabel(l10n),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -208,6 +242,14 @@ class _AccountingSectionState extends State<AccountingSection> {
             size: 28, color: theme.colorScheme.primary),
         const SizedBox(width: 12),
         Text(l10n.accountingDocuments, style: theme.textTheme.headlineSmall),
+        if (_hasExternalAccounting) ...[
+          const SizedBox(width: 8),
+          Chip(
+            label: Text(_providerLabel(l10n),
+                style: const TextStyle(fontSize: 12)),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
         const Spacer(),
         FilledButton.icon(
           onPressed: () => _showCreateDocDialog(context),
@@ -216,6 +258,115 @@ class _AccountingSectionState extends State<AccountingSection> {
         ),
       ],
     );
+  }
+
+  String _providerLabel(AppLocalizations l10n) {
+    switch (widget.companySettings.accountingProvider) {
+      case 'greeninvoice':
+        return l10n.accountingProviderGreeninvoice;
+      case 'icount':
+        return l10n.accountingProviderIcount;
+      case 'export':
+        return l10n.accountingProviderExport;
+      default:
+        return l10n.accountingProviderNone;
+    }
+  }
+
+  Widget _buildStatusChips(BuildContext context, List<AccountingDoc> docs) {
+    final l10n = AppLocalizations.of(context)!;
+    final counts = <AccountingDocStatus, int>{};
+    for (final s in AccountingDocStatus.values) {
+      counts[s] = docs.where((d) => d.status == s).length;
+    }
+
+    Widget chip(String label, AccountingDocStatus? status, int count) {
+      final selected = _filterStatus == status;
+      return FilterChip(
+        label: Text('$label ($count)'),
+        selected: selected,
+        onSelected: (_) => setState(() => _filterStatus = status),
+        selectedColor: status != null
+            ? docStatusColor(status).withValues(alpha: 0.2)
+            : Theme.of(context).colorScheme.primaryContainer,
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip(l10n.allFilter, null, docs.length),
+          const SizedBox(width: 6),
+          ...AccountingDocStatus.values.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: chip(docStatusLabel(context, s), s, counts[s] ?? 0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSyncBadge(
+    BuildContext context,
+    AccountingDoc doc,
+    Map<String, AccountingSyncEntry> syncMap,
+  ) {
+    if (!_hasExternalAccounting || doc.id == null) {
+      return const SizedBox.shrink();
+    }
+    if (doc.status == AccountingDocStatus.draft) {
+      return Text(
+        externalSyncLabel(context, null),
+        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+      );
+    }
+    final entry = syncMap[doc.id!];
+    final status = entry?.status;
+    final color = externalSyncColor(status);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            externalSyncLabel(context, status),
+            style: TextStyle(color: color, fontSize: 11),
+          ),
+        ),
+        if (status == 'failed')
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 16),
+            tooltip: AppLocalizations.of(context)!.accountingSyncRetry,
+            onPressed: () => _retrySync(context, doc.id!),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _retrySync(BuildContext context, String docId) async {
+    try {
+      await _syncService.retry(docId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.accountingSyncRetried),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -294,6 +445,7 @@ class _AccountingSectionState extends State<AccountingSection> {
   Widget _buildDocsList(
     BuildContext context,
     AsyncSnapshot<List<AccountingDoc>> snapshot,
+    Map<String, AccountingSyncEntry> syncMap,
   ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(
@@ -334,7 +486,7 @@ class _AccountingSectionState extends State<AccountingSection> {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: docs.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, i) => _buildDocCard(context, docs[i]),
+        itemBuilder: (context, i) => _buildDocCard(context, docs[i], syncMap),
       );
     }
     return Card(
@@ -349,16 +501,22 @@ class _AccountingSectionState extends State<AccountingSection> {
             DataColumn(label: Text(l10n.columnCustomer)),
             DataColumn(label: Text(l10n.columnAmount), numeric: true),
             DataColumn(label: Text(l10n.columnStatus)),
+            if (_hasExternalAccounting)
+              DataColumn(label: Text(l10n.accountingDocSyncColumn)),
             DataColumn(label: Text(l10n.columnDate)),
             DataColumn(label: Text(l10n.columnActions)),
           ],
-          rows: docs.map((doc) => _buildDocRow(context, doc)).toList(),
+          rows: docs.map((doc) => _buildDocRow(context, doc, syncMap)).toList(),
         ),
       ),
     );
   }
 
-  Widget _buildDocCard(BuildContext context, AccountingDoc doc) {
+  Widget _buildDocCard(
+    BuildContext context,
+    AccountingDoc doc,
+    Map<String, AccountingSyncEntry> syncMap,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final dateFmt = DateFormat('dd/MM/yyyy');
@@ -437,6 +595,8 @@ class _AccountingSectionState extends State<AccountingSection> {
                   ),
                 ],
               ),
+              const SizedBox(height: 4),
+              _buildSyncBadge(context, doc, syncMap),
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -456,7 +616,11 @@ class _AccountingSectionState extends State<AccountingSection> {
     );
   }
 
-  DataRow _buildDocRow(BuildContext context, AccountingDoc doc) {
+  DataRow _buildDocRow(
+    BuildContext context,
+    AccountingDoc doc,
+    Map<String, AccountingSyncEntry> syncMap,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     final dateFmt = DateFormat('dd/MM/yyyy');
     final dateStr =
@@ -499,6 +663,8 @@ class _AccountingSectionState extends State<AccountingSection> {
               ),
             ),
           ),
+          if (_hasExternalAccounting)
+            DataCell(_buildSyncBadge(context, doc, syncMap)),
           DataCell(Text(dateStr)),
           DataCell(_buildActionButtons(context, doc)),
         ]);
@@ -585,6 +751,21 @@ class _AccountingSectionState extends State<AccountingSection> {
     if (confirmed == true && doc.id != null && mounted) {
       try {
         await _docsRepo.issueDoc(doc.id!);
+        if (_hasExternalAccounting) {
+          try {
+            await _syncService.retry(doc.id!);
+          } catch (syncErr) {
+            if (mounted) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(l10n.accountingExternalSyncFailedWith(
+                      syncErr.toString())),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+        }
         if (mounted) {
           messenger.showSnackBar(
             SnackBar(content: Text(l10n.documentIssuedSuccess)),

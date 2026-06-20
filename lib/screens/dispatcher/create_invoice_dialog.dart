@@ -12,9 +12,11 @@ import '../../services/company_context.dart';
 import '../../services/issuance_service.dart';
 import '../../services/box_type_service.dart';
 import '../../services/inventory_service.dart';
+import '../../services/company_settings_service.dart';
 import '../../services/company_cache.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
   final DeliveryPoint point;
@@ -77,8 +79,6 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   @override
   void initState() {
     super.initState();
-    // По умолчанию дата доставки = завтра
-    _deliveryDate = DateTime.now().add(const Duration(days: 1));
     _loadPrices();
   }
 
@@ -105,15 +105,22 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         if (data['accountingLockedUntil'] != null) {
           _accountingLockedUntil =
               (data['accountingLockedUntil'] as Timestamp).toDate();
-          // Если дефолтная дата попадает в закрытый период — сдвигаем
-          if (_accountingLockedUntil != null &&
-              !_deliveryDate.isAfter(_accountingLockedUntil!)) {
-            _deliveryDate =
-                _accountingLockedUntil!.add(const Duration(days: 1));
-          }
         }
       } catch (_) {
         // Не блокируем загрузку если не удалось прочитать lock
+      }
+
+      // Дата доставки по умолчанию — из deliveryDayMode компании
+      if (companyId.isNotEmpty) {
+        final cs =
+            await CompanySettingsService(companyId: companyId).getSettings();
+        _deliveryDate = cs?.resolveDeliveryDate() ??
+            DateTime.now().add(const Duration(days: 1));
+        if (_accountingLockedUntil != null &&
+            !_deliveryDate.isAfter(_accountingLockedUntil!)) {
+          _deliveryDate =
+              _accountingLockedUntil!.add(const Duration(days: 1));
+        }
       }
 
       // Автозаполнение paymentMethod из клиента
@@ -246,8 +253,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     final l10n = AppLocalizations.of(context)!;
     if (_taxInvoiceReceiptBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hashbonit is under construction'),
+        SnackBar(
+          content: Text(l10n.hashbonitUnderConstruction),
           backgroundColor: Colors.orange,
         ),
       );
@@ -667,7 +674,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
               children: [
                 // Заголовок
                 TableRow(
-                  decoration: BoxDecoration(color: Colors.grey[200]),
+                  decoration: BoxDecoration(color: AppTheme.surfaceHi),
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8),

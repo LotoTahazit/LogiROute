@@ -12,9 +12,12 @@ import '../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../utils/file_download_web.dart';
 import 'billing_helpers.dart';
 import 'receipt_exporter.dart';
+import '../../../theme/app_theme.dart';
 
 String _localizedPlanName(String planKey, AppLocalizations l10n) {
   switch (planKey) {
+    case 'logistics':
+      return l10n.planLogistics;
     case 'warehouse_only':
       return l10n.planWarehouseOnly;
     case 'ops':
@@ -211,7 +214,7 @@ class _PlanStatusSection extends StatelessWidget {
               Text(
                 '${l10n.paidUntil}: ${paidUntil.day}.${paidUntil.month}.${paidUntil.year}'
                 '  (${daysLeft! > 0 ? l10n.daysRemaining(daysLeft) : l10n.expired})',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 14, color: AppTheme.muted),
               ),
               const SizedBox(height: 4),
             ],
@@ -220,7 +223,7 @@ class _PlanStatusSection extends StatelessWidget {
             if (provider != null && provider.isNotEmpty)
               Text(
                 '${l10n.paymentProvider}: $provider',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 13, color: AppTheme.muted),
               ),
 
             const SizedBox(height: 12),
@@ -513,7 +516,7 @@ class _UsageBar extends StatelessWidget {
         const SizedBox(height: 4),
         LinearProgressIndicator(
           value: ratio,
-          backgroundColor: Colors.grey.shade200,
+          backgroundColor: AppTheme.surfaceHi,
           valueColor: AlwaysStoppedAnimation<Color>(color),
           minHeight: 8,
           borderRadius: BorderRadius.circular(4),

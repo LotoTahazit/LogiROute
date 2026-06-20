@@ -708,42 +708,70 @@ class _AddPointDialogState extends State<AddPointDialog> {
     final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
 
+    InputDecoration fieldDec(
+      String label, {
+      Widget? suffixIcon,
+      String? hintText,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        suffixIcon: suffixIcon,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        border: const OutlineInputBorder(),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+      );
+    }
+
+    const fieldGap = SizedBox(height: 18);
+
     return Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme.apply(
           fontFamily: 'NotoSansHebrew',
           fontFamilyFallback: const [
-            'Noto Sans Hebrew',
             'NotoSansHebrew',
+            'Noto Sans Hebrew',
             'Arial',
           ],
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          border: const OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
         ),
       ),
       child: AlertDialog(
         insetPadding: EdgeInsets.symmetric(
-          horizontal: narrow ? 16 : 40,
+          horizontal: narrow ? 12 : 48,
           vertical: 24,
         ),
         title: Text(l10n.addPoint),
         content: SizedBox(
-          width: narrow ? MediaQuery.sizeOf(context).width * 0.9 : 400,
+          width: narrow
+              ? MediaQuery.sizeOf(context).width * 0.94
+              : 560,
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
               controller: _scrollController,
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   /// 🔹 Номер клиента
                   TextFormField(
                     controller: _numberController,
-                    decoration: InputDecoration(
-                      labelText: l10n.clientNumberLabel,
+                    decoration: fieldDec(
+                      l10n.clientNumberLabel,
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
                         onPressed: () => _searchClients(_numberController.text),
                       ),
-                    ),
+                    ).copyWith(counterText: ''),
                     keyboardType: TextInputType.number,
                     maxLength: 6,
                     validator: (value) {
@@ -760,15 +788,21 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     },
                   ),
 
-                  if (_searchResults.isNotEmpty)
+                  if (_searchResults.isNotEmpty) ...[
+                    fieldGap,
                     Container(
                       constraints: const BoxConstraints(maxHeight: 150),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: ListView.builder(
                         shrinkWrap: true,
                         itemCount: _searchResults.length,
                         itemBuilder: (context, index) {
                           final client = _searchResults[index];
                           return ListTile(
+                            dense: true,
                             title: Text(
                               client.name,
                               overflow: TextOverflow.ellipsis,
@@ -776,7 +810,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
                             subtitle: Text(
                               '${client.clientNumber} • ${client.address}',
                               overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                              maxLines: 2,
                             ),
                             onTap: () {
                               _fillClientData(client);
@@ -786,8 +820,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         },
                       ),
                     ),
+                  ],
 
-                  /// 🔹 Кнопка создания нового клиента
+                  fieldGap,
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: TextButton.icon(
@@ -808,10 +843,10 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     ),
                   ),
 
-                  /// 🔹 Имя клиента
+                  fieldGap,
                   TextFormField(
                     controller: _nameController,
-                    decoration: InputDecoration(labelText: l10n.clientName),
+                    decoration: fieldDec(l10n.clientName),
                     validator: (value) =>
                         value == null || value.isEmpty ? l10n.required : null,
                     onChanged: (val) {
@@ -819,38 +854,56 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     },
                   ),
 
-                  /// 🔹 Адрес
+                  fieldGap,
                   TextFormField(
                     controller: _addressController,
-                    decoration: InputDecoration(labelText: l10n.address),
+                    decoration: fieldDec(l10n.address),
+                    minLines: 1,
+                    maxLines: 2,
                     validator: (value) =>
                         value == null || value.isEmpty ? l10n.required : null,
                   ),
 
-                  /// 🔹 Телефон
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'טלפון / Phone',
+                  fieldGap,
+                  if (narrow)
+                    Column(
+                      children: [
+                        TextFormField(
+                          controller: _phoneController,
+                          decoration: fieldDec('טלפון / Phone'),
+                        ),
+                        fieldGap,
+                        TextFormField(
+                          controller: _contactController,
+                          decoration: fieldDec('איש קשר / Contact'),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _phoneController,
+                            decoration: fieldDec('טלפון / Phone'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _contactController,
+                            decoration: fieldDec('איש קשר / Contact'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
 
-                  /// 🔹 Контактное лицо
-                  TextFormField(
-                    controller: _contactController,
-                    decoration: const InputDecoration(
-                      labelText: 'איש קשר / Contact',
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// 🔹 Приоритет
+                  fieldGap,
                   DropdownButtonFormField<String>(
                     initialValue: _urgency,
-                    decoration: const InputDecoration(
-                      labelText: 'Priority / עדיפות',
-                    ),
+                    decoration: fieldDec('Priority / עדיפות'),
+                    isExpanded: true,
                     items: const [
                       DropdownMenuItem(
                         value: 'normal',
@@ -868,38 +921,11 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     },
                   ),
 
-                  const SizedBox(height: 12),
-
-                  /// 🔹 Паллеты (автоматически рассчитываются, можно изменить)
+                  fieldGap,
                   TextFormField(
                     controller: _palletsController,
-                    style: const TextStyle(
-                      fontFamily: 'NotoSansHebrew',
-                      fontFamilyFallback: [
-                        'Noto Sans Hebrew',
-                        'NotoSansHebrew',
-                        'Arial',
-                      ],
-                    ),
-                    decoration: InputDecoration(
-                      labelText: '${l10n.pallets} (מחושב אוטומטית)',
-                      labelStyle: const TextStyle(
-                        fontFamily: 'NotoSansHebrew',
-                        fontFamilyFallback: [
-                          'Noto Sans Hebrew',
-                          'NotoSansHebrew',
-                          'Arial',
-                        ],
-                      ),
-                      helperText: 'ניתן לערוך',
-                      helperStyle: const TextStyle(
-                        fontFamily: 'NotoSansHebrew',
-                        fontFamilyFallback: [
-                          'Noto Sans Hebrew',
-                          'NotoSansHebrew',
-                          'Arial',
-                        ],
-                      ),
+                    decoration: fieldDec(
+                      '${l10n.pallets} (מחושב — ניתן לערוך)',
                       suffixIcon: const Icon(
                         Icons.calculate_outlined,
                         size: 20,
@@ -909,36 +935,11 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     keyboardType: TextInputType.number,
                   ),
 
-                  /// 🔹 Коробки (автоматически рассчитываются, можно изменить)
+                  fieldGap,
                   TextFormField(
                     controller: _boxesController,
-                    style: const TextStyle(
-                      fontFamily: 'NotoSansHebrew',
-                      fontFamilyFallback: [
-                        'Noto Sans Hebrew',
-                        'NotoSansHebrew',
-                        'Arial',
-                      ],
-                    ),
-                    decoration: InputDecoration(
-                      labelText: '${l10n.boxes} (מחושב אוטומטית)',
-                      labelStyle: const TextStyle(
-                        fontFamily: 'NotoSansHebrew',
-                        fontFamilyFallback: [
-                          'Noto Sans Hebrew',
-                          'NotoSansHebrew',
-                          'Arial',
-                        ],
-                      ),
-                      helperText: 'ניתן לערוך',
-                      helperStyle: const TextStyle(
-                        fontFamily: 'NotoSansHebrew',
-                        fontFamilyFallback: [
-                          'Noto Sans Hebrew',
-                          'NotoSansHebrew',
-                          'Arial',
-                        ],
-                      ),
+                    decoration: fieldDec(
+                      '${l10n.boxes} (מחושב — ניתן לערוך)',
                       suffixIcon: const Icon(
                         Icons.calculate_outlined,
                         size: 20,
@@ -948,38 +949,27 @@ class _AddPointDialogState extends State<AddPointDialog> {
                     keyboardType: TextInputType.number,
                   ),
 
-                  const SizedBox(height: 16),
-
-                  /// 🔹 Задание (без товара: забрать чек, возврат, и т.д.)
+                  fieldGap,
                   TextFormField(
                     controller: _taskNoteController,
-                    style: const TextStyle(
-                      fontFamily: 'NotoSansHebrew',
-                      fontFamilyFallback: ['Noto Sans Hebrew', 'Arial'],
-                    ),
-                    decoration: InputDecoration(
-                      labelText: l10n.taskNoteLabel,
+                    decoration: fieldDec(
+                      l10n.taskNoteLabel,
                       hintText: l10n.taskNoteHint,
-                      labelStyle: const TextStyle(
-                        fontFamily: 'NotoSansHebrew',
-                        fontFamilyFallback: ['Noto Sans Hebrew', 'Arial'],
-                      ),
                       suffixIcon: const Icon(Icons.assignment, size: 20),
                     ),
-                    maxLines: 2,
+                    minLines: 2,
+                    maxLines: 4,
                   ),
 
-                  const SizedBox(height: 16),
-
-                  /// 🔹 Типы коробок
+                  fieldGap,
                   BoxTypeSelector(
                     selectedBoxTypes: _selectedBoxTypes,
                     onChanged: (boxTypes) {
                       setState(() {
                         _selectedBoxTypes = boxTypes;
                       });
-                      _updateCalculatedFields(); // Автоматический пересчет
-                      _scrollToBottom(); // Прокрутка вниз после добавления товара
+                      _updateCalculatedFields();
+                      _scrollToBottom();
                     },
                   ),
                 ],

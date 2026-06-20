@@ -1,0 +1,10 @@
+{
+  "promoMonths": 3,
+  "currency": "ILS",
+  "plans": {
+    "logistics": { "promo": 590, "regular": 790, "setup": 0 },
+    "warehouse_only": { "promo": 390, "regular": 490, "setup": 0 },
+    "ops": { "promo": 890, "regular": 1190, "setup": 0 },
+    "full": { "promo": 1120, "regular": 1490, "setup": 0 }
+  }
+}

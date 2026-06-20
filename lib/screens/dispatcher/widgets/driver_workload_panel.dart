@@ -3,6 +3,7 @@ import '../../../models/delivery_point.dart';
 import '../../../models/user_model.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/eta_calculator.dart';
+import '../../../theme/app_theme.dart';
 
 /// Панель загрузки водителей — показывает capacity %, палеты, ETA, статус
 /// Используется в диспетчерской для быстрого обзора всех водителей
@@ -41,7 +42,7 @@ class DriverWorkloadPanel extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Text(
           l10n.noActivePoints,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          style: TextStyle(color: AppTheme.muted, fontSize: 14),
         ),
       );
     }
@@ -115,7 +116,7 @@ class _DriverCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color:
@@ -141,10 +142,10 @@ class _DriverCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   driver.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    color: AppTheme.text,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -158,7 +159,7 @@ class _DriverCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: ratio.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: AppTheme.surfaceHi,
               valueColor: AlwaysStoppedAnimation<Color>(loadColor),
               minHeight: 6,
             ),
@@ -178,7 +179,7 @@ class _DriverCard extends StatelessWidget {
               ),
               Text(
                 '$completedCount/$totalCount ✓',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: AppTheme.muted),
               ),
             ],
           ),
@@ -188,7 +189,7 @@ class _DriverCard extends StatelessWidget {
               'ETA: $returnEta',
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.grey.shade700,
+                color: AppTheme.muted,
                 fontWeight: FontWeight.w700,
               ),
             ),

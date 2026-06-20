@@ -863,7 +863,7 @@ class _AuditEventTile extends StatelessWidget {
   void _openDocument(BuildContext context) {
     if (event.entity.docId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('אין מזהה מסמך')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDocumentId)),
       );
       return;
     }

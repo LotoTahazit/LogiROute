@@ -532,6 +532,66 @@ abstract class AppLocalizations {
   /// **'Invalid email or password'**
   String get invalidLoginCredentials;
 
+  /// No description provided for @authUserNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No user found with this email'**
+  String get authUserNotFound;
+
+  /// No description provided for @authUserDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Account disabled. Contact your administrator'**
+  String get authUserDisabled;
+
+  /// No description provided for @authNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach server. Check your internet connection'**
+  String get authNetworkError;
+
+  /// No description provided for @authOperationNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Email sign-in is disabled in project settings'**
+  String get authOperationNotAllowed;
+
+  /// No description provided for @authInvalidApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'App configuration error (API key). Contact administrator'**
+  String get authInvalidApiKey;
+
+  /// No description provided for @authAppNotAuthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Android app not authorized in Firebase. Add release SHA-1 in Firebase Console → Project settings → Android app'**
+  String get authAppNotAuthorized;
+
+  /// No description provided for @authInternalError.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication server error. Try again later'**
+  String get authInternalError;
+
+  /// No description provided for @authProfileNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile not found or not configured. Contact administrator'**
+  String get authProfileNotFound;
+
+  /// No description provided for @authUnknownError.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in failed. Check your credentials or try again later'**
+  String get authUnknownError;
+
+  /// No description provided for @authPasswordResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send password reset email. Check the email or contact administrator'**
+  String get authPasswordResetFailed;
+
   /// No description provided for @tooManyRequests.
   ///
   /// In en, this message translates to:
@@ -628,6 +688,24 @@ abstract class AppLocalizations {
   /// **'English'**
   String get english;
 
+  /// No description provided for @themeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light theme'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark theme'**
+  String get themeDark;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get themeSystem;
+
   /// No description provided for @capacity.
   ///
   /// In en, this message translates to:
@@ -652,6 +730,66 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get save;
 
+  /// No description provided for @deliveryWindowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery window'**
+  String get deliveryWindowTitle;
+
+  /// No description provided for @deliveryWindowFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get deliveryWindowFrom;
+
+  /// No description provided for @deliveryWindowTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Until'**
+  String get deliveryWindowTo;
+
+  /// No description provided for @deliveryWindowNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get deliveryWindowNotSet;
+
+  /// No description provided for @deliveryWindowClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear window'**
+  String get deliveryWindowClear;
+
+  /// No description provided for @routeLateBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Late by {minutes} min'**
+  String routeLateBy(int minutes);
+
+  /// No description provided for @routeOnTime.
+  ///
+  /// In en, this message translates to:
+  /// **'On time'**
+  String get routeOnTime;
+
+  /// No description provided for @requirePodPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Require delivery photo (POD)'**
+  String get requirePodPhoto;
+
+  /// No description provided for @requirePodPhotoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hides one-tap close and disables auto-close — every delivery needs a photo.'**
+  String get requirePodPhotoHint;
+
+  /// No description provided for @deliverySection.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery'**
+  String get deliverySection;
+
   /// No description provided for @pointDone.
   ///
   /// In en, this message translates to:
@@ -669,6 +807,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Point completed'**
   String get pointCompleted;
+
+  /// No description provided for @autoCloseToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get autoCloseToggle;
+
+  /// No description provided for @closeWithPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Close with photo'**
+  String get closeWithPhoto;
+
+  /// No description provided for @autoCloseUndoMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Point closed automatically'**
+  String get autoCloseUndoMessage;
+
+  /// No description provided for @undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undo;
+
+  /// No description provided for @podTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Proof of delivery'**
+  String get podTitle;
+
+  /// No description provided for @podTakePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo'**
+  String get podTakePhoto;
+
+  /// No description provided for @podRetake.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get podRetake;
+
+  /// No description provided for @podConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm delivery'**
+  String get podConfirm;
+
+  /// No description provided for @podGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPS'**
+  String get podGps;
+
+  /// No description provided for @podTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get podTime;
+
+  /// No description provided for @podDistance.
+  ///
+  /// In en, this message translates to:
+  /// **'To client'**
+  String get podDistance;
+
+  /// No description provided for @podPhotoRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery photo required'**
+  String get podPhotoRequired;
+
+  /// No description provided for @podGpsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS unavailable — enable location'**
+  String get podGpsUnavailable;
 
   /// No description provided for @next.
   ///
@@ -997,8 +1213,8 @@ abstract class AppLocalizations {
   /// No description provided for @printError.
   ///
   /// In en, this message translates to:
-  /// **'Printing error'**
-  String get printError;
+  /// **'❌ Print error: {error}'**
+  String printError(String error);
 
   /// No description provided for @no.
   ///
@@ -1267,8 +1483,68 @@ abstract class AppLocalizations {
   /// No description provided for @passwordResetEmailSent.
   ///
   /// In en, this message translates to:
-  /// **'Password reset email sent'**
+  /// **'If this email is registered, check your inbox and spam for a reset link'**
   String get passwordResetEmailSent;
+
+  /// No description provided for @resetPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get resetPasswordTitle;
+
+  /// No description provided for @resetPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a new password for your account'**
+  String get resetPasswordHint;
+
+  /// No description provided for @newPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPasswordLabel;
+
+  /// No description provided for @confirmPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get confirmPasswordLabel;
+
+  /// No description provided for @saveNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Save password'**
+  String get saveNewPassword;
+
+  /// No description provided for @passwordResetSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated. Sign in with your new password'**
+  String get passwordResetSuccess;
+
+  /// No description provided for @passwordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordsDoNotMatch;
+
+  /// No description provided for @invalidResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset link is invalid. Request a new one on the login screen'**
+  String get invalidResetLink;
+
+  /// No description provided for @emailTypoGmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Did you mean @gmail.com? @google.com is not a valid email provider'**
+  String get emailTypoGmail;
+
+  /// No description provided for @emailTypoCon.
+  ///
+  /// In en, this message translates to:
+  /// **'Typo in domain: .con instead of .com?'**
+  String get emailTypoCon;
 
   /// No description provided for @companyId.
   ///
@@ -2575,13 +2851,13 @@ abstract class AppLocalizations {
   /// No description provided for @companyNameHebrew.
   ///
   /// In en, this message translates to:
-  /// **'Company Name (Hebrew)'**
+  /// **'Name (Hebrew)'**
   String get companyNameHebrew;
 
   /// No description provided for @companyNameEnglish.
   ///
   /// In en, this message translates to:
-  /// **'Company Name (English)'**
+  /// **'Name (English, optional)'**
   String get companyNameEnglish;
 
   /// No description provided for @taxId.
@@ -4061,6 +4337,312 @@ abstract class AppLocalizations {
   /// **'Showing previous route'**
   String get mapBannerPreviousRouteShown;
 
+  /// No description provided for @mapDemoRoutesBuilt.
+  ///
+  /// In en, this message translates to:
+  /// **'3 optimal routes built'**
+  String get mapDemoRoutesBuilt;
+
+  /// No description provided for @mapDemoWarehouseCreatedDeliveries.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse created 12 deliveries'**
+  String get mapDemoWarehouseCreatedDeliveries;
+
+  /// No description provided for @mapDemoTruckLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck loading: 12 deliveries loaded from warehouse'**
+  String get mapDemoTruckLoading;
+
+  /// No description provided for @mapDemoTasksSentToDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks sent to drivers'**
+  String get mapDemoTasksSentToDrivers;
+
+  /// No description provided for @mapDemoActiveDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Active driver'**
+  String get mapDemoActiveDriver;
+
+  /// No description provided for @mapDemoDirectionToWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'To warehouse'**
+  String get mapDemoDirectionToWarehouse;
+
+  /// No description provided for @mapDemoDirectionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get mapDemoDirectionUnknown;
+
+  /// No description provided for @mapDemoDirectionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Direction: {direction}'**
+  String mapDemoDirectionLabel(String direction);
+
+  /// No description provided for @mapDemoEtaMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'ETA: ~{minutes} min'**
+  String mapDemoEtaMinutes(int minutes);
+
+  /// No description provided for @mapDemoStage1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Order received'**
+  String get mapDemoStage1Title;
+
+  /// No description provided for @mapDemoStage1Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Client submits a delivery request to the dispatcher.'**
+  String get mapDemoStage1Desc;
+
+  /// No description provided for @mapDemoStage2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to warehouse'**
+  String get mapDemoStage2Title;
+
+  /// No description provided for @mapDemoStage2Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher forwards the order for fulfillment.'**
+  String get mapDemoStage2Desc;
+
+  /// No description provided for @mapDemoStage3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse preparation'**
+  String get mapDemoStage3Title;
+
+  /// No description provided for @mapDemoStage3Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff pick goods and build pallets for shipment.'**
+  String get mapDemoStage3Desc;
+
+  /// No description provided for @mapDemoStage4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Route created'**
+  String get mapDemoStage4Title;
+
+  /// No description provided for @mapDemoStage4Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher plans an optimized route with all stops.'**
+  String get mapDemoStage4Desc;
+
+  /// No description provided for @mapDemoStage5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck loading'**
+  String get mapDemoStage5Title;
+
+  /// No description provided for @mapDemoStage5Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Pallets are loaded onto the driver truck.'**
+  String get mapDemoStage5Desc;
+
+  /// No description provided for @mapDemoStage6Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver on the road'**
+  String get mapDemoStage6Title;
+
+  /// No description provided for @mapDemoStage6Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver follows the route — streets visible on the map.'**
+  String get mapDemoStage6Desc;
+
+  /// No description provided for @mapDemoStage7Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery and unload'**
+  String get mapDemoStage7Title;
+
+  /// No description provided for @mapDemoStage7Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'At each stop goods are unloaded; the stop is marked done.'**
+  String get mapDemoStage7Desc;
+
+  /// No description provided for @mapDemoStage8Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Return to warehouse'**
+  String get mapDemoStage8Title;
+
+  /// No description provided for @mapDemoStage8Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver completes the route and returns to base.'**
+  String get mapDemoStage8Desc;
+
+  /// No description provided for @mapDemoStageCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Simulation complete'**
+  String get mapDemoStageCompleteTitle;
+
+  /// No description provided for @mapDemoStageCompleteDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Full delivery cycle finished successfully.'**
+  String get mapDemoStageCompleteDesc;
+
+  /// No description provided for @mapDemoStopLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop {number}'**
+  String mapDemoStopLabel(int number);
+
+  /// No description provided for @mapDemoDeliveringAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Unloading at {stop}'**
+  String mapDemoDeliveringAt(String stop);
+
+  /// No description provided for @mapDemoReplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay simulation'**
+  String get mapDemoReplay;
+
+  /// No description provided for @mapDemoLiveBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'LIVE'**
+  String get mapDemoLiveBadge;
+
+  /// No description provided for @mapDemoKpiMileage.
+  ///
+  /// In en, this message translates to:
+  /// **'mileage'**
+  String get mapDemoKpiMileage;
+
+  /// No description provided for @mapDemoKpiEtaAccuracy.
+  ///
+  /// In en, this message translates to:
+  /// **'ETA accuracy'**
+  String get mapDemoKpiEtaAccuracy;
+
+  /// No description provided for @mapDemoKpiCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'calls'**
+  String get mapDemoKpiCalls;
+
+  /// No description provided for @mapDemoKpiDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'delivered'**
+  String get mapDemoKpiDelivered;
+
+  /// No description provided for @mapDemoKpiEnroute.
+  ///
+  /// In en, this message translates to:
+  /// **'en route'**
+  String get mapDemoKpiEnroute;
+
+  /// No description provided for @mapDemoKpiDistance.
+  ///
+  /// In en, this message translates to:
+  /// **'route'**
+  String get mapDemoKpiDistance;
+
+  /// No description provided for @mapDemoKpiLate.
+  ///
+  /// In en, this message translates to:
+  /// **'late'**
+  String get mapDemoKpiLate;
+
+  /// No description provided for @mapDemoEtaAccuracyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'±3 min'**
+  String get mapDemoEtaAccuracyValue;
+
+  /// No description provided for @mapDemoFinishSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The dispatcher saw everything in real time'**
+  String get mapDemoFinishSubtitle;
+
+  /// No description provided for @mapDemoFinishNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a single \"where are you?\" call to the driver the whole route'**
+  String get mapDemoFinishNote;
+
+  /// No description provided for @mapDemoMinutesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min'**
+  String mapDemoMinutesShort(int minutes);
+
+  /// No description provided for @mapDemoKmShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{km} km'**
+  String mapDemoKmShort(String km);
+
+  /// No description provided for @mapDemoStepShort1.
+  ///
+  /// In en, this message translates to:
+  /// **'Order'**
+  String get mapDemoStepShort1;
+
+  /// No description provided for @mapDemoStepShort2.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get mapDemoStepShort2;
+
+  /// No description provided for @mapDemoStepShort3.
+  ///
+  /// In en, this message translates to:
+  /// **'Prep'**
+  String get mapDemoStepShort3;
+
+  /// No description provided for @mapDemoStepShort4.
+  ///
+  /// In en, this message translates to:
+  /// **'Route'**
+  String get mapDemoStepShort4;
+
+  /// No description provided for @mapDemoStepShort5.
+  ///
+  /// In en, this message translates to:
+  /// **'Load'**
+  String get mapDemoStepShort5;
+
+  /// No description provided for @mapDemoStepShort6.
+  ///
+  /// In en, this message translates to:
+  /// **'Drive'**
+  String get mapDemoStepShort6;
+
+  /// No description provided for @mapDemoStepShort7.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliver'**
+  String get mapDemoStepShort7;
+
+  /// No description provided for @mapDemoStepShort8.
+  ///
+  /// In en, this message translates to:
+  /// **'Return'**
+  String get mapDemoStepShort8;
+
   /// No description provided for @billingGuardAccessSuspendedTitle.
   ///
   /// In en, this message translates to:
@@ -4295,6 +4877,42 @@ abstract class AppLocalizations {
   /// **'Run integrity check'**
   String get billingDashboardRunIntegrityTooltip;
 
+  /// No description provided for @billingDashboardSeedPricingTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload billing pricing to Firestore'**
+  String get billingDashboardSeedPricingTooltip;
+
+  /// No description provided for @billingDashboardSeedPricingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update config/billing_pricing?'**
+  String get billingDashboardSeedPricingTitle;
+
+  /// No description provided for @billingDashboardSeedPricingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Writes the current tariff grid (logistics, warehouse, ops, full) to Firestore config/billing_pricing. Checkout will use these prices immediately.'**
+  String get billingDashboardSeedPricingBody;
+
+  /// No description provided for @billingDashboardSeedPricingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload'**
+  String get billingDashboardSeedPricingButton;
+
+  /// No description provided for @billingDashboardSeedPricingRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading pricing…'**
+  String get billingDashboardSeedPricingRunning;
+
+  /// No description provided for @billingDashboardSeedPricingDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Pricing updated: {plans}'**
+  String billingDashboardSeedPricingDone(String plans);
+
   /// No description provided for @billingDashboardExtendSuccess.
   ///
   /// In en, this message translates to:
@@ -4385,46 +5003,16 @@ abstract class AppLocalizations {
   /// **'Warehouse location saved: {coords}'**
   String dispatcherWarehouseSaved(String coords);
 
-  /// No description provided for @dispatcherTourStep1.
-  ///
-  /// In en, this message translates to:
-  /// **'Delivery points: add a client and products for the order — the order is built here before the route.'**
-  String get dispatcherTourStep1;
-
-  /// No description provided for @dispatcherTourStep2.
-  ///
-  /// In en, this message translates to:
-  /// **'At each point: products and quantities; you can edit before building the route.'**
-  String get dispatcherTourStep2;
-
-  /// No description provided for @dispatcherTourStep3.
-  ///
-  /// In en, this message translates to:
-  /// **'When products are ready — go to the «Active routes» tab and assign a driver.'**
-  String get dispatcherTourStep3;
-
-  /// No description provided for @dispatcherTourStep4.
-  ///
-  /// In en, this message translates to:
-  /// **'Active routes: driver assignment, stop order, and route on the map.'**
-  String get dispatcherTourStep4;
-
-  /// No description provided for @dispatcherTourStep5.
-  ///
-  /// In en, this message translates to:
-  /// **'After the route is built — tasks reach the driver in the app; switch to the map.'**
-  String get dispatcherTourStep5;
-
   /// No description provided for @dispatcherTourStopTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Stop demo tour'**
+  /// **'Close presentation'**
   String get dispatcherTourStopTooltip;
 
   /// No description provided for @dispatcherTourStartTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Demo tour: product → route → driver'**
+  /// **'LogiRoute product presentation'**
   String get dispatcherTourStartTooltip;
 
   /// No description provided for @dispatcherTourProgress.
@@ -4432,6 +5020,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{current}/{total}'**
   String dispatcherTourProgress(int current, int total);
+
+  /// No description provided for @salesDemoSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get salesDemoSkip;
+
+  /// No description provided for @salesDemoNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get salesDemoNext;
+
+  /// No description provided for @salesDemoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get salesDemoBack;
+
+  /// No description provided for @salesDemoGetStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get salesDemoGetStarted;
+
+  /// No description provided for @salesDemoSeeLiveDemo.
+  ///
+  /// In en, this message translates to:
+  /// **'See live demo'**
+  String get salesDemoSeeLiveDemo;
+
+  /// No description provided for @salesDemoBrandTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end logistics platform'**
+  String get salesDemoBrandTagline;
+
+  /// No description provided for @salesDemoSlide1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics shouldn\'t feel chaotic'**
+  String get salesDemoSlide1Title;
+
+  /// No description provided for @salesDemoSlide1Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual routes, missed deliveries, and disconnected teams cost you time and money every day.'**
+  String get salesDemoSlide1Subtitle;
+
+  /// No description provided for @salesDemoSlide1Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours lost to spreadsheets and phone calls'**
+  String get salesDemoSlide1Benefit1;
+
+  /// No description provided for @salesDemoSlide1Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'No real-time visibility into your fleet'**
+  String get salesDemoSlide1Benefit2;
+
+  /// No description provided for @salesDemoSlide1Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoices and deliveries out of sync'**
+  String get salesDemoSlide1Benefit3;
+
+  /// No description provided for @salesDemoSlide2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Meet LogiRoute'**
+  String get salesDemoSlide2Title;
+
+  /// No description provided for @salesDemoSlide2Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One platform for warehouse, dispatch, drivers, and billing — built to scale.'**
+  String get salesDemoSlide2Subtitle;
+
+  /// No description provided for @salesDemoSlide2Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'From order to invoice in one seamless flow'**
+  String get salesDemoSlide2Benefit1;
+
+  /// No description provided for @salesDemoSlide2Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'Web and mobile — your team, always connected'**
+  String get salesDemoSlide2Benefit2;
+
+  /// No description provided for @salesDemoSlide2Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Designed for real dispatch operations'**
+  String get salesDemoSlide2Benefit3;
+
+  /// No description provided for @salesDemoPersonaAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get salesDemoPersonaAdmin;
+
+  /// No description provided for @salesDemoPersonaDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher'**
+  String get salesDemoPersonaDispatcher;
+
+  /// No description provided for @salesDemoPersonaDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver'**
+  String get salesDemoPersonaDriver;
+
+  /// No description provided for @salesDemoPersonaAdminDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Full control: companies, users, billing, and analytics in one dashboard.'**
+  String get salesDemoPersonaAdminDesc;
+
+  /// No description provided for @salesDemoPersonaDispatcherDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Build routes, assign drivers, and track every delivery live on the map.'**
+  String get salesDemoPersonaDispatcherDesc;
+
+  /// No description provided for @salesDemoPersonaDriverDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear tasks, turn-by-turn stops, and instant status updates from the road.'**
+  String get salesDemoPersonaDriverDesc;
+
+  /// No description provided for @salesDemoSlide3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart routing & dispatch'**
+  String get salesDemoSlide3Title;
+
+  /// No description provided for @salesDemoSlide3Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan optimal routes in minutes — not hours.'**
+  String get salesDemoSlide3Subtitle;
+
+  /// No description provided for @salesDemoSlide3Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic route optimization'**
+  String get salesDemoSlide3Benefit1;
+
+  /// No description provided for @salesDemoSlide3Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag-and-drop driver assignment'**
+  String get salesDemoSlide3Benefit2;
+
+  /// No description provided for @salesDemoSlide3Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Live map with all active deliveries'**
+  String get salesDemoSlide3Benefit3;
+
+  /// No description provided for @salesDemoSlide4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver app & live tracking'**
+  String get salesDemoSlide4Title;
+
+  /// No description provided for @salesDemoSlide4Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Every driver knows where to go — you see progress in real time.'**
+  String get salesDemoSlide4Subtitle;
+
+  /// No description provided for @salesDemoSlide4Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks pushed instantly to driver phones'**
+  String get salesDemoSlide4Benefit1;
+
+  /// No description provided for @salesDemoSlide4Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking on an interactive map'**
+  String get salesDemoSlide4Benefit2;
+
+  /// No description provided for @salesDemoSlide4Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Fewer calls, faster deliveries'**
+  String get salesDemoSlide4Benefit3;
+
+  /// No description provided for @salesDemoSlide5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse to invoice'**
+  String get salesDemoSlide5Title;
+
+  /// No description provided for @salesDemoSlide5Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The complete order lifecycle — nothing falls through the cracks.'**
+  String get salesDemoSlide5Subtitle;
+
+  /// No description provided for @salesDemoSlide5Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse picking and loading workflows'**
+  String get salesDemoSlide5Benefit1;
+
+  /// No description provided for @salesDemoSlide5Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoicing aligned with every delivery'**
+  String get salesDemoSlide5Benefit2;
+
+  /// No description provided for @salesDemoSlide5Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Full audit trail for every order'**
+  String get salesDemoSlide5Benefit3;
+
+  /// No description provided for @salesDemoLifecycleOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Order'**
+  String get salesDemoLifecycleOrder;
+
+  /// No description provided for @salesDemoLifecycleDispatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatch'**
+  String get salesDemoLifecycleDispatch;
+
+  /// No description provided for @salesDemoLifecycleDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery'**
+  String get salesDemoLifecycleDelivery;
+
+  /// No description provided for @salesDemoLifecycleInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice'**
+  String get salesDemoLifecycleInvoice;
+
+  /// No description provided for @salesDemoSlide6Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Enterprise-ready logistics'**
+  String get salesDemoSlide6Title;
+
+  /// No description provided for @salesDemoSlide6Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Professional, secure, and ready for growing delivery operations.'**
+  String get salesDemoSlide6Subtitle;
+
+  /// No description provided for @salesDemoSlide6Benefit1.
+  ///
+  /// In en, this message translates to:
+  /// **'Role-based access for every team member'**
+  String get salesDemoSlide6Benefit1;
+
+  /// No description provided for @salesDemoSlide6Benefit2.
+  ///
+  /// In en, this message translates to:
+  /// **'English, Russian, and Hebrew built in'**
+  String get salesDemoSlide6Benefit2;
+
+  /// No description provided for @salesDemoSlide6Benefit3.
+  ///
+  /// In en, this message translates to:
+  /// **'Trusted by dispatch teams every day'**
+  String get salesDemoSlide6Benefit3;
 
   /// No description provided for @dispatcherSkippedInvoicesMakor.
   ///
@@ -5050,6 +5914,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reason: {reason}'**
   String reasonLabel(String reason);
+
+  /// No description provided for @integrityCheckExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Verifies the document numbering crypto chain. Documents issued before the chain was enabled are skipped automatically — this is not an error.'**
+  String get integrityCheckExplain;
+
+  /// No description provided for @integrityLegacyOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'No chain entries: all documents of this type were issued before integrity checking. New documents will be verified normally.'**
+  String get integrityLegacyOnly;
+
+  /// No description provided for @integrityLegacySkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped legacy numbers #{from}–#{to} (before the first chain entry)'**
+  String integrityLegacySkipped(int from, int to);
+
+  /// No description provided for @integrityCheckedFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Actually checked: #{from} through #{to}'**
+  String integrityCheckedFrom(int from, int to);
+
+  /// No description provided for @integrityReasonMissingEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Chain entry missing'**
+  String get integrityReasonMissingEntry;
+
+  /// No description provided for @integrityReasonMissingPrevForRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous document before range is missing'**
+  String get integrityReasonMissingPrevForRange;
+
+  /// No description provided for @integrityReasonSchemaInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Corrupted chain entry'**
+  String get integrityReasonSchemaInvalid;
+
+  /// No description provided for @integrityReasonPrevHashMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Hash chain broken (prev mismatch)'**
+  String get integrityReasonPrevHashMismatch;
+
+  /// No description provided for @integrityReasonHashMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Hash mismatch'**
+  String get integrityReasonHashMismatch;
+
+  /// No description provided for @integrityOkSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Integrity OK — checked: {count}'**
+  String integrityOkSummary(int count);
+
+  /// No description provided for @integrityFailedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Error at document #{number}'**
+  String integrityFailedSummary(int number);
+
+  /// No description provided for @createCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Create company'**
+  String get createCompany;
+
+  /// No description provided for @createCompanyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New company'**
+  String get createCompanyTitle;
+
+  /// No description provided for @createCompanyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Creates the company, default settings and document counters. 14-day trial.'**
+  String get createCompanyDesc;
+
+  /// No description provided for @companyIdSlug.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID (Latin slug)'**
+  String get companyIdSlug;
+
+  /// No description provided for @companyIdSlugHint.
+  ///
+  /// In en, this message translates to:
+  /// **'acme-logistics'**
+  String get companyIdSlugHint;
+
+  /// No description provided for @companyCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Company \"{name}\" created'**
+  String companyCreatedSuccess(String name);
+
+  /// No description provided for @companyAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'A company with this ID already exists'**
+  String get companyAlreadyExists;
+
+  /// No description provided for @invalidCompanyId.
+  ///
+  /// In en, this message translates to:
+  /// **'ID: Latin letters, digits, hyphen, 3–40 chars'**
+  String get invalidCompanyId;
 
   /// No description provided for @counterInvoices.
   ///
@@ -6815,6 +7793,12 @@ abstract class AppLocalizations {
   /// **'Warehouse Only'**
   String get planWarehouseOnly;
 
+  /// No description provided for @planLogistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics'**
+  String get planLogistics;
+
   /// No description provided for @planOps.
   ///
   /// In en, this message translates to:
@@ -6839,6 +7823,12 @@ abstract class AppLocalizations {
   /// **'Inventory management only'**
   String get planDescWarehouse;
 
+  /// No description provided for @planDescLogistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics + dispatcher + reports (no warehouse)'**
+  String get planDescLogistics;
+
   /// No description provided for @planDescOps.
   ///
   /// In en, this message translates to:
@@ -6856,6 +7846,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Custom plan'**
   String get planDescCustom;
+
+  /// No description provided for @accountingProviderSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting export'**
+  String get accountingProviderSection;
+
+  /// No description provided for @accountingProviderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get accountingProviderLabel;
+
+  /// No description provided for @accountingProviderNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in (LogiRoute)'**
+  String get accountingProviderNone;
+
+  /// No description provided for @accountingProviderExport.
+  ///
+  /// In en, this message translates to:
+  /// **'File export (uniform CSV)'**
+  String get accountingProviderExport;
+
+  /// No description provided for @accountingProviderGreeninvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Greeninvoice / Morning'**
+  String get accountingProviderGreeninvoice;
+
+  /// No description provided for @accountingProviderIcount.
+  ///
+  /// In en, this message translates to:
+  /// **'iCount'**
+  String get accountingProviderIcount;
+
+  /// No description provided for @accountingProviderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'External provider handles tax compliance and document numbering.'**
+  String get accountingProviderHint;
+
+  /// No description provided for @accountingProviderConfigure.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure API credentials'**
+  String get accountingProviderConfigure;
+
+  /// No description provided for @accountingProviderConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Credentials saved'**
+  String get accountingProviderConfigured;
+
+  /// No description provided for @accountingProviderSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting integration settings saved'**
+  String get accountingProviderSaved;
+
+  /// No description provided for @accountingProviderApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get accountingProviderApiKey;
+
+  /// No description provided for @accountingProviderSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret key'**
+  String get accountingProviderSecret;
+
+  /// No description provided for @accountingProviderToken.
+  ///
+  /// In en, this message translates to:
+  /// **'API token'**
+  String get accountingProviderToken;
+
+  /// No description provided for @accountingProviderSandbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Sandbox mode'**
+  String get accountingProviderSandbox;
+
+  /// No description provided for @accountingProviderSandboxHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Greeninvoice test API (sandbox.d.greeninvoice.co.il)'**
+  String get accountingProviderSandboxHint;
+
+  /// No description provided for @accountingSyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'External accounting sync'**
+  String get accountingSyncTitle;
+
+  /// No description provided for @accountingSyncStatusSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get accountingSyncStatusSynced;
+
+  /// No description provided for @accountingSyncStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get accountingSyncStatusFailed;
+
+  /// No description provided for @accountingSyncStatusProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing'**
+  String get accountingSyncStatusProcessing;
+
+  /// No description provided for @accountingSyncRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry sync'**
+  String get accountingSyncRetry;
+
+  /// No description provided for @accountingSyncNoEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'No sync records yet — issued invoices appear here.'**
+  String get accountingSyncNoEntries;
+
+  /// No description provided for @accountingSyncRetried.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync retry started'**
+  String get accountingSyncRetried;
+
+  /// No description provided for @accountingSyncDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Allocation #: {number}'**
+  String accountingSyncDistribution(String number);
+
+  /// No description provided for @accountingSyncStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get accountingSyncStatusPending;
+
+  /// No description provided for @accountingDocSyncColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync'**
+  String get accountingDocSyncColumn;
+
+  /// No description provided for @accountingExternalSyncFailedWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Document issued, sync failed: {error}'**
+  String accountingExternalSyncFailedWith(String error);
 
   /// No description provided for @promoMonthlyPrice.
   ///
@@ -7325,6 +8471,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Map Columns — Clients'**
   String get mapColumnsClients;
+
+  /// No description provided for @mapColumnsDeliveryPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Map Columns — Delivery Points'**
+  String get mapColumnsDeliveryPoints;
+
+  /// No description provided for @importDeliveryPointsMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Import delivery points'**
+  String get importDeliveryPointsMenu;
+
+  /// No description provided for @importDeliveryPointsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Delivery Points'**
+  String get importDeliveryPointsTitle;
+
+  /// No description provided for @loadDemoDataMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo data for video'**
+  String get loadDemoDataMenu;
+
+  /// No description provided for @loadDemoDataConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Load demo delivery scenario for a 2-minute product video?'**
+  String get loadDemoDataConfirm;
+
+  /// No description provided for @loadDemoDataReplaceWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing demo points will be replaced.'**
+  String get loadDemoDataReplaceWarning;
+
+  /// No description provided for @loadDemoDataSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo data loaded ({count} points)'**
+  String loadDemoDataSuccess(int count);
 
   /// No description provided for @importResultUpdated.
   ///
@@ -8179,6 +9367,36 @@ abstract class AppLocalizations {
   /// **'Truck:'**
   String get truckLabelColon;
 
+  /// No description provided for @clientKvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get clientKvLabel;
+
+  /// No description provided for @addressKvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get addressKvLabel;
+
+  /// No description provided for @driverKvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver'**
+  String get driverKvLabel;
+
+  /// No description provided for @truckKvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck'**
+  String get truckKvLabel;
+
+  /// No description provided for @deliveryDateKvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery date'**
+  String get deliveryDateKvLabel;
+
   /// No description provided for @notSpecified.
   ///
   /// In en, this message translates to:
@@ -8365,6 +9583,48 @@ abstract class AppLocalizations {
   /// **'Saved'**
   String get shiftSaved;
 
+  /// No description provided for @shiftRoutingSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Routing parameters'**
+  String get shiftRoutingSection;
+
+  /// No description provided for @routingAvgSpeedKmh.
+  ///
+  /// In en, this message translates to:
+  /// **'Average speed (km/h)'**
+  String get routingAvgSpeedKmh;
+
+  /// No description provided for @routingServiceMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Service time per stop (min)'**
+  String get routingServiceMinutes;
+
+  /// No description provided for @routingDeliveryDayMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Default delivery date in invoices'**
+  String get routingDeliveryDayMode;
+
+  /// No description provided for @deliveryDaySame.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get deliveryDaySame;
+
+  /// No description provided for @deliveryDayNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get deliveryDayNext;
+
+  /// No description provided for @deliveryDayNextWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Next working day'**
+  String get deliveryDayNextWorking;
+
   /// No description provided for @shiftLoadError.
   ///
   /// In en, this message translates to:
@@ -8424,6 +9684,1332 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Collect check, return, etc.'**
   String get taskNoteHint;
+
+  /// No description provided for @adminActivityLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity log'**
+  String get adminActivityLog;
+
+  /// No description provided for @period24h.
+  ///
+  /// In en, this message translates to:
+  /// **'24 hours'**
+  String get period24h;
+
+  /// No description provided for @period48h.
+  ///
+  /// In en, this message translates to:
+  /// **'48 hours'**
+  String get period48h;
+
+  /// No description provided for @periodWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get periodWeek;
+
+  /// No description provided for @searchActivityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search user or action...'**
+  String get searchActivityHint;
+
+  /// No description provided for @noActivityEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'No events for selected period'**
+  String get noActivityEvents;
+
+  /// No description provided for @auditSourceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Business audit'**
+  String get auditSourceLabel;
+
+  /// No description provided for @accessSourceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Access log'**
+  String get accessSourceLabel;
+
+  /// No description provided for @accessEventLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Login'**
+  String get accessEventLogin;
+
+  /// No description provided for @accessEventLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get accessEventLogout;
+
+  /// No description provided for @accessEventViewDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewed document'**
+  String get accessEventViewDocument;
+
+  /// No description provided for @accessEventPrintDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Printed document'**
+  String get accessEventPrintDocument;
+
+  /// No description provided for @accessEventExportData.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported data'**
+  String get accessEventExportData;
+
+  /// No description provided for @accessEventCreateDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Created document'**
+  String get accessEventCreateDocument;
+
+  /// No description provided for @accessEventCancelDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled document'**
+  String get accessEventCancelDocument;
+
+  /// No description provided for @accessEventViewAuditLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewed audit log'**
+  String get accessEventViewAuditLog;
+
+  /// No description provided for @accessEventViewReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewed report'**
+  String get accessEventViewReport;
+
+  /// No description provided for @accessEventAdminAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin action'**
+  String get accessEventAdminAction;
+
+  /// No description provided for @activityCsvUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get activityCsvUser;
+
+  /// No description provided for @activityCsvAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get activityCsvAction;
+
+  /// No description provided for @activityCsvWhen.
+  ///
+  /// In en, this message translates to:
+  /// **'When'**
+  String get activityCsvWhen;
+
+  /// No description provided for @activityCsvSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get activityCsvSource;
+
+  /// No description provided for @errorLoadingWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading: {error}'**
+  String errorLoadingWithDetail(String error);
+
+  /// No description provided for @errorWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Error: {error}'**
+  String errorWithDetail(String error);
+
+  /// No description provided for @savedSuccessCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Saved'**
+  String get savedSuccessCheck;
+
+  /// No description provided for @pickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick'**
+  String get pickDate;
+
+  /// No description provided for @billingStatusSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing Status'**
+  String get billingStatusSection;
+
+  /// No description provided for @trialPeriodSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial Period'**
+  String get trialPeriodSection;
+
+  /// No description provided for @trialPeriodDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'When billingStatus = trial, access expires after this date.'**
+  String get trialPeriodDesc;
+
+  /// No description provided for @notSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get notSet;
+
+  /// No description provided for @paymentPaidUntilSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment — Paid Until'**
+  String get paymentPaidUntilSection;
+
+  /// No description provided for @paymentPaidUntilDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Source of truth for billing automation. After this date → grace → suspended.'**
+  String get paymentPaidUntilDesc;
+
+  /// No description provided for @accountingPeriodLockSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting Period Lock'**
+  String get accountingPeriodLockSection;
+
+  /// No description provided for @accountingPeriodLockDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents with deliveryDate ≤ this date cannot be created or modified.'**
+  String get accountingPeriodLockDesc;
+
+  /// No description provided for @notSetAllPeriodsOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set (all periods open)'**
+  String get notSetAllPeriodsOpen;
+
+  /// No description provided for @unlockAllPeriods.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock all periods'**
+  String get unlockAllPeriods;
+
+  /// No description provided for @usersLoseAccessWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠️ Users will lose all access (read + write blocked)'**
+  String get usersLoseAccessWarning;
+
+  /// No description provided for @trialExpiredBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠️ Trial has expired — access is blocked'**
+  String get trialExpiredBlocked;
+
+  /// No description provided for @paymentExpiredWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠️ Payment expired — billingEnforcer will transition to grace/suspended'**
+  String get paymentExpiredWarning;
+
+  /// No description provided for @gracePeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace period:'**
+  String get gracePeriodLabel;
+
+  /// No description provided for @companyIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company: {id}'**
+  String companyIdLabel(String id);
+
+  /// No description provided for @locationNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Location is not ready'**
+  String get locationNotReady;
+
+  /// No description provided for @locationPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is required to continue.'**
+  String get locationPermissionRequired;
+
+  /// No description provided for @enableDeviceLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enable device location to continue.'**
+  String get enableDeviceLocation;
+
+  /// No description provided for @openSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get openSettings;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Again'**
+  String get checkAgain;
+
+  /// No description provided for @locationDeniedForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission is permanently denied. Open app settings to allow location.'**
+  String get locationDeniedForever;
+
+  /// No description provided for @pendingApprovalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval'**
+  String get pendingApprovalTitle;
+
+  /// No description provided for @pendingApprovalBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration received successfully.\nThe system administrator will assign you to a company and assign a role.'**
+  String get pendingApprovalBody;
+
+  /// No description provided for @registerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Register for LogiRoute'**
+  String get registerTitle;
+
+  /// No description provided for @registerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'After registration, the system administrator will assign you to a company'**
+  String get registerSubtitle;
+
+  /// No description provided for @phoneOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone (optional)'**
+  String get phoneOptional;
+
+  /// No description provided for @registerButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerButton;
+
+  /// No description provided for @alreadyHaveAccountLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account — Login'**
+  String get alreadyHaveAccountLogin;
+
+  /// No description provided for @minSixCharacters.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum 6 characters'**
+  String get minSixCharacters;
+
+  /// No description provided for @invalidEmailShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email'**
+  String get invalidEmailShort;
+
+  /// No description provided for @creditNoteCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit note created successfully'**
+  String get creditNoteCreatedSuccess;
+
+  /// No description provided for @originalDocumentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Original document'**
+  String get originalDocumentLabel;
+
+  /// No description provided for @correctionTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Correction type'**
+  String get correctionTypeLabel;
+
+  /// No description provided for @fullCorrectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Full correction'**
+  String get fullCorrectionTitle;
+
+  /// No description provided for @fullCorrectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All lines from the original document'**
+  String get fullCorrectionSubtitle;
+
+  /// No description provided for @partialCorrectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial correction'**
+  String get partialCorrectionTitle;
+
+  /// No description provided for @partialCorrectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit/remove lines'**
+  String get partialCorrectionSubtitle;
+
+  /// No description provided for @correctionLinesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit lines'**
+  String get correctionLinesTitle;
+
+  /// No description provided for @correctionSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit summary'**
+  String get correctionSummaryTitle;
+
+  /// No description provided for @correctionReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Correction reason *'**
+  String get correctionReasonLabel;
+
+  /// No description provided for @descriptionIndex.
+  ///
+  /// In en, this message translates to:
+  /// **'Description {index}'**
+  String descriptionIndex(int index);
+
+  /// No description provided for @importNoCompanySelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: no company selected'**
+  String get importNoCompanySelected;
+
+  /// No description provided for @importBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get importBack;
+
+  /// No description provided for @importClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get importClose;
+
+  /// No description provided for @importCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Import ({count})'**
+  String importCount(int count);
+
+  /// No description provided for @noBusinessTypesAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No business types available'**
+  String get noBusinessTypesAvailable;
+
+  /// No description provided for @noTemplatesForBusinessType.
+  ///
+  /// In en, this message translates to:
+  /// **'No templates available for this business type'**
+  String get noTemplatesForBusinessType;
+
+  /// No description provided for @importingProductsWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing products, please wait...'**
+  String get importingProductsWait;
+
+  /// No description provided for @loadingDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading document...'**
+  String get loadingDocument;
+
+  /// No description provided for @documentNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Document not found'**
+  String get documentNotFound;
+
+  /// No description provided for @goBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Go back'**
+  String get goBack;
+
+  /// No description provided for @itemsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get itemsTitle;
+
+  /// No description provided for @skuColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'SKU'**
+  String get skuColumn;
+
+  /// No description provided for @typeColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get typeColumn;
+
+  /// No description provided for @numberColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Number'**
+  String get numberColumn;
+
+  /// No description provided for @quantityColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity'**
+  String get quantityColumn;
+
+  /// No description provided for @priceColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get priceColumn;
+
+  /// No description provided for @totalColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get totalColumn;
+
+  /// No description provided for @cancellationDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation details'**
+  String get cancellationDetailsTitle;
+
+  /// No description provided for @docIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Doc ID: {id}'**
+  String docIdLabel(String id);
+
+  /// No description provided for @documentTypeUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening document type {collection} is not yet supported'**
+  String documentTypeUnsupported(String collection);
+
+  /// No description provided for @linkCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied to clipboard'**
+  String get linkCopiedToClipboard;
+
+  /// No description provided for @saveProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save profile'**
+  String get saveProfileTitle;
+
+  /// No description provided for @profileNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile name'**
+  String get profileNameLabel;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile \"{name}\" saved'**
+  String profileSaved(String name);
+
+  /// No description provided for @accountingExportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export to accounting'**
+  String get accountingExportTitle;
+
+  /// No description provided for @targetSoftwareLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Target software'**
+  String get targetSoftwareLabel;
+
+  /// No description provided for @periodSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get periodSection;
+
+  /// No description provided for @untilLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Until'**
+  String get untilLabel;
+
+  /// No description provided for @documentTypeSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Document type'**
+  String get documentTypeSection;
+
+  /// No description provided for @fileSettingsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'File settings'**
+  String get fileSettingsSection;
+
+  /// No description provided for @separatorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Separator'**
+  String get separatorLabel;
+
+  /// No description provided for @encodingSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoding'**
+  String get encodingSection;
+
+  /// No description provided for @exportErrorWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Export error: {error}'**
+  String exportErrorWithDetail(String error);
+
+  /// No description provided for @lastCheckResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Last check result'**
+  String get lastCheckResult;
+
+  /// No description provided for @noPreviousChecks.
+  ///
+  /// In en, this message translates to:
+  /// **'No previous checks. Press ▶ to run a check.'**
+  String get noPreviousChecks;
+
+  /// No description provided for @gapsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Gaps'**
+  String get gapsLabel;
+
+  /// No description provided for @quantityCannotBeNegative.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity cannot be negative'**
+  String get quantityCannotBeNegative;
+
+  /// No description provided for @excelExportWebOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel export available on web only'**
+  String get excelExportWebOnly;
+
+  /// No description provided for @exportErrorDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Export error: {error}'**
+  String exportErrorDetail(String error);
+
+  /// No description provided for @productCodeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'SKU *'**
+  String get productCodeRequired;
+
+  /// No description provided for @typeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Type *'**
+  String get typeRequired;
+
+  /// No description provided for @numberRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Number *'**
+  String get numberRequired;
+
+  /// No description provided for @volumeMlOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume in ml (optional)'**
+  String get volumeMlOptional;
+
+  /// No description provided for @quantityOnPalletRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity on pallet *'**
+  String get quantityOnPalletRequired;
+
+  /// No description provided for @diameterOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Diameter (optional)'**
+  String get diameterOptional;
+
+  /// No description provided for @packedCartonOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Packed — quantity per carton (optional)'**
+  String get packedCartonOptional;
+
+  /// No description provided for @additionalInfoOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional info (optional)'**
+  String get additionalInfoOptional;
+
+  /// No description provided for @hashbonitUnderConstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Hashbonit is under construction'**
+  String get hashbonitUnderConstruction;
+
+  /// No description provided for @errorSavingWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving: {error}'**
+  String errorSavingWithDetail(String error);
+
+  /// No description provided for @testEmailSent.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Test email sent'**
+  String get testEmailSent;
+
+  /// No description provided for @testWhatsAppSent.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Test WhatsApp sent'**
+  String get testWhatsAppSent;
+
+  /// No description provided for @testFailedWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Test failed: {error}'**
+  String testFailedWithDetail(String error);
+
+  /// No description provided for @paperSize80mmReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'80mm (receipt)'**
+  String get paperSize80mmReceipt;
+
+  /// No description provided for @noDocumentId.
+  ///
+  /// In en, this message translates to:
+  /// **'No document ID'**
+  String get noDocumentId;
+
+  /// No description provided for @urgencyVeryUrgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Very urgent'**
+  String get urgencyVeryUrgent;
+
+  /// No description provided for @priorityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get priorityLabel;
+
+  /// No description provided for @orderInRouteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Order in route'**
+  String get orderInRouteLabel;
+
+  /// No description provided for @newCategoryRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'New category *'**
+  String get newCategoryRequired;
+
+  /// No description provided for @cancellationReasonRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation reason (required)'**
+  String get cancellationReasonRequired;
+
+  /// No description provided for @searchBoxTypesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by SKU / type / number'**
+  String get searchBoxTypesHint;
+
+  /// No description provided for @loginTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Login timeout (20s)'**
+  String get loginTimeout;
+
+  /// No description provided for @errorWithMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String errorWithMessage(String error);
+
+  /// No description provided for @retentionPolicyInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Under bookkeeping law, documents must be kept for at least 7 years.\nThe check verifies no documents were deleted and there are no numbering gaps.'**
+  String get retentionPolicyInfo;
+
+  /// No description provided for @podRetentionInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Proof of delivery photos are kept for 90 days, then deleted automatically. GPS coordinates and delivery time are retained.'**
+  String get podRetentionInfo;
+
+  /// No description provided for @oldestDocumentDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest document: {date}'**
+  String oldestDocumentDate(String date);
+
+  /// No description provided for @retentionCutoffDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutoff date: {date}'**
+  String retentionCutoffDate(String date);
+
+  /// No description provided for @retentionGapsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Gaps: {actual} of {expected} expected'**
+  String retentionGapsCount(int actual, int expected);
+
+  /// No description provided for @retentionHistoryEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'{user} • {count} documents'**
+  String retentionHistoryEntry(String user, int count);
+
+  /// No description provided for @retentionDocumentsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents: {count}'**
+  String retentionDocumentsCount(int count);
+
+  /// No description provided for @issuesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Issues found'**
+  String get issuesFound;
+
+  /// No description provided for @exportFormatHashavshevet.
+  ///
+  /// In en, this message translates to:
+  /// **'Hashavshevet'**
+  String get exportFormatHashavshevet;
+
+  /// No description provided for @exportFormatHashavshevetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tab-separated text file — compatible with Hashavshevet import'**
+  String get exportFormatHashavshevetDesc;
+
+  /// No description provided for @exportFormatPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority ERP'**
+  String get exportFormatPriority;
+
+  /// No description provided for @exportFormatPriorityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV file compatible with Priority import'**
+  String get exportFormatPriorityDesc;
+
+  /// No description provided for @exportFormatCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Universal CSV'**
+  String get exportFormatCsv;
+
+  /// No description provided for @exportFormatCsvDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Universal CSV file — works with any software'**
+  String get exportFormatCsvDesc;
+
+  /// No description provided for @encodingUtf8Bom.
+  ///
+  /// In en, this message translates to:
+  /// **'UTF-8 + BOM (recommended for Excel)'**
+  String get encodingUtf8Bom;
+
+  /// No description provided for @encodingUtf8.
+  ///
+  /// In en, this message translates to:
+  /// **'UTF-8 (no BOM)'**
+  String get encodingUtf8;
+
+  /// No description provided for @encodingWindows1255.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows-1255 (legacy Hashavshevet)'**
+  String get encodingWindows1255;
+
+  /// No description provided for @separatorComma.
+  ///
+  /// In en, this message translates to:
+  /// **'Comma (,)'**
+  String get separatorComma;
+
+  /// No description provided for @separatorSemicolon.
+  ///
+  /// In en, this message translates to:
+  /// **'Semicolon (;)'**
+  String get separatorSemicolon;
+
+  /// No description provided for @separatorTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Tab'**
+  String get separatorTab;
+
+  /// No description provided for @hashavshevetEncodingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'For older Hashavshevet versions — choose Windows-1255'**
+  String get hashavshevetEncodingHint;
+
+  /// No description provided for @exportCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export complete'**
+  String get exportCompleteTitle;
+
+  /// No description provided for @exportRecordsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Export complete — {count} records ({fileName})'**
+  String exportRecordsCount(int count, String fileName);
+
+  /// No description provided for @fileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'File: {name}'**
+  String fileLabel(String name);
+
+  /// No description provided for @recordsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Records: {count}'**
+  String recordsLabel(int count);
+
+  /// No description provided for @formatLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Format: {name}'**
+  String formatLabel(String name);
+
+  /// No description provided for @downloadFileBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Download file'**
+  String get downloadFileBtn;
+
+  /// No description provided for @exportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get exportAction;
+
+  /// No description provided for @loginRequiredFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Please log in first'**
+  String get loginRequiredFirst;
+
+  /// No description provided for @documentNotFoundAtPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Document not found at path: {path}'**
+  String documentNotFoundAtPath(String path);
+
+  /// No description provided for @documentNotFoundOrNoAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Document not found or no access'**
+  String get documentNotFoundOrNoAccess;
+
+  /// No description provided for @companyLabelColon.
+  ///
+  /// In en, this message translates to:
+  /// **'Company: {name}'**
+  String companyLabelColon(String name);
+
+  /// No description provided for @documentNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Document number'**
+  String get documentNumberLabel;
+
+  /// No description provided for @createdAtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get createdAtLabel;
+
+  /// No description provided for @createdByLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Created by'**
+  String get createdByLabel;
+
+  /// No description provided for @assignmentNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment number'**
+  String get assignmentNumberLabel;
+
+  /// No description provided for @cancelledByLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled by'**
+  String get cancelledByLabel;
+
+  /// No description provided for @cancellationDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation date'**
+  String get cancellationDateLabel;
+
+  /// No description provided for @totalBeforeDiscountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total before discount'**
+  String get totalBeforeDiscountLabel;
+
+  /// No description provided for @discountPercentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Discount ({percent}%)'**
+  String discountPercentLabel(int percent);
+
+  /// No description provided for @vat18Label.
+  ///
+  /// In en, this message translates to:
+  /// **'VAT (18%)'**
+  String get vat18Label;
+
+  /// No description provided for @invoiceManagementTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice management'**
+  String get invoiceManagementTitle;
+
+  /// No description provided for @errorLoadingInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Error loading invoices: {error}'**
+  String errorLoadingInvoices(String error);
+
+  /// No description provided for @assignmentNumberReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Assignment number received: {number}'**
+  String assignmentNumberReceived(String number);
+
+  /// No description provided for @assignmentRequestError.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Assignment request error: {error}'**
+  String assignmentRequestError(String error);
+
+  /// No description provided for @standaloneInvoiceInDev.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠️ Standalone invoice creation in development'**
+  String get standaloneInvoiceInDev;
+
+  /// No description provided for @receiptPeriodLockedError.
+  ///
+  /// In en, this message translates to:
+  /// **'🔒 Cannot create receipt — document date ({docDate}) is in a closed accounting period (until {lockDate})'**
+  String receiptPeriodLockedError(String docDate, String lockDate);
+
+  /// No description provided for @receiptCreatedAndPrinted.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Receipt created and printed'**
+  String get receiptCreatedAndPrinted;
+
+  /// No description provided for @receiptCreateError.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Error creating receipt: {error}'**
+  String receiptCreateError(String error);
+
+  /// No description provided for @receiptIssuanceError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error issuing receipt from server'**
+  String get receiptIssuanceError;
+
+  /// No description provided for @invoicePrintedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Invoice printed'**
+  String get invoicePrintedSuccess;
+
+  /// No description provided for @cancelInvoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invoice'**
+  String get cancelInvoiceTitle;
+
+  /// No description provided for @cancelInvoiceConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invoice for {clientName}?'**
+  String cancelInvoiceConfirm(String clientName);
+
+  /// No description provided for @cancelInvoiceLawNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Under bookkeeping law, invoices cannot be deleted, only cancelled.'**
+  String get cancelInvoiceLawNote;
+
+  /// No description provided for @enterCancellationReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a cancellation reason'**
+  String get enterCancellationReason;
+
+  /// No description provided for @cancelInvoiceButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invoice'**
+  String get cancelInvoiceButton;
+
+  /// No description provided for @invoiceCancelledSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ Invoice cancelled'**
+  String get invoiceCancelledSuccess;
+
+  /// No description provided for @cancelInvoiceError.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ Cancellation error: {error}'**
+  String cancelInvoiceError(String error);
+
+  /// No description provided for @deliveryNoteShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Del. note'**
+  String get deliveryNoteShort;
+
+  /// No description provided for @taxInvoiceReceiptShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax inv./receipt'**
+  String get taxInvoiceReceiptShort;
+
+  /// No description provided for @originalPrintedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Original printed'**
+  String get originalPrintedLabel;
+
+  /// No description provided for @copiesCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies: {count}'**
+  String copiesCountLabel(int count);
+
+  /// No description provided for @assignmentApprovedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment: {number}'**
+  String assignmentApprovedLabel(String number);
+
+  /// No description provided for @assignmentPendingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting assignment'**
+  String get assignmentPendingLabel;
+
+  /// No description provided for @assignmentRejectedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment rejected'**
+  String get assignmentRejectedLabel;
+
+  /// No description provided for @assignmentErrorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment error'**
+  String get assignmentErrorLabel;
+
+  /// No description provided for @assignmentRequiredLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment required'**
+  String get assignmentRequiredLabel;
+
+  /// No description provided for @historyTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get historyTooltip;
+
+  /// No description provided for @reprintTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Reprint'**
+  String get reprintTooltip;
+
+  /// No description provided for @createReceiptTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Create receipt'**
+  String get createReceiptTooltip;
+
+  /// No description provided for @cancelInvoiceTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invoice'**
+  String get cancelInvoiceTooltip;
+
+  /// No description provided for @retryAssignmentTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry assignment'**
+  String get retryAssignmentTooltip;
+
+  /// No description provided for @invoiceNumberTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice #{number}'**
+  String invoiceNumberTitle(int number);
+
+  /// No description provided for @driverWithName.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver: {name}'**
+  String driverWithName(String name);
+
+  /// No description provided for @deliveryDateWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery date: {date}'**
+  String deliveryDateWithValue(String date);
+
+  /// No description provided for @totalWithAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total: ₪{amount}'**
+  String totalWithAmount(String amount);
+
+  /// No description provided for @newInvoiceButton.
+  ///
+  /// In en, this message translates to:
+  /// **'New invoice'**
+  String get newInvoiceButton;
+
+  /// No description provided for @reprintDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reprint'**
+  String get reprintDialogTitle;
+
+  /// No description provided for @copyTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copyTypeLabel;
+
+  /// No description provided for @copyNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy number {number}'**
+  String copyNumberLabel(int number);
+
+  /// No description provided for @trueToOriginalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'True to original'**
+  String get trueToOriginalLabel;
+
+  /// No description provided for @replacesOriginalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaces the original'**
+  String get replacesOriginalLabel;
+
+  /// No description provided for @printCopiesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Print {count} copies'**
+  String printCopiesButton(int count);
+
+  /// No description provided for @createReceiptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create receipt'**
+  String get createReceiptTitle;
+
+  /// No description provided for @receiptForInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt for invoice #{number}'**
+  String receiptForInvoice(int number);
+
+  /// No description provided for @clientWithName.
+  ///
+  /// In en, this message translates to:
+  /// **'Client: {name}'**
+  String clientWithName(String name);
+
+  /// No description provided for @amountWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount: ₪{amount}'**
+  String amountWithValue(String amount);
+
+  /// No description provided for @createReceiptButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create receipt'**
+  String get createReceiptButton;
+
+  /// No description provided for @addBoxTypeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add box type'**
+  String get addBoxTypeButton;
+
+  /// No description provided for @inStockCount.
+  ///
+  /// In en, this message translates to:
+  /// **'In stock: {count} units'**
+  String inStockCount(int count);
+
+  /// No description provided for @onPalletCount.
+  ///
+  /// In en, this message translates to:
+  /// **'On pallet: {count}'**
+  String onPalletCount(String count);
+
+  /// No description provided for @volumeWithUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume: {value} ml'**
+  String volumeWithUnit(String value);
 }
 
 class _AppLocalizationsDelegate

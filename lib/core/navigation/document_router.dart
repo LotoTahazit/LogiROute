@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
+
 import 'open_url_stub.dart' if (dart.library.html) 'open_url_web.dart';
 
 /// Фабрика виджета для просмотра документа.
@@ -45,8 +47,9 @@ class DocumentRouter {
   }) {
     final factory = _registry[collection];
     if (factory == null) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('פתיחת מסמך מסוג $collection עדיין לא נתמכת')),
+        SnackBar(content: Text(l10n.documentTypeUnsupported(collection))),
       );
       return;
     }
@@ -63,8 +66,9 @@ class DocumentRouter {
     required String docId,
   }) {
     if (!isSupported(collection)) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('פתיחת מסמך מסוג $collection עדיין לא נתמכת')),
+        SnackBar(content: Text(l10n.documentTypeUnsupported(collection))),
       );
       return;
     }
@@ -84,9 +88,11 @@ class DocumentRouter {
   }) {
     Clipboard.setData(
         ClipboardData(text: buildUrl(companyId, docId, collection)));
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('קישור הועתק ללוח'), duration: Duration(seconds: 2)),
+      SnackBar(
+          content: Text(l10n.linkCopiedToClipboard),
+          duration: const Duration(seconds: 2)),
     );
   }
 }

@@ -177,6 +177,13 @@ mixin _DriverMarkersMixin on _DeliveryMapWidgetStateBase {
       }
     }
 
+    // Подпись: сколько точек доставки на карте (для отладки наложения)
+    final deliveryCount =
+        widget.points.where((p) => _resolveMapPosition(p) != null).length;
+    if (deliveryCount > 0) {
+      debugPrint('🗺️ [Map] Delivery markers target: $deliveryCount points');
+    }
+
     if (kDebugMode) {
       debugPrint(
           'MODE: ${isZoomedOut ? "CLUSTER" : "NORMAL"} markers=${driverMarkers.length}');

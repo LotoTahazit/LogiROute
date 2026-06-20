@@ -13,6 +13,7 @@ import '../config/app_config.dart';
 import '../models/delivery_point.dart';
 import '../models/shift_schedule_config.dart';
 import 'firestore_paths.dart';
+import 'driver_auto_close_prefs.dart';
 
 /// Фоновый foreground-сервис: GPS трекинг + автозакрытие точек.
 /// Работает даже когда приложение свёрнуто или экран выключен.
@@ -23,8 +24,6 @@ class BackgroundLocationService {
   static const int notificationId = 888;
 
   static const double _autoCompleteRadius = AppConfig.autoCompleteRadius;
-  static const double _autoCompleteResetRadius =
-      AppConfig.autoCompleteResetRadius;
   static const Duration _autoCompleteDuration =
       AppConfig.autoCompleteDuration;
 
@@ -374,37 +373,58 @@ class BackgroundLocationService {
             .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
             .get();
 
-        for (final doc in pointsSnap.docs) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          final pointId = doc.id;
-          final pointLat = (data['latitude'] as num).toDouble();
-          final pointLng = (data['longitude'] as num).toDouble();
-          final clientName = data['clientName'] as String? ?? '';
-          final pointStatus = data['status'] as String? ?? '';
-          final arrivedAtTs = data['arrivedAt'];
-          final arrivedAt = arrivedAtTs is Timestamp ? arrivedAtTs.toDate() : null;
+        final disabledAuto = await DriverAutoClosePrefs.loadDisabled();
+        // Политика компании «POD-фото обязательно» — автозакрытие отключено.
+        final photoRequired = await DriverAutoClosePrefs.isPhotoRequired();
 
-          final dist = _distance(
-              position.latitude, position.longitude, pointLat, pointLng);
+        // Гейт по остановке: если водитель едет (проезд мимо / пробка) —
+        // таймеры не идут. position.speed в м/с (0 при неизвестной).
+        final moving = position.speed > 1.5; // ≈5 км/ч
+        if (photoRequired || moving) {
+          if (arrivalTimes.isNotEmpty) arrivalTimes.clear();
+        } else {
+          // Только ОДНА ближайшая незавершённая (не отключённая) точка в
+          // радиусе — за остановку закрываем её, а не всех соседей в кластере.
+          QueryDocumentSnapshot<Map<String, dynamic>>? targetDoc;
+          double bestDist = double.infinity;
+          for (final doc in pointsSnap.docs) {
+            if (disabledAuto.contains(doc.id)) continue;
+            final data = Map<String, dynamic>.from(doc.data() as Map);
+            final pLat = (data['latitude'] as num).toDouble();
+            final pLng = (data['longitude'] as num).toDouble();
+            final d =
+                _distance(position.latitude, position.longitude, pLat, pLng);
+            if (d <= _autoCompleteRadius && d < bestDist) {
+              bestDist = d;
+              targetDoc = doc;
+            }
+          }
 
-          if (dist <= _autoCompleteRadius) {
+          // Таймеры всех, кроме ближайшей, сбрасываем.
+          final targetId = targetDoc?.id;
+          arrivalTimes.removeWhere((id, _) => id != targetId);
+
+          if (targetDoc != null) {
+            final data = Map<String, dynamic>.from(targetDoc.data() as Map);
+            final pointId = targetDoc.id;
+            final clientName = data['clientName'] as String? ?? '';
+            final pointStatus = data['status'] as String? ?? '';
+
             if (!arrivalTimes.containsKey(pointId)) {
-              arrivalTimes[pointId] = arrivedAt ?? now;
-              if (arrivedAt == null &&
-                  DeliveryPoint.normalizeStatus(pointStatus) ==
-                      DeliveryPoint.statusAssigned) {
-                await doc.reference.update({
+              arrivalTimes[pointId] = now; // отсчёт стоянки с момента детекта
+              if (DeliveryPoint.normalizeStatus(pointStatus) ==
+                  DeliveryPoint.statusAssigned) {
+                await targetDoc.reference.update({
                   'status': DeliveryPoint.statusInProgress,
                   'arrivedAt': FieldValue.serverTimestamp(),
                   'updatedByUid': driverId,
                   'updatedAt': FieldValue.serverTimestamp(),
                 });
               }
-              debugPrint(
-                  '📍 [BGService] Arrived at $clientName, timer started');
+              debugPrint('📍 [BGService] Стоит у $clientName, таймер запущен');
             } else if (now.difference(arrivalTimes[pointId]!) >=
                 _autoCompleteDuration) {
-              await doc.reference.update({
+              await targetDoc.reference.update({
                 'status': DeliveryPoint.statusCompleted,
                 'completedAt': FieldValue.serverTimestamp(),
                 'autoCompleted': true,
@@ -413,10 +433,6 @@ class BackgroundLocationService {
               });
               arrivalTimes.remove(pointId);
               debugPrint('✅ [BGService] Auto-completed: $clientName');
-            }
-          } else if (dist > _autoCompleteResetRadius) {
-            if (arrivalTimes.containsKey(pointId)) {
-              arrivalTimes.remove(pointId);
             }
           }
         }

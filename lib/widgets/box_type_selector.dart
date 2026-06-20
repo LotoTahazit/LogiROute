@@ -182,10 +182,10 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
                 children: [
                   TextField(
                     controller: searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'חיפוש לפי מק"ט, סוג, מספר...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchBySkuTypeNumber,
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     onChanged: (query) {
@@ -243,16 +243,40 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   }
 
   void _addNewProduct(ProductType product) {
+    _showQuantityDialog(
+      title: product.name,
+      productCode: product.productCode,
+      onAdd: (quantity) {
+        final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+        widget.onChanged([
+          ...widget.selectedBoxTypes,
+          BoxType(
+              type: product.category,
+              number: product.name,
+              quantity: quantity,
+              productCode: product.productCode,
+              volumeMl: 0,
+              companyId: companyId),
+        ]);
+      },
+    );
+  }
+
+  void _showQuantityDialog({
+    required String title,
+    required String productCode,
+    required void Function(int quantity) onAdd,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController(text: '1');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(product.name),
+        title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('${l10n.productCode}: ${product.productCode}'),
+            Text('${l10n.productCode}: $productCode'),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -271,18 +295,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
             onPressed: () {
               final quantity = int.tryParse(controller.text) ?? 1;
               if (quantity > 0) {
-                final companyId =
-                    CompanyContext.of(context).effectiveCompanyId ?? '';
-                widget.onChanged([
-                  ...widget.selectedBoxTypes,
-                  BoxType(
-                      type: product.category,
-                      number: product.name,
-                      quantity: quantity,
-                      productCode: product.productCode,
-                      volumeMl: 0,
-                      companyId: companyId),
-                ]);
+                onAdd(quantity);
                 Navigator.pop(context);
               }
             },
@@ -296,6 +309,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   // ─── Старая система (BoxType / box_types) ───
 
   Widget _buildOldSystemUI() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -304,7 +318,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               title: Text('${boxType.type} ${boxType.number}'),
-              subtitle: Text('מק"ט: ${boxType.productCode}'),
+              subtitle: Text('${l10n.productCode}: ${boxType.productCode}'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -329,7 +343,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
         ElevatedButton.icon(
           onPressed: _showOldBoxTypePicker,
           icon: const Icon(Icons.add),
-          label: const Text('הוסף סוג קופסה'),
+          label: Text(l10n.addBoxTypeButton),
         ),
       ],
     );
@@ -401,6 +415,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
 
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context)!;
     final searchController = TextEditingController();
     var filtered = List<Map<String, dynamic>>.from(allItems);
 
@@ -409,7 +424,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('הוסף מוצר'),
+            title: Text(l10n.addProduct),
             content: SizedBox(
               width: double.maxFinite,
               child: Column(
@@ -417,10 +432,10 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
                 children: [
                   TextField(
                     controller: searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'חיפוש לפי מק"ט, סוג, מספר...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchBoxTypesHint,
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     onChanged: (query) {
@@ -453,7 +468,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('ביטול')),
+                  child: Text(l10n.cancel)),
             ],
           );
         },
@@ -462,6 +477,7 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   }
 
   Widget _buildPickerTile(Map<String, dynamic> item) {
+    final l10n = AppLocalizations.of(context)!;
     final type = item['type'] as String;
     final number = item['number'] as String;
     final productCode = item['productCode'] as String;
@@ -474,14 +490,20 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
     final additionalInfo = item['additionalInfo'];
 
     final details = <String>[];
-    if (stock != null) details.add('במלאי: $stock יח\'');
-    if (piecesPerBox != null) details.add('ארוז: $piecesPerBox');
-    if (quantityPerPallet != null) details.add('במשטח: $quantityPerPallet');
-    if (diameter != null && '$diameter'.isNotEmpty) {
-      details.add('קוטר: $diameter');
+    if (stock != null) details.add(l10n.inStockCount(stock));
+    if (piecesPerBox != null) {
+      details.add('${l10n.packed}: $piecesPerBox');
     }
-    if (volumeMl != null) details.add('נפח: $volumeMl מ"ל');
-    if (volume != null && '$volume'.isNotEmpty) details.add('נפח: $volume');
+    if (quantityPerPallet != null) {
+      details.add(l10n.onPalletCount('$quantityPerPallet'));
+    }
+    if (diameter != null && '$diameter'.isNotEmpty) {
+      details.add('${l10n.diameter}: $diameter');
+    }
+    if (volumeMl != null) details.add(l10n.volumeWithUnit('$volumeMl'));
+    if (volume != null && '$volume'.isNotEmpty) {
+      details.add(l10n.volumeWithUnit('$volume'));
+    }
     if (additionalInfo != null && '$additionalInfo'.isNotEmpty) {
       details.add('$additionalInfo');
     }
@@ -502,7 +524,8 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('מק"ט: $productCode', style: const TextStyle(fontSize: 12)),
+          Text('${l10n.productCode}: $productCode',
+              style: const TextStyle(fontSize: 12)),
           if (details.isNotEmpty)
             Text(
               details.join(' | '),
@@ -522,52 +545,22 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
   }
 
   void _addOldBoxType(String type, String number, String productCode) {
-    final controller = TextEditingController(text: '1');
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('$type $number'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('מק"ט: $productCode'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                  labelText: 'כמות', border: OutlineInputBorder()),
-              keyboardType: TextInputType.number,
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ביטול')),
-          ElevatedButton(
-            onPressed: () {
-              final quantity = int.tryParse(controller.text) ?? 1;
-              if (quantity > 0) {
-                final companyId =
-                    CompanyContext.of(context).effectiveCompanyId ?? '';
-                widget.onChanged([
-                  ...widget.selectedBoxTypes,
-                  BoxType(
-                      type: type,
-                      number: number,
-                      quantity: quantity,
-                      productCode: productCode,
-                      volumeMl: 0,
-                      companyId: companyId),
-                ]);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('הוסף'),
-          ),
-        ],
-      ),
+    _showQuantityDialog(
+      title: '$type $number',
+      productCode: productCode,
+      onAdd: (quantity) {
+        final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+        widget.onChanged([
+          ...widget.selectedBoxTypes,
+          BoxType(
+              type: type,
+              number: number,
+              quantity: quantity,
+              productCode: productCode,
+              volumeMl: 0,
+              companyId: companyId),
+        ]);
+      },
     );
   }
 }

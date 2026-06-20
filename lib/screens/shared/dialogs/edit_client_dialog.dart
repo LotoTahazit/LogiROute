@@ -5,6 +5,7 @@ import '../../../utils/geocoding_helper.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../widgets/zone_selector.dart';
+import '../../../theme/app_theme.dart';
 
 class EditClientDialog extends StatefulWidget {
   final ClientModel client;
@@ -248,7 +249,7 @@ class _EditClientDialogState extends State<EditClientDialog> {
                       '📍 ${widget.client.latitude.toStringAsFixed(6)}, ${widget.client.longitude.toStringAsFixed(6)}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: AppTheme.muted,
                       ),
                     ),
                   ),

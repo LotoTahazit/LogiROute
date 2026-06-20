@@ -27,6 +27,12 @@ exports.registerManualPayment = registerManualPayment;
 const { createCheckoutSession } = require('./createCheckoutSession');
 exports.createCheckoutSession = createCheckoutSession;
 
+const { retryAccountingSync } = require('./retryAccountingSync');
+exports.retryAccountingSync = retryAccountingSync;
+
+const { seedBillingPricing } = require('./seedBillingPricing');
+exports.seedBillingPricing = seedBillingPricing;
+
 // === Push Notifications ===
 const { sendPushNotification } = require('./sendPushNotification');
 exports.sendPushNotification = sendPushNotification;
@@ -34,6 +40,9 @@ exports.sendPushNotification = sendPushNotification;
 // === Email Notifications ===
 const { sendEmailNotification } = require('./sendEmailNotification');
 exports.sendEmailNotification = sendEmailNotification;
+
+const { sendPasswordResetEmail } = require('./sendPasswordResetEmail');
+exports.sendPasswordResetEmail = sendPasswordResetEmail;
 
 // === Company Email (callable) ===
 const { sendCompanyEmail } = require('./sendCompanyEmail');
@@ -63,6 +72,10 @@ exports.archiveOldRoutes = archiveOldRoutes;
 // === GPS History Cleanup (every 6 hours) ===
 const { cleanupDriverHistory } = require('./cleanupDriverHistory');
 exports.cleanupDriverHistory = cleanupDriverHistory;
+
+// === PoD photos: удаление старше 90 дней ===
+const { cleanupPodPhotos } = require('./cleanupPodPhotos');
+exports.cleanupPodPhotos = cleanupPodPhotos;
 
 // === Delivery Point Triggers (push + route stats) ===
 const { onPointAssigned } = require('./onPointAssigned');

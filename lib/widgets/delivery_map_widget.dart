@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'
     show debugPrint, listEquals, kDebugMode;
 import 'package:flutter/material.dart';
@@ -14,7 +15,7 @@ import '../utils/gps_utils.dart';
 import '../services/osrm_directions_service.dart';
 import '../services/route_progress_service.dart';
 import '../models/shift_schedule_config.dart';
-part 'map_mixins/demo_mode_mixin.dart';
+import '../services/company_cache.dart';
 part 'map_mixins/driver_markers_mixin.dart';
 part 'map_mixins/route_polylines_mixin.dart';
 part 'map_mixins/drag_drop_mixin.dart';
@@ -111,17 +112,11 @@ class DeliveryMapWidget extends StatefulWidget {
   final double warehouseLng;
   final bool enableDragDrop; // Включить drag & drop (только для диспетчера)
   final OnPointDragToDriver? onPointDragToDriver; // Callback при drop
-  /// Авто-сценарий для демо (логика карты не меняется — только каркас таймера).
-  final bool demoMode;
-
-  /// Вызывается один раз, когда сценарий демо дошёл до конца (шаг 10). Не при ручном выключении.
-  final VoidCallback? onDemoFinished;
 
   const DeliveryMapWidget({
     super.key,
     required this.points,
     required this.companyId,
-    this.demoMode = false,
     this.showDriverTracks = false,
     this.clearMapMode = false,
     this.routePolylines = const {},
@@ -129,7 +124,6 @@ class DeliveryMapWidget extends StatefulWidget {
     required this.warehouseLng,
     this.enableDragDrop = false,
     this.onPointDragToDriver,
-    this.onDemoFinished,
   });
 
   @override
@@ -337,6 +331,34 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     return DeliveryPoint.isValidCoordinates(lat, lng);
   }
 
+  /// Координаты для карты: точка → клиент из кеша (если lat/lng точки = 0).
+  LatLng? _resolveMapPosition(DeliveryPoint point) {
+    if (_isInIsraelBounds(point.latitude, point.longitude)) {
+      return LatLng(point.latitude, point.longitude);
+    }
+    final cn = point.clientNumber;
+    if (cn == null || cn.isEmpty) return null;
+    for (final c in CompanyCache.instance(widget.companyId).clients) {
+      if (c.clientNumber == cn &&
+          _isInIsraelBounds(c.latitude, c.longitude)) {
+        return LatLng(c.latitude, c.longitude);
+      }
+    }
+    return null;
+  }
+
+  /// Разводит маркеры с одинаковыми координатами (~25 м по кругу).
+  LatLng _offsetStackedMarker(LatLng base, int index) {
+    if (index <= 0) return base;
+    const meters = 28.0;
+    final angle = (index * 72) * math.pi / 180;
+    final cosLat = math.cos(base.latitude * math.pi / 180);
+    return LatLng(
+      base.latitude + (meters / 111320) * math.cos(angle),
+      base.longitude + (meters / (111320 * cosLat)) * math.sin(angle),
+    );
+  }
+
   /// Безопасная анимация camera к bounds (с guard от ошибок Google Maps)
   /// 🛡️ GUARD: если bounds выходят за пределы Израиля — игнорируем.
   Future<void> _moveToBoundsSafe(LatLngBounds bounds,
@@ -376,8 +398,8 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
     if (DeliveryPoint.isValidCoordinates(lat, lng)) {
       return LatLng(lat, lng);
     }
-    // Default to Tel Aviv if warehouse coords are invalid
-    return const LatLng(32.0853, 34.7818);
+    // Default to Mishmarot if warehouse coords are invalid
+    return const LatLng(32.48698, 34.982121);
   }
 
   @override
@@ -411,20 +433,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
         });
       },
     );
-
-    if (widget.demoMode) {
-      // Без затемнения — иначе склад/линии/נהג не видны на шагах 1–3.
-      _demoOverlayOpacity = 0.0;
-      _demoMapScale = 1.0;
-      _demoMarkers = {_demoWarehouseMarker(), _demoDriverMarker()};
-      _startDemo();
-      _ensureDemoRoadGeometry();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(_DemoModeMixin._kDemoCameraDelay, () {
-          if (mounted) _fitDemoSceneCamera();
-        });
-      });
-    }
 
     _syncTrackReloadLoop();
   }
@@ -511,14 +519,6 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
       return;
     }
 
-    if (oldWidget.demoMode != widget.demoMode) {
-      if (widget.demoMode) {
-        _beginDemoFromToggle();
-      } else {
-        _stopDemo();
-      }
-    }
-
     final oldSignature = _buildPointSignature(oldWidget.points);
     final newSignature = _buildPointSignature(widget.points);
     final polylinesChanged =
@@ -590,197 +590,50 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
   void _updateDriverProgressPolylines();
   void _startDriverLocationTracking();
   void _startMarkerAnimation();
-  void _stopDemo();
-  void _beginDemoFromToggle();
-  Marker _demoWarehouseMarker();
-  Marker _demoDriverMarker();
-  void _startDemo();
-  Future<void> _ensureDemoRoadGeometry();
-  void _fitDemoSceneCamera();
   void _updateDriverMarkers(List<Map<String, dynamic>> driverLocations);
   void _rebuildDriverMarkers();
   Future<void> _loadDriverTracks();
-
-  // Demo fields (defined in _DemoModeMixin)
-  double get _demoOverlayOpacity;
-  set _demoOverlayOpacity(double value);
-  double get _demoMapScale;
-  set _demoMapScale(double value);
-  Set<Marker> get _demoMarkers;
-  set _demoMarkers(Set<Marker> value);
-  Timer? get _demoTimer;
-  set _demoTimer(Timer? value);
-  Timer? get _pulseTimer;
-  set _pulseTimer(Timer? value);
-  Timer? get _demoDriverMoveTimer;
-  set _demoDriverMoveTimer(Timer? value);
 }
 
-// Final class combining all mixins
 class _DeliveryMapWidgetState extends _DeliveryMapWidgetStateBase
-    with
-        _DemoModeMixin,
-        _DriverMarkersMixin,
-        _RoutePolylinesMixin,
-        _DragDropMixin {
-  // initState / didChangeAppLifecycleState / didUpdateWidget — только в
-  // [_DeliveryMapWidgetStateBase]; дубликат здесь повторно инициализировал
-  // late final _locationService → LateInitializationError и серый экран карты.
-
-  @override
-  void dispose() {
-    _stopDemo();
-    WidgetsBinding.instance.removeObserver(this);
-    _debounceTimer?.cancel();
-    _driverLocationsSubscription?.cancel();
-    _markerAnimationTimer?.cancel();
-    _markerBatchTimer?.cancel();
-    _etaDebounce?.cancel();
-    _demoTimer?.cancel();
-    _pulseTimer?.cancel();
-    _demoDriverMoveTimer?.cancel();
-    _shiftsSubscription?.cancel();
-    _driverMarkersNotifier.dispose();
-    super.dispose();
-  }
-
+    with _DriverMarkersMixin, _RoutePolylinesMixin, _DragDropMixin {
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GoogleMap(
-          mapType: MapType.normal,
-          myLocationEnabled: false,
-          myLocationButtonEnabled: false,
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: false,
-          compassEnabled: true,
-          rotateGesturesEnabled: true,
-          scrollGesturesEnabled: true,
-          zoomGesturesEnabled: true,
-          tiltGesturesEnabled: false,
-          onCameraMove: _handleCameraMove,
-          onMapCreated: (controller) {
-            _controller = controller;
-            if (!widget.clearMapMode) {
-              _updateMapData();
-            }
-            if (widget.showDriverTracks && !widget.clearMapMode) {
-              _loadDriverTracks();
-            }
-          },
-          markers: widget.clearMapMode
-              ? _deliveryMarkers
-              : {..._deliveryMarkers, ..._driverMarkersNotifier.value},
-          polylines: {
-            if (!widget.clearMapMode) ..._polylines,
-            if (!widget.clearMapMode) ..._driverProgressPolylines,
-            if (!widget.clearMapMode) ..._trackPolylines
-          },
-          circles: _driverZoneCircles,
-          initialCameraPosition: CameraPosition(
-            target: _safeWarehouseTarget(),
-            zoom: 12,
-          ),
-        ),
-        if (widget.demoMode) _buildDemoOverlay(),
-      ],
-    );
-  }
-
-  Widget _buildDemoOverlay() {
-    return IgnorePointer(
-      ignoring: true,
-      child: Stack(
-        children: [
-          // Demo UI layers
-          if (_demoTopMessage != null)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: AnimatedOpacity(
-                opacity: _demoTopMessageOpacity,
-                duration: const Duration(milliseconds: 400),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _demoTopMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (_demoShowDriverCard)
-            Positioned(
-              bottom: 24,
-              left: 16,
-              right: 16,
-              child: AnimatedOpacity(
-                opacity: _demoShowDriverCard ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.local_shipping,
-                              color: Colors.green, size: 28),
-                          SizedBox(width: 12),
-                          Text(
-                            'נהג פעיל',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'כיוון: ${_demoRoadWhToDriver.isNotEmpty ? "למחסן" : "לא ידוע"}',
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ETA: ~12 min',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
+    return GoogleMap(
+      mapType: MapType.normal,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      mapToolbarEnabled: false,
+      zoomControlsEnabled: false,
+      compassEnabled: true,
+      rotateGesturesEnabled: true,
+      scrollGesturesEnabled: true,
+      zoomGesturesEnabled: true,
+      tiltGesturesEnabled: false,
+      onCameraMove: _handleCameraMove,
+      onMapCreated: (controller) {
+        _controller = controller;
+        if (!widget.clearMapMode) {
+          _updateMapData();
+        }
+        if (widget.showDriverTracks && !widget.clearMapMode) {
+          _loadDriverTracks();
+        }
+      },
+      markers: widget.clearMapMode
+          ? _deliveryMarkers
+          : {..._deliveryMarkers, ..._driverMarkersNotifier.value},
+      polylines: {
+        if (!widget.clearMapMode) ..._polylines,
+        if (!widget.clearMapMode) ..._driverProgressPolylines,
+        if (!widget.clearMapMode) ..._trackPolylines,
+      },
+      circles: _driverZoneCircles,
+      initialCameraPosition: CameraPosition(
+        target: _safeWarehouseTarget(),
+        zoom: 12,
       ),
     );
   }
 }
+

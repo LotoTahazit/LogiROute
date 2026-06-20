@@ -600,14 +600,15 @@ test("RBAC: warehouse_keeper cannot read logistics clients", async () => {
   );
 });
 
-test("RBAC: dispatcher can read logistics but not warehouse", async () => {
+test("RBAC: dispatcher reads logistics + warehouse reference (box_types) for invoicing", async () => {
   const db = authed("u_disp_c1");
   // ✅ logistics — dispatcher allowed
   await assertSucceeds(
     db.doc(`companies/c1/logistics/_root/clients/cl1`).get()
   );
-  // ❌ warehouse — dispatcher not in warehouse matrix
-  await assertFails(
+  // ✅ box_types — warehouse reference data the dispatcher needs to build
+  //    invoices/delivery notes (read-only; write is denied — see L6 write tests)
+  await assertSucceeds(
     db.doc(`companies/c1/warehouse/_root/box_types/bt1`).get()
   );
 });

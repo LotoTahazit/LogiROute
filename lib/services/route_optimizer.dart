@@ -5,9 +5,21 @@ import '../config/app_config.dart';
 /// Route optimization algorithms: nearest-neighbor with urgency priority,
 /// distance calculation (Haversine), alternative route generation.
 class RouteOptimizer {
+  /// Параметры учёта временных окон (вариант 1: окна поверх 2-opt).
+  static const double avgSpeedKmh = 30.0; // средняя городская скорость
+  static const int serviceMinutes = 8; // время разгрузки у точки
+  static const double _latePenaltyPerMin =
+      0.5; // штраф (км-эквивалент) за минуту опоздания
+  static const int defaultDepartureMinutes = 8 * 60; // плановый выезд 08:00
+
   /// Nearest-neighbor optimization with urgency priority
   static List<DeliveryPoint> optimizeRouteOrder(
-      List<DeliveryPoint> points, Map<String, double>? driverLocation) {
+    List<DeliveryPoint> points,
+    Map<String, double>? driverLocation, {
+    double? speedKmh,
+    int? serviceMin,
+    int? departureMin,
+  }) {
     if (points.length <= 1) return points;
 
     double baseLat = AppConfig.defaultWarehouseLat;
@@ -86,7 +98,23 @@ class RouteOptimizer {
     // Urgent точки зафиксированы в начале — 2-opt работает только с normal.
     final urgentCount =
         optimizedOrder.where((p) => p.urgency == 'urgent').length;
-    _twoOpt(optimizedOrder, baseLat, baseLng, fixedPrefix: urgentCount);
+    // Если у точек заданы окна — оптимизируем по стоимости (дистанция + штраф
+    // за опоздания). Иначе — прежний чисто дистанционный 2-opt (без регрессии).
+    final hasWindows =
+        points.any((p) => p.openingTime != null || p.closingTime != null);
+    if (hasWindows) {
+      _twoOptWindows(
+        optimizedOrder,
+        baseLat,
+        baseLng,
+        departureMin ?? defaultDepartureMinutes,
+        speedKmh ?? avgSpeedKmh,
+        serviceMin ?? serviceMinutes,
+        fixedPrefix: urgentCount,
+      );
+    } else {
+      _twoOpt(optimizedOrder, baseLat, baseLng, fixedPrefix: urgentCount);
+    }
 
     print('🎯 [RouteOptimizer] Route optimization complete (NN + 2-opt):');
     for (int i = 0; i < optimizedOrder.length; i++) {
@@ -213,4 +241,156 @@ class RouteOptimizer {
   static double _degreesToRadians(double degrees) {
     return degrees * (math.pi / 180);
   }
+
+  // ───────────────────────── Временные окна ─────────────────────────
+  //
+  // Окна и ETA считаются по ВРЕМЕНИ СУТОК (минуты от полуночи), а не по
+  // абсолютной дате: маршрут может строиться на завтра или (чт→вс) на другой
+  // день, но окно «09:00–12:00» одинаково. Дата доставки в расчёте не нужна.
+
+  /// Минуты от полуночи (время суток) для DateTime.
+  static int minutesOfDay(DateTime dt) => dt.hour * 60 + dt.minute;
+
+  /// Время прибытия (минуты от полуночи) в каждую точку при данном порядке.
+  /// [startMin] — время выезда; приехали раньше окна «с» — ждём открытия.
+  static List<int> _arrivalMinutes(
+    List<DeliveryPoint> order,
+    double baseLat,
+    double baseLng,
+    int startMin,
+    double speedKmh,
+    int serviceMin,
+  ) {
+    final res = <int>[];
+    double t = startMin.toDouble();
+    double curLat = baseLat, curLng = baseLng;
+    for (final p in order) {
+      final km = calculateDistance(curLat, curLng, p.latitude, p.longitude);
+      double arrive = t + km / speedKmh * 60.0;
+      if (p.openingTime != null) {
+        final openMin = minutesOfDay(p.openingTime!).toDouble();
+        if (arrive < openMin) arrive = openMin; // ждём открытия окна «с»
+      }
+      res.add(arrive.round());
+      t = arrive + serviceMin;
+      curLat = p.latitude;
+      curLng = p.longitude;
+    }
+    return res;
+  }
+
+  /// Суммарное опоздание (минуты) относительно окон «по».
+  static double _latenessMinutes(
+      List<DeliveryPoint> order, List<int> arrivals) {
+    double total = 0;
+    for (var i = 0; i < order.length; i++) {
+      final c = order[i].closingTime;
+      if (c != null) {
+        final closeMin = minutesOfDay(c);
+        if (arrivals[i] > closeMin) total += arrivals[i] - closeMin;
+      }
+    }
+    return total;
+  }
+
+  static double _totalDistanceKm(
+      List<DeliveryPoint> order, double baseLat, double baseLng) {
+    double d = 0;
+    double curLat = baseLat, curLng = baseLng;
+    for (final p in order) {
+      d += calculateDistance(curLat, curLng, p.latitude, p.longitude);
+      curLat = p.latitude;
+      curLng = p.longitude;
+    }
+    return d;
+  }
+
+  /// Стоимость порядка = дистанция (км) + штраф за опоздания по окнам.
+  static double _routeCost(List<DeliveryPoint> order, double baseLat,
+      double baseLng, int startMin, double speedKmh, int serviceMin) {
+    final dist = _totalDistanceKm(order, baseLat, baseLng);
+    final late = _latenessMinutes(order,
+        _arrivalMinutes(order, baseLat, baseLng, startMin, speedKmh, serviceMin));
+    return dist + _latePenaltyPerMin * late;
+  }
+
+  /// 2-opt по полной стоимости (дистанция + штраф за окна). Для малых n
+  /// (≤ maxPointsPerRoute) полный пересчёт стоимости на ход допустим.
+  static void _twoOptWindows(
+    List<DeliveryPoint> route,
+    double startLat,
+    double startLng,
+    int startMin,
+    double speedKmh,
+    int serviceMin, {
+    int fixedPrefix = 0,
+  }) {
+    if (route.length - fixedPrefix <= 2) return;
+    bool improved = true;
+    int iterations = 0;
+    const maxIterations = 50;
+    double bestCost =
+        _routeCost(route, startLat, startLng, startMin, speedKmh, serviceMin);
+    while (improved && iterations < maxIterations) {
+      improved = false;
+      iterations++;
+      for (int i = fixedPrefix; i < route.length - 1; i++) {
+        for (int j = i + 1; j < route.length; j++) {
+          _reverseSublist(route, i, j);
+          final cost = _routeCost(
+              route, startLat, startLng, startMin, speedKmh, serviceMin);
+          if (cost < bestCost - 0.001) {
+            bestCost = cost;
+            improved = true;
+          } else {
+            _reverseSublist(route, i, j); // откат хода
+          }
+        }
+      }
+    }
+  }
+
+  /// Расписание для UI (опоздание по точкам).
+  ///
+  /// Плановый режим: [origin]=null (старт от склада), [startMinutes]=null →
+  /// плановое время выезда [defaultDepartureMinutes].
+  /// «Живой» режим: передай позицию водителя в [origin], текущее время суток
+  /// в [startMinutes], а в [order] — оставшиеся (невыполненные) точки.
+  /// [speedKmh]/[serviceMin] — параметры компании (по умолчанию — константы).
+  static List<StopSchedule> routeSchedule(
+    List<DeliveryPoint> order,
+    Map<String, double>? origin, {
+    int? startMinutes,
+    double? speedKmh,
+    int? serviceMin,
+  }) {
+    double baseLat = AppConfig.defaultWarehouseLat;
+    double baseLng = AppConfig.defaultWarehouseLng;
+    if (origin != null) {
+      baseLat = origin['latitude']!;
+      baseLng = origin['longitude']!;
+    }
+    final startMin = startMinutes ?? defaultDepartureMinutes;
+    final arr = _arrivalMinutes(order, baseLat, baseLng, startMin,
+        speedKmh ?? avgSpeedKmh, serviceMin ?? serviceMinutes);
+    return [
+      for (var i = 0; i < order.length; i++)
+        StopSchedule(
+          arrivalMinutes: arr[i],
+          lateMinutes: (order[i].closingTime != null &&
+                  arr[i] > minutesOfDay(order[i].closingTime!))
+              ? arr[i] - minutesOfDay(order[i].closingTime!)
+              : 0,
+        ),
+    ];
+  }
+}
+
+/// Прогноз по точке: время прибытия (минуты от полуночи) и опоздание.
+class StopSchedule {
+  final int arrivalMinutes;
+  final int lateMinutes;
+  const StopSchedule(
+      {required this.arrivalMinutes, required this.lateMinutes});
+  bool get isLate => lateMinutes > 0;
 }

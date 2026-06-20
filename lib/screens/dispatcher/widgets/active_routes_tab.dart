@@ -3,6 +3,9 @@ import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/eta_calculator.dart';
+import '../../../theme/app_theme.dart';
+import '../../../services/route_optimizer.dart';
+import '../../../utils/gps_utils.dart';
 
 /// Вкладка с активными маршрутами
 class ActiveRoutesTab extends StatelessWidget {
@@ -27,6 +30,15 @@ class ActiveRoutesTab extends StatelessWidget {
   final Function(String driverId, String? routeId, List<DeliveryPoint> points)?
       onOptimizeRoute;
 
+  /// Свежие GPS-позиции водителей (driverId → точка). Если для водителя есть
+  /// запись — бейдж опоздания считается «живым» от его текущего положения.
+  final Map<String, GpsLatLng>? liveDriverLocations;
+
+  // Параметры маршрутизации компании для расчёта ETA/опозданий (null → дефолты).
+  final int? plannedDepartureMinutes; // плановое время выезда (мин от полуночи)
+  final double? avgSpeedKmh;
+  final int? serviceMinutes;
+
   const ActiveRoutesTab({
     super.key,
     required this.companyId,
@@ -46,6 +58,10 @@ class ActiveRoutesTab extends StatelessWidget {
     this.onCompletePointManually,
     this.onBalanceRoutes,
     this.onOptimizeRoute,
+    this.liveDriverLocations,
+    this.plannedDepartureMinutes,
+    this.avgSpeedKmh,
+    this.serviceMinutes,
   });
 
   bool _isAssignedOrInProgress(DeliveryPoint p) {
@@ -262,6 +278,41 @@ class ActiveRoutesTab extends StatelessWidget {
       // Пересчёт ETA от фактического прогресса (0 Firestore запросов)
       final recalcEtas = EtaCalculator.recalculate(routePoints);
 
+      // Прогноз опоздания по окнам доставки. Считаем один раз на маршрут.
+      // «Живой» режим: если есть свежий GPS водителя — старт от его текущей
+      // позиции и времени по оставшимся точкам. Иначе — плановый (склад, 08:00).
+      final lateByPointId = <String, int>{};
+      final liveLoc = liveDriverLocations?[driverId];
+      final bool isLiveSchedule = liveLoc != null;
+      if (routePoints.any(
+          (p) => p.openingTime != null || p.closingTime != null)) {
+        final List<DeliveryPoint> orderForSched;
+        Map<String, double>? origin;
+        int? startMin;
+        if (liveLoc != null) {
+          orderForSched = routePoints.where((p) => !_isClosed(p)).toList();
+          origin = {
+            'latitude': liveLoc.latitude,
+            'longitude': liveLoc.longitude,
+          };
+          final now = DateTime.now();
+          startMin = now.hour * 60 + now.minute;
+        } else {
+          orderForSched = routePoints;
+          startMin = plannedDepartureMinutes; // время выезда компании
+        }
+        final schedule = RouteOptimizer.routeSchedule(
+          orderForSched,
+          origin,
+          startMinutes: startMin,
+          speedKmh: avgSpeedKmh,
+          serviceMin: serviceMinutes,
+        );
+        for (var i = 0; i < orderForSched.length && i < schedule.length; i++) {
+          lateByPointId[orderForSched[i].id] = schedule[i].lateMinutes;
+        }
+      }
+
       // Цвет загрузки маршрута: 🟢 ≤80%  🟡 80–100%  🔴 >100%
       final loadRatio = driverCap > 0 ? totalPallets / driverCap : 0.0;
       final loadColor = loadRatio > 1.0
@@ -355,7 +406,7 @@ class ActiveRoutesTab extends StatelessWidget {
           ),
           title: Text(
             driverName,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
             '${routePoints.length} ${l10n.points} • $palletText$kmText$etaText$progressText',
@@ -423,7 +474,7 @@ class ActiveRoutesTab extends StatelessWidget {
                       ),
                     ...adviceList.map((a) => Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(a, style: const TextStyle(fontSize: 13)),
+                          child: Text(a, style: TextStyle(fontSize: 13)),
                         )),
                   ],
                 ),
@@ -441,34 +492,34 @@ class ActiveRoutesTab extends StatelessWidget {
                             .length >=
                         2)
                   IconButton(
-                    icon: const Icon(Icons.route),
+                    icon: Icon(Icons.route),
                     tooltip: l10n.optimizeTime,
                     onPressed: () =>
                         onOptimizeRoute!(driverId, routeId, routePoints),
                   ),
                 IconButton(
-                  icon: const Icon(Icons.swap_horiz),
+                  icon: Icon(Icons.swap_horiz),
                   tooltip: l10n.changeDriver,
                   onPressed: () =>
                       onChangeDriver(driverId, driverName, routeId),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.cancel),
+                  icon: Icon(Icons.cancel),
                   tooltip: l10n.cancelRoute,
                   onPressed: () => onCancelRoute(driverId, routeId),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.print),
+                  icon: Icon(Icons.print),
                   tooltip: l10n.printRoute,
                   onPressed: () => onPrintRoute(routePoints),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.receipt_long, color: Colors.green),
+                  icon: Icon(Icons.receipt_long, color: Colors.green),
                   tooltip: l10n.printAllInvoicesTooltip,
                   onPressed: () => onPrintAllInvoices(routePoints),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.list_alt, color: Colors.teal),
+                  icon: Icon(Icons.list_alt, color: Colors.teal),
                   tooltip: l10n.pickingListTooltip,
                   onPressed: () => PrintService.printPickingList(
                     points: routePoints,
@@ -494,29 +545,29 @@ class ActiveRoutesTab extends StatelessWidget {
                         onCompletePointManually != null &&
                         _isAssignedOrInProgress(r))
                       IconButton(
-                        icon: const Icon(Icons.task_alt, color: Colors.green),
+                        icon: Icon(Icons.task_alt, color: Colors.green),
                         tooltip: l10n.dispatcherManualCompleteTooltip,
                         onPressed: () => onCompletePointManually!(r),
                       ),
                     if (!isClosed) ...[
                       IconButton(
-                        icon: const Icon(Icons.receipt, color: Colors.green),
+                        icon: Icon(Icons.receipt, color: Colors.green),
                         tooltip: l10n.createInvoiceTooltip,
                         onPressed: () => onCreateInvoice(r),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.local_shipping,
+                        icon: Icon(Icons.local_shipping,
                             color: Colors.blue),
                         tooltip: l10n.createDeliveryNoteTooltip,
                         onPressed: () => onCreateDeliveryNote(r),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        icon: Icon(Icons.edit, color: Colors.orange),
                         tooltip: l10n.edit,
                         onPressed: () => onEditPoint(r),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline,
+                        icon: Icon(Icons.remove_circle_outline,
                             color: Colors.red),
                         tooltip: l10n.removeFromRoute,
                         onPressed: () => onRemovePoint(r),
@@ -544,12 +595,75 @@ class ActiveRoutesTab extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${r.pallets} ${l10n.pallets}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: AppTheme.text,
                         ),
                         textDirection: TextDirection.rtl,
                       ),
+                      if (r.openingTime != null || r.closingTime != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '🕒 ${l10n.deliveryWindowTitle}: '
+                            '${r.openingTime != null ? TimeOfDay.fromDateTime(r.openingTime!).format(context) : '—'}'
+                            '–'
+                            '${r.closingTime != null ? TimeOfDay.fromDateTime(r.closingTime!).format(context) : '—'}',
+                            style: TextStyle(
+                              color: AppTheme.accentSoft,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textDirection: TextDirection.rtl,
+                          ),
+                        ),
+                      if (r.closingTime != null &&
+                          lateByPointId.containsKey(r.id) &&
+                          !isClosed)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Builder(builder: (_) {
+                            final late = lateByPointId[r.id] ?? 0;
+                            final isLate = late > 0;
+                            final color = isLate ? Colors.red : Colors.green;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: color.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isLiveSchedule) ...[
+                                    const Icon(Icons.gps_fixed,
+                                        size: 11, color: Colors.green),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Icon(
+                                      isLate
+                                          ? Icons.warning_amber_rounded
+                                          : Icons.check_circle_outline,
+                                      size: 13,
+                                      color: color),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isLate
+                                        ? l10n.routeLateBy(late)
+                                        : l10n.routeOnTime,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: color),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ),
                       const SizedBox(height: 2),
                       Text(
                         _getDisplayAddress(r),
@@ -635,7 +749,7 @@ class ActiveRoutesTab extends StatelessWidget {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 4, vertical: 8),
                                           child: Icon(Icons.drag_handle,
-                                              color: Colors.grey.shade400,
+                                              color: AppTheme.muted,
                                               size: 24),
                                         ),
                                       ),
@@ -649,7 +763,7 @@ class ActiveRoutesTab extends StatelessWidget {
                                     child: Text(
                                       '${r.orderInRoute + 1}',
                                       style:
-                                          const TextStyle(color: Colors.white),
+                                          TextStyle(color: Colors.white),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -695,7 +809,7 @@ class ActiveRoutesTab extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: ElevatedButton.icon(
               onPressed: onBalanceRoutes,
-              icon: const Icon(Icons.balance, size: 20),
+              icon: Icon(Icons.balance, size: 20),
               label: Text(l10n.balanceRoutes),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.indigo,
@@ -720,13 +834,13 @@ class ActiveRoutesTab extends StatelessWidget {
                   .map(
                     (p) => ListTile(
                       leading:
-                          Icon(Icons.check_circle, color: Colors.grey.shade400),
+                          Icon(Icons.check_circle, color: AppTheme.muted),
                       title: Text(p.clientName),
                       subtitle: Text(
                         '${p.driverName ?? ""} • ${_getDisplayAddress(p)}',
                       ),
                       trailing: TextButton.icon(
-                        icon: const Icon(Icons.undo, size: 18),
+                        icon: Icon(Icons.undo, size: 18),
                         label: Text(l10n.reopenPoint),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.orange.shade800,
@@ -772,7 +886,7 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
     // Кнопка оптимизации — без автоматической OSRM проверки.
     // OSRM Trip нестабилен и вызывает каскад запросов при автопроверке.
     return Material(
-      color: Colors.grey.shade200,
+      color: AppTheme.surfaceHi,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -783,14 +897,14 @@ class _OptimizeTimeButtonState extends State<_OptimizeTimeButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timer_outlined, color: Colors.grey.shade700, size: 22),
+              Icon(Icons.timer_outlined, color: AppTheme.muted, size: 22),
               const SizedBox(width: 4),
               Text(
                 widget.l10n.optimizeTime,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade700,
+                  color: AppTheme.muted,
                 ),
               ),
             ],

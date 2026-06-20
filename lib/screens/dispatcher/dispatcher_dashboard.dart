@@ -20,15 +20,19 @@ import 'add_point_dialog.dart';
 import 'edit_point_dialog.dart';
 import 'add_product_to_point_dialog.dart';
 import 'create_invoice_dialog.dart';
+import '../../theme/app_theme.dart';
 import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
 import 'widgets/map_tab.dart';
-import 'widgets/dispatcher_demo_process_visual.dart';
 import 'widgets/driver_workload_panel.dart';
 import '../../widgets/notification_bell.dart';
 import '../../services/company_cache.dart';
 import '../../services/route_cache_service.dart';
+import '../../services/optimized_location_service.dart';
+import '../../utils/gps_utils.dart';
+import '../../models/company_settings.dart';
+import '../../services/company_settings_service.dart';
 
 class DispatcherDashboard extends StatefulWidget {
   const DispatcherDashboard({super.key});
@@ -53,6 +57,62 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
   RouteCacheService? _dispatcherCache;
+
+  // Поток GPS-позиций водителей для «живого» бейджа опоздания (кэш по компании).
+  OptimizedLocationService? _locSvc;
+  String? _locSvcCompany;
+  Stream<List<Map<String, dynamic>>>? _driverLocStreamCached;
+
+  Stream<List<Map<String, dynamic>>> _driverLocationsStream(String companyId) {
+    if (_driverLocStreamCached == null || _locSvcCompany != companyId) {
+      _locSvc = OptimizedLocationService(companyId);
+      _locSvcCompany = companyId;
+      _driverLocStreamCached = _locSvc!
+          .getAllDriverLocationsStream(driverIds: null)
+          .asBroadcastStream();
+    }
+    return _driverLocStreamCached!;
+  }
+
+  // Настройки компании (параметры ETA: выезд, скорость, разгрузка). Кэш по id.
+  Stream<CompanySettings?>? _settingsStreamCached;
+  String? _settingsCompany;
+
+  Stream<CompanySettings?> _companySettingsStream(
+      BuildContext ctx, String companyId) {
+    if (_settingsStreamCached == null || _settingsCompany != companyId) {
+      _settingsCompany = companyId;
+      _settingsStreamCached = CompanySettingsService(companyId: companyId)
+          .getSettingsStream()
+          .asBroadcastStream();
+    }
+    return _settingsStreamCached!;
+  }
+
+  /// Свежие (≤15 мин) позиции водителей: driverId → точка.
+  Map<String, GpsLatLng> _freshDriverLocations(
+      List<Map<String, dynamic>>? data) {
+    final out = <String, GpsLatLng>{};
+    if (data == null) return out;
+    final now = DateTime.now();
+    for (final d in data) {
+      final id = (d['driverId'] ?? '').toString();
+      if (id.isEmpty) continue;
+      final lat = (d['latitude'] as num?)?.toDouble();
+      final lng = (d['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) continue;
+      final ts = d['timestamp'];
+      DateTime? t;
+      if (ts is DateTime) {
+        t = ts;
+      } else if (ts is Timestamp) {
+        t = ts.toDate();
+      }
+      if (t != null && now.difference(t).inMinutes > 15) continue; // не свежо
+      out[id] = GpsLatLng(lat, lng);
+    }
+    return out;
+  }
 
   Set<String> _activeRouteIdsOf(List<DeliveryPoint> points) => points
       .where((p) =>
@@ -103,31 +163,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
       return false;
     }).toList();
-  }
-
-  /// סיור הדגמה: נקודות → מסלולים → דמו מפה (ללא שינוי לוגיקת prod).
-  Timer? _tourTimer;
-  bool _tourActive = false;
-  int _tourIndex = 0;
-  bool _forceMapDemo = false;
-
-  static const Duration _kTourStepDuration = Duration(seconds: 10);
-
-  String _tourStepMessage(AppLocalizations l10n, int index) {
-    switch (index) {
-      case 0:
-        return l10n.dispatcherTourStep1;
-      case 1:
-        return l10n.dispatcherTourStep2;
-      case 2:
-        return l10n.dispatcherTourStep3;
-      case 3:
-        return l10n.dispatcherTourStep4;
-      case 4:
-        return l10n.dispatcherTourStep5;
-      default:
-        return '';
-    }
   }
 
   /// Инициализация потоков — вынесено из build() для предотвращения race condition
@@ -207,7 +242,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
 
   @override
   void dispose() {
-    _tourTimer?.cancel();
     // Streams are created from Firestore snapshots() and managed by StreamBuilder,
     // so no manual cancellation needed — but clear references.
     _pendingPointsStream = null;
@@ -215,53 +249,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     _mapRoutesStream = null;
     _autoCompletedStream = null;
     super.dispose();
-  }
-
-  void _startProductTour() {
-    _tourTimer?.cancel();
-    setState(() {
-      _tourActive = true;
-      _tourIndex = 0;
-      _currentTabIndex = 0;
-      _forceMapDemo = false;
-    });
-    _scheduleTourNextStep();
-  }
-
-  void _scheduleTourNextStep() {
-    _tourTimer?.cancel();
-    _tourTimer = Timer(_kTourStepDuration, () {
-      if (!mounted) return;
-      setState(() {
-        _tourIndex++;
-        if (_tourIndex == 3) {
-          _currentTabIndex = 1;
-        } else if (_tourIndex == 5) {
-          _currentTabIndex = 2;
-          _tourActive = false;
-          _forceMapDemo = true;
-        }
-      });
-      if (_tourIndex < 5) {
-        _scheduleTourNextStep();
-      }
-    });
-  }
-
-  void _cancelProductTour() {
-    _tourTimer?.cancel();
-    setState(() {
-      _tourActive = false;
-      _forceMapDemo = false;
-      _tourIndex = 0;
-    });
-  }
-
-  void _onMapTourDemoFinished() {
-    if (!mounted) return;
-    setState(() {
-      _forceMapDemo = false;
-    });
   }
 
   Future<void> _loadDrivers() async {
@@ -408,9 +395,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       if (mounted) {
         SnackbarHelper.showSuccess(context, l10n.routeCopiedToClipboard);
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, l10n.printError);
+        SnackbarHelper.showError(context, l10n.printError(e.toString()));
       }
     }
   }
@@ -535,14 +522,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             children: _drivers
                 .map(
                   (d) => ListTile(
-                    title: Text(
-                      d.name,
-                      style: const TextStyle(color: Colors.black),
-                    ),
-                    subtitle: Text(
-                      '${d.palletCapacity} ${l10n.pallets}',
-                      style: const TextStyle(color: Colors.black),
-                    ),
+                    title: Text(d.name),
+                    subtitle: Text('${d.palletCapacity} ${l10n.pallets}'),
                     onTap: () => Navigator.pop(context, d),
                   ),
                 )
@@ -634,14 +615,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 .where((d) => d.uid != currentDriverId)
                 .map(
                   (driver) => ListTile(
-                    title: Text(
-                      driver.name,
-                      style: const TextStyle(color: Colors.black),
-                    ),
-                    subtitle: Text(
-                      '${driver.palletCapacity} ${l10n.pallets}',
-                      style: const TextStyle(color: Colors.black),
-                    ),
+                    title: Text(driver.name),
+                    subtitle: Text('${driver.palletCapacity} ${l10n.pallets}'),
                     onTap: () => Navigator.pop(context, driver),
                   ),
                 )
@@ -919,6 +894,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           result['urgency'] as String,
           result['orderInRoute'] as int?,
           result['address'] as String?,
+          updateWindow: result['updateWindow'] == true,
+          openingTime: result['openingTime'] as DateTime?,
+          closingTime: result['closingTime'] as DateTime?,
         );
         if (mounted) {
           SnackbarHelper.show(
@@ -1360,20 +1338,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.dispatcher),
           actions: [
-            IconButton(
-              tooltip: _tourActive || _forceMapDemo
-                  ? l10n.dispatcherTourStopTooltip
-                  : l10n.dispatcherTourStartTooltip,
-              icon: Icon(
-                _tourActive || _forceMapDemo
-                    ? Icons.stop_circle_outlined
-                    : Icons.play_circle_outline,
-                color: Colors.white,
-              ),
-              onPressed: _tourActive || _forceMapDemo
-                  ? _cancelProductTour
-                  : _startProductTour,
-            ),
             NotificationBell(companyId: effectiveCompanyId),
             DispatcherAppBarActions(
               onSetWarehouseLocation: _setWarehouseLocation,
@@ -1381,9 +1345,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             ),
           ],
         ),
-        body: Stack(
-          children: [
-            DefaultTabController(
+        body: DefaultTabController(
               length: 3,
               child: Column(
                 children: [
@@ -1396,10 +1358,9 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
+                        color: AppTheme.surfaceHi,
                         border: Border(
-                          bottom:
-                              BorderSide(color: Colors.blue.shade300, width: 2),
+                          bottom: BorderSide(color: AppTheme.accent, width: 2),
                         ),
                       ),
                       child: Wrap(
@@ -1413,7 +1374,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             children: [
                               Icon(
                                 Icons.visibility,
-                                color: Colors.blue.shade900,
+                                color: AppTheme.accentSoft,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -1421,7 +1382,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 child: Text(
                                   '${l10n.viewingAs} ${l10n.dispatcher}',
                                   style: TextStyle(
-                                    color: Colors.blue.shade900,
+                                    color: AppTheme.accentSoft,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
                                   ),
@@ -1431,7 +1392,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           ),
                           ElevatedButton.icon(
                             onPressed: () => authService.setViewAsRole(null),
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.admin_panel_settings,
                               size: 18,
                             ),
@@ -1530,7 +1491,24 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                               stream: _autoCompletedStream,
                               initialData: const [],
                               builder: (context, autoSnapshot) {
-                                return ActiveRoutesTab(
+                                return StreamBuilder<List<Map<String, dynamic>>>(
+                                  stream: _driverLocationsStream(
+                                      effectiveCompanyId),
+                                  initialData: const [],
+                                  builder: (context, locSnap) {
+                                    final liveLocs =
+                                        _freshDriverLocations(locSnap.data);
+                                    return StreamBuilder<CompanySettings?>(
+                                      stream: _companySettingsStream(
+                                          context, effectiveCompanyId),
+                                      initialData: null,
+                                      builder: (context, csSnap) {
+                                    final cs = csSnap.data;
+                                    return ActiveRoutesTab(
+                                  liveDriverLocations: liveLocs,
+                                  plannedDepartureMinutes: cs?.departureMinutes,
+                                  avgSpeedKmh: cs?.avgSpeedKmh,
+                                  serviceMinutes: cs?.serviceMinutes,
                                   companyId: effectiveCompanyId,
                                   routes: snapshot.data ?? [],
                                   lastNonEmptyRoutes: _lastNonEmptyRoutes,
@@ -1578,6 +1556,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                     routeId,
                                     points,
                                   ),
+                                );
+                                  },
+                                );
+                                  },
                                 );
                               },
                             );
@@ -1632,8 +1614,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                   warehouseLng: CompanyCache.instance(
                                     effectiveCompanyId,
                                   ).warehouseLng,
-                                  demoModeFromTour: _forceMapDemo,
-                                  onTourDemoFinished: _onMapTourDemoFinished,
                                   onDriverFilterChanged: (driverId) => setState(
                                       () => _selectedDriverId = driverId),
                                   onPointDragToDriver:
@@ -1655,87 +1635,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 ],
               ),
             ),
-            if (_tourActive && _tourIndex < 5)
-              Positioned.fill(
-                child: Material(
-                  color: Colors.black54,
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.topRight,
-                            child: IconButton(
-                              tooltip: l10n.close,
-                              onPressed: _cancelProductTour,
-                              icon:
-                                  const Icon(Icons.close, color: Colors.white),
-                            ),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      blurRadius: 12,
-                                      color: Colors.black26,
-                                    ),
-                                  ],
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      AnimatedSwitcher(
-                                        duration:
-                                            const Duration(milliseconds: 450),
-                                        switchInCurve: Curves.easeOut,
-                                        switchOutCurve: Curves.easeIn,
-                                        child: DispatcherDemoProcessVisual(
-                                          key: ValueKey(_tourIndex),
-                                          stepIndex: _tourIndex,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 18),
-                                      const Divider(),
-                                      const SizedBox(height: 14),
-                                      Text(
-                                        _tourStepMessage(l10n, _tourIndex),
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Text(
-                            l10n.dispatcherTourProgress(_tourIndex + 1, 5),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        floatingActionButton: !_tourActive && _currentTabIndex == 0
+        floatingActionButton: _currentTabIndex == 0
             ? FloatingActionButton(
                 tooltip: l10n.addPoint,
                 onPressed: () {
@@ -1744,7 +1644,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                     builder: (context) => const AddPointDialog(),
                   );
                 },
-                child: const Icon(Icons.add),
+                child: Icon(Icons.add),
               )
             : null,
       ),
@@ -1778,13 +1678,13 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
     return AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
+          Icon(Icons.warning_amber_rounded,
               color: Colors.orange, size: 28),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               l10n.makorOriginalPrintedTitle,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -1808,7 +1708,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
                     docTypeLabel,
                     '${widget.invoice.sequentialNumber}',
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
@@ -1816,7 +1716,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
                 const SizedBox(height: 8),
                 Text(
                   l10n.makorBooksLawWarning,
-                  style: const TextStyle(fontSize: 13, color: Colors.red),
+                  style: TextStyle(fontSize: 13, color: Colors.red),
                 ),
               ],
             ),
@@ -1824,7 +1724,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
           const SizedBox(height: 16),
           Text(
             l10n.makorChoosePrintType,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
           ListTile(
             leading: Icon(
@@ -1855,16 +1755,16 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
             children: [
               Text(l10n.makorCopyQuantity),
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: Icon(Icons.remove_circle_outline),
                 onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
               ),
               Text(
                 '$_copies',
                 style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               IconButton(
-                icon: const Icon(Icons.add_circle_outline),
+                icon: Icon(Icons.add_circle_outline),
                 onPressed: _copies < 5 ? () => setState(() => _copies++) : null,
               ),
             ],
@@ -1881,7 +1781,7 @@ class _MakorExistsReprintDialogState extends State<_MakorExistsReprintDialog> {
             'copyType': _selectedType,
             'copies': _copies,
           }),
-          icon: const Icon(Icons.print),
+          icon: Icon(Icons.print),
           label: Text(l10n.makorPrintButton),
         ),
       ],

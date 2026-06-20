@@ -22,6 +22,9 @@ class PlanLimitsService {
       case 'warehouse_only':
         return const PlanLimits(
             maxUsers: 5, maxDocsPerMonth: 500, maxRoutesPerDay: 10);
+      case 'logistics':
+        return const PlanLimits(
+            maxUsers: 10, maxDocsPerMonth: 1000, maxRoutesPerDay: 40);
       case 'ops':
         return const PlanLimits(
             maxUsers: 15, maxDocsPerMonth: 2000, maxRoutesPerDay: 50);

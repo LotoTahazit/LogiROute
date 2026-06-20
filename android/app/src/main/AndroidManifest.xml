@@ -3,7 +3,7 @@
     package="com.logiroute.app">
 
     <!-- 🌐 Разрешения -->
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
@@ -46,10 +46,10 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
 
-        <!-- ✅ Ключ Google Maps для Android -->
+        <!-- ✅ Google Maps: GOOGLE_MAPS_API_KEY из android/local.properties (см. local.properties.example) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDs_vewHuQ2DK5r8yqvJ4W2jvUAusC3SkY"/>
+            android:value="${GOOGLE_MAPS_API_KEY}"/>
 
         <!-- ✅ Канал уведомлений для Firebase Messaging -->
         <meta-data

@@ -17,11 +17,13 @@ class AppConfig {
       Duration(minutes: 5); // Порог устаревших данных
 
   // 🎯 Параметры автозакрытия точек
-  static const double autoCompleteRadius = 150.0; // Радиус автозакрытия (метры)
+  static const double autoCompleteRadius = 100.0; // Радиус автозакрытия (метры)
   static const double autoCompleteResetRadius =
-      175.0; // Гистерезис против GPS-дрожания
+      120.0; // Гистерезис против GPS-дрожания
   static const Duration autoCompleteDuration =
-      Duration(minutes: 2); // Время ожидания до автозакрытия
+      Duration(minutes: 3); // Время ожидания до автозакрытия
+  static const Duration autoCloseUndoWindow =
+      Duration(seconds: 90); // Окно отмены после автозакрытия
 
   // ⏱️ Таймауты
   static const Duration geocodingTimeout = Duration(seconds: 5);

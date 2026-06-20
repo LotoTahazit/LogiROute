@@ -18,12 +18,16 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/shift_schedule_config.dart';
-import '../../utils/eta_calculator.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
 import '../../services/firestore_paths.dart';
 import '../../config/app_config.dart';
+import '../../widgets/proof_of_delivery_sheet.dart';
+import '../../services/driver_auto_close_prefs.dart';
+import '../../services/company_settings_service.dart';
+import '../admin/data_retention_screen.dart';
+import '../../theme/app_theme.dart';
 
 // === ARRIVAL CONFIG ===
 const double kArrivalRadius = AppConfig.autoCompleteRadius; // meters
@@ -58,6 +62,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
   // ── Foreground auto-close (основной механизм, Android) ──
   Timer? _autoCloseTimer;
   final Map<String, DateTime> _autoCloseArrivalTimes = {};
+  Set<String> _autoCloseDisabledIds = {};
+  /// Политика компании: требовать POD-фото на каждую доставку (тогда нет
+  /// автозакрытия и кнопки «Доставлено» — только «Закрыть с фото»).
+  bool _photoRequired = false;
+  /// id точек, для которых уже показали undo (чтобы не дублировать при ребилдах
+  /// и не показывать для давно закрытых при первой загрузке потока).
+  final Set<String> _undoShownIds = {};
   double? _lastKnownLat;
   double? _lastKnownLng;
   String? _visibleRouteKey;
@@ -373,6 +384,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     // 🛡️ Восстанавливаем кеш при старте (до первого build)
     _restorePointsFromCache();
+    _loadAutoClosePrefs();
 
     // Инициализируем уведомления, затем запускаем расписание
     _initializeAndStartSchedule();
@@ -449,6 +461,114 @@ class _DriverDashboardState extends State<DriverDashboard> {
       onStartTracking: _startTracking,
       onStopTracking: _stopTracking,
     );
+  }
+
+  Future<void> _loadAutoClosePrefs() async {
+    if (kIsWeb) return;
+    final ids = await DriverAutoClosePrefs.loadDisabled();
+    if (mounted) setState(() => _autoCloseDisabledIds = ids);
+
+    // Политика компании «POD-фото обязательно»: при включении автозакрытие
+    // (без фото) отключаем и прячем кнопку «Доставлено». Зеркалим в prefs,
+    // чтобы фоновый сервис тоже учитывал.
+    try {
+      final companyId = context.read<AuthService>().userModel?.companyId ?? '';
+      if (companyId.isNotEmpty) {
+        final cs =
+            await CompanySettingsService(companyId: companyId).getSettings();
+        final req = cs?.requirePodPhoto ?? false;
+        await DriverAutoClosePrefs.setPhotoRequired(req);
+        if (mounted) setState(() => _photoRequired = req);
+      }
+    } catch (e) {
+      debugPrint('autoclose: load company photo policy: $e');
+    }
+  }
+
+  Future<void> _setAutoCloseEnabled(DeliveryPoint point, bool enabled) async {
+    if (kIsWeb) return;
+    await DriverAutoClosePrefs.setDisabled(point.id, !enabled);
+    if (!mounted) return;
+    setState(() {
+      if (enabled) {
+        _autoCloseDisabledIds.remove(point.id);
+      } else {
+        _autoCloseDisabledIds.add(point.id);
+        _autoCloseArrivalTimes.remove(point.id);
+      }
+    });
+  }
+
+  void _showAutoCloseUndoSnackBar(DeliveryPoint point, AppLocalizations l10n) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l10n.autoCloseUndoMessage),
+        duration: AppConfig.autoCloseUndoWindow,
+        action: SnackBarAction(
+          label: l10n.undo,
+          onPressed: () => _undoAutoComplete(point),
+        ),
+      ),
+    );
+  }
+
+  /// Ретроспективно показывает undo для точек, закрытых АВТОМАТИЧЕСКИ (в т.ч.
+  /// в фоне) в пределах окна отмены — когда snackbar в момент закрытия не
+  /// показался (приложение было свёрнуто). Вызывается на обновлении потока.
+  void _maybeShowBackgroundUndo(List<DeliveryPoint> points) {
+    if (kIsWeb || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final now = DateTime.now();
+    for (final p in points) {
+      if (!p.autoCompleted) continue;
+      if (DeliveryPoint.normalizeStatus(p.status) !=
+          DeliveryPoint.statusCompleted) {
+        continue;
+      }
+      if (_undoShownIds.contains(p.id)) continue;
+      _undoShownIds.add(p.id);
+      final c = p.completedAt;
+      // Только недавно закрытые (в окне отмены) — старые помечаем и пропускаем,
+      // чтобы они не всплывали при первой загрузке потока.
+      if (c == null || now.difference(c) > AppConfig.autoCloseUndoWindow) {
+        continue;
+      }
+      _showAutoCloseUndoSnackBar(p, l10n);
+      break; // по одному за раз — не заваливаем водителя
+    }
+  }
+
+  Future<void> _undoAutoComplete(DeliveryPoint point) async {
+    if (_routeService == null) return;
+    final driverId = context.read<AuthService>().currentUser?.uid ?? '';
+    try {
+      await _routeService!.undoAutoComplete(point.id, updatedByUid: driverId);
+      if (!mounted) return;
+      setState(() {
+        _lastPoints = _lastPoints.map((p) {
+          if (p.id != point.id) return p;
+          return p.copyWith(
+            status: DeliveryPoint.statusInProgress,
+            updatedAt: DateTime.now(),
+          );
+        }).toList();
+        // Делаем восстановленную точку текущей только если текущей нет или
+        // это она же — фоновый undo произвольной точки не сбивает current.
+        if (_currentPoint == null || _currentPoint!.id == point.id) {
+          _currentPoint = point.copyWith(
+            status: DeliveryPoint.statusInProgress,
+            updatedAt: DateTime.now(),
+          );
+        }
+        _undoShownIds.remove(point.id);
+        _autoCloseArrivalTimes[point.id] = DateTime.now();
+      });
+    } catch (e) {
+      debugPrint('❌ [AutoClose] Undo failed: $e');
+    }
   }
 
   Future<void> _initializeNotifications() async {
@@ -556,12 +676,36 @@ class _DriverDashboardState extends State<DriverDashboard> {
   double _lastSentLng = 0;
   DateTime _lastSentTime = DateTime(2000);
 
+  // Оценка скорости по смещению GPS-фиксов — для гейта «стоит/едет».
+  double? _autoPrevLat;
+  double? _autoPrevLng;
+  DateTime? _autoPrevAt;
+  double? _lastGpsSpeedMps;
+
+  /// Водитель считается стоящим, если скорость < ~1.5 м/с (≈5 км/ч) или ещё
+  /// неизвестна (нет данных — не блокируем закрытие, край ловит Undo).
+  bool get _isDriverStationaryNow {
+    final s = _lastGpsSpeedMps;
+    return s == null || s < 1.5;
+  }
+
   void _onLocationUpdate(double lat, double lon) {
     if (_routeService == null) return;
 
     // Сохраняем последнюю GPS-позицию для таймера автозакрытия
     _lastKnownLat = lat;
     _lastKnownLng = lon;
+
+    // Скорость по смещению между фиксами (для гейта по остановке).
+    final nowFix = DateTime.now();
+    if (_autoPrevLat != null && _autoPrevAt != null) {
+      final moved = _simpleDistanceMeters(_autoPrevLat!, _autoPrevLng!, lat, lon);
+      final secs = nowFix.difference(_autoPrevAt!).inMilliseconds / 1000.0;
+      if (secs >= 1.0) _lastGpsSpeedMps = moved / secs;
+    }
+    _autoPrevLat = lat;
+    _autoPrevLng = lon;
+    _autoPrevAt = nowFix;
 
     if (_isTrackingActive) {
       _showGpsNotification();
@@ -656,9 +800,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   /// Foreground auto-close: каждые 30 сек проверяет ВСЕ активные точки водителя.
-  /// Если водитель в радиусе 100 м от точки ≥ 2 мин — автозакрытие.
+  /// Если водитель в радиусе 100 м от точки ≥ 3 мин — автозакрытие.
   /// Работает даже когда distanceFilter не генерирует GPS-апдейты (водитель стоит).
   Future<void> _checkAutoClose() async {
+    if (_photoRequired) return; // политика «только с фото» — авто отключено
     final lat = _lastKnownLat;
     final lng = _lastKnownLng;
     if (lat == null || lng == null) return;
@@ -672,44 +817,160 @@ class _DriverDashboardState extends State<DriverDashboard> {
           s == DeliveryPoint.statusInProgress;
     }).toList();
 
-    for (final point in activePoints) {
-      final dist =
-          _simpleDistanceMeters(lat, lng, point.latitude, point.longitude);
+    // Чистим таймеры точек, которых больше нет в активных.
+    final activeIds = activePoints.map((p) => p.id).toSet();
+    _autoCloseArrivalTimes.removeWhere((id, _) => !activeIds.contains(id));
 
-      if (dist <= AppConfig.autoCompleteRadius) {
-        if (!_autoCloseArrivalTimes.containsKey(point.id)) {
-          _autoCloseArrivalTimes[point.id] = point.arrivedAt ?? now;
-          debugPrint(
-            '📍 [AutoClose] В радиусе ${point.clientName} '
-            '(${dist.toStringAsFixed(0)} м), таймер запущен',
-          );
-        } else {
-          final arrived = _autoCloseArrivalTimes[point.id]!;
-          final waited = now.difference(arrived);
-          if (waited >= AppConfig.autoCompleteDuration) {
-            debugPrint(
-              '✅ [AutoClose] Автозакрытие: ${point.clientName} '
-              '(${waited.inSeconds} сек в радиусе)',
-            );
-            final ok = await _autoCompletePoint(point);
-            if (ok) {
-              _autoCloseArrivalTimes.remove(point.id);
-            }
-          }
-        }
-      } else if (dist > AppConfig.autoCompleteResetRadius) {
-        if (_autoCloseArrivalTimes.containsKey(point.id)) {
-          debugPrint(
-            '↩️ [AutoClose] Вышел из радиуса ${point.clientName}, таймер сброшен',
-          );
-          _autoCloseArrivalTimes.remove(point.id);
-        }
+    // Гейт по остановке: если водитель едет (проезжает мимо / стоит в пробке
+    // вне точки) — таймеры не идут.
+    if (!_isDriverStationaryNow) {
+      if (_autoCloseArrivalTimes.isNotEmpty) {
+        debugPrint('↩️ [AutoClose] Водитель движется — таймеры сброшены');
+        _autoCloseArrivalTimes.clear();
+      }
+      return;
+    }
+
+    // Только ОДНА ближайшая незавершённая (не отключённая) точка в радиусе —
+    // за остановку закрываем её, а не всех соседей в кластере.
+    DeliveryPoint? target;
+    double best = double.infinity;
+    for (final p in activePoints) {
+      if (_autoCloseDisabledIds.contains(p.id)) continue;
+      final d = _simpleDistanceMeters(lat, lng, p.latitude, p.longitude);
+      if (d <= AppConfig.autoCompleteRadius && d < best) {
+        best = d;
+        target = p;
       }
     }
 
-    // Очистка таймеров для точек, которых больше нет в активных
-    final activeIds = activePoints.map((p) => p.id).toSet();
-    _autoCloseArrivalTimes.removeWhere((id, _) => !activeIds.contains(id));
+    // Таймеры всех, кроме ближайшей, сбрасываем.
+    final targetId = target?.id;
+    _autoCloseArrivalTimes.removeWhere((id, _) => id != targetId);
+    if (target == null) return;
+
+    if (!_autoCloseArrivalTimes.containsKey(target.id)) {
+      _autoCloseArrivalTimes[target.id] = now; // отсчёт стоянки с этого момента
+      debugPrint(
+        '📍 [AutoClose] Стоит у ${target.clientName} '
+        '(${best.toStringAsFixed(0)} м), таймер запущен',
+      );
+    } else {
+      final waited = now.difference(_autoCloseArrivalTimes[target.id]!);
+      if (waited >= AppConfig.autoCompleteDuration) {
+        debugPrint(
+          '✅ [AutoClose] Автозакрытие: ${target.clientName} '
+          '(${waited.inSeconds} сек стоянки)',
+        );
+        final ok = await _autoCompletePoint(target);
+        if (ok) _autoCloseArrivalTimes.remove(target.id);
+      }
+    }
+  }
+
+  Future<void> _completePointWithPod(
+    BuildContext context,
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) async {
+    if (_routeService == null) return;
+    if (!kIsWeb) await _setAutoCloseEnabled(point, false);
+    final authService = context.read<AuthService>();
+    final messenger = ScaffoldMessenger.of(context);
+    final companyId = authService.userModel?.companyId ?? '';
+    final driverId = authService.currentUser?.uid ?? '';
+
+    if (!kIsWeb && companyId.isNotEmpty) {
+      final pod = await showProofOfDeliverySheet(
+        context: context,
+        point: point,
+        companyId: companyId,
+      );
+      if (pod == null || !mounted) return;
+
+      await _routeService!.updatePointStatus(
+        point.id,
+        DeliveryPoint.statusCompleted,
+        updatedByUid: driverId,
+        podPhotoUrl: pod.photoUrl,
+        podLat: pod.lat,
+        podLng: pod.lng,
+        podDistanceM: pod.distanceM,
+      );
+    } else {
+      await _routeService!.updatePointStatus(
+        point.id,
+        DeliveryPoint.statusCompleted,
+        updatedByUid: driverId,
+      );
+      try {
+        if (companyId.isNotEmpty &&
+            _lastSentLat != 0 &&
+            _lastSentLng != 0) {
+          await FirestorePaths.deliveryPointsOf(companyId)
+              .doc(point.id)
+              .collection('visit_logs')
+              .add({
+            'lat': _lastSentLat,
+            'lng': _lastSentLng,
+            'driverId': driverId,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        debugPrint('visit_logs error: $e');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _markPointCompletedLocally(point.id));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('✅ ${l10n.pointCompleted}: ${point.clientName}'),
+      ),
+    );
+  }
+
+  /// Ручное закрытие БЕЗ фото («Доставлено») — для обычной доставки, когда
+  /// автозакрытие не сработало. Ведёт себя как авто: completed, без POD.
+  Future<void> _completePointPlain(
+    BuildContext context,
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) async {
+    if (_routeService == null) return;
+    final authService = context.read<AuthService>();
+    final messenger = ScaffoldMessenger.of(context);
+    final companyId = authService.userModel?.companyId ?? '';
+    final driverId = authService.currentUser?.uid ?? '';
+
+    await _routeService!.updatePointStatus(
+      point.id,
+      DeliveryPoint.statusCompleted,
+      updatedByUid: driverId,
+    );
+    // Лог посещения (GPS) — как в ветке без фото у _completePointWithPod.
+    try {
+      if (companyId.isNotEmpty && _lastSentLat != 0 && _lastSentLng != 0) {
+        await FirestorePaths.deliveryPointsOf(companyId)
+            .doc(point.id)
+            .collection('visit_logs')
+            .add({
+          'lat': _lastSentLat,
+          'lng': _lastSentLng,
+          'driverId': driverId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      debugPrint('visit_logs error: $e');
+    }
+
+    if (!mounted) return;
+    setState(() => _markPointCompletedLocally(point.id));
+    messenger.showSnackBar(
+      SnackBar(content: Text('✅ ${l10n.pointCompleted}: ${point.clientName}')),
+    );
   }
 
   Future<bool> _autoCompletePoint(DeliveryPoint point) async {
@@ -717,8 +978,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
       if (_routeService == null) return false;
       final authService = context.read<AuthService>();
       final driverId = authService.currentUser?.uid ?? '';
+      final l10n = AppLocalizations.of(context);
 
-      // Используем updatePointStatus чтобы сработало обучение координат
       await _routeService!.updatePointStatus(
         point.id,
         DeliveryPoint.statusCompleted,
@@ -728,7 +989,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
       if (mounted) {
         setState(() {
           _markPointCompletedLocally(point.id);
+          _autoCloseArrivalTimes.remove(point.id);
         });
+        _undoShownIds.add(point.id); // чтобы ретро-детектор не продублировал
+        if (l10n != null) _showAutoCloseUndoSnackBar(point, l10n);
       }
       debugPrint(
           '✅ [AutoClose] Point ${point.clientName} auto-completed via RouteService');
@@ -790,6 +1054,16 @@ class _DriverDashboardState extends State<DriverDashboard> {
           actions: [
             NotificationBell(companyId: companyId),
             IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: l10n.podTitle,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DataRetentionScreen(podOnly: true),
+                ),
+              ),
+            ),
+            IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () => authService.signOut(),
             ),
@@ -845,7 +1119,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             // Индикатор статуса расписания и GPS
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _isTrackingActive
                     ? Colors.green.shade100
@@ -946,6 +1220,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
                             _lastPoints = points;
                             // 🛡️ Сохраняем в persistent cache
                             _savePointsToCache();
+                            // Undo для авто-закрытий в фоне (snackbar не показался)
+                            final closed = List<DeliveryPoint>.from(points);
+                            WidgetsBinding.instance.addPostFrameCallback(
+                                (_) => _maybeShowBackgroundUndo(closed));
                           } else {
                             points = _lastPoints;
                           }
@@ -960,44 +1238,48 @@ class _DriverDashboardState extends State<DriverDashboard> {
                           _currentPoint = null;
                         }
 
+                        final isAndroidNoMap = !kIsWeb && Platform.isAndroid;
+
                         return Column(
                           children: [
-                            // 📱 Android fallback: карта или альтернативный UI
+                            if (isAndroidNoMap)
+                              _buildAndroidRouteSummary(points, l10n)
+                            else
+                              Expanded(
+                                flex: 3,
+                                child: DeliveryMapWidget(
+                                  points: points,
+                                  companyId: companyId,
+                                  showDriverTracks: true,
+                                  warehouseLat:
+                                      CompanyCache.instance(companyId)
+                                          .warehouseLat,
+                                  warehouseLng:
+                                      CompanyCache.instance(companyId)
+                                          .warehouseLng,
+                                ),
+                              ),
                             Expanded(
-                              child: (!kIsWeb && Platform.isAndroid)
-                                  ? _buildAndroidMapFallback(points, l10n)
-                                  : DeliveryMapWidget(
-                                      points: points,
-                                      companyId: companyId,
-                                      showDriverTracks: true,
-                                      warehouseLat:
-                                          CompanyCache.instance(companyId)
-                                              .warehouseLat,
-                                      warehouseLng:
-                                          CompanyCache.instance(companyId)
-                                              .warehouseLng,
-                                    ),
-                            ),
-                            // Большая кнопка навигации убрана - никто не пользуется Google Maps
-                            // Компактный список точек — максимум 25% экрана
-                            SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.25,
                               child: points.isEmpty
                                   ? Center(
                                       child: Text(
                                         l10n.noActivePoints,
                                         style: TextStyle(
-                                            color: Colors.grey.shade700,
+                                            color: AppTheme.muted,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700),
                                       ),
                                     )
                                   : ListView.builder(
-                                      padding: const EdgeInsets.only(
-                                          left: 8,
-                                          right: 8,
-                                          top: 2,
-                                          bottom: 80),
+                                      padding: EdgeInsets.only(
+                                        left: 8,
+                                        right: 8,
+                                        top: 2,
+                                        bottom: 8 +
+                                            MediaQuery.of(context)
+                                                .padding
+                                                .bottom,
+                                      ),
                                       itemCount: points.length,
                                       itemBuilder: (context, index) {
                                         final point = points[index];
@@ -1034,100 +1316,52 @@ class _DriverDashboardState extends State<DriverDashboard> {
                                                   const EdgeInsets.symmetric(
                                                       horizontal: 8,
                                                       vertical: 6),
-                                              child: Row(
-                                                children: [
-                                                  // Номер
-                                                  SizedBox(
-                                                    width: 24,
-                                                    height: 24,
-                                                    child: CircleAvatar(
-                                                      backgroundColor:
-                                                          isCompleted
-                                                              ? Colors
-                                                                  .grey.shade400
-                                                              : (isActive
-                                                                  ? Colors.green
-                                                                  : Colors
-                                                                      .blueGrey
-                                                                      .shade400),
-                                                      child: isCompleted
-                                                          ? const Icon(
-                                                              Icons.check,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 14)
-                                                          : Text(
-                                                              '${index + 1}',
-                                                              style: const TextStyle(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  fontSize: 11,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold),
-                                                            ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  // Имя + адрес
-                                                  Expanded(
-                                                    child: Column(
+                                              child: isActive && !isCompleted
+                                                  ? Column(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
-                                                              .start,
+                                                              .stretch,
                                                       mainAxisSize:
                                                           MainAxisSize.min,
                                                       children: [
-                                                        Text(
-                                                          point.clientName,
-                                                          style: TextStyle(
-                                                            fontSize: 13,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: isCompleted
-                                                                ? Colors.grey
-                                                                    .shade700
-                                                                : Colors
-                                                                    .black87,
-                                                            decoration: isCompleted
-                                                                ? TextDecoration
-                                                                    .lineThrough
-                                                                : null,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
+                                                        _buildPointTitleRow(
+                                                          point: point,
+                                                          index: index,
+                                                          isCompleted:
+                                                              isCompleted,
+                                                          isActive: isActive,
                                                         ),
-                                                        if (point
-                                                            .address.isNotEmpty)
-                                                          Text(
-                                                            point.address,
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              color: Colors.grey
-                                                                  .shade800,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
+                                                        const SizedBox(
+                                                            height: 6),
+                                                        Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            _buildWazeButton(
+                                                                context,
+                                                                point,
+                                                                l10n),
+                                                            Expanded(
+                                                              child:
+                                                                  _buildActivePointActions(
+                                                                context,
+                                                                point,
+                                                                l10n,
+                                                              ),
                                                             ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
+                                                          ],
+                                                        ),
                                                       ],
+                                                    )
+                                                  : _buildCompactPointRow(
+                                                      context: context,
+                                                      point: point,
+                                                      index: index,
+                                                      isCompleted: isCompleted,
+                                                      isActive: isActive,
+                                                      l10n: l10n,
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  // Статус / кнопка
-                                                  _buildTrailingWidget(
-                                                      context,
-                                                      point,
-                                                      isActive,
-                                                      l10n,
-                                                      points),
-                                                ],
-                                              ),
                                             ),
                                           ),
                                         );
@@ -1224,391 +1458,315 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return parts.join(' → ');
   }
 
-  Widget _buildTrailingWidget(
-    BuildContext context,
-    DeliveryPoint point,
-    bool isActive,
-    AppLocalizations l10n,
-    List<DeliveryPoint> allPoints,
-  ) {
-    final isClosed = _isClosedPoint(point);
-    if (isClosed &&
-        DeliveryPoint.normalizeStatus(point.status) ==
-            DeliveryPoint.statusCompleted) {
-      return const Icon(Icons.check_circle, color: Colors.green, size: 22);
-    }
+  Widget _buildPointBadge({
+    required int index,
+    required bool isCompleted,
+    required bool isActive,
+  }) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: CircleAvatar(
+        backgroundColor: isCompleted
+            ? Colors.grey.shade400
+            : (isActive ? Colors.green : Colors.blueGrey.shade400),
+        child: isCompleted
+            ? const Icon(Icons.check, color: Colors.white, size: 14)
+            : Text(
+                '${index + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+      ),
+    );
+  }
 
-    if (isClosed) {
-      return const Icon(Icons.cancel, color: Colors.grey, size: 22);
-    }
-
-    // Кнопки "Waze" и "Выполнено" для каждой незавершённой точки
-    return Wrap(
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 4,
-      runSpacing: 4,
+  Widget _buildPointTexts(DeliveryPoint point, bool isCompleted) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Кнопка Waze
-        SizedBox(
-          height: 32,
-          width: 32,
-          child: IconButton(
-            onPressed: () => _openWazeForPoint(context, point, l10n),
-            icon: const Icon(Icons.navigation, color: Colors.blue, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Waze',
+        Text(
+          point.clientName,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: isCompleted ? Colors.grey.shade700 : Colors.black87,
+            decoration:
+                isCompleted ? TextDecoration.lineThrough : null,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(width: 4),
-        // Кнопка "Выполнено"
-        SizedBox(
-          height: 32,
-          child: ElevatedButton(
-            onPressed: () async {
-              if (_routeService == null) return;
-              final authService = context.read<AuthService>();
-              final messenger = ScaffoldMessenger.of(context);
-              await _routeService!.updatePointStatus(
-                point.id,
-                DeliveryPoint.statusCompleted,
-                updatedByUid: authService.currentUser?.uid,
-              );
-              if (mounted) {
-                setState(() {
-                  _markPointCompletedLocally(point.id);
-                });
-              }
-              // Шаг: фиксируем факт визита (координата водителя в момент ручного закрытия)
-              try {
-                final companyId = authService.userModel?.companyId ?? '';
-                final driverId = authService.currentUser?.uid ?? '';
-                final hasDriverPos = _lastSentLat != 0 && _lastSentLng != 0;
-                if (companyId.isNotEmpty && hasDriverPos) {
-                  await FirestorePaths.deliveryPointsOf(companyId)
-                      .doc(point.id)
-                      .collection('visit_logs')
-                      .add({
-                    'lat': _lastSentLat,
-                    'lng': _lastSentLng,
-                    'driverId': driverId,
-                    'createdAt': FieldValue.serverTimestamp(),
-                  });
-                }
-              } catch (e) {
-                debugPrint('visit_logs error: $e');
-              }
-              if (mounted) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content:
-                        Text('✅ ${l10n.pointCompleted}: ${point.clientName}'),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isActive ? Colors.green : Colors.blueGrey.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        if (point.address.isNotEmpty)
+          Text(
+            point.address,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade800,
+              fontWeight: FontWeight.w600,
             ),
-            child: Text(l10n.pointDone),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
       ],
     );
   }
 
-  /// Android fallback UI when Google Maps is not available
-  Widget _buildAndroidMapFallback(
+  Widget _buildPointTitleRow({
+    required DeliveryPoint point,
+    required int index,
+    required bool isCompleted,
+    required bool isActive,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPointBadge(
+          index: index,
+          isCompleted: isCompleted,
+          isActive: isActive,
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: _buildPointTexts(point, isCompleted)),
+      ],
+    );
+  }
+
+  Widget _buildWazeButton(
+    BuildContext context,
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) {
+    return SizedBox(
+      height: 36,
+      width: 36,
+      child: IconButton(
+        onPressed: () => _openWazeForPoint(context, point, l10n),
+        icon: const Icon(Icons.navigation, color: Colors.blue, size: 22),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        tooltip: 'Waze',
+      ),
+    );
+  }
+
+  Widget _buildCompactPointRow({
+    required BuildContext context,
+    required DeliveryPoint point,
+    required int index,
+    required bool isCompleted,
+    required bool isActive,
+    required AppLocalizations l10n,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!isCompleted) ...[
+          _buildWazeButton(context, point, l10n),
+          const SizedBox(width: 4),
+        ],
+        _buildPointBadge(
+          index: index,
+          isCompleted: isCompleted,
+          isActive: isActive,
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: _buildPointTexts(point, isCompleted)),
+        if (isCompleted) _buildClosedStatusIcon(point),
+      ],
+    );
+  }
+
+  Widget _buildClosedStatusIcon(DeliveryPoint point) {
+    if (DeliveryPoint.normalizeStatus(point.status) ==
+        DeliveryPoint.statusCompleted) {
+      return const Icon(Icons.check_circle, color: Colors.green, size: 22);
+    }
+    return const Icon(Icons.cancel, color: Colors.grey, size: 22);
+  }
+
+  Widget _buildActivePointActions(
+    BuildContext context,
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) {
+    final autoOn = !_autoCloseDisabledIds.contains(point.id);
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        if (!kIsWeb) ...[
+          if (!_photoRequired)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.autoCloseToggle,
+                    style: const TextStyle(fontSize: 12)),
+                Switch.adaptive(
+                  value: autoOn,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (v) => _setAutoCloseEnabled(point, v),
+                ),
+              ],
+            ),
+          if (!_photoRequired)
+            SizedBox(
+              height: 32,
+              child: ElevatedButton.icon(
+                onPressed: () => _completePointPlain(context, point, l10n),
+                icon: const Icon(Icons.check, size: 16),
+                label: Text(l10n.delivered),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          SizedBox(
+            height: 32,
+            child: OutlinedButton.icon(
+              onPressed: () => _completePointWithPod(context, point, l10n),
+              icon: const Icon(Icons.camera_alt, size: 16),
+              label: Text(l10n.closeWithPhoto),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+        ] else
+          SizedBox(
+            height: 32,
+            child: ElevatedButton(
+              onPressed: () => _completePointWithPod(context, point, l10n),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              child: Text(l10n.pointDone),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Компактная сводка маршрута на Android (без карты).
+  Widget _buildAndroidRouteSummary(
       List<DeliveryPoint> points, AppLocalizations l10n) {
     final completedCount = points.where(_isClosedPoint).length;
     final totalCount = points.length;
     final remainingCount = totalCount - completedCount;
+    final pct = totalCount > 0 ? completedCount / totalCount : 0.0;
 
     return Container(
+      margin: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.surfaceHi),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Заголовок
-            Row(
-              children: [
-                Icon(Icons.map_outlined, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.driverRouteTitle,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade800,
-                  ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.map_outlined, size: 18, color: AppTheme.muted),
+              const SizedBox(width: 6),
+              Text(
+                l10n.driverRouteTitle,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.muted,
                 ),
-                const Spacer(),
-                if (remainingCount > 0)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      l10n.nPoints(remainingCount),
-                      style: TextStyle(
-                        color: Colors.blue.shade800,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Статистика
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade200,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(l10n.totalLabel, totalCount, Colors.blue),
-                      _buildStatItem(
-                          l10n.completedLabel, completedCount, Colors.green),
-                      _buildStatItem(
-                          l10n.remainingLabel, remainingCount, Colors.orange),
-                    ],
+              const Spacer(),
+              if (remainingCount > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 12),
-                  // Прогресс-бар
-                  LinearProgressIndicator(
-                    value: totalCount > 0 ? completedCount / totalCount : 0,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.green),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.percentCompleted((totalCount > 0
-                            ? (completedCount / totalCount * 100)
-                            : 0)
-                        .toInt()),
+                  child: Text(
+                    l10n.nPoints(remainingCount),
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: Colors.blue.shade800,
                       fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Список следующих точек
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: points.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.route,
-                                size: 48, color: Colors.grey.shade400),
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.noActivePoints,
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Builder(builder: (context) {
-                        final recalcEtas = EtaCalculator.recalculate(points);
-                        return ListView.builder(
-                          padding: const EdgeInsets.all(8),
-                          itemCount: points.length,
-                          itemBuilder: (context, index) {
-                            final point = points[index];
-                            final isCompleted = _isClosedPoint(point);
-                            final isNext = !isCompleted &&
-                                index ==
-                                    points
-                                        .indexWhere((p) => !_isClosedPoint(p));
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: isCompleted
-                                    ? Colors.green.shade50
-                                    : (isNext
-                                        ? Colors.blue.shade50
-                                        : Colors.white),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isCompleted
-                                      ? Colors.green.shade200
-                                      : (isNext
-                                          ? Colors.blue.shade200
-                                          : Colors.grey.shade200),
-                                ),
-                              ),
-                              child: ListTile(
-                                dense: true,
-                                leading: CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: isCompleted
-                                      ? Colors.green
-                                      : (isNext ? Colors.blue : Colors.grey),
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  point.clientName,
-                                  style: TextStyle(
-                                    fontWeight: isNext
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: isCompleted
-                                        ? Colors.grey.shade600
-                                        : Colors.black,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      point.address,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                    if (point.taskNote != null &&
-                                        point.taskNote!.isNotEmpty)
-                                      Text(
-                                        '📋 ${point.taskNote}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.orange.shade800,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    if (point.eta != null)
-                                      Text(
-                                        'ETA: ${recalcEtas[point.id] ?? point.eta}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.blue.shade700,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    // Фактическое время
-                                    if (point.arrivedAt != null ||
-                                        point.completedAt != null)
-                                      Text(
-                                        _buildPointTiming(point),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.green.shade700,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                trailing: isCompleted
-                                    ? const Icon(Icons.check_circle,
-                                        color: Colors.green, size: 20)
-                                    : (isNext
-                                        ? Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: IconButton(
-                                              onPressed: () =>
-                                                  _openWazeForPoint(
-                                                context,
-                                                point,
-                                                l10n,
-                                              ),
-                                              icon: const Icon(
-                                                Icons.navigation,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                              padding: const EdgeInsets.all(4),
-                                              constraints:
-                                                  const BoxConstraints(),
-                                              tooltip: 'Waze',
-                                            ),
-                                          )
-                                        : null),
-                              ),
-                            );
-                          },
-                        );
-                      }),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(l10n.totalLabel, totalCount, Colors.blue),
+              _buildStatItem(
+                  l10n.completedLabel, completedCount, Colors.green),
+              _buildStatItem(
+                  l10n.remainingLabel, remainingCount, Colors.orange),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 4,
+              backgroundColor: AppTheme.surfaceHi,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+            ),
+          ),
+          if (totalCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                l10n.percentCompleted((pct * 100).toInt()),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.muted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildStatItem(String label, int value, Color color) {
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '$value',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
+        const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 11, color: AppTheme.muted),
         ),
       ],
     );

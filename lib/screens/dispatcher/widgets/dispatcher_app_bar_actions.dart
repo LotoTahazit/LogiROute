@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import '../../shared/inventory_report_screen.dart';
 import '../../shared/client_management_screen.dart';
 import '../../admin/archive_management_screen.dart';
+import '../../admin/data_retention_screen.dart';
 import '../../admin/inventory_counts_list_screen.dart';
 import '../price_management_screen.dart';
 import '../../warehouse/warehouse_dashboard.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/company_context.dart';
+import '../../../services/delivery_point_import_service.dart';
 import '../../shift_settings_screen.dart';
-
 /// AppBar actions для диспетчера
 class DispatcherAppBarActions extends StatelessWidget {
   final VoidCallback onSetWarehouseLocation;
@@ -25,7 +26,10 @@ class DispatcherAppBarActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return PopupMenuButton<String>(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert),
       tooltip: 'תפריט',
       itemBuilder: (context) => [
@@ -36,6 +40,16 @@ class DispatcherAppBarActions extends StatelessWidget {
               const Icon(Icons.people, size: 20),
               const SizedBox(width: 12),
               Text(l10n.clientManagement),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'import_delivery_points',
+          child: Row(
+            children: [
+              const Icon(Icons.upload_file, size: 20),
+              const SizedBox(width: 12),
+              Text(l10n.importDeliveryPointsMenu),
             ],
           ),
         ),
@@ -109,6 +123,16 @@ class DispatcherAppBarActions extends StatelessWidget {
             ],
           ),
         ),
+        PopupMenuItem(
+          value: 'data_retention',
+          child: Row(
+            children: [
+              const Icon(Icons.policy, size: 20),
+              const SizedBox(width: 12),
+              Text(l10n.dataRetention),
+            ],
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -130,6 +154,9 @@ class DispatcherAppBarActions extends StatelessWidget {
                 builder: (context) => const ClientManagementScreen(),
               ),
             );
+            break;
+          case 'import_delivery_points':
+            DeliveryPointImportService.runImport(context);
             break;
           case 'prices':
             Navigator.push(
@@ -184,11 +211,22 @@ class DispatcherAppBarActions extends StatelessWidget {
               ),
             );
             break;
+          case 'data_retention':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const DataRetentionScreen(infoOnly: true),
+              ),
+            );
+            break;
           case 'logout':
             authService.signOut();
             break;
         }
       },
+        ),
+      ],
     );
   }
 }

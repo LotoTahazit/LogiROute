@@ -54,9 +54,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         // Fallback: маркеры точек если нет polyline
         if (allPolyPoints.isEmpty && widget.points.isNotEmpty) {
           for (final p in widget.points) {
-            if (DeliveryPoint.isValidCoordinates(p.latitude, p.longitude)) {
-              allPolyPoints.add(LatLng(p.latitude, p.longitude));
-            }
+            final pos = _resolveMapPosition(p);
+            if (pos != null) allPolyPoints.add(pos);
           }
           // Добавляем склад
           allPolyPoints.add(LatLng(widget.warehouseLat, widget.warehouseLng));
@@ -153,9 +152,19 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
     );
 
     // Добавляем маркеры точек доставки
+    final stackByKey = <String, int>{};
+    var skippedInvalid = 0;
     for (final point in widget.points) {
-      // 🛡️ Пропускаем точки с невалидными координатами (за пределами Израиля)
-      if (!_isInIsraelBounds(point.latitude, point.longitude)) continue;
+      final raw = _resolveMapPosition(point);
+      if (raw == null) {
+        skippedInvalid++;
+        continue;
+      }
+      final stackKey =
+          '${raw.latitude.toStringAsFixed(5)}_${raw.longitude.toStringAsFixed(5)}';
+      final stackIdx = stackByKey[stackKey] ?? 0;
+      stackByKey[stackKey] = stackIdx + 1;
+      final position = _offsetStackedMarker(raw, stackIdx);
 
       // Определяем цвет маркера в зависимости от статуса
       BitmapDescriptor markerColor;
@@ -187,8 +196,9 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
       markers.add(
         Marker(
           markerId: MarkerId(point.id),
-          position: LatLng(point.latitude, point.longitude),
+          position: position,
           icon: markerColor,
+          zIndexInt: 110,
           draggable: isDraggable,
           onDragStart:
               isDraggable ? (position) => _onPointDragStart(point) : null,
@@ -196,7 +206,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
               ? (newPosition) => _onPointDragEnd(point, newPosition)
               : null,
           infoWindow: InfoWindow(
-            title: point.clientName,
+            title: '${point.orderInRoute + 1}. ${point.clientName}',
             snippet: _buildMarkerSnippet(point, l10n),
           ),
           alpha: (point.status == DeliveryPoint.statusCompleted ||
@@ -204,6 +214,12 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
               ? 0.32
               : 1.0, // Полупрозрачные для завершенных
         ),
+      );
+    }
+
+    if (skippedInvalid > 0) {
+      debugPrint(
+        '⚠️ [Map] Skipped $skippedInvalid points without map coordinates',
       );
     }
 
@@ -409,10 +425,26 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
         // Строим цветной маршрут для активных точек
         if (activePoints.isNotEmpty) {
-          // Нет cached polyline — ждём пока _saveOsrmPolylineBackground
-          // сохранит его в Firestore. StreamBuilder подхватит автоматически.
+          final fallbackLine = <LatLng>[
+            LatLng(warehouseLat, warehouseLng),
+          ];
+          for (final p in activePoints) {
+            final pos = _resolveMapPosition(p);
+            if (pos != null) fallbackLine.add(pos);
+          }
+          if (fallbackLine.length >= 2) {
+            result.add(
+              Polyline(
+                polylineId: PolylineId('route_${routeKey}_fallback'),
+                points: fallbackLine,
+                width: 5,
+                color: activeRouteColor.withValues(alpha: 0.85),
+                zIndex: 0,
+              ),
+            );
+          }
           debugPrint(
-            '⏳ [Map] No cached polyline for route $routeKey — waiting for background OSRM save',
+            '⏳ [Map] No cached polyline for route $routeKey — fallback line + waiting for OSRM',
           );
           result.addAll(_buildDriverToRoutePolyline(driverKey, activePoints));
         }

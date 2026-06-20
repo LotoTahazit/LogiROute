@@ -21,7 +21,6 @@ import '../../services/inventory_service.dart';
 import '../../widgets/import_preview_dialog.dart';
 import '../../widgets/column_mapping_dialog.dart';
 import '../../widgets/notification_bell.dart';
-
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
 

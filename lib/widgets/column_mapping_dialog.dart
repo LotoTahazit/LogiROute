@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/app_theme.dart';
 
 /// Result of column mapping
 class ColumnMapping {
@@ -110,7 +111,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(l10n.columnMappingHint,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  style: TextStyle(color: AppTheme.muted, fontSize: 13)),
               const SizedBox(height: 12),
               // Mapping table
               Expanded(
@@ -125,7 +126,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
                     border: TableBorder.all(color: Colors.grey.shade300),
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: Colors.grey.shade100),
+                        decoration: BoxDecoration(color: AppTheme.surfaceHi),
                         children: [
                           _headerCell(l10n.targetField),
                           _headerCell(l10n.sourceColumn),
@@ -203,7 +204,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
             items: [
               DropdownMenuItem(
                 value: -1,
-                child: Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                child: Text('—', style: TextStyle(color: AppTheme.muted)),
               ),
               ...widget.sourceHeaders.asMap().entries.map(
                     (e) => DropdownMenuItem(
@@ -221,7 +222,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
             sampleValue,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            style: TextStyle(color: AppTheme.muted, fontSize: 12),
           ),
         ),
       ],

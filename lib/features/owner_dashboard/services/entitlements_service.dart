@@ -13,6 +13,7 @@ class EntitlementsService {
 
   /// Модули, включённые в план.
   static const _planModules = <String, Set<String>>{
+    'logistics': {'logistics', 'dispatcher', 'reports'},
     'warehouse_only': {'warehouse'},
     'ops': {'warehouse', 'logistics', 'dispatcher', 'reports'},
     'full': {'warehouse', 'logistics', 'dispatcher', 'accounting', 'reports'},

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_theme.dart';
 
 /// Виджет фильтров админ-панели
 class AdminFiltersWidget extends StatelessWidget {
@@ -88,7 +89,7 @@ class AdminFiltersWidget extends StatelessWidget {
               children: [
                 Text(
                   '${l10n.viewAs}:',
-                  style: const TextStyle(fontSize: 16, color: Colors.black),
+                  style: TextStyle(fontSize: 16, color: AppTheme.text),
                 ),
                 const SizedBox(height: 8),
                 viewAsDropdown,
@@ -96,7 +97,7 @@ class AdminFiltersWidget extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     '${l10n.lastUpdated}: $lastUpdatedText',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                 ],
               ],
@@ -106,7 +107,7 @@ class AdminFiltersWidget extends StatelessWidget {
               children: [
                 Text(
                   '${l10n.viewAs}:',
-                  style: const TextStyle(fontSize: 16, color: Colors.black),
+                  style: TextStyle(fontSize: 16, color: AppTheme.text),
                 ),
                 const SizedBox(width: 16),
                 viewAsDropdown,
@@ -114,7 +115,7 @@ class AdminFiltersWidget extends StatelessWidget {
                 if (lastUpdatedText.isNotEmpty)
                   Text(
                     '${l10n.lastUpdated}: $lastUpdatedText',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
               ],
             ),
@@ -127,7 +128,7 @@ class AdminFiltersWidget extends StatelessWidget {
                 children: [
                   Text(
                     '${l10n.companyId}:',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                    style: TextStyle(fontSize: 16, color: AppTheme.text),
                   ),
                   const SizedBox(height: 8),
                   companyDropdown,
@@ -138,7 +139,7 @@ class AdminFiltersWidget extends StatelessWidget {
                 children: [
                   Text(
                     '${l10n.companyId}:',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                    style: TextStyle(fontSize: 16, color: AppTheme.text),
                   ),
                   const SizedBox(width: 16),
                   Expanded(child: companyDropdown),
@@ -153,7 +154,7 @@ class AdminFiltersWidget extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '${l10n.driver}: ${selectedDriverName ?? ''}',
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
+                  style: TextStyle(color: AppTheme.muted, fontSize: 13),
                 ),
               ),
             ),

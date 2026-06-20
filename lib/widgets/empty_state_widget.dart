@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 /// Виджет для отображения пустого состояния
 class EmptyStateWidget extends StatelessWidget {
@@ -24,7 +25,7 @@ class EmptyStateWidget extends StatelessWidget {
           Icon(
             icon,
             size: 80,
-            color: Colors.grey[300],
+            color: AppTheme.surfaceHi,
           ),
           const SizedBox(height: 16),
           Text(

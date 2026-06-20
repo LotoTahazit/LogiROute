@@ -26,30 +26,15 @@ class InvoiceManagementScreen extends StatefulWidget {
 class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
   List<Invoice> _invoices = [];
   bool _isLoading = true;
-  String? _currentCompanyId; // Для отслеживания смены компании
-
-  @override
-  void initState() {
-    super.initState();
-    // Первоначальная загрузка данных произойдёт в build() через CompanyContext
-  }
+  String? _currentCompanyId;
 
   Future<void> _loadInvoices(String companyId) async {
-    if (companyId.isEmpty) {
-      print('⚠️ [InvoiceManagement] CompanyId is empty, skipping load');
-      return;
-    }
+    if (companyId.isEmpty) return;
 
     setState(() => _isLoading = true);
 
     try {
-      print('📊 [InvoiceManagement] Loading invoices for company: $companyId');
-
-      // Создаём сервис с текущим companyId
       final invoiceService = InvoiceService(companyId: companyId);
-
-      // ⚡ OPTIMIZED: Load only recent invoices (this month) with limit
-      // כולל מבוטלים — נדרש לפי חוק ניהול ספרים
       final invoices = await invoiceService.getAllInvoices(
         fromDate: DateTime(DateTime.now().year, DateTime.now().month, 1),
         limit: 100,
@@ -63,15 +48,13 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
           _currentCompanyId = companyId;
         });
       }
-
-      print('✅ [InvoiceManagement] Loaded ${invoices.length} invoices');
     } catch (e) {
-      print('❌ [InvoiceManagement] Error loading invoices: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ שגיאה בטעינת חשבוניות: $e'),
+            content: Text(l10n.errorLoadingInvoices(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -80,6 +63,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
   }
 
   Future<void> _retryAssignment(String companyId, Invoice invoice) async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final assignmentService = InvoiceAssignmentService(companyId: companyId);
       final result =
@@ -89,8 +73,9 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.success
-                ? '✅ מספר הקצאה התקבל: ${result.assignmentNumber}'
-                : '❌ ${result.error ?? "שגיאה"}'),
+                ? l10n.assignmentNumberReceived(
+                    result.assignmentNumber ?? '')
+                : l10n.errorWithMessage(result.error ?? l10n.cancel)),
             backgroundColor: result.success ? Colors.green : Colors.red,
           ),
         );
@@ -99,7 +84,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ שגיאה בבקשת הקצאה: $e'),
+            content: Text(l10n.assignmentRequestError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -108,19 +93,18 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
   }
 
   Future<void> _createStandaloneInvoice() async {
-    // TODO: Implement standalone invoice creation dialog
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('⚠️ יצירת חשבונית עצמאית בפיתוח'),
+      SnackBar(
+        content: Text(l10n.standaloneInvoiceInDev),
         backgroundColor: Colors.orange,
       ),
     );
   }
 
-  /// יצירת קבלה עבור חשבונית קיימת
   Future<void> _createReceipt(String companyId, Invoice invoice) async {
+    final l10n = AppLocalizations.of(context)!;
     final authService = context.read<AuthService>();
-    // Проверка period lock: квитанция наследует deliveryDate от invoice
     try {
       final companyCtx = CompanyContext.of(context);
       final companyDoc = await companyCtx.paths.companyDoc(companyId).get();
@@ -132,8 +116,10 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                    '🔒 לא ניתן ליצור קבלה — תאריך המסמך (${DateFormat('dd/MM/yyyy').format(invoice.deliveryDate)}) נמצא בתקופה חשבונאית סגורה (עד ${DateFormat('dd/MM/yyyy').format(lockedUntil)})'),
+                content: Text(l10n.receiptPeriodLockedError(
+                  DateFormat('dd/MM/yyyy').format(invoice.deliveryDate),
+                  DateFormat('dd/MM/yyyy').format(lockedUntil),
+                )),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 4),
               ),
@@ -142,13 +128,10 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
           return;
         }
       }
-    } catch (_) {
-      // Не блокируем если не удалось прочитать — rules всё равно заблокируют
-    }
+    } catch (_) {}
 
-    // בחירת אופן תשלום
     if (!mounted) return;
-    String? paymentMethod = await showDialog<String>(
+    final paymentMethod = await showDialog<String>(
       context: context,
       builder: (context) => _ReceiptPaymentDialog(invoice: invoice),
     );
@@ -158,7 +141,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     try {
       final user = authService.userModel;
       final userUid = authService.currentUser?.uid ?? '';
-      if (userUid.isEmpty) throw Exception('משתמש לא מחובר');
+      if (userUid.isEmpty) throw Exception(l10n.userNotLoggedIn);
 
       final receipt = Invoice(
         id: '',
@@ -184,7 +167,6 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       final invoiceService = InvoiceService(companyId: companyId);
       final receiptId = await invoiceService.createInvoice(receipt, userUid);
 
-      // Серверная выдача номера (атомарно: counter + anchor + chain + audit)
       final issuanceResult = await IssuanceService().issueDocument(
         companyId: companyId,
         invoiceId: receiptId,
@@ -192,7 +174,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       );
 
       if (!issuanceResult.ok) {
-        throw Exception('שגיאה בהנפקת קבלה מהשרת');
+        throw Exception(l10n.receiptIssuanceError);
       }
 
       final issuedReceipt = await invoiceService.getInvoice(receiptId);
@@ -205,7 +187,6 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         );
       }
 
-      // Cross-module audit log
       CrossModuleAuditService(companyId: companyId).log(
         moduleKey: 'accounting',
         type: CrossModuleAuditService.typeReceiptCreated,
@@ -217,8 +198,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       await _loadInvoices(companyId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ קבלה נוצרה והודפסה'),
+          SnackBar(
+            content: Text(l10n.receiptCreatedAndPrinted),
             backgroundColor: Colors.green,
           ),
         );
@@ -227,7 +208,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ שגיאה ביצירת קבלה: $e'),
+            content: Text(l10n.receiptCreateError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -236,6 +217,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
   }
 
   Future<void> _reprintInvoice(String companyId, Invoice invoice) async {
+    final l10n = AppLocalizations.of(context)!;
     final auth = context.read<AuthService>();
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -254,8 +236,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         await _loadInvoices(companyId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ חשבונית הודפסה'),
+            SnackBar(
+              content: Text(l10n.invoicePrintedSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -264,7 +246,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('❌ שגיאה בהדפסה: $e'),
+              content: Text(l10n.printError(e.toString())),
               backgroundColor: Colors.red,
             ),
           );
@@ -278,55 +260,59 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ביטול חשבונית'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('האם לבטל חשבונית עבור ${invoice.clientName}?'),
-            const SizedBox(height: 16),
-            const Text(
-              'לפי חוק ניהול ספרים, חשבונית לא ניתן למחוק, רק לבטל.',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'סיבת ביטול (חובה)',
-                border: OutlineInputBorder(),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.cancelInvoiceTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.cancelInvoiceConfirm(invoice.clientName)),
+              const SizedBox(height: 16),
+              Text(
+                l10n.cancelInvoiceLawNote,
+                style: const TextStyle(fontSize: 12, color: Colors.orange),
               ),
-              maxLines: 2,
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: l10n.cancellationReasonRequired,
+                  border: const OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.goBack),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.enterCancellationReason),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: Text(l10n.cancelInvoiceButton),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('חזור'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('נא להזין סיבת ביטול'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(context, true);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('בטל חשבונית'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirmed == true && reasonController.text.trim().isNotEmpty) {
+      final l10n = AppLocalizations.of(context)!;
       final userUid = authService.currentUser?.uid ?? '';
       final userName = authService.userModel?.name;
 
@@ -341,8 +327,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         await _loadInvoices(companyId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ חשבונית בוטלה'),
+            SnackBar(
+              content: Text(l10n.invoiceCancelledSuccess),
               backgroundColor: Colors.orange,
             ),
           );
@@ -351,7 +337,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('❌ שגיאה בביטול: $e'),
+              content: Text(l10n.cancelInvoiceError(e.toString())),
               backgroundColor: Colors.red,
             ),
           );
@@ -361,34 +347,58 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     reasonController.dispose();
   }
 
+  String _docTypeChipLabel(AppLocalizations l10n, InvoiceDocumentType type) {
+    switch (type) {
+      case InvoiceDocumentType.creditNote:
+        return l10n.creditNote;
+      case InvoiceDocumentType.receipt:
+        return l10n.receipt;
+      case InvoiceDocumentType.taxInvoiceReceipt:
+        return l10n.taxInvoiceReceiptShort;
+      case InvoiceDocumentType.delivery:
+        return l10n.deliveryNoteShort;
+      case InvoiceDocumentType.invoice:
+        return l10n.taxInvoice;
+    }
+  }
+
+  String _assignmentChipLabel(AppLocalizations l10n, Invoice invoice) {
+    switch (invoice.assignmentStatus) {
+      case AssignmentStatus.approved:
+        return l10n.assignmentApprovedLabel(invoice.assignmentNumber ?? '');
+      case AssignmentStatus.pending:
+        return l10n.assignmentPendingLabel;
+      case AssignmentStatus.rejected:
+        return l10n.assignmentRejectedLabel;
+      case AssignmentStatus.error:
+        return l10n.assignmentErrorLabel;
+      default:
+        return l10n.assignmentRequiredLabel;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ ЭТАЛОННЫЙ ПАТТЕРН: Используем CompanyContext.watch() для автообновления
+    final l10n = AppLocalizations.of(context)!;
     final companyCtx = CompanyContext.watch(context);
     final effectiveCompanyId = companyCtx.effectiveCompanyId ?? '';
     final narrow = MediaQuery.sizeOf(context).width < 600;
 
-    // ✅ ЭТАЛОННЫЙ ПАТТЕРН: Отслеживаем смену компании
     if (_currentCompanyId != effectiveCompanyId) {
-      // Компания изменилась - перезагружаем данные
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          print(
-              '🔄 [InvoiceManagement] Company changed: $_currentCompanyId -> $effectiveCompanyId');
-          _loadInvoices(effectiveCompanyId);
-        }
+        if (mounted) _loadInvoices(effectiveCompanyId);
       });
     }
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).primaryColor,
-        title: const Text('ניהול חשבוניות'),
+        title: Text(l10n.invoiceManagementTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => _loadInvoices(effectiveCompanyId),
-            tooltip: AppLocalizations.of(context)?.refresh ?? 'Refresh',
+            tooltip: l10n.refresh,
           ),
         ],
       ),
@@ -403,7 +413,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                           size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       Text(
-                        'אין חשבוניות',
+                        l10n.billingNoInvoices,
                         style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
                     ],
@@ -430,19 +440,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            invoice.documentType ==
-                                    InvoiceDocumentType.creditNote
-                                ? 'זיכוי'
-                                : invoice.documentType ==
-                                        InvoiceDocumentType.receipt
-                                    ? 'קבלה'
-                                    : invoice.documentType ==
-                                            InvoiceDocumentType.taxInvoiceReceipt
-                                        ? 'חשבונית מס/קבלה'
-                                        : invoice.documentType ==
-                                                InvoiceDocumentType.delivery
-                                            ? 'ת. משלוח'
-                                            : '',
+                            _docTypeChipLabel(l10n, invoice.documentType),
                             style: const TextStyle(fontSize: 11),
                           ),
                         ),
@@ -458,9 +456,10 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.red.shade300),
                           ),
-                          child: const Text(
-                            'טיוטה',
-                            style: TextStyle(fontSize: 11, color: Colors.red),
+                          child: Text(
+                            l10n.draftStatus,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.red),
                           ),
                         ),
                       if (invoice.status == InvoiceStatus.cancelled)
@@ -474,9 +473,10 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             color: Colors.red.shade100,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            'מבוטל',
-                            style: TextStyle(fontSize: 11, color: Colors.red),
+                          child: Text(
+                            l10n.billingStatusCancelled,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.red),
                           ),
                         ),
                       if (invoice.originalPrinted)
@@ -490,9 +490,9 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             color: Colors.amber.shade100,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            'מקור הודפס',
-                            style: TextStyle(fontSize: 11),
+                          child: Text(
+                            l10n.originalPrintedLabel,
+                            style: const TextStyle(fontSize: 11),
                           ),
                         ),
                       if (invoice.copiesPrinted > 0)
@@ -506,7 +506,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'עותקים: ${invoice.copiesPrinted}',
+                            l10n.copiesCountLabel(invoice.copiesPrinted),
                             style: const TextStyle(fontSize: 11),
                           ),
                         ),
@@ -530,19 +530,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            invoice.assignmentStatus ==
-                                    AssignmentStatus.approved
-                                ? 'הקצאה: ${invoice.assignmentNumber ?? ''}'
-                                : invoice.assignmentStatus ==
-                                        AssignmentStatus.pending
-                                    ? 'ממתין להקצאה'
-                                    : invoice.assignmentStatus ==
-                                            AssignmentStatus.rejected
-                                        ? 'הקצאה נדחתה'
-                                        : invoice.assignmentStatus ==
-                                                AssignmentStatus.error
-                                            ? 'שגיאת הקצאה'
-                                            : 'נדרש הקצאה',
+                            _assignmentChipLabel(l10n, invoice),
                             style: TextStyle(
                               fontSize: 11,
                               color: invoice.assignmentStatus ==
@@ -559,7 +547,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                     final actionButtons = <Widget>[
                       IconButton(
                         icon: const Icon(Icons.history, color: Colors.grey),
-                        tooltip: 'היסטוריה',
+                        tooltip: l10n.historyTooltip,
                         onPressed: () {
                           final auth = context.read<AuthService>();
                           final uid = auth.currentUser?.uid ?? '';
@@ -579,8 +567,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                               builder: (_) => AuditLogScreen(
                                 invoiceId: invoice.id,
                                 companyId: effectiveCompanyId,
-                                invoiceTitle:
-                                    'חשבונית #${invoice.sequentialNumber}',
+                                invoiceTitle: l10n.invoiceNumberTitle(
+                                    invoice.sequentialNumber),
                               ),
                             ),
                           );
@@ -588,7 +576,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.print, color: Colors.blue),
-                        tooltip: 'הדפס מחדש',
+                        tooltip: l10n.reprintTooltip,
                         onPressed: () =>
                             _reprintInvoice(effectiveCompanyId, invoice),
                       ),
@@ -598,7 +586,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                         IconButton(
                           icon: const Icon(Icons.receipt_long,
                               color: Colors.orange),
-                          tooltip: 'צור זיכוי',
+                          tooltip: l10n.createCreditNote,
                           onPressed: () async {
                             final messenger = ScaffoldMessenger.of(context);
                             final result = await showDialog<String>(
@@ -609,8 +597,9 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                             );
                             if (result != null && mounted) {
                               messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text('✅ זיכוי נוצר בהצלחה'),
+                                SnackBar(
+                                  content:
+                                      Text(l10n.creditNoteCreatedSuccess),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -624,14 +613,14 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                                   InvoiceDocumentType.taxInvoiceReceipt))
                         IconButton(
                           icon: const Icon(Icons.payments, color: Colors.teal),
-                          tooltip: 'צור קבלה',
+                          tooltip: l10n.createReceiptTooltip,
                           onPressed: () =>
                               _createReceipt(effectiveCompanyId, invoice),
                         ),
                       if (invoice.canBeCancelled)
                         IconButton(
                           icon: const Icon(Icons.cancel, color: Colors.red),
-                          tooltip: 'בטל חשבונית',
+                          tooltip: l10n.cancelInvoiceTooltip,
                           onPressed: () =>
                               _cancelInvoice(effectiveCompanyId, invoice),
                         ),
@@ -641,7 +630,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                                   AssignmentStatus.rejected))
                         IconButton(
                           icon: const Icon(Icons.refresh, color: Colors.orange),
-                          tooltip: 'ניסיון חוזר להקצאה',
+                          tooltip: l10n.retryAssignmentTooltip,
                           onPressed: () =>
                               _retryAssignment(effectiveCompanyId, invoice),
                         ),
@@ -663,12 +652,13 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('נהג: ${invoice.driverName}'),
+                            Text(l10n.driverWithName(invoice.driverName)),
+                            Text(l10n.deliveryDateWithValue(
+                                DateFormat('dd/MM/yyyy')
+                                    .format(invoice.deliveryDate))),
                             Text(
-                              'תאריך אספקה: ${DateFormat('dd/MM/yyyy').format(invoice.deliveryDate)}',
-                            ),
-                            Text(
-                              'סה"כ: ₪${invoice.totalWithVAT.toStringAsFixed(2)}',
+                              l10n.totalWithAmount(
+                                  invoice.totalWithVAT.toStringAsFixed(2)),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
@@ -705,13 +695,12 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createStandaloneInvoice,
         icon: const Icon(Icons.add),
-        label: const Text('חשבונית חדשה'),
+        label: Text(l10n.newInvoiceButton),
       ),
     );
   }
 }
 
-/// Диалог повторной печати с выбором типа и количества
 class _ReprintDialog extends StatefulWidget {
   final Invoice invoice;
   const _ReprintDialog({required this.invoice});
@@ -726,8 +715,9 @@ class _ReprintDialogState extends State<_ReprintDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('הדפסה חוזרת'),
+      title: Text(l10n.reprintDialogTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -740,9 +730,9 @@ class _ReprintDialogState extends State<_ReprintDialog> {
                   leading: const Radio<InvoiceCopyType>(
                     value: InvoiceCopyType.copy,
                   ),
-                  title: const Text('העתק'),
-                  subtitle:
-                      Text('עותק מספר ${widget.invoice.copiesPrinted + 1}'),
+                  title: Text(l10n.copyTypeLabel),
+                  subtitle: Text(l10n
+                      .copyNumberLabel(widget.invoice.copiesPrinted + 1)),
                   onTap: () =>
                       setState(() => _selectedType = InvoiceCopyType.copy),
                 ),
@@ -750,8 +740,8 @@ class _ReprintDialogState extends State<_ReprintDialog> {
                   leading: const Radio<InvoiceCopyType>(
                     value: InvoiceCopyType.replacesOriginal,
                   ),
-                  title: const Text('נאמן למקור'),
-                  subtitle: const Text('מחליף את המקור'),
+                  title: Text(l10n.trueToOriginalLabel),
+                  subtitle: Text(l10n.replacesOriginalLabel),
                   onTap: () => setState(
                       () => _selectedType = InvoiceCopyType.replacesOriginal),
                 ),
@@ -761,8 +751,8 @@ class _ReprintDialogState extends State<_ReprintDialog> {
           const SizedBox(height: 16),
           Row(
             children: [
-              const Text('כמות: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('${l10n.quantity}: ',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
                 onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
@@ -782,7 +772,7 @@ class _ReprintDialogState extends State<_ReprintDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
           onPressed: () => Navigator.pop(context, {
@@ -790,14 +780,13 @@ class _ReprintDialogState extends State<_ReprintDialog> {
             'copies': _copies,
           }),
           icon: const Icon(Icons.print),
-          label: Text('הדפס $_copies עותקים'),
+          label: Text(l10n.printCopiesButton(_copies)),
         ),
       ],
     );
   }
 }
 
-/// Диалог выбора способа оплаты для קבלה
 class _ReceiptPaymentDialog extends StatefulWidget {
   final Invoice invoice;
   const _ReceiptPaymentDialog({required this.invoice});
@@ -807,29 +796,52 @@ class _ReceiptPaymentDialog extends StatefulWidget {
 }
 
 class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
-  String _paymentMethod = 'מזומן';
+  static const _paymentKeys = [
+    'cash',
+    'credit_card',
+    'bank_transfer',
+    'cheque',
+  ];
+  String _paymentMethod = _paymentKeys.first;
+
+  String _paymentLabel(AppLocalizations l10n, String key) {
+    switch (key) {
+      case 'cash':
+        return l10n.cash;
+      case 'credit_card':
+        return l10n.creditCard;
+      case 'bank_transfer':
+        return l10n.bankTransfer;
+      case 'cheque':
+        return l10n.cheque;
+      default:
+        return key;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('יצירת קבלה'),
+      title: Text(l10n.createReceiptTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'קבלה עבור חשבונית #${widget.invoice.sequentialNumber}',
+            l10n.receiptForInvoice(widget.invoice.sequentialNumber),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          Text('לקוח: ${widget.invoice.clientName}'),
+          Text(l10n.clientWithName(widget.invoice.clientName)),
           Text(
-            'סכום: ₪${widget.invoice.totalWithVAT.toStringAsFixed(2)}',
+            l10n.amountWithValue(
+                widget.invoice.totalWithVAT.toStringAsFixed(2)),
             style: const TextStyle(
                 fontWeight: FontWeight.bold, color: Colors.green),
           ),
           const SizedBox(height: 16),
-          const Text('אופן תשלום:',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(l10n.paymentMethodLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             initialValue: _paymentMethod,
@@ -837,14 +849,12 @@ class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
               border: OutlineInputBorder(),
               isDense: true,
             ),
-            items: const [
-              DropdownMenuItem(value: 'מזומן', child: Text('מזומן')),
-              DropdownMenuItem(
-                  value: 'כרטיס אשראי', child: Text('כרטיס אשראי')),
-              DropdownMenuItem(
-                  value: 'העברה בנקאית', child: Text('העברה בנקאית')),
-              DropdownMenuItem(value: 'צ\'ק', child: Text('צ\'ק')),
-            ],
+            items: _paymentKeys
+                .map((key) => DropdownMenuItem(
+                      value: key,
+                      child: Text(_paymentLabel(l10n, key)),
+                    ))
+                .toList(),
             onChanged: (val) {
               if (val != null) setState(() => _paymentMethod = val);
             },
@@ -854,12 +864,13 @@ class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
-          onPressed: () => Navigator.pop(context, _paymentMethod),
+          onPressed: () =>
+              Navigator.pop(context, _paymentLabel(l10n, _paymentMethod)),
           icon: const Icon(Icons.payments),
-          label: const Text('צור קבלה'),
+          label: Text(l10n.createReceiptButton),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
         ),
       ],

@@ -231,6 +231,38 @@ class AppLocalizationsHe extends AppLocalizations {
   String get invalidLoginCredentials => 'אימייל או סיסמה שגויים';
 
   @override
+  String get authUserNotFound => 'לא נמצא משתמש עם אימייל זה';
+
+  @override
+  String get authUserDisabled => 'החשבון מושבת. פנה למנהל המערכת';
+
+  @override
+  String get authNetworkError => 'אין חיבור לשרת. בדוק את האינטרנט';
+
+  @override
+  String get authOperationNotAllowed => 'כניסה באימייל מושבתת בהגדרות הפרויקט';
+
+  @override
+  String get authInvalidApiKey => 'שגיאת תצורת אפליקציה (API key). פנה למנהל';
+
+  @override
+  String get authAppNotAuthorized =>
+      'Android לא מאושר ב-Firebase. הוסף SHA-1 release ב-Firebase Console → Project settings → Android app';
+
+  @override
+  String get authInternalError => 'שגיאת שרת אימות. נסה שוב מאוחר יותר';
+
+  @override
+  String get authProfileNotFound => 'פרופיל לא נמצא או לא מוגדר. פנה למנהל';
+
+  @override
+  String get authUnknownError => 'ההתחברות נכשלה. בדוק את הפרטים או נסה שוב';
+
+  @override
+  String get authPasswordResetFailed =>
+      'לא ניתן לשלוח מייל לאיפוס סיסמה. בדוק אימייל או פנה למנהל';
+
+  @override
   String get tooManyRequests => 'יותר מדי ניסיונות. נסה שוב מאוחר יותר';
 
   @override
@@ -279,6 +311,15 @@ class AppLocalizationsHe extends AppLocalizations {
   String get english => 'אנגלית';
 
   @override
+  String get themeLight => 'ערכת נושא בהירה';
+
+  @override
+  String get themeDark => 'ערכת נושא כהה';
+
+  @override
+  String get themeSystem => 'לפי המערכת';
+
+  @override
   String get capacity => 'קיבולת';
 
   @override
@@ -291,6 +332,39 @@ class AppLocalizationsHe extends AppLocalizations {
   String get save => 'שמור';
 
   @override
+  String get deliveryWindowTitle => 'חלון מסירה';
+
+  @override
+  String get deliveryWindowFrom => 'מ-';
+
+  @override
+  String get deliveryWindowTo => 'עד';
+
+  @override
+  String get deliveryWindowNotSet => 'לא הוגדר';
+
+  @override
+  String get deliveryWindowClear => 'נקה חלון';
+
+  @override
+  String routeLateBy(int minutes) {
+    return 'באיחור של $minutes דק׳';
+  }
+
+  @override
+  String get routeOnTime => 'בזמן';
+
+  @override
+  String get requirePodPhoto => 'לחייב צילום מסירה (POD)';
+
+  @override
+  String get requirePodPhotoHint =>
+      'מסתיר סגירה בנגיעה ומכבה סגירה אוטומטית — כל מסירה דורשת צילום.';
+
+  @override
+  String get deliverySection => 'מסירה';
+
+  @override
   String get pointDone => 'נקודה הושלמה';
 
   @override
@@ -298,6 +372,45 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get pointCompleted => 'נקודה סומנה כהושלמה';
+
+  @override
+  String get autoCloseToggle => 'אוטו';
+
+  @override
+  String get closeWithPhoto => 'סגור עם תמונה';
+
+  @override
+  String get autoCloseUndoMessage => 'הנקודה נסגרה אוטומטית';
+
+  @override
+  String get undo => 'ביטול';
+
+  @override
+  String get podTitle => 'אישור מסירה';
+
+  @override
+  String get podTakePhoto => 'צלם תמונה';
+
+  @override
+  String get podRetake => 'צלם שוב';
+
+  @override
+  String get podConfirm => 'אשר מסירה';
+
+  @override
+  String get podGps => 'מיקום GPS';
+
+  @override
+  String get podTime => 'שעה';
+
+  @override
+  String get podDistance => 'מרחק ללקוח';
+
+  @override
+  String get podPhotoRequired => 'נדרשת תמונת מסירה';
+
+  @override
+  String get podGpsUnavailable => 'GPS לא זמין — הפעל מיקום';
 
   @override
   String get next => 'הבא';
@@ -465,7 +578,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeCopiedToClipboard => 'המסלול הועתק ללוח';
 
   @override
-  String get printError => 'שגיאה בהדפסה';
+  String printError(String error) {
+    return '❌ שגיאה בהדפסה: $error';
+  }
 
   @override
   String get no => 'לא';
@@ -608,7 +723,40 @@ class AppLocalizationsHe extends AppLocalizations {
   String get forgotPassword => 'שכחת סיסמה?';
 
   @override
-  String get passwordResetEmailSent => 'נשלח מייל לאיפוס סיסמה';
+  String get passwordResetEmailSent =>
+      'אם האימייל רשום במערכת, בדוק/י את תיבת הדואר והספאם לקישור איפוס';
+
+  @override
+  String get resetPasswordTitle => 'סיסמה חדשה';
+
+  @override
+  String get resetPasswordHint => 'הזן/י סיסמה חדשה לחשבון שלך';
+
+  @override
+  String get newPasswordLabel => 'סיסמה חדשה';
+
+  @override
+  String get confirmPasswordLabel => 'אימות סיסמה';
+
+  @override
+  String get saveNewPassword => 'שמור סיסמה';
+
+  @override
+  String get passwordResetSuccess => 'הסיסמה עודכנה. התחבר/י עם הסיסמה החדשה';
+
+  @override
+  String get passwordsDoNotMatch => 'הסיסמאות אינן תואמות';
+
+  @override
+  String get invalidResetLink =>
+      'קישור האיפוס לא תקין. בקש/י קישור חדש במסך ההתחברות';
+
+  @override
+  String get emailTypoGmail =>
+      'התכוונת ל-@gmail.com? @google.com אינו ספק דוא\"ל תקין';
+
+  @override
+  String get emailTypoCon => 'שגיאת הקלדה בדומיין: .con במקום .com?';
 
   @override
   String get companyId => 'שם חברה';
@@ -1300,10 +1448,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get companyDetails => 'פרטי חברה';
 
   @override
-  String get companyNameHebrew => 'שם חברה (עברית)';
+  String get companyNameHebrew => 'שם (עברית)';
 
   @override
-  String get companyNameEnglish => 'שם חברה (אנגלית)';
+  String get companyNameEnglish => 'שם (אנגלית, אופציונלי)';
 
   @override
   String get taxId => 'ח.פ';
@@ -2082,6 +2230,172 @@ class AppLocalizationsHe extends AppLocalizations {
   String get mapBannerPreviousRouteShown => 'מוצג מסלול קודם';
 
   @override
+  String get mapDemoRoutesBuilt => 'נבנו 3 מסלולים אופטימליים';
+
+  @override
+  String get mapDemoWarehouseCreatedDeliveries => 'המחסן יצר 12 משלוחים';
+
+  @override
+  String get mapDemoTruckLoading => 'טעינה למשאית: 12 משלוחים הועמסו מהמחסן';
+
+  @override
+  String get mapDemoTasksSentToDrivers => 'המשימות נשלחו לנהגים';
+
+  @override
+  String get mapDemoActiveDriver => 'נהג פעיל';
+
+  @override
+  String get mapDemoDirectionToWarehouse => 'למחסן';
+
+  @override
+  String get mapDemoDirectionUnknown => 'לא ידוע';
+
+  @override
+  String mapDemoDirectionLabel(String direction) {
+    return 'כיוון: $direction';
+  }
+
+  @override
+  String mapDemoEtaMinutes(int minutes) {
+    return 'ETA: ~$minutes דק\'';
+  }
+
+  @override
+  String get mapDemoStage1Title => 'הזמנה התקבלה';
+
+  @override
+  String get mapDemoStage1Desc => 'הלקוח שולח בקשת משלוח למפקח.';
+
+  @override
+  String get mapDemoStage2Title => 'נשלח למחסן';
+
+  @override
+  String get mapDemoStage2Desc => 'המפקח מעביר את ההזמנה למחסן לביצוע.';
+
+  @override
+  String get mapDemoStage3Title => 'הכנה במחסן';
+
+  @override
+  String get mapDemoStage3Desc => 'הצוות אורז סחורה ובונה משטחים.';
+
+  @override
+  String get mapDemoStage4Title => 'מסלול נוצר';
+
+  @override
+  String get mapDemoStage4Desc => 'המפקח מתכנן מסלול אופטימלי עם כל התחנות.';
+
+  @override
+  String get mapDemoStage5Title => 'טעינה למשאית';
+
+  @override
+  String get mapDemoStage5Desc => 'המשטחים נטענים למשאית הנהג.';
+
+  @override
+  String get mapDemoStage6Title => 'הנהג בדרך';
+
+  @override
+  String get mapDemoStage6Desc => 'הנהג נוסע במסלול — הרחובות נראים על המפה.';
+
+  @override
+  String get mapDemoStage7Title => 'פריקה ומסירה';
+
+  @override
+  String get mapDemoStage7Desc =>
+      'בכל תחנה פריקה; התחנה מסומנת אוטומטית כהושלמה.';
+
+  @override
+  String get mapDemoStage8Title => 'חזרה למחסן';
+
+  @override
+  String get mapDemoStage8Desc => 'הנהג מסיים את המסלול וחוזר לבסיס.';
+
+  @override
+  String get mapDemoStageCompleteTitle => 'הסימולציה הושלמה';
+
+  @override
+  String get mapDemoStageCompleteDesc => 'מחזור המשלוח המלא הושלם בהצלחה.';
+
+  @override
+  String mapDemoStopLabel(int number) {
+    return 'תחנה $number';
+  }
+
+  @override
+  String mapDemoDeliveringAt(String stop) {
+    return 'פריקה ב$stop';
+  }
+
+  @override
+  String get mapDemoReplay => 'הפעל שוב';
+
+  @override
+  String get mapDemoLiveBadge => 'LIVE';
+
+  @override
+  String get mapDemoKpiMileage => 'נסועה';
+
+  @override
+  String get mapDemoKpiEtaAccuracy => 'דיוק ETA';
+
+  @override
+  String get mapDemoKpiCalls => 'שיחות';
+
+  @override
+  String get mapDemoKpiDelivered => 'נמסרו';
+
+  @override
+  String get mapDemoKpiEnroute => 'בדרך';
+
+  @override
+  String get mapDemoKpiDistance => 'מסלול';
+
+  @override
+  String get mapDemoKpiLate => 'איחורים';
+
+  @override
+  String get mapDemoEtaAccuracyValue => '±3 דק׳';
+
+  @override
+  String get mapDemoFinishSubtitle => 'המוקדן ראה הכול בזמן אמת';
+
+  @override
+  String get mapDemoFinishNote => 'אף שיחת \"איפה אתה?\" לנהג לאורך כל המסלול';
+
+  @override
+  String mapDemoMinutesShort(int minutes) {
+    return '~$minutes דק׳';
+  }
+
+  @override
+  String mapDemoKmShort(String km) {
+    return '$km ק״מ';
+  }
+
+  @override
+  String get mapDemoStepShort1 => 'הזמנה';
+
+  @override
+  String get mapDemoStepShort2 => 'מחסן';
+
+  @override
+  String get mapDemoStepShort3 => 'הכנה';
+
+  @override
+  String get mapDemoStepShort4 => 'מסלול';
+
+  @override
+  String get mapDemoStepShort5 => 'טעינה';
+
+  @override
+  String get mapDemoStepShort6 => 'נסיעה';
+
+  @override
+  String get mapDemoStepShort7 => 'מסירה';
+
+  @override
+  String get mapDemoStepShort8 => 'חזרה';
+
+  @override
   String get billingGuardAccessSuspendedTitle => 'הגישה הושעתה';
 
   @override
@@ -2222,6 +2536,28 @@ class AppLocalizationsHe extends AppLocalizations {
   String get billingDashboardRunIntegrityTooltip => 'הרץ בדיקת שלמות';
 
   @override
+  String get billingDashboardSeedPricingTooltip => 'העלה תמחור ל-Firestore';
+
+  @override
+  String get billingDashboardSeedPricingTitle =>
+      'לעדכן config/billing_pricing?';
+
+  @override
+  String get billingDashboardSeedPricingBody =>
+      'כותב את רשת התמחור הנוכחית (לוגיסטיקה, מחסן, תפעול, מלא) ל-config/billing_pricing. Checkout ישתמש במחירים מיד.';
+
+  @override
+  String get billingDashboardSeedPricingButton => 'העלה';
+
+  @override
+  String get billingDashboardSeedPricingRunning => 'מעלה תמחור…';
+
+  @override
+  String billingDashboardSeedPricingDone(String plans) {
+    return 'תמחור עודכן: $plans';
+  }
+
+  @override
   String billingDashboardExtendSuccess(String companyName, String date) {
     return '$companyName הוארך עד $date';
   }
@@ -2279,35 +2615,162 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get dispatcherTourStep1 =>
-      'נקודות משלוח: מוסיפים לקוח ומוצרים להזמנה — כאן נבנית ההזמנה לפני המסלול';
+  String get dispatcherTourStopTooltip => 'סגור מצגת';
 
   @override
-  String get dispatcherTourStep2 =>
-      'בכל נקודה: מוצרים וכמויות; אפשר לערוך לפני בניית מסלול';
-
-  @override
-  String get dispatcherTourStep3 =>
-      'כשהמוצרים מוכנים — עוברים ללשונית «מסלולים פעילים» ושיוך לנהג';
-
-  @override
-  String get dispatcherTourStep4 =>
-      'מסלולים פעילים: השיוך לנהג, סדר עצירות ומסלול על המפה';
-
-  @override
-  String get dispatcherTourStep5 =>
-      'אחרי בניית המסלול — המשימות מגיעות לנהג באפליקציה; עוברים למפה';
-
-  @override
-  String get dispatcherTourStopTooltip => 'עצור סיור הדגמה';
-
-  @override
-  String get dispatcherTourStartTooltip => 'סיור הדגמה: מוצר → מסלול → נהג';
+  String get dispatcherTourStartTooltip => 'מצגת LogiRoute';
 
   @override
   String dispatcherTourProgress(int current, int total) {
     return '$current/$total';
   }
+
+  @override
+  String get salesDemoSkip => 'דלג';
+
+  @override
+  String get salesDemoNext => 'הבא';
+
+  @override
+  String get salesDemoBack => 'חזור';
+
+  @override
+  String get salesDemoGetStarted => 'התחל';
+
+  @override
+  String get salesDemoSeeLiveDemo => 'דמו חי';
+
+  @override
+  String get salesDemoBrandTagline => 'פלטפורמת לוגיסטיקה מקצה לקצה';
+
+  @override
+  String get salesDemoSlide1Title => 'לוגיסטיקה לא צריכה להרגיש כאוס';
+
+  @override
+  String get salesDemoSlide1Subtitle =>
+      'מסלולים ידניים, משלוחים שמתפספסים וצוותים מנותקים עולים בזמן ובכסף כל יום.';
+
+  @override
+  String get salesDemoSlide1Benefit1 => 'שעות אבודות על גיליונות ושיחות';
+
+  @override
+  String get salesDemoSlide1Benefit2 => 'אין ראות בזמן אמת על הצי';
+
+  @override
+  String get salesDemoSlide1Benefit3 => 'חשבוניות ומשלוחים לא מסונכרנים';
+
+  @override
+  String get salesDemoSlide2Title => 'הכירו את LogiRoute';
+
+  @override
+  String get salesDemoSlide2Subtitle =>
+      'פלטפורמה אחת למחסן, דיספוצ\'ר, נהגים וחיוב — מוכנה לצמיחה.';
+
+  @override
+  String get salesDemoSlide2Benefit1 => 'מהזמנה לחשבונית בזרימה אחת';
+
+  @override
+  String get salesDemoSlide2Benefit2 => 'ווב ומובייל — הצוות תמיד מחובר';
+
+  @override
+  String get salesDemoSlide2Benefit3 => 'נבנה לפעילות דיספוצ\'ר אמיתית';
+
+  @override
+  String get salesDemoPersonaAdmin => 'מנהל';
+
+  @override
+  String get salesDemoPersonaDispatcher => 'דיספוצ\'ר';
+
+  @override
+  String get salesDemoPersonaDriver => 'נהג';
+
+  @override
+  String get salesDemoPersonaAdminDesc =>
+      'שליטה מלאה: חברות, משתמשים, חיוב ואנליטיקה בלוח אחד.';
+
+  @override
+  String get salesDemoPersonaDispatcherDesc =>
+      'בנו מסלולים, שייכו נהגים ועקבו אחרי כל משלוח חי על המפה.';
+
+  @override
+  String get salesDemoPersonaDriverDesc =>
+      'משימות ברורות, סדר עצירות ועדכוני סטטוס מיידיים מהכביש.';
+
+  @override
+  String get salesDemoSlide3Title => 'ניתוב חכם ודיספוצ\'ר';
+
+  @override
+  String get salesDemoSlide3Subtitle =>
+      'תכננו מסלולים אופטימליים בדקות — לא בשעות.';
+
+  @override
+  String get salesDemoSlide3Benefit1 => 'אופטימיזציית מסלולים אוטומטית';
+
+  @override
+  String get salesDemoSlide3Benefit2 => 'שיוך נהגים בגרירה';
+
+  @override
+  String get salesDemoSlide3Benefit3 => 'מפה חיה עם כל המשלוחים הפעילים';
+
+  @override
+  String get salesDemoSlide4Title => 'אפליקציית נהג ומעקב חי';
+
+  @override
+  String get salesDemoSlide4Subtitle =>
+      'כל נהג יודע לאן ללכת — אתם רואים התקדמות בזמן אמת.';
+
+  @override
+  String get salesDemoSlide4Benefit1 => 'משימות מגיעות מיידית לטלפון הנהג';
+
+  @override
+  String get salesDemoSlide4Benefit2 => 'מעקב GPS על מפה אינטראקטיבית';
+
+  @override
+  String get salesDemoSlide4Benefit3 => 'פחות שיחות, משלוחים מהירים יותר';
+
+  @override
+  String get salesDemoSlide5Title => 'מהמחסן לחשבונית';
+
+  @override
+  String get salesDemoSlide5Subtitle =>
+      'מחזור חיי הזמנה מלא — שום דבר לא נופל בין הכיסאות.';
+
+  @override
+  String get salesDemoSlide5Benefit1 => 'תהליכי ליקוט וטעינה במחסן';
+
+  @override
+  String get salesDemoSlide5Benefit2 => 'חיוב מסונכרן עם כל משלוח';
+
+  @override
+  String get salesDemoSlide5Benefit3 => 'מעקב מלא אחרי כל הזמנה';
+
+  @override
+  String get salesDemoLifecycleOrder => 'הזמנה';
+
+  @override
+  String get salesDemoLifecycleDispatch => 'שיבוץ';
+
+  @override
+  String get salesDemoLifecycleDelivery => 'משלוח';
+
+  @override
+  String get salesDemoLifecycleInvoice => 'חשבונית';
+
+  @override
+  String get salesDemoSlide6Title => 'לוגיסטיקה ברמת ארגון';
+
+  @override
+  String get salesDemoSlide6Subtitle =>
+      'מקצועי, מאובטח ומוכן לפעילות משלוחים בצמיחה.';
+
+  @override
+  String get salesDemoSlide6Benefit1 => 'גישה מבוססת תפקיד לכל חבר צוות';
+
+  @override
+  String get salesDemoSlide6Benefit2 => 'אנגלית, רוסית ועברית מובנות';
+
+  @override
+  String get salesDemoSlide6Benefit3 => 'בשימוש צוותי דיספוצ\'ר כל יום';
 
   @override
   String dispatcherSkippedInvoicesMakor(int count) {
@@ -2686,6 +3149,76 @@ class AppLocalizationsHe extends AppLocalizations {
   String reasonLabel(String reason) {
     return 'סיבה: $reason';
   }
+
+  @override
+  String get integrityCheckExplain =>
+      'בודק את שרשרת המספור הקריפטוגרפית. מסמכים שהונפקו לפני הפעלת השרשרת מדולגים אוטומטית — זו לא שגיאה.';
+
+  @override
+  String get integrityLegacyOnly =>
+      'אין רשומות בשרשרת: כל המסמכים מסוג זה הונפקו לפני בדיקת השלמות. מסמכים חדשים ייבדקו כרגיל.';
+
+  @override
+  String integrityLegacySkipped(int from, int to) {
+    return 'מספרים ישנים #$from–#$to דולגו (לפני הרשומה הראשונה בשרשרת)';
+  }
+
+  @override
+  String integrityCheckedFrom(int from, int to) {
+    return 'נבדק בפועל: #$from עד #$to';
+  }
+
+  @override
+  String get integrityReasonMissingEntry => 'רשומה חסרה בשרשרת';
+
+  @override
+  String get integrityReasonMissingPrevForRange => 'מסמך קודם לפני הטווח חסר';
+
+  @override
+  String get integrityReasonSchemaInvalid => 'רשומת שרשרת פגומה';
+
+  @override
+  String get integrityReasonPrevHashMismatch => 'שרשרת ההאש נשברה';
+
+  @override
+  String get integrityReasonHashMismatch => 'האש לא תואם';
+
+  @override
+  String integrityOkSummary(int count) {
+    return '✅ שלמות תקינה — נבדקו: $count';
+  }
+
+  @override
+  String integrityFailedSummary(int number) {
+    return '❌ שגיאה במסמך #$number';
+  }
+
+  @override
+  String get createCompany => 'צור חברה';
+
+  @override
+  String get createCompanyTitle => 'חברה חדשה';
+
+  @override
+  String get createCompanyDesc =>
+      'יוצר חברה, הגדרות ברירת מחדל ומוני מסמכים. ניסיון 14 יום.';
+
+  @override
+  String get companyIdSlug => 'מזהה חברה (לatin)';
+
+  @override
+  String get companyIdSlugHint => 'acme-logistics';
+
+  @override
+  String companyCreatedSuccess(String name) {
+    return 'החברה \"$name\" נוצרה';
+  }
+
+  @override
+  String get companyAlreadyExists => 'חברה עם מזהה זה כבר קיימת';
+
+  @override
+  String get invalidCompanyId => 'מזהה: אותיות לatin, ספרות, מקף, 3–40 תווים';
 
   @override
   String get counterInvoices => 'חשבוניות מס';
@@ -3635,6 +4168,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get planWarehouseOnly => 'מחסן בלבד';
 
   @override
+  String get planLogistics => 'לוגיסטיקה';
+
+  @override
   String get planOps => 'תפעול';
 
   @override
@@ -3647,6 +4183,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get planDescWarehouse => 'ניהול מלאי בלבד';
 
   @override
+  String get planDescLogistics => 'לוגיסטיקה + דיספצ׳ר + דוחות (ללא מחסן)';
+
+  @override
   String get planDescOps => 'מחסן + לוגיסטיקה + דוחות';
 
   @override
@@ -3654,6 +4193,91 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get planDescCustom => 'תוכנית מותאמת';
+
+  @override
+  String get accountingProviderSection => 'ייצוא חשבונאי';
+
+  @override
+  String get accountingProviderLabel => 'ספק';
+
+  @override
+  String get accountingProviderNone => 'מובנה (LogiRoute)';
+
+  @override
+  String get accountingProviderExport => 'ייצוא קובץ (CSV אחיד)';
+
+  @override
+  String get accountingProviderGreeninvoice => 'Greeninvoice / Morning';
+
+  @override
+  String get accountingProviderIcount => 'iCount';
+
+  @override
+  String get accountingProviderHint =>
+      'ספק חיצוני מטפל בציות מס ובמספור מסמכים.';
+
+  @override
+  String get accountingProviderConfigure => 'הגדר אישורי API';
+
+  @override
+  String get accountingProviderConfigured => 'אישורים נשמרו';
+
+  @override
+  String get accountingProviderSaved => 'הגדרות אינטגרציה חשבונאית נשמרו';
+
+  @override
+  String get accountingProviderApiKey => 'מפתח API';
+
+  @override
+  String get accountingProviderSecret => 'מפתח סודי';
+
+  @override
+  String get accountingProviderToken => 'טוקן API';
+
+  @override
+  String get accountingProviderSandbox => 'מצב Sandbox';
+
+  @override
+  String get accountingProviderSandboxHint =>
+      'שימוש ב-API בדיקות של Greeninvoice (sandbox.d.greeninvoice.co.il)';
+
+  @override
+  String get accountingSyncTitle => 'סנכרון חשבונאות חיצוני';
+
+  @override
+  String get accountingSyncStatusSynced => 'סונכרן';
+
+  @override
+  String get accountingSyncStatusFailed => 'נכשל';
+
+  @override
+  String get accountingSyncStatusProcessing => 'מעבד';
+
+  @override
+  String get accountingSyncRetry => 'נסה שוב';
+
+  @override
+  String get accountingSyncNoEntries =>
+      'אין רשומות סנכרון — חשבוניות שהונפקו יופיעו כאן.';
+
+  @override
+  String get accountingSyncRetried => 'ניסיון סנכרון החל';
+
+  @override
+  String accountingSyncDistribution(String number) {
+    return 'מספר הקצאה: $number';
+  }
+
+  @override
+  String get accountingSyncStatusPending => 'ממתין';
+
+  @override
+  String get accountingDocSyncColumn => 'סנכרון';
+
+  @override
+  String accountingExternalSyncFailedWith(String error) {
+    return 'המסמך הונפק, הסנכרון נכשל: $error';
+  }
 
   @override
   String promoMonthlyPrice(int price, int months) {
@@ -3935,6 +4559,30 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get mapColumnsClients => 'מיפוי עמודות — לקוחות';
+
+  @override
+  String get mapColumnsDeliveryPoints => 'מיפוי עמודות — נקודות משלוח';
+
+  @override
+  String get importDeliveryPointsMenu => 'ייבוא נקודות משלוח';
+
+  @override
+  String get importDeliveryPointsTitle => 'ייבוא נקודות משלוח';
+
+  @override
+  String get loadDemoDataMenu => 'נתוני דמו לסרטון';
+
+  @override
+  String get loadDemoDataConfirm =>
+      'לטעון תרחיש משלוח לדמו של סרטון מוצר (2 דקות)?';
+
+  @override
+  String get loadDemoDataReplaceWarning => 'נקודות דמו קיימות יוחלפו.';
+
+  @override
+  String loadDemoDataSuccess(int count) {
+    return 'נתוני דמו נטענו ($count נקודות)';
+  }
 
   @override
   String importResultUpdated(int updated, int errors) {
@@ -4381,6 +5029,21 @@ class AppLocalizationsHe extends AppLocalizations {
   String get truckLabelColon => 'משאית:';
 
   @override
+  String get clientKvLabel => 'לקוח';
+
+  @override
+  String get addressKvLabel => 'כתובת';
+
+  @override
+  String get driverKvLabel => 'נהג';
+
+  @override
+  String get truckKvLabel => 'משאית';
+
+  @override
+  String get deliveryDateKvLabel => 'תאריך אספקה';
+
+  @override
   String get notSpecified => 'לא צוין';
 
   @override
@@ -4494,6 +5157,27 @@ class AppLocalizationsHe extends AppLocalizations {
   String get shiftSaved => 'נשמר';
 
   @override
+  String get shiftRoutingSection => 'פרמטרי ניתוב';
+
+  @override
+  String get routingAvgSpeedKmh => 'מהירות ממוצעת (קמ\"ש)';
+
+  @override
+  String get routingServiceMinutes => 'זמן בנקודה (דק\')';
+
+  @override
+  String get routingDeliveryDayMode => 'תאריך אספקה בחשבונית';
+
+  @override
+  String get deliveryDaySame => 'היום';
+
+  @override
+  String get deliveryDayNext => 'מחר';
+
+  @override
+  String get deliveryDayNextWorking => 'יום עבודה הקרוב';
+
+  @override
   String shiftLoadError(String error) {
     return 'שגיאת טעינה: $error';
   }
@@ -4530,4 +5214,771 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get taskNoteHint => 'לאסוף צ׳ק, החזרה, וכו׳';
+
+  @override
+  String get adminActivityLog => 'יומן פעילות';
+
+  @override
+  String get period24h => '24 שעות';
+
+  @override
+  String get period48h => '48 שעות';
+
+  @override
+  String get periodWeek => 'שבוע';
+
+  @override
+  String get searchActivityHint => 'חיפוש משתמש או פעולה...';
+
+  @override
+  String get noActivityEvents => 'אין אירועים לתקופה שנבחרה';
+
+  @override
+  String get auditSourceLabel => 'ביקורת עסקית';
+
+  @override
+  String get accessSourceLabel => 'יומן גישה';
+
+  @override
+  String get accessEventLogin => 'כניסה';
+
+  @override
+  String get accessEventLogout => 'יציאה';
+
+  @override
+  String get accessEventViewDocument => 'צפייה במסמך';
+
+  @override
+  String get accessEventPrintDocument => 'הדפסת מסמך';
+
+  @override
+  String get accessEventExportData => 'ייצוא נתונים';
+
+  @override
+  String get accessEventCreateDocument => 'יצירת מסמך';
+
+  @override
+  String get accessEventCancelDocument => 'ביטול מסמך';
+
+  @override
+  String get accessEventViewAuditLog => 'צפייה ביומן ביקורת';
+
+  @override
+  String get accessEventViewReport => 'צפייה בדוח';
+
+  @override
+  String get accessEventAdminAction => 'פעולת מנהל';
+
+  @override
+  String get activityCsvUser => 'משתמש';
+
+  @override
+  String get activityCsvAction => 'פעולה';
+
+  @override
+  String get activityCsvWhen => 'מתי';
+
+  @override
+  String get activityCsvSource => 'מקור';
+
+  @override
+  String errorLoadingWithDetail(String error) {
+    return 'שגיאה בטעינה: $error';
+  }
+
+  @override
+  String errorWithDetail(String error) {
+    return '❌ שגיאה: $error';
+  }
+
+  @override
+  String get savedSuccessCheck => '✅ נשמר';
+
+  @override
+  String get pickDate => 'בחר';
+
+  @override
+  String get billingStatusSection => 'סטטוס חיוב';
+
+  @override
+  String get trialPeriodSection => 'תקופת ניסיון';
+
+  @override
+  String get trialPeriodDesc =>
+      'כאשר billingStatus = trial, הגישה פגה לאחר תאריך זה.';
+
+  @override
+  String get notSet => 'לא הוגדר';
+
+  @override
+  String get paymentPaidUntilSection => 'תשלום — שולם עד';
+
+  @override
+  String get paymentPaidUntilDesc =>
+      'מקור האמת לאוטומציית חיוב. לאחר תאריך זה → grace → suspended.';
+
+  @override
+  String get accountingPeriodLockSection => 'נעילת תקופה חשבונאית';
+
+  @override
+  String get accountingPeriodLockDesc =>
+      'לא ניתן ליצור או לשנות מסמכים עם deliveryDate ≤ תאריך זה.';
+
+  @override
+  String get notSetAllPeriodsOpen => 'לא הוגדר (כל התקופות פתוחות)';
+
+  @override
+  String get unlockAllPeriods => 'פתח את כל התקופות';
+
+  @override
+  String get usersLoseAccessWarning =>
+      '⚠️ משתמשים יאבדו את כל הגישה (קריאה וכתיבה חסומות)';
+
+  @override
+  String get trialExpiredBlocked => '⚠️ תקופת הניסיון פגה — הגישה חסומה';
+
+  @override
+  String get paymentExpiredWarning =>
+      '⚠️ התשלום פג — billingEnforcer יעבור ל-grace/suspended';
+
+  @override
+  String get gracePeriodLabel => 'תקופת חסד:';
+
+  @override
+  String companyIdLabel(String id) {
+    return 'חברה: $id';
+  }
+
+  @override
+  String get locationNotReady => 'המיקום אינו מוכן';
+
+  @override
+  String get locationPermissionRequired => 'נדרשת הרשאת מיקום כדי להמשיך.';
+
+  @override
+  String get enableDeviceLocation => 'אנא הפעל מיקום במכשיר כדי להמשיך.';
+
+  @override
+  String get openSettings => 'פתח הגדרות';
+
+  @override
+  String get checkAgain => 'בדוק שוב';
+
+  @override
+  String get locationDeniedForever =>
+      'ההרשאה נדחתה לצמיתות. פתח הגדרות אפליקציה.';
+
+  @override
+  String get pendingApprovalTitle => 'ממתין לאישור';
+
+  @override
+  String get pendingApprovalBody =>
+      'ההרשמה התקבלה בהצלחה.\nמנהל המערכת ישייך אותך לחברה ויקצה לך תפקיד.';
+
+  @override
+  String get registerTitle => 'הרשמה ל-LogiRoute';
+
+  @override
+  String get registerSubtitle => 'לאחר ההרשמה, מנהל המערכת ישייך אותך לחברה';
+
+  @override
+  String get phoneOptional => 'טלפון (אופציונלי)';
+
+  @override
+  String get registerButton => 'הרשמה';
+
+  @override
+  String get alreadyHaveAccountLogin => 'כבר יש לי חשבון — התחברות';
+
+  @override
+  String get minSixCharacters => 'מינימום 6 תווים';
+
+  @override
+  String get invalidEmailShort => 'אימייל לא תקין';
+
+  @override
+  String get creditNoteCreatedSuccess => 'תעודת זיכוי נוצרה בהצלחה';
+
+  @override
+  String get originalDocumentLabel => 'מסמך מקורי';
+
+  @override
+  String get correctionTypeLabel => 'סוג תיקון';
+
+  @override
+  String get fullCorrectionTitle => 'תיקון מלא';
+
+  @override
+  String get fullCorrectionSubtitle => 'כל השורות מהמסמך המקורי';
+
+  @override
+  String get partialCorrectionTitle => 'תיקון חלקי';
+
+  @override
+  String get partialCorrectionSubtitle => 'עריכה/הסרה של שורות';
+
+  @override
+  String get correctionLinesTitle => 'שורות זיכוי';
+
+  @override
+  String get correctionSummaryTitle => 'סיכום זיכוי';
+
+  @override
+  String get correctionReasonLabel => 'סיבת תיקון *';
+
+  @override
+  String descriptionIndex(int index) {
+    return 'תיאור $index';
+  }
+
+  @override
+  String get importNoCompanySelected => 'שגיאה: לא נבחרה חברה';
+
+  @override
+  String get importBack => 'חזרה';
+
+  @override
+  String get importClose => 'סגור';
+
+  @override
+  String importCount(int count) {
+    return 'ייבוא ($count)';
+  }
+
+  @override
+  String get noBusinessTypesAvailable => 'אין סוגי עסק זמינים';
+
+  @override
+  String get noTemplatesForBusinessType => 'אין תבניות זמינות לסוג עסק זה';
+
+  @override
+  String get importingProductsWait => 'מייבא מוצרים, אנא המתן...';
+
+  @override
+  String get loadingDocument => 'טוען מסמך...';
+
+  @override
+  String get documentNotFound => 'מסמך לא נמצא';
+
+  @override
+  String get goBack => 'חזרה';
+
+  @override
+  String get itemsTitle => 'פריטים';
+
+  @override
+  String get skuColumn => 'מק\"ט';
+
+  @override
+  String get typeColumn => 'סוג';
+
+  @override
+  String get numberColumn => 'מספר';
+
+  @override
+  String get quantityColumn => 'כמות';
+
+  @override
+  String get priceColumn => 'מחיר';
+
+  @override
+  String get totalColumn => 'סה\"כ';
+
+  @override
+  String get cancellationDetailsTitle => 'פרטי ביטול';
+
+  @override
+  String docIdLabel(String id) {
+    return 'מזהה מסמך: $id';
+  }
+
+  @override
+  String documentTypeUnsupported(String collection) {
+    return 'פתיחת מסמך מסוג $collection עדיין לא נתמכת';
+  }
+
+  @override
+  String get linkCopiedToClipboard => 'קישור הועתק ללוח';
+
+  @override
+  String get saveProfileTitle => 'שמור פרופיל';
+
+  @override
+  String get profileNameLabel => 'שם הפרופיל';
+
+  @override
+  String profileSaved(String name) {
+    return 'פרופיל \"$name\" נשמר';
+  }
+
+  @override
+  String get accountingExportTitle => 'ייצוא להנהלת חשבונות';
+
+  @override
+  String get targetSoftwareLabel => 'תוכנת יעד';
+
+  @override
+  String get periodSection => 'תקופה';
+
+  @override
+  String get untilLabel => 'עד';
+
+  @override
+  String get documentTypeSection => 'סוג מסמך';
+
+  @override
+  String get fileSettingsSection => 'הגדרות קובץ';
+
+  @override
+  String get separatorLabel => 'מפריד';
+
+  @override
+  String get encodingSection => 'קידוד';
+
+  @override
+  String exportErrorWithDetail(String error) {
+    return 'שגיאה בייצוא: $error';
+  }
+
+  @override
+  String get lastCheckResult => 'תוצאת בדיקה אחרונה';
+
+  @override
+  String get noPreviousChecks => 'אין בדיקות קודמות. לחץ ▶ להפעלת בדיקה.';
+
+  @override
+  String get gapsLabel => 'פערים';
+
+  @override
+  String get quantityCannotBeNegative => 'כמות לא יכולה להיות שלילית';
+
+  @override
+  String get excelExportWebOnly => 'ייצוא Excel זמין רק בגרסת האינטרנט';
+
+  @override
+  String exportErrorDetail(String error) {
+    return '❌ שגיאת ייצוא: $error';
+  }
+
+  @override
+  String get productCodeRequired => 'מק\"ט *';
+
+  @override
+  String get typeRequired => 'סוג *';
+
+  @override
+  String get numberRequired => 'מספר *';
+
+  @override
+  String get volumeMlOptional => 'נפח במ\"ל (אופציונלי)';
+
+  @override
+  String get quantityOnPalletRequired => 'כמות במשטח *';
+
+  @override
+  String get diameterOptional => 'קוטר (אופציונלי)';
+
+  @override
+  String get packedCartonOptional => 'ארוז - כמות בקרטון (אופציונלי)';
+
+  @override
+  String get additionalInfoOptional => 'מידע נוסף (אופציונלי)';
+
+  @override
+  String get hashbonitUnderConstruction => 'חשבונית בבנייה';
+
+  @override
+  String errorSavingWithDetail(String error) {
+    return 'שגיאה בשמירה: $error';
+  }
+
+  @override
+  String get testEmailSent => '✅ אימייל בדיקה נשלח';
+
+  @override
+  String get testWhatsAppSent => '✅ WhatsApp בדיקה נשלח';
+
+  @override
+  String testFailedWithDetail(String error) {
+    return '❌ הבדיקה נכשלה: $error';
+  }
+
+  @override
+  String get paperSize80mmReceipt => '80מ\"מ (קבלה)';
+
+  @override
+  String get noDocumentId => 'אין מזהה מסמך';
+
+  @override
+  String get urgencyVeryUrgent => 'דחוף מאוד';
+
+  @override
+  String get priorityLabel => 'עדיפות';
+
+  @override
+  String get orderInRouteLabel => 'סדר במסלול';
+
+  @override
+  String get newCategoryRequired => 'קטגוריה חדשה *';
+
+  @override
+  String get cancellationReasonRequired => 'סיבת ביטול (חובה)';
+
+  @override
+  String get searchBoxTypesHint => 'חיפוש לפי מק\"ט / סוג / מספר';
+
+  @override
+  String get loginTimeout => 'פג זמן התחברות (20 שניות)';
+
+  @override
+  String errorWithMessage(String error) {
+    return 'שגיאה: $error';
+  }
+
+  @override
+  String get retentionPolicyInfo =>
+      'לפי חוק ניהול ספרים, יש לשמור מסמכים לפחות 7 שנים.\nהבדיקה מוודאת שלא נמחקו מסמכים ושאין פערים במספור.';
+
+  @override
+  String get podRetentionInfo =>
+      'תמונות אישור מסירה (PoD) נשמרות 90 יום ולאחר מכן נמחקות אוטומטית. קואורדינטות GPS ושעת המסירה נשמרות.';
+
+  @override
+  String oldestDocumentDate(String date) {
+    return 'מסמך ישן ביותר: $date';
+  }
+
+  @override
+  String retentionCutoffDate(String date) {
+    return 'תאריך חיתוך: $date';
+  }
+
+  @override
+  String retentionGapsCount(int actual, int expected) {
+    return 'פערים: $actual מתוך $expected צפויים';
+  }
+
+  @override
+  String retentionHistoryEntry(String user, int count) {
+    return '$user • $count מסמכים';
+  }
+
+  @override
+  String retentionDocumentsCount(int count) {
+    return 'מסמכים: $count';
+  }
+
+  @override
+  String get issuesFound => 'בעיות נמצאו';
+
+  @override
+  String get exportFormatHashavshevet => 'חשבשבת';
+
+  @override
+  String get exportFormatHashavshevetDesc =>
+      'קובץ טקסט עם טאבים — תואם לייבוא חשבשבת';
+
+  @override
+  String get exportFormatPriority => 'Priority ERP';
+
+  @override
+  String get exportFormatPriorityDesc => 'קובץ CSV תואם לייבוא Priority';
+
+  @override
+  String get exportFormatCsv => 'CSV אוניברסלי';
+
+  @override
+  String get exportFormatCsvDesc => 'קובץ CSV אוניברסלי — מתאים לכל תוכנה';
+
+  @override
+  String get encodingUtf8Bom => 'UTF-8 + BOM (מומלץ לאקסל)';
+
+  @override
+  String get encodingUtf8 => 'UTF-8 (ללא BOM)';
+
+  @override
+  String get encodingWindows1255 => 'Windows-1255 (חשבשבת ישן)';
+
+  @override
+  String get separatorComma => 'פסיק (,)';
+
+  @override
+  String get separatorSemicolon => 'נקודה-פסיק (;)';
+
+  @override
+  String get separatorTab => 'טאב';
+
+  @override
+  String get hashavshevetEncodingHint =>
+      'לגרסאות ישנות של חשבשבת — בחר Windows-1255';
+
+  @override
+  String get exportCompleteTitle => 'ייצוא הושלם';
+
+  @override
+  String exportRecordsCount(int count, String fileName) {
+    return 'ייצוא הושלם — $count רשומות ($fileName)';
+  }
+
+  @override
+  String fileLabel(String name) {
+    return 'קובץ: $name';
+  }
+
+  @override
+  String recordsLabel(int count) {
+    return 'רשומות: $count';
+  }
+
+  @override
+  String formatLabel(String name) {
+    return 'פורמט: $name';
+  }
+
+  @override
+  String get downloadFileBtn => 'הורד קובץ';
+
+  @override
+  String get exportAction => 'ייצוא';
+
+  @override
+  String get loginRequiredFirst => 'יש להתחבר למערכת תחילה';
+
+  @override
+  String documentNotFoundAtPath(String path) {
+    return 'מסמך לא נמצא בנתיב: $path';
+  }
+
+  @override
+  String get documentNotFoundOrNoAccess => 'המסמך לא נמצא או שאין גישה';
+
+  @override
+  String companyLabelColon(String name) {
+    return 'חברה: $name';
+  }
+
+  @override
+  String get documentNumberLabel => 'מספר מסמך';
+
+  @override
+  String get createdAtLabel => 'נוצר';
+
+  @override
+  String get createdByLabel => 'נוצר על ידי';
+
+  @override
+  String get assignmentNumberLabel => 'מספר הקצאה';
+
+  @override
+  String get cancelledByLabel => 'בוטל על ידי';
+
+  @override
+  String get cancellationDateLabel => 'תאריך ביטול';
+
+  @override
+  String get totalBeforeDiscountLabel => 'סה\"כ לפני הנחה';
+
+  @override
+  String discountPercentLabel(int percent) {
+    return 'הנחה ($percent%)';
+  }
+
+  @override
+  String get vat18Label => 'מע\"מ (18%)';
+
+  @override
+  String get invoiceManagementTitle => 'ניהול חשבוניות';
+
+  @override
+  String errorLoadingInvoices(String error) {
+    return '❌ שגיאה בטעינת חשבוניות: $error';
+  }
+
+  @override
+  String assignmentNumberReceived(String number) {
+    return '✅ מספר הקצאה התקבל: $number';
+  }
+
+  @override
+  String assignmentRequestError(String error) {
+    return '❌ שגיאה בבקשת הקצאה: $error';
+  }
+
+  @override
+  String get standaloneInvoiceInDev => '⚠️ יצירת חשבונית עצמאית בפיתוח';
+
+  @override
+  String receiptPeriodLockedError(String docDate, String lockDate) {
+    return '🔒 לא ניתן ליצור קבלה — תאריך המסמך ($docDate) נמצא בתקופה חשבונאית סגורה (עד $lockDate)';
+  }
+
+  @override
+  String get receiptCreatedAndPrinted => '✅ קבלה נוצרה והודפסה';
+
+  @override
+  String receiptCreateError(String error) {
+    return '❌ שגיאה ביצירת קבלה: $error';
+  }
+
+  @override
+  String get receiptIssuanceError => 'שגיאה בהנפקת קבלה מהשרת';
+
+  @override
+  String get invoicePrintedSuccess => '✅ חשבונית הודפסה';
+
+  @override
+  String get cancelInvoiceTitle => 'ביטול חשבונית';
+
+  @override
+  String cancelInvoiceConfirm(String clientName) {
+    return 'האם לבטל חשבונית עבור $clientName?';
+  }
+
+  @override
+  String get cancelInvoiceLawNote =>
+      'לפי חוק ניהול ספרים, חשבונית לא ניתן למחוק, רק לבטל.';
+
+  @override
+  String get enterCancellationReason => 'נא להזין סיבת ביטול';
+
+  @override
+  String get cancelInvoiceButton => 'בטל חשבונית';
+
+  @override
+  String get invoiceCancelledSuccess => '✅ חשבונית בוטלה';
+
+  @override
+  String cancelInvoiceError(String error) {
+    return '❌ שגיאה בביטול: $error';
+  }
+
+  @override
+  String get deliveryNoteShort => 'ת. משלוח';
+
+  @override
+  String get taxInvoiceReceiptShort => 'חשבונית מס/קבלה';
+
+  @override
+  String get originalPrintedLabel => 'מקור הודפס';
+
+  @override
+  String copiesCountLabel(int count) {
+    return 'עותקים: $count';
+  }
+
+  @override
+  String assignmentApprovedLabel(String number) {
+    return 'הקצאה: $number';
+  }
+
+  @override
+  String get assignmentPendingLabel => 'ממתין להקצאה';
+
+  @override
+  String get assignmentRejectedLabel => 'הקצאה נדחתה';
+
+  @override
+  String get assignmentErrorLabel => 'שגיאת הקצאה';
+
+  @override
+  String get assignmentRequiredLabel => 'נדרש הקצאה';
+
+  @override
+  String get historyTooltip => 'היסטוריה';
+
+  @override
+  String get reprintTooltip => 'הדפס מחדש';
+
+  @override
+  String get createReceiptTooltip => 'צור קבלה';
+
+  @override
+  String get cancelInvoiceTooltip => 'בטל חשבונית';
+
+  @override
+  String get retryAssignmentTooltip => 'ניסיון חוזר להקצאה';
+
+  @override
+  String invoiceNumberTitle(int number) {
+    return 'חשבונית #$number';
+  }
+
+  @override
+  String driverWithName(String name) {
+    return 'נהג: $name';
+  }
+
+  @override
+  String deliveryDateWithValue(String date) {
+    return 'תאריך אספקה: $date';
+  }
+
+  @override
+  String totalWithAmount(String amount) {
+    return 'סה\"כ: ₪$amount';
+  }
+
+  @override
+  String get newInvoiceButton => 'חשבונית חדשה';
+
+  @override
+  String get reprintDialogTitle => 'הדפסה חוזרת';
+
+  @override
+  String get copyTypeLabel => 'העתק';
+
+  @override
+  String copyNumberLabel(int number) {
+    return 'עותק מספר $number';
+  }
+
+  @override
+  String get trueToOriginalLabel => 'נאמן למקור';
+
+  @override
+  String get replacesOriginalLabel => 'מחליף את המקור';
+
+  @override
+  String printCopiesButton(int count) {
+    return 'הדפס $count עותקים';
+  }
+
+  @override
+  String get createReceiptTitle => 'יצירת קבלה';
+
+  @override
+  String receiptForInvoice(int number) {
+    return 'קבלה עבור חשבונית #$number';
+  }
+
+  @override
+  String clientWithName(String name) {
+    return 'לקוח: $name';
+  }
+
+  @override
+  String amountWithValue(String amount) {
+    return 'סכום: ₪$amount';
+  }
+
+  @override
+  String get createReceiptButton => 'צור קבלה';
+
+  @override
+  String get addBoxTypeButton => 'הוסף סוג קופסה';
+
+  @override
+  String inStockCount(int count) {
+    return 'במלאי: $count יח\'';
+  }
+
+  @override
+  String onPalletCount(String count) {
+    return 'במשטח: $count';
+  }
+
+  @override
+  String volumeWithUnit(String value) {
+    return 'נפח: $value מ\"ל';
+  }
 }

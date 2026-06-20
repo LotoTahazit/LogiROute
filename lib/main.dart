@@ -11,14 +11,17 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
 import 'services/company_selection_service.dart';
 import 'widgets/role_router.dart';
 import 'widgets/invoice_deep_link_viewer.dart';
+import 'screens/auth/reset_password_screen.dart';
 import 'core/navigation/register_documents.dart';
 import 'l10n/app_localizations.dart';
+import 'theme/app_theme.dart';
 
 Timer? _bgWatchdogTimer;
 bool _bgWatchdogBusy = false;
@@ -85,6 +88,12 @@ Future<void> _requestIgnoreBatteryOptimizationOnce() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  try {
+    await dotenv.load(fileName: '.env.local');
+  } catch (e) {
+    debugPrint('⚠️ [dotenv] .env.local not loaded: $e');
+  }
+
   // 🔥 Глобальный ловец ошибок Flutter
   FlutterError.onError = (details) {
     FlutterError.dumpErrorToConsole(details);
@@ -101,24 +110,60 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // 🔒 Firebase App Check временно отключен для отладки
-  // await FirebaseAppCheck.instance.activate(
-  //   // Web: отключен из-за проблем с reCAPTCHA
-  //   // webProvider: ReCaptchaV3Provider('6Lci2zWqAAAAAJoAeJbZpCToJz9weyKMmqZE'),
-  //   // Android: Play Integrity API (требует настройки в Firebase Console)
-  //   androidProvider: AndroidProvider.playIntegrity,
-  //   // iOS: DeviceCheck или App Attest
-  //   appleProvider: AppleProvider.deviceCheck,
-  // );
+  AppTheme.setDark(false);
 
   usePathUrlStrategy();
   registerDocuments();
   _startBackgroundServiceWatchdog();
-  runApp(const LogiRouteApp());
+  runApp(LogiRouteApp(initialResetOobCode: _webResetOobCode()));
+}
+
+String? _webResetOobCode() {
+  if (!kIsWeb) return null;
+  final uri = Uri.base;
+  final oobCode = uri.queryParameters['oobCode'];
+  if (oobCode == null || oobCode.isEmpty) return null;
+  if (uri.path.contains('reset-password') ||
+      uri.queryParameters['mode'] == 'resetPassword') {
+    return oobCode;
+  }
+  return null;
+}
+
+Route<dynamic> _defaultRoute() =>
+    MaterialPageRoute(builder: (_) => const AuthWrapper());
+
+Route<dynamic>? _routeFromUri(String routeName) {
+  final uri = Uri.parse(routeName);
+  final oobCode = uri.queryParameters['oobCode'];
+  final isReset = uri.path == '/reset-password' ||
+      uri.queryParameters['mode'] == 'resetPassword';
+  if (isReset && oobCode != null && oobCode.isNotEmpty) {
+    return MaterialPageRoute(
+      builder: (_) => ResetPasswordScreen(oobCode: oobCode),
+    );
+  }
+  if (uri.path == '/doc') {
+    final docId = uri.queryParameters['id'] ?? '';
+    final companyId = uri.queryParameters['company'] ?? '';
+    final col = uri.queryParameters['col'] ?? 'invoices';
+    if (docId.isNotEmpty && companyId.isNotEmpty) {
+      return MaterialPageRoute(
+        builder: (_) => InvoiceDeepLinkViewer(
+          companyId: companyId,
+          docId: docId,
+          collection: col,
+        ),
+      );
+    }
+  }
+  return null;
 }
 
 class LogiRouteApp extends StatelessWidget {
-  const LogiRouteApp({super.key});
+  final String? initialResetOobCode;
+
+  const LogiRouteApp({super.key, this.initialResetOobCode});
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +179,8 @@ class LogiRouteApp extends StatelessWidget {
           return MaterialApp(
             title: 'LogiRoute',
             debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            themeMode: ThemeMode.light,
             locale: localeService.locale,
             supportedLocales: const [
               Locale('he', ''),
@@ -146,101 +193,21 @@ class LogiRouteApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-              fontFamily: 'NotoSansHebrew',
-              fontFamilyFallback: const ['NotoSans'],
-              textTheme: const TextTheme(
-                bodyLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                bodyMedium:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                bodySmall: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13),
-                displayLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                displayMedium:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                displaySmall:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                headlineLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                headlineMedium:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                headlineSmall:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                titleLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                titleMedium:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                titleSmall:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                labelLarge:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-                labelMedium: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13),
-                labelSmall: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13),
-              ),
-              listTileTheme: ListTileThemeData(
-                subtitleTextStyle: TextStyle(
-                  color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              chipTheme: const ChipThemeData(
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
             onGenerateInitialRoutes: (String initialRoute) {
-              final uri = Uri.parse(initialRoute);
-              if (uri.path == '/doc') {
-                final docId = uri.queryParameters['id'] ?? '';
-                final companyId = uri.queryParameters['company'] ?? '';
-                final col = uri.queryParameters['col'] ?? 'invoices';
-                if (docId.isNotEmpty && companyId.isNotEmpty) {
-                  return [
-                    MaterialPageRoute(
-                      builder: (_) => InvoiceDeepLinkViewer(
-                        companyId: companyId,
-                        docId: docId,
-                        collection: col,
-                      ),
-                    ),
-                  ];
-                }
+              if (initialResetOobCode != null) {
+                return [
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ResetPasswordScreen(oobCode: initialResetOobCode!),
+                  ),
+                ];
               }
-              return [
-                MaterialPageRoute(builder: (_) => const AuthWrapper()),
-              ];
+              final fromUri = _routeFromUri(initialRoute) ??
+                  _routeFromUri(Uri.base.toString());
+              return [fromUri ?? _defaultRoute()];
             },
             onGenerateRoute: (settings) {
-              final uri = Uri.parse(settings.name ?? '');
-              if (uri.path == '/doc') {
-                final docId = uri.queryParameters['id'] ?? '';
-                final companyId = uri.queryParameters['company'] ?? '';
-                final col = uri.queryParameters['col'] ?? 'invoices';
-                if (docId.isNotEmpty && companyId.isNotEmpty) {
-                  return MaterialPageRoute(
-                    builder: (_) => InvoiceDeepLinkViewer(
-                      companyId: companyId,
-                      docId: docId,
-                      collection: col,
-                    ),
-                  );
-                }
-              }
-              return MaterialPageRoute(builder: (_) => const AuthWrapper());
+              return _routeFromUri(settings.name ?? '') ?? _defaultRoute();
             },
           );
         },
@@ -338,6 +305,7 @@ class _LocationReadyGateState extends State<LocationReadyGate>
     }
 
     final deniedForever = _permission == LocationPermission.deniedForever;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Center(
@@ -350,33 +318,34 @@ class _LocationReadyGateState extends State<LocationReadyGate>
               children: [
                 const Icon(Icons.location_off, size: 56, color: Colors.red),
                 const SizedBox(height: 12),
-                const Text(
-                  'Location is not ready',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.locationNotReady,
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
                 Text(
                   _serviceEnabled
-                      ? 'Location permission is required to continue.'
-                      : 'Please enable device location to continue.',
+                      ? l10n.locationPermissionRequired
+                      : l10n.enableDeviceLocation,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 18),
                 FilledButton.icon(
                   onPressed: _openRequiredSettings,
                   icon: const Icon(Icons.settings),
-                  label: const Text('Open Settings'),
+                  label: Text(l10n.openSettings),
                 ),
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: _checkLocationReady,
-                  child: const Text('Check Again'),
+                  child: Text(l10n.checkAgain),
                 ),
                 if (deniedForever) ...[
                   const SizedBox(height: 8),
-                  const Text(
-                    'Permission is permanently denied. Open app settings to allow location.',
+                  Text(
+                    l10n.locationDeniedForever,
                     textAlign: TextAlign.center,
                   ),
                 ],

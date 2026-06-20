@@ -60,8 +60,8 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
   const provider = company.paymentProvider || _getDefaultProvider();
   const plan = company.plan || "full";
 
-  // --- Price lookup ---
-  const priceConfig = _getPriceConfig(plan, billingMonths);
+  // --- Price lookup (from config/billing_pricing, fallback to defaults) ---
+  const priceConfig = await _getPriceConfig(plan, billingMonths);
 
   let result;
   switch (provider) {
@@ -120,45 +120,79 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
 // Price configuration
 // =========================================================
 
-function _getPriceConfig(plan, months) {
-  // Monthly prices in ILS
-  // promoPrice = first 3 months, regularPrice = after 3 months
-  const promoPrices = {
-    warehouse_only: 450,
-    ops: 890,
-    full: 1490,
-    custom: 1490,
-  };
-  const regularPrices = {
-    warehouse_only: 1490,
-    ops: 2900,
-    full: 4900,
-    custom: 4900,
-  };
-  const setupFees = {
-    warehouse_only: 2000,
-    ops: 3000,
-    full: 5000,
-    custom: 5000,
-  };
+// Default pricing (ILS) — fallback when config/billing_pricing is missing/partial.
+// promo = first `promoMonths` months, regular = after. Editable at runtime via
+// the Firestore doc `config/billing_pricing`:
+//   { promoMonths: 3, currency: "ILS",
+//     plans: { full: { promo: 1490, regular: 4900, setup: 5000 }, ... } }
+const DEFAULT_PRICING = {
+  promoMonths: 3,
+  currency: "ILS",
+  plans: {
+    logistics: { promo: 590, regular: 790, setup: 0 },
+    warehouse_only: { promo: 390, regular: 490, setup: 0 },
+    ops: { promo: 890, regular: 1190, setup: 0 },
+    full: { promo: 1120, regular: 1490, setup: 0 },
+    custom: { promo: 1120, regular: 1490, setup: 0 },
+  },
+};
 
-  // Calculate total: first 3 months at promo, rest at regular
-  const promoMonths = Math.min(months, 3);
-  const regularMonths = Math.max(months - 3, 0);
-  const promoPrice = promoPrices[plan] || promoPrices.full;
-  const regularPrice = regularPrices[plan] || regularPrices.full;
-  const amount = promoPrice * promoMonths + regularPrice * regularMonths;
+function _num(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
 
-  // For Stripe recurring: use promo price for first billing
-  const monthlyForStripe = promoPrice;
+/** Loads pricing from config/billing_pricing, deep-merged over DEFAULT_PRICING. */
+async function _loadPricing() {
+  try {
+    const snap = await db.doc("config/billing_pricing").get();
+    if (!snap.exists) return DEFAULT_PRICING;
+    const data = snap.data() || {};
+    const overrides = data.plans || {};
+    const plans = {};
+    const keys = new Set([
+      ...Object.keys(DEFAULT_PRICING.plans),
+      ...Object.keys(overrides),
+    ]);
+    for (const key of keys) {
+      const base = DEFAULT_PRICING.plans[key] || DEFAULT_PRICING.plans.full;
+      const ov = overrides[key] || {};
+      plans[key] = {
+        promo: _num(ov.promo, base.promo),
+        regular: _num(ov.regular, base.regular),
+        setup: _num(ov.setup, base.setup),
+      };
+    }
+    return {
+      promoMonths: _num(data.promoMonths, DEFAULT_PRICING.promoMonths),
+      currency:
+        typeof data.currency === "string" ? data.currency : DEFAULT_PRICING.currency,
+      plans,
+    };
+  } catch (e) {
+    console.warn(`⚠️ config/billing_pricing load failed, using defaults: ${e.message}`);
+    return DEFAULT_PRICING;
+  }
+}
+
+async function _getPriceConfig(plan, months) {
+  const pricing = await _loadPricing();
+  const planPrices = pricing.plans[plan] || pricing.plans.full;
+
+  // first promoMonths at promo price, the rest at regular price
+  const promoMonths = Math.min(months, pricing.promoMonths);
+  const regularMonths = Math.max(months - pricing.promoMonths, 0);
+  const amount =
+    planPrices.promo * promoMonths + planPrices.regular * regularMonths;
+  const monthlyForStripe = planPrices.promo; // first billing uses promo price
 
   return {
-    amount, // total ILS for the period
+    amount, // total for the period
     amountAgorot: amount * 100, // for Stripe (cents/agorot)
     monthlyForStripe,
     monthlyForStripeAgorot: monthlyForStripe * 100,
-    setupFee: setupFees[plan] || setupFees.full,
-    currency: "ILS",
+    setupFee: planPrices.setup,
+    currency: pricing.currency,
     description: `LogiRoute ${plan} — ${months} חודש${months > 1 ? "ים" : ""} (מינימום 12 חודשים)`,
     months,
   };

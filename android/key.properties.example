@@ -1,0 +1,13 @@
+# Скопируйте в android/key.properties (файл в .gitignore)
+
+# Debug signing (опционально)
+debugStoreFile=../debug.keystore
+debugStorePassword=android
+debugKeyAlias=androiddebugkey
+debugKeyPassword=android
+
+# Release signing
+releaseStoreFile=release-keystore.jks
+releaseStorePassword=YOUR_STORE_PASSWORD
+releaseKeyAlias=release
+releaseKeyPassword=YOUR_KEY_PASSWORD

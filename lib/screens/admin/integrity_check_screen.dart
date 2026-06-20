@@ -105,20 +105,61 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
     }
   }
 
+  String _reasonText(AppLocalizations l10n, String? code) {
+    switch (code) {
+      case 'MISSING_ENTRY':
+        return l10n.integrityReasonMissingEntry;
+      case 'MISSING_PREV_FOR_RANGE':
+        return l10n.integrityReasonMissingPrevForRange;
+      case 'SCHEMA_INVALID':
+        return l10n.integrityReasonSchemaInvalid;
+      case 'PREV_HASH_MISMATCH':
+        return l10n.integrityReasonPrevHashMismatch;
+      case 'HASH_MISMATCH':
+        return l10n.integrityReasonHashMismatch;
+      default:
+        return code ?? '';
+    }
+  }
+
+  String _resultSummary(AppLocalizations l10n, IntegrityVerifyResult r) {
+    if (r.ok && r.legacyOnly) return l10n.integrityLegacyOnly;
+    if (r.ok) return l10n.integrityOkSummary(r.checked);
+    return l10n.integrityFailedSummary(r.firstBrokenAt ?? 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final counterKeys = _getCounterKeys(l10n);
     final narrow = MediaQuery.sizeOf(context).width < 600;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(title: Text(l10n.integrityCheckTitle)),
-        body: Padding(
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.integrityCheckTitle)),
+      body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Card(
+                color: Colors.blue.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade800),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.integrityCheckExplain,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               // Counter key selector
               Text(l10n.documentTypeLabel,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -196,8 +237,11 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
 
               if (_result != null)
                 Card(
-                  color:
-                      _result!.ok ? Colors.green.shade50 : Colors.red.shade50,
+                  color: _result!.ok
+                      ? (_result!.legacyOnly
+                          ? Colors.orange.shade50
+                          : Colors.green.shade50)
+                      : Colors.red.shade50,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -217,7 +261,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                               constraints:
                                   BoxConstraints(maxWidth: narrow ? 240 : 520),
                               child: Text(
-                                _result!.summary,
+                                _resultSummary(l10n, _result!),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -231,6 +275,22 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(l10n.rangeLabel(_result!.from, _result!.to)),
+                        if (_result!.checkedFrom != null &&
+                            _result!.checkedFrom! > _result!.from)
+                          Text(l10n.integrityCheckedFrom(
+                              _result!.checkedFrom!, _result!.to)),
+                        if (_result!.legacySkippedFrom != null &&
+                            _result!.legacySkippedTo != null)
+                          Text(
+                            l10n.integrityLegacySkipped(
+                              _result!.legacySkippedFrom!,
+                              _result!.legacySkippedTo!,
+                            ),
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontSize: 13,
+                            ),
+                          ),
                         Text(l10n.checkedCount(_result!.checked)),
                         if (_result!.lastHash != null)
                           Text(
@@ -246,7 +306,8 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                                 color: Colors.red, fontWeight: FontWeight.bold),
                           ),
                         if (_result!.reason != null)
-                          Text(l10n.reasonLabel(_result!.reason!)),
+                          Text(l10n.reasonLabel(
+                              _reasonText(l10n, _result!.reason))),
                       ],
                     ),
                   ),
@@ -254,7 +315,6 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 }

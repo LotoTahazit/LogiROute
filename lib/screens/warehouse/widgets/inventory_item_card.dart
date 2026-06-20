@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/inventory_item.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_theme.dart';
 
 /// Виджет для отображения одного товара в списке инвентаря
 ///
@@ -250,7 +251,7 @@ class InventoryItemCard extends StatelessWidget {
                 'עודכן: ${formatDate(item.lastUpdated)} ע"י ${item.updatedBy}',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade800,
+                  color: AppTheme.muted,
                   fontWeight: FontWeight.w700,
                 ),
               ),

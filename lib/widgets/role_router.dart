@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/company_selection_service.dart';
 import '../services/fcm_service.dart';
@@ -76,7 +77,7 @@ class _RoleRouterState extends State<RoleRouter> {
               ElevatedButton.icon(
                 onPressed: () => authService.signOut(),
                 icon: const Icon(Icons.logout),
-                label: const Text('יציאה'),
+                label: Text(AppLocalizations.of(context)!.logout),
               ),
             ],
           ),
@@ -176,6 +177,7 @@ class _PendingApprovalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
+    final l10n = AppLocalizations.of(context)!;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -188,7 +190,7 @@ class _PendingApprovalScreen extends StatelessWidget {
                 Icon(Icons.hourglass_top, size: 72, color: Colors.orange[400]),
                 const SizedBox(height: 24),
                 Text(
-                  'ממתין לאישור',
+                  l10n.pendingApprovalTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -196,8 +198,7 @@ class _PendingApprovalScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'ההרשמה התקבלה בהצלחה.\n'
-                  'מנהל המערכת ישייך אותך לחברה ויקצה לך תפקיד.',
+                  l10n.pendingApprovalBody,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -207,7 +208,7 @@ class _PendingApprovalScreen extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () => authService.signOut(),
                   icon: const Icon(Icons.logout),
-                  label: const Text('יציאה'),
+                  label: Text(l10n.logout),
                 ),
               ],
             ),

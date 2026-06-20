@@ -4,6 +4,7 @@ import '../../../models/delivery_point.dart';
 import '../../../models/user_model.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../widgets/delivery_map_widget.dart';
+import '../../../theme/app_theme.dart';
 
 /// Вкладка с картой
 /// ✅ AutomaticKeepAliveClientMixin — карта НЕ пересоздаётся при переключении табов
@@ -20,12 +21,6 @@ class MapTab extends StatefulWidget {
   final void Function(String pointId, String driverId, String driverName)?
       onPointDragToDriver;
 
-  /// סיור מלא מהדשבורד — מפעיל דמו במפה בלי ללחוץ על כפתור המפה.
-  final bool demoModeFromTour;
-
-  /// כשסיום דמו המפה (סוף התרחיש) — לנקות שיוך מההורה.
-  final VoidCallback? onTourDemoFinished;
-
   const MapTab({
     super.key,
     required this.routes,
@@ -38,8 +33,6 @@ class MapTab extends StatefulWidget {
     required this.warehouseLat,
     required this.warehouseLng,
     this.onPointDragToDriver,
-    this.demoModeFromTour = false,
-    this.onTourDemoFinished,
   });
 
   @override
@@ -50,11 +43,6 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   bool _showDriverTracks = false;
   bool _showPreviousRoutes = false;
   bool _clearMap = false;
-
-  /// Демо-сценарий на карте (только UI; prod — false).
-  bool _demoMode = false;
-
-  bool get _effectiveDemoMode => widget.demoModeFromTour || _demoMode;
 
   @override
   bool get wantKeepAlive => true;
@@ -87,13 +75,13 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.map_outlined, size: 64, color: AppTheme.muted),
             const SizedBox(height: 16),
             Text(
               l10n.noActivePoints,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade600,
+                color: AppTheme.muted,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -109,11 +97,11 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.shade200,
+                color: AppTheme.surfaceHi,
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -132,7 +120,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: totalCount > 0 ? completedCount / totalCount : 0,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: AppTheme.surfaceHi,
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
               ),
             ],
@@ -172,7 +160,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   ),
                   title: Text(
                     driverName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),
@@ -202,14 +190,14 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                           fontSize: 13,
                           decoration:
                               isDone ? TextDecoration.lineThrough : null,
-                          color: isDone ? Colors.grey : Colors.black,
+                          color: isDone ? AppTheme.muted : AppTheme.text,
                         ),
                       ),
                       subtitle: Text(
                         p.address,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade600,
+                          color: AppTheme.muted,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -220,7 +208,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade700,
+                                color: AppTheme.muted,
                               ),
                             )
                           : null,
@@ -251,7 +239,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade600,
+            color: AppTheme.muted,
           ),
         ),
       ],
@@ -340,10 +328,10 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   ),
                   isDense: true,
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
+                  color: AppTheme.text,
                 ),
                 items: [
                   DropdownMenuItem<String?>(
@@ -364,7 +352,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                             ? '${driver.name} ($pointCount)'
                             : '${driver.name} (0)',
                         style: TextStyle(
-                          color: isActive ? Colors.black : Colors.grey,
+                          color: isActive ? AppTheme.text : AppTheme.muted,
                         ),
                       ),
                     );
@@ -440,23 +428,6 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                     ),
                   ),
                 ),
-                if (!widget.demoModeFromTour)
-                  Tooltip(
-                    message: _effectiveDemoMode
-                        ? l10n.mapTooltipExitDemo
-                        : l10n.mapTooltipDemoMode,
-                    child: IconButton(
-                      icon: Icon(
-                        _effectiveDemoMode ? Icons.movie : Icons.movie_outlined,
-                        color: _effectiveDemoMode
-                            ? Colors.purple.shade700
-                            : Colors.grey.shade600,
-                      ),
-                      onPressed: () {
-                        setState(() => _demoMode = !_demoMode);
-                      },
-                    ),
-                  ),
               ];
 
               if (isNarrow) {
@@ -519,8 +490,6 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               : DeliveryMapWidget(
                   points: _clearMap ? [] : filteredPoints,
                   companyId: widget.companyId,
-                  demoMode: _effectiveDemoMode,
-                  onDemoFinished: widget.onTourDemoFinished,
                   clearMapMode: _clearMap,
                   showDriverTracks: _clearMap ? false : _showDriverTracks,
                   routePolylines: _clearMap ? {} : widget.routePolylines,

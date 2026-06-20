@@ -59,6 +59,41 @@ function _verifyStripeSignature(rawBody, sigHeader, secret) {
 }
 
 /**
+ * Verify PayPlus IPN signature.
+ * PayPlus signs the raw request body with HMAC-SHA256 using your secret key
+ * and sends it in the `hash` header (base64):
+ *   hash = base64( HMAC_SHA256(rawBody, secretKey) )
+ * Configure: firebase functions:config:set payplus.secret_key="..."
+ */
+function _verifyPayPlusSignature(rawBody, hashHeader, secret) {
+  if (!hashHeader || !secret) return { valid: false, reason: "missing_hash_or_secret" };
+  if (!rawBody) return { valid: false, reason: "missing_raw_body" };
+  const computed = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("base64");
+  let isValid = false;
+  try {
+    isValid = crypto.timingSafeEqual(
+      Buffer.from(computed),
+      Buffer.from(hashHeader)
+    );
+  } catch (_) {
+    isValid = false; // length mismatch → not valid
+  }
+  return { valid: isValid, reason: isValid ? "ok" : "signature_mismatch" };
+}
+
+/**
+ * Constant-time shared-secret compare (for providers without HMAC, e.g. Tranzila).
+ */
+function _secretMatches(provided, expected) {
+  if (typeof provided !== "string" || typeof expected !== "string") return false;
+  if (provided.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
+
+/**
  * Idempotency check: has this eventId already been processed?
  * Uses companies/{companyId}/payment_events/{eventId} as dedupe ledger.
  *
@@ -363,6 +398,24 @@ async function _handleStripe(req) {
 }
 
 async function _handleTranzila(req) {
+  // Tranzila's notify postback has no standard HMAC signature. Gate it with a
+  // shared secret in the notify URL — configure the notify_url as:
+  //   .../processPaymentWebhook?provider=tranzila&secret=<value>
+  // and set: firebase functions:config:set tranzila.notify_secret="<value>"
+  // Config-guarded: until the secret is set, behaviour is unchanged (warn only).
+  const tzSecret = functions.config().tranzila?.notify_secret;
+  if (tzSecret) {
+    const provided = req.query.secret || req.body?.secret;
+    if (!_secretMatches(provided, tzSecret)) {
+      const err = new Error("Tranzila shared-secret verification failed");
+      err.statusCode = 401;
+      throw err;
+    }
+    console.log("🔐 Tranzila shared-secret verified OK");
+  } else {
+    console.warn("⚠️ tranzila.notify_secret not configured — Tranzila verification SKIPPED");
+  }
+
   const body = req.body;
   const response = body.Response;
   const tranId = body.ConfirmationCode || body.index;
@@ -402,6 +455,23 @@ async function _handleTranzila(req) {
 }
 
 async function _handlePayPlus(req) {
+  // Verify PayPlus IPN signature if configured. PayPlus sends the `hash` header
+  // = base64(HMAC-SHA256(rawBody, secret_key)).
+  // Config-guarded: until payplus.secret_key is set, behaviour is unchanged.
+  const ppSecret = functions.config().payplus?.secret_key;
+  if (ppSecret) {
+    const v = _verifyPayPlusSignature(req.rawBody, req.headers["hash"], ppSecret);
+    if (!v.valid) {
+      console.error(`🔐 PayPlus signature verification failed: ${v.reason}`);
+      const err = new Error(`PayPlus signature verification failed: ${v.reason}`);
+      err.statusCode = 401;
+      throw err;
+    }
+    console.log("🔐 PayPlus signature verified OK");
+  } else {
+    console.warn("⚠️ payplus.secret_key not configured — PayPlus signature verification SKIPPED");
+  }
+
   const body = req.body;
   const statusCode = body.status_code;
   const transactionUid = body.transaction_uid;

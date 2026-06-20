@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'firestore_paths.dart';
 import 'inventory_service.dart';
+import 'company_settings_service.dart';
 
 class RouteService {
   final String companyId;
@@ -43,8 +44,19 @@ class RouteService {
     return _paths.routes(companyId);
   }
 
-  /// Helper: обновляет точку доставки, автоматически добавляя updatedAt
+  /// Параметры ETA из настроек компании (единый расчёт с RouteOptimizer).
+  Future<({double avgSpeedKmh, double serviceMinutes})>
+      _companyRoutingParams() async {
+    final cs = await CompanySettingsService(companyId: companyId).getSettings();
+    return (
+      avgSpeedKmh: cs?.avgSpeedKmh ?? RouteOptimizer.avgSpeedKmh,
+      serviceMinutes:
+          (cs?.serviceMinutes ?? RouteOptimizer.serviceMinutes).toDouble(),
+    );
+  }
+
   Future<void> _updatePoint(String pointId, Map<String, dynamic> data) async {
+    data['companyId'] = companyId;
     data['updatedAt'] = FieldValue.serverTimestamp();
     await _deliveryPointsCollection().doc(pointId).update(data);
   }
@@ -239,9 +251,10 @@ class RouteService {
     }
 
     // === Сохраняем назначения в Firestore ===
-    const double avgSpeedKmh = 38.0;
-    const double serviceTimeMinutes = 7.0;
-    const double parkingTimeMinutes = 2.0;
+    final routing = await _companyRoutingParams();
+    final double avgSpeedKmh = routing.avgSpeedKmh;
+    final double serviceTimeMinutes = routing.serviceMinutes;
+    const double parkingTimeMinutes = 0.0;
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
 
@@ -901,8 +914,15 @@ class RouteService {
   }
 
   /// ✏️ Обновить точку доставки
-  Future<void> updatePoint(String pointId, String urgency, int? orderInRoute,
-      String? temporaryAddress) async {
+  Future<void> updatePoint(
+    String pointId,
+    String urgency,
+    int? orderInRoute,
+    String? temporaryAddress, {
+    bool updateWindow = false,
+    DateTime? openingTime,
+    DateTime? closingTime,
+  }) async {
     print(
         '✏️ [RouteService] Updating point $pointId: urgency=$urgency, order=$orderInRoute, tempAddress=$temporaryAddress');
 
@@ -912,6 +932,16 @@ class RouteService {
 
     if (orderInRoute != null) {
       updateData['orderInRoute'] = orderInRoute;
+    }
+
+    // Окно доставки: пишем при явном флаге; null → очистка поля в Firestore.
+    if (updateWindow) {
+      updateData['openingTime'] = openingTime != null
+          ? Timestamp.fromDate(openingTime)
+          : FieldValue.delete();
+      updateData['closingTime'] = closingTime != null
+          ? Timestamp.fromDate(closingTime)
+          : FieldValue.delete();
     }
 
     if (temporaryAddress != null && temporaryAddress.isNotEmpty) {
@@ -1284,10 +1314,11 @@ class RouteService {
       final returnDistKm = RouteOptimizer.calculateDistance(
               lastPoint.latitude, lastPoint.longitude, whLat, whLng) *
           1.3;
-      const avgSpeedKmh = 38.0;
-      final returnTimeMin = (returnDistKm / avgSpeedKmh) * 60;
+      final routing = await _companyRoutingParams();
+      final returnTimeMin =
+          (returnDistKm / routing.avgSpeedKmh) * 60;
 
-      final totalServiceMin = activePoints.length * 9.0;
+      final totalServiceMin = activePoints.length * routing.serviceMinutes;
       final oldTotalMin = oldEtaMin + returnTimeMin; // ETA + возврат на склад
       final newTotalMin = result.durationMinutes +
           totalServiceMin; // OSRM (с возвратом) + service
@@ -1510,12 +1541,16 @@ class RouteService {
   }
 
   /// Обновить статус точки (с аудитом: updatedByUid + updatedAt)
-  /// ВАЖНО: водитель может менять только: status, completedAt, autoCompleted, updatedByUid, updatedAt
+  /// ВАЖНО: водитель может менять только: status, completedAt, autoCompleted, updatedByUid, updatedAt, pod*
   Future<void> updatePointStatus(
     String pointId,
     String newStatus, {
     String? updatedByUid,
     bool autoCompleted = false,
+    String? podPhotoUrl,
+    double? podLat,
+    double? podLng,
+    int? podDistanceM,
   }) async {
     final Map<String, dynamic> patch = {
       'status': newStatus,
@@ -1526,6 +1561,13 @@ class RouteService {
     if (newStatus == DeliveryPoint.statusCompleted) {
       patch['completedAt'] = FieldValue.serverTimestamp();
       patch['autoCompleted'] = autoCompleted;
+      if (podPhotoUrl != null) {
+        patch['podPhotoUrl'] = podPhotoUrl;
+        patch['podLat'] = podLat;
+        patch['podLng'] = podLng;
+        patch['podAt'] = FieldValue.serverTimestamp();
+        if (podDistanceM != null) patch['podDistanceM'] = podDistanceM;
+      }
     }
     await _updatePoint(pointId, patch);
     print('✅ Point $pointId status updated to $newStatus');
@@ -1840,12 +1882,12 @@ class RouteService {
     print(
         '📊 [RouteService] Driver has $startOrder active points, ${todayCompleted.length} completed today');
 
-    // ETA = drive_time + service_time + parking_time
-    // service_time берётся из самообучения клиента (или 7 мин по умолчанию)
+    // ETA = drive_time + service_time (+ parking включено в serviceMinutes)
     double cumulativeTimeMinutes = 0;
-    const double avgSpeedKmh = 38.0;
-    const double defaultServiceTimeMinutes = 7.0;
-    const double parkingTimeMinutes = 2.0;
+    final routing = await _companyRoutingParams();
+    final double avgSpeedKmh = routing.avgSpeedKmh;
+    final double defaultServiceTimeMinutes = routing.serviceMinutes;
+    const double parkingTimeMinutes = 0.0;
 
     // Загружаем данные самообучения для клиентов
     final clientServiceTimes = <String, double>{};
@@ -2075,6 +2117,19 @@ class RouteService {
     } catch (e) {
       print('⚠️ [RouteService] OSRM polyline save failed: $e');
     }
+  }
+
+  /// Отменить ошибочное автозакрытие (водитель: «Отменить» в snackbar).
+  Future<void> undoAutoComplete(String pointId, {String? updatedByUid}) async {
+    final patch = <String, dynamic>{
+      'status': DeliveryPoint.statusInProgress,
+      'autoCompleted': false,
+      'completedAt': FieldValue.delete(),
+      'arrivedAt': FieldValue.serverTimestamp(),
+    };
+    if (updatedByUid != null) patch['updatedByUid'] = updatedByUid;
+    await _updatePoint(pointId, patch);
+    print('↩️ [RouteService] Auto-complete undone for $pointId');
   }
 
   /// 🔄 Переоткрыть автозакрытую точку (вернуть в маршрут)

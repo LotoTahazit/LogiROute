@@ -76,7 +76,6 @@ firebase deploy
 - **[BUILD_README.md](BUILD_README.md)** - Общая информация о сборке
 
 ### Firebase и Google:
-- **[FIREBASE_APP_CHECK_SETUP.md](FIREBASE_APP_CHECK_SETUP.md)** - Настройка App Check
 - **[FIREBASE_INDEX_SETUP.md](FIREBASE_INDEX_SETUP.md)** - Настройка индексов Firestore
 - **[GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md)** - Настройка Google Maps API
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_theme.dart';
 
 /// Виджет списка пользователей
 class UserListWidget extends StatelessWidget {
@@ -79,14 +80,14 @@ class UserListWidget extends StatelessWidget {
                       children: [
                         Text(
                           user.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          style: TextStyle(fontWeight: FontWeight.w700),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitleParts.join(' • '),
-                          style: const TextStyle(color: Colors.black54),
+                          style: TextStyle(color: AppTheme.muted),
                           maxLines: narrow ? 3 : 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -101,15 +102,15 @@ class UserListWidget extends StatelessWidget {
                               if (user.palletCapacity != null)
                                 Text(
                                   '${user.palletCapacity} ${l10n.pallets}',
-                                  style: const TextStyle(
-                                    color: Colors.black87,
+                                  style: TextStyle(
+                                    color: AppTheme.text,
                                     fontSize: 12,
                                   ),
                                 ),
                               if (user.truckWeight != null)
                                 Text(
                                   '${user.truckWeight!.toStringAsFixed(1)}ט',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.blue,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,

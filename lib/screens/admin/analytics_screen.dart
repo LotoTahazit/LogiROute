@@ -3,6 +3,7 @@ import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../services/firestore_paths.dart';
+import '../../theme/app_theme.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -114,29 +115,29 @@ class AnalyticsScreen extends StatelessWidget {
                     children: [
                       Text(
                         l10n.palletStatistics,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: AppTheme.text,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         '${l10n.total}: ${data['totalPallets']}',
                         style:
-                            const TextStyle(fontSize: 16, color: Colors.black),
+                            TextStyle(fontSize: 16, color: AppTheme.text),
                       ),
                       Text(
                         '${l10n.delivered}: ${data['completedPallets']}',
                         style:
-                            const TextStyle(fontSize: 16, color: Colors.black),
+                            TextStyle(fontSize: 16, color: AppTheme.text),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: data['totalPallets'] > 0
                             ? data['completedPallets'] / data['totalPallets']
                             : 0,
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: AppTheme.surfaceHi,
                         valueColor:
                             const AlwaysStoppedAnimation<Color>(Colors.green),
                       ),
@@ -153,17 +154,17 @@ class AnalyticsScreen extends StatelessWidget {
                     children: [
                       Text(
                         l10n.completionRate,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: AppTheme.text,
                         ),
                       ),
                       const SizedBox(height: 16),
                       Center(
                         child: Text(
                           '${data['completionRate'].toStringAsFixed(1)}%',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
@@ -210,15 +211,15 @@ class AnalyticsScreen extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: AppTheme.text,
                     ),
                   ),
                 ],

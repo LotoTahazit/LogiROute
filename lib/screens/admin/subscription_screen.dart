@@ -7,6 +7,7 @@ import '../../services/auth_service.dart';
 import '../../services/checkout_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
+import '../../theme/app_theme.dart';
 
 /// Subscription management screen
 class SubscriptionScreen extends StatefulWidget {
@@ -21,22 +22,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   _PlanInfo _getPlanInfo(String key, AppLocalizations l10n) {
     switch (key) {
+      case 'logistics':
+        return _PlanInfo(l10n.planLogistics, 790, 590, 0, l10n.planDescLogistics,
+            Icons.local_shipping_outlined);
       case 'warehouse_only':
-        return _PlanInfo(l10n.planWarehouseOnly, 1490, 450, 2000,
+        return _PlanInfo(l10n.planWarehouseOnly, 490, 390, 0,
             l10n.planDescWarehouse, Icons.warehouse);
       case 'ops':
-        return _PlanInfo(l10n.planOps, 2900, 890, 3000, l10n.planDescOps,
-            Icons.local_shipping);
+        return _PlanInfo(l10n.planOps, 1190, 890, 0, l10n.planDescOps,
+            Icons.inventory_2_outlined);
       case 'full':
-        return _PlanInfo(l10n.planFull, 4900, 1490, 5000, l10n.planDescFull,
+        return _PlanInfo(l10n.planFull, 1490, 1120, 0, l10n.planDescFull,
             Icons.all_inclusive);
       default:
-        return _PlanInfo(l10n.planFull, 4900, 1490, 5000, l10n.planDescFull,
+        return _PlanInfo(l10n.planFull, 1490, 1120, 0, l10n.planDescFull,
             Icons.all_inclusive);
     }
   }
 
-  static const _planKeys = ['warehouse_only', 'ops', 'full'];
+  static const _planKeys = ['logistics', 'warehouse_only', 'ops', 'full'];
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +134,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     children: [
                       Text(l10n.currentPlanLabel,
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600)),
+                              fontSize: 12, color: AppTheme.muted)),
                       Text(info.name,
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
@@ -158,20 +162,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700)),
               Text(l10n.thenMonthlyPrice(info.price),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.muted)),
               Text(l10n.setupAndIntegration(info.setupFee),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.muted)),
               Text(l10n.minimumMonths(12),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.muted)),
             ],
             if (paidUntil != null)
               Text(
                   l10n.paidUntilDate(
                       '${paidUntil.day}.${paidUntil.month}.${paidUntil.year}'),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.muted)),
             if (provider != null)
               Text(l10n.paymentProviderLabel(provider),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.muted)),
             const SizedBox(height: 12),
             if (status == 'grace' || status == 'suspended' || status == 'trial')
               FilledButton.icon(
@@ -378,7 +382,7 @@ class _PaymentHistory extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               child: Center(
                 child: Text(l10n.noPaymentHistorySub,
-                    style: TextStyle(color: Colors.grey.shade500)),
+                    style: TextStyle(color: AppTheme.muted)),
               ),
             ),
           );
@@ -415,7 +419,7 @@ class _PaymentHistory extends StatelessWidget {
                     ? Text(
                         '${processedAt.day}.${processedAt.month}.${processedAt.year}',
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500))
+                            fontSize: 11, color: AppTheme.muted))
                     : null,
               );
             }).toList(),

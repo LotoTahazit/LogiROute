@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/firestore_paths.dart';
+import '../../theme/app_theme.dart';
 
 /// Billing & Compliance Dashboard для super_admin.
 /// Один экран для управления 50–200 компаниями:
@@ -220,6 +221,60 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
     }
   }
 
+  Future<void> _seedBillingPricing() async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.billingDashboardSeedPricingTitle),
+        content: Text(l10n.billingDashboardSeedPricingBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.billingDashboardSeedPricingButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.billingDashboardSeedPricingRunning),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('seedBillingPricing')
+          .call();
+      final plans = (result.data as Map?)?['plans'];
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.billingDashboardSeedPricingDone(
+              plans is List ? plans.join(', ') : '',
+            )),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.billingDashboardError(e.toString())),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -230,6 +285,11 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
         title: Text(l10n.billingDashboardTitle),
         backgroundColor: Colors.deepPurple,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.price_change_outlined),
+            tooltip: l10n.billingDashboardSeedPricingTooltip,
+            onPressed: _seedBillingPricing,
+          ),
           IconButton(
             icon: const Icon(Icons.verified_user),
             tooltip: l10n.billingDashboardRunIntegrityTooltip,
@@ -462,7 +522,7 @@ class _CompanyCard extends StatelessWidget {
                       if (nameEn.isNotEmpty)
                         Text(nameEn,
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600)),
+                                fontSize: 12, color: AppTheme.muted)),
                     ],
                   ),
                 ),
@@ -535,7 +595,7 @@ class _CompanyCard extends StatelessWidget {
                       Icons.block, l10n.billingActionSuspend, Colors.red, onSuspend),
                 Text(companyId,
                     style:
-                        TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                        TextStyle(fontSize: 10, color: AppTheme.muted)),
               ],
             ),
           ],
@@ -557,7 +617,7 @@ class _InfoChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('$label: ',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: 11, color: AppTheme.muted)),
         Text(value,
             style: TextStyle(
                 fontSize: 11,

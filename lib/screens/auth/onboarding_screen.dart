@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 /// מסך הרשמה — יצירת חשבון משתמש בלבד.
 ///
@@ -62,19 +64,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // and redirect based on role (pending → waiting screen)
     } on FirebaseAuthException catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         String msg;
         switch (e.code) {
           case 'email-already-in-use':
-            msg = 'כתובת האימייל כבר בשימוש';
+            msg = l10n.emailAlreadyInUse;
             break;
           case 'weak-password':
-            msg = 'הסיסמה חלשה מדי (מינימום 6 תווים)';
+            msg = l10n.weakPassword;
             break;
           case 'invalid-email':
-            msg = 'כתובת אימייל לא תקינה';
+            msg = l10n.invalidEmail;
             break;
           default:
-            msg = 'שגיאה: ${e.code}';
+            msg = l10n.errorWithDetail(e.code);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -82,8 +85,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('שגיאה: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(l10n.errorWithDetail(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -93,10 +99,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.blue.shade50,
       appBar: AppBar(
-        title: const Text('הרשמה ל-LogiRoute'),
+        title: Text(l10n.registerTitle),
         backgroundColor: Colors.blue,
       ),
       body: Directionality(
@@ -106,7 +113,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             constraints: const BoxConstraints(maxWidth: 440),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -124,66 +131,66 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Image.asset('assets/logo.png', width: 64, height: 64),
                     const SizedBox(height: 12),
-                    const Text(
-                      'הרשמה ל-LogiRoute',
-                      style: TextStyle(
+                    Text(
+                      l10n.registerTitle,
+                      style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1565C0)),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'לאחר ההרשמה, מנהל המערכת ישייך אותך לחברה',
+                      l10n.registerSubtitle,
                       style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                          TextStyle(fontSize: 13, color: AppTheme.muted),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'שם מלא',
+                      decoration: InputDecoration(
+                        labelText: l10n.fullName,
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
                       ),
                       validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'שדה חובה' : null,
+                          (v == null || v.trim().isEmpty) ? l10n.required : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _emailCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'אימייל',
+                      decoration: InputDecoration(
+                        labelText: l10n.email,
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.email),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'שדה חובה';
-                        if (!v.contains('@')) return 'אימייל לא תקין';
+                        if (v == null || v.trim().isEmpty) return l10n.required;
+                        if (!v.contains('@')) return l10n.invalidEmailShort;
                         return null;
                       },
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _passwordCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'סיסמה',
+                      decoration: InputDecoration(
+                        labelText: l10n.password,
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.lock),
                       ),
                       obscureText: true,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'שדה חובה';
-                        if (v.length < 6) return 'מינימום 6 תווים';
+                        if (v == null || v.isEmpty) return l10n.required;
+                        if (v.length < 6) return l10n.minSixCharacters;
                         return null;
                       },
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _phoneCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'טלפון (אופציונלי)',
+                      decoration: InputDecoration(
+                        labelText: l10n.phoneOptional,
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.phone),
                       ),
@@ -203,13 +210,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white))
-                            : const Text('הרשמה'),
+                            : Text(l10n.registerButton),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('כבר יש לי חשבון — התחברות'),
+                      child: Text(l10n.alreadyHaveAccountLogin),
                     ),
                   ],
                 ),

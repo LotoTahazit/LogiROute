@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'notification_service.dart';
+import 'api_config_service.dart';
 
 /// Обработчик фоновых сообщений — должен быть top-level функцией
 @pragma('vm:entry-point')
@@ -59,7 +60,9 @@ class FcmService {
       }
 
       // Получение и сохранение токена
-      final token = await _messaging.getToken();
+      final token = kIsWeb && ApiConfigService.fcmVapidKey.isNotEmpty
+          ? await _messaging.getToken(vapidKey: ApiConfigService.fcmVapidKey)
+          : await _messaging.getToken();
       if (token != null) {
         await _saveToken(uid, token);
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/in_app_notification_service.dart';
+import '../../theme/app_theme.dart';
 
 /// מסך התראות — inbox של כל ההתראות של החברה
 class NotificationsScreen extends StatelessWidget {
@@ -62,7 +63,7 @@ class NotificationsScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text(l10n.noNotifications,
                         style: TextStyle(
-                            fontSize: 16, color: Colors.grey.shade500)),
+                            fontSize: 16, color: AppTheme.muted)),
                   ],
                 ),
               );
@@ -72,7 +73,7 @@ class NotificationsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: notifications.length,
               separatorBuilder: (_, __) =>
-                  Divider(height: 1, color: Colors.grey.shade200),
+                  Divider(height: 1, color: AppTheme.surfaceHi),
               itemBuilder: (context, index) {
                 final n = notifications[index];
                 return _NotificationTile(
@@ -198,7 +199,7 @@ class _NotificationTile extends StatelessWidget {
                     Text(
                       notification.body,
                       style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                          TextStyle(fontSize: 13, color: AppTheme.muted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -206,7 +207,7 @@ class _NotificationTile extends StatelessWidget {
                     Text(
                       _timeAgo(notification.createdAt, l10n),
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          TextStyle(fontSize: 11, color: AppTheme.muted),
                     ),
                   ],
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../models/accounting_doc.dart';
 import '../models/credit_note_data.dart';
 import '../repositories/accounting_docs_repository.dart';
@@ -125,12 +126,9 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
     if (originalStatus != AccountingDocStatus.issued &&
         originalStatus != AccountingDocStatus.locked) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'ניתן ליצור תעודת זיכוי רק עבור מסמך בסטטוס "הונפק" או "נעול"',
-            ),
-          ),
+          SnackBar(content: Text(l10n.creditNoteOnlyForIssued)),
         );
       }
       return;
@@ -152,15 +150,17 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
       await widget.docsRepo.createCreditNote(data);
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('תעודת זיכוי נוצרה בהצלחה')),
+          SnackBar(content: Text(l10n.creditNoteCreatedSuccess)),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('שגיאה ביצירת תעודת זיכוי: $e')),
+          SnackBar(content: Text(l10n.creditNoteCreateError(e.toString()))),
         );
       }
     } finally {
@@ -174,6 +174,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final totals = _computedTotals;
     final docNum = widget.originalDoc.docNumber?.toString() ?? '—';
@@ -205,7 +206,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                           Icon(Icons.note_add_outlined,
                               color: theme.colorScheme.primary),
                           Text(
-                            'תעודת זיכוי — מסמך מקור #$docNum',
+                            '${l10n.creditNoteCreateTitle} — ${l10n.originalDocumentLabel} #$docNum',
                             style: narrow
                                 ? theme.textTheme.titleMedium
                                 : theme.textTheme.titleLarge,
@@ -249,7 +250,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                     TextButton(
                       onPressed:
                           _saving ? null : () => Navigator.of(context).pop(),
-                      child: const Text('ביטול'),
+                      child: Text(l10n.cancel),
                     ),
                     FilledButton(
                       onPressed: _saving ? null : _save,
@@ -259,7 +260,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('צור תעודת זיכוי'),
+                          : Text(l10n.createCreditNoteButton),
                     ),
                   ],
                 ),
@@ -276,6 +277,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
   // ---------------------------------------------------------------------------
 
   Widget _buildOriginalDocInfo(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     final doc = widget.originalDoc;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return Card(
@@ -285,7 +287,7 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('מסמך מקורי', style: theme.textTheme.titleMedium),
+            Text(l10n.originalDocumentLabel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             if (narrow) ...[
               _ReadOnlyField(
@@ -338,16 +340,17 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
   // ---------------------------------------------------------------------------
 
   Widget _buildReasonField() {
+    final l10n = AppLocalizations.of(context)!;
     return TextFormField(
       controller: _reasonCtrl,
-      decoration: const InputDecoration(
-        labelText: 'סיבת תיקון *',
-        hintText: 'נא לציין את סיבת הזיכוי',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: l10n.correctionReasonLabel,
+        hintText: l10n.creditNoteReasonHint,
+        border: const OutlineInputBorder(),
       ),
       maxLines: 2,
       validator: (v) =>
-          (v == null || v.trim().isEmpty) ? 'יש להזין סיבת תיקון' : null,
+          (v == null || v.trim().isEmpty) ? l10n.creditNoteReasonRequired : null,
     );
   }
 
@@ -356,11 +359,12 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
   // ---------------------------------------------------------------------------
 
   Widget _buildCorrectionTypeSelector(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('סוג תיקון', style: theme.textTheme.titleMedium),
+        Text(l10n.correctionTypeLabel, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         RadioGroup<String>(
           groupValue: _correctionType,
@@ -370,8 +374,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                   children: [
                     ListTile(
                       leading: const Radio<String>(value: 'full'),
-                      title: const Text('תיקון מלא'),
-                      subtitle: const Text('כל השורות מהמסמך המקורי'),
+                      title: Text(l10n.fullCorrectionTitle),
+                      subtitle: Text(l10n.fullCorrectionSubtitle),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -380,8 +384,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                     const SizedBox(height: 8),
                     ListTile(
                       leading: const Radio<String>(value: 'partial'),
-                      title: const Text('תיקון חלקי'),
-                      subtitle: const Text('עריכה/הסרה של שורות'),
+                      title: Text(l10n.partialCorrectionTitle),
+                      subtitle: Text(l10n.partialCorrectionSubtitle),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -394,8 +398,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                     Expanded(
                       child: ListTile(
                         leading: const Radio<String>(value: 'full'),
-                        title: const Text('תיקון מלא'),
-                        subtitle: const Text('כל השורות מהמסמך המקורי'),
+                        title: Text(l10n.fullCorrectionTitle),
+                        subtitle: Text(l10n.fullCorrectionSubtitle),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -406,8 +410,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
                     Expanded(
                       child: ListTile(
                         leading: const Radio<String>(value: 'partial'),
-                        title: const Text('תיקון חלקי'),
-                        subtitle: const Text('עריכה/הסרה של שורות'),
+                        title: Text(l10n.partialCorrectionTitle),
+                        subtitle: Text(l10n.partialCorrectionSubtitle),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -431,7 +435,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('שורות זיכוי', style: theme.textTheme.titleMedium),
+        Text(AppLocalizations.of(context)!.correctionLinesTitle,
+            style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         ...List.generate(_lines.length, (i) {
           return Padding(
@@ -467,7 +472,8 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('סיכום זיכוי', style: theme.textTheme.titleMedium),
+            Text(AppLocalizations.of(context)!.correctionSummaryTitle,
+                style: theme.textTheme.titleMedium),
             const Divider(),
             _TotalRow(label: 'סה״כ לפני מע״מ (Net)', value: totals.net),
             _TotalRow(label: 'מע״מ (VAT)', value: totals.vat),
@@ -565,7 +571,7 @@ class _CreditLineRow extends StatelessWidget {
         TextFormField(
           controller: data.descriptionCtrl,
           decoration: InputDecoration(
-            labelText: 'תיאור ${index + 1}',
+            labelText: AppLocalizations.of(context)!.descriptionIndex(index + 1),
             border: const OutlineInputBorder(),
             isDense: true,
           ),

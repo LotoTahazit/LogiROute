@@ -13,15 +13,17 @@ import '../billing/billing_portal_screen.dart';
 import '../backup_management_screen.dart';
 import '../data_retention_screen.dart';
 import '../support_console_screen.dart';
+import '../admin_activity_screen.dart';
 import '../../../screens/shared/client_management_screen.dart';
 import '../integrity_check_screen.dart';
-import '../nested_migration_screen.dart';
-import '../final_migration_screen.dart';
+import '../create_company_screen.dart';
 import '../product_management_screen.dart';
 import '../terminology_settings_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locale_service.dart';
+import '../../../services/company_selection_service.dart';
+import 'package:provider/provider.dart';
 
 /// AppBar actions для админа
 class AdminAppBarActions extends StatelessWidget {
@@ -46,8 +48,16 @@ class AdminAppBarActions extends StatelessWidget {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     if (isMobile) {
-      // На мобилке - всё в меню
-      return PopupMenuButton<String>(
+      // На мобилке — выход отдельной кнопкой + меню
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: l10n.logout,
+            onPressed: () => authService.signOut(),
+          ),
+          PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         tooltip: l10n.settings,
         onSelected: (value) {
@@ -57,6 +67,12 @@ class AdminAppBarActions extends StatelessWidget {
               break;
             case 'refresh':
               onRefresh();
+              break;
+            case 'activity_log':
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AdminActivityScreen()));
               break;
             case 'analytics':
               Navigator.push(context,
@@ -156,17 +172,11 @@ class AdminAppBarActions extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (_) => const IntegrityCheckScreen()));
               break;
-            case 'nested_migration':
+            case 'create_company':
               Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const NestedMigrationScreen()));
-              break;
-            case 'final_migration':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const FinalMigrationScreen()));
+                      builder: (_) => const CreateCompanyScreen()));
               break;
             case 'support_console':
               Navigator.push(
@@ -207,6 +217,16 @@ class AdminAppBarActions extends StatelessWidget {
             ),
           ),
           const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'activity_log',
+            child: Row(
+              children: [
+                const Icon(Icons.history),
+                const SizedBox(width: 8),
+                Text(l10n.adminActivityLog),
+              ],
+            ),
+          ),
           PopupMenuItem(
             value: 'analytics',
             child: Row(
@@ -383,35 +403,24 @@ class AdminAppBarActions extends StatelessWidget {
               ),
             ),
           if (authService.userModel?.isSuperAdmin == true)
-            const PopupMenuItem(
-              value: 'nested_migration',
+            PopupMenuItem(
+              value: 'create_company',
               child: Row(
                 children: [
-                  Icon(Icons.account_tree),
-                  SizedBox(width: 8),
-                  Text('Nested Migration'),
+                  const Icon(Icons.add_business),
+                  const SizedBox(width: 8),
+                  Text(l10n.createCompany),
                 ],
               ),
             ),
           if (authService.userModel?.isSuperAdmin == true)
-            const PopupMenuItem(
-              value: 'final_migration',
-              child: Row(
-                children: [
-                  Icon(Icons.move_down),
-                  SizedBox(width: 8),
-                  Text('Final Migration'),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'support_console',
               child: Row(
                 children: [
-                  Icon(Icons.support_agent),
-                  SizedBox(width: 8),
-                  Text('Support Console'),
+                  const Icon(Icons.support_agent),
+                  const SizedBox(width: 8),
+                  Text(l10n.supportConsoleTitle),
                 ],
               ),
             ),
@@ -431,6 +440,8 @@ class AdminAppBarActions extends StatelessWidget {
             ),
           ),
         ],
+          ),
+        ],
       );
     }
 
@@ -447,6 +458,16 @@ class AdminAppBarActions extends StatelessWidget {
           icon: const Icon(Icons.refresh),
           tooltip: l10n.refresh,
           onPressed: isLoading ? null : onRefresh,
+        ),
+        IconButton(
+          icon: const Icon(Icons.history),
+          tooltip: l10n.adminActivityLog,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminActivityScreen()),
+            );
+          },
         ),
         IconButton(
           icon: const Icon(Icons.analytics),
@@ -617,31 +638,19 @@ class AdminAppBarActions extends StatelessWidget {
           ),
         if (authService.userModel?.isSuperAdmin == true)
           IconButton(
-            icon: const Icon(Icons.account_tree),
-            tooltip: 'Nested Collections Migration',
+            icon: const Icon(Icons.add_business),
+            tooltip: l10n.createCompany,
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const NestedMigrationScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.move_down),
-            tooltip: 'Final Migration (Move to Company)',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FinalMigrationScreen()),
+                MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
               );
             },
           ),
         if (authService.userModel?.isSuperAdmin == true)
           IconButton(
             icon: const Icon(Icons.support_agent),
-            tooltip: 'Support Console',
+            tooltip: l10n.supportConsoleTitle,
             onPressed: () {
               Navigator.push(
                 context,
@@ -659,12 +668,16 @@ class AdminAppBarActions extends StatelessWidget {
             }
           },
           itemBuilder: (context) => [
+            const PopupMenuDivider(),
             PopupMenuItem(value: 'he', child: Text(l10n.hebrew)),
             PopupMenuItem(value: 'ru', child: Text(l10n.russian)),
             PopupMenuItem(value: 'en', child: Text(l10n.english)),
-            const PopupMenuDivider(),
-            PopupMenuItem(value: 'logout', child: Text(l10n.logout)),
           ],
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: l10n.logout,
+          onPressed: () => authService.signOut(),
         ),
       ],
     );

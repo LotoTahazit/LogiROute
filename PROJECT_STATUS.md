@@ -48,7 +48,7 @@
 
 ### Keystore:
 - **Путь**: `android/release-keystore.jks`
-- **Пароль**: LogiRoute2026!
+- **Пароль**: [REDACTED - rotate in keystore]
 - **Alias**: release
 - **Срок действия**: до 2053 года
 

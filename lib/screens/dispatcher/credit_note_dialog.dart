@@ -9,6 +9,7 @@ import '../../services/issuance_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import '../../theme/app_theme.dart';
 
 /// דיאלוג יצירת זיכוי
 class CreditNoteDialog extends StatefulWidget {
@@ -126,7 +127,7 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: AppTheme.surfaceHi,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(

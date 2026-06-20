@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../models/inventory_item.dart';
 import '../../../services/inventory_service.dart';
 import '../../../services/company_context.dart';
@@ -99,9 +100,10 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
         _numberController.text.trim().isEmpty ||
         _quantityController.text.trim().isEmpty ||
         _quantityPerPalletController.text.trim().isEmpty) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('נא למלא את כל השדות החובה (כולל מק"ט)'),
+        SnackBar(
+          content: Text(l10n.fillAllRequiredFieldsIncludingProductCode),
           backgroundColor: Colors.orange,
         ),
       );
@@ -153,18 +155,20 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
 
       if (mounted) {
         Navigator.pop(context);
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('פריט עודכן בהצלחה!'),
+          SnackBar(
+            content: Text(l10n.itemUpdatedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('שגיאה: $e'),
+            content: Text(l10n.errorWithDetail(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -174,8 +178,9 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('ערוך פריט'),
+      title: Text(l10n.editItem),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -183,10 +188,10 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // מק"ט - ПЕРВОЕ ПОЛЕ
             TextField(
               controller: _productCodeController,
-              decoration: const InputDecoration(
-                labelText: 'מק"ט *',
-                border: OutlineInputBorder(),
-                helperText: 'קוד ייחודי לכל מוצר',
+              decoration: InputDecoration(
+                labelText: l10n.productCodeRequired,
+                border: const OutlineInputBorder(),
+                helperText: l10n.productCode,
               ),
             ),
             const SizedBox(height: 16),
@@ -194,8 +199,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Тип
             TextField(
               controller: _typeController,
-              decoration: const InputDecoration(
-                labelText: 'סוג *',
+              decoration: InputDecoration(
+                labelText: l10n.typeRequired,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -204,8 +209,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Номер
             TextField(
               controller: _numberController,
-              decoration: const InputDecoration(
-                labelText: 'מספר *',
+              decoration: InputDecoration(
+                labelText: l10n.numberRequired,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -214,8 +219,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Объем в мл (необязательное)
             TextField(
               controller: _volumeMlController,
-              decoration: const InputDecoration(
-                labelText: 'נפח במ"ל (אופציונלי)',
+              decoration: InputDecoration(
+                labelText: l10n.volumeMlOptional,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -225,8 +230,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Количество
             TextField(
               controller: _quantityController,
-              decoration: const InputDecoration(
-                labelText: 'כמות (יחידות) *',
+              decoration: InputDecoration(
+                labelText: '${l10n.quantityLabel} *',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -236,8 +241,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Количество на миштахе
             TextField(
               controller: _quantityPerPalletController,
-              decoration: const InputDecoration(
-                labelText: 'כמות במשטח *',
+              decoration: InputDecoration(
+                labelText: l10n.quantityOnPalletRequired,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -247,8 +252,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Диаметр (необязательное)
             TextField(
               controller: _diameterController,
-              decoration: const InputDecoration(
-                labelText: 'קוטר (אופציונלי)',
+              decoration: InputDecoration(
+                labelText: l10n.diameterOptional,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -257,8 +262,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Количество в коробке (необязательное)
             TextField(
               controller: _piecesPerBoxController,
-              decoration: const InputDecoration(
-                labelText: 'ארוז - כמות בקרטון (אופציונלי)',
+              decoration: InputDecoration(
+                labelText: l10n.packedCartonOptional,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -268,8 +273,8 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
             // Дополнительная информация (необязательное)
             TextField(
               controller: _additionalInfoController,
-              decoration: const InputDecoration(
-                labelText: 'מידע נוסף (אופציונלי)',
+              decoration: InputDecoration(
+                labelText: l10n.additionalInfoOptional,
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -280,11 +285,11 @@ class _EditInventoryDialogState extends State<EditInventoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ביטול'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           onPressed: _save,
-          child: const Text('שמור'),
+          child: Text(l10n.save),
         ),
       ],
     );

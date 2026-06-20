@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,25 +8,115 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/locale_service_stub.dart'
     if (dart.library.html) '../services/locale_service_web.dart';
-import '../services/company_settings_service.dart';
+import '../services/company_provision_service.dart';
 import '../services/background_location_service.dart';
-import 'firestore_paths.dart';
+import 'access_log_service.dart';
 
 class AuthService extends ChangeNotifier {
-  Future<String?> sendPasswordResetEmail(String email) async {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Отправляет письмо сброса пароля (Firebase Authentication, не Firestore).
+  Future<String?> sendPasswordResetEmail(
+    String email, {
+    String? languageCode,
+  }) async {
     try {
+      if (languageCode != null && languageCode.isNotEmpty) {
+        try {
+          await _auth.setLanguageCode(languageCode);
+        } catch (e) {
+          debugPrint('⚠️ [AuthService] setLanguageCode: $e');
+        }
+      }
       await _auth.sendPasswordResetEmail(email: email);
       return null;
-    } on FirebaseAuthException catch (e) {
-      return e.code;
     } catch (e) {
-      debugPrint('Unexpected sendPasswordResetEmail error: $e');
-      return 'unknown_error';
+      final code = _authErrorCode(e);
+      debugPrint('❌ [AuthService] sendPasswordResetEmail: $code — $e');
+      return code;
     }
   }
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Future<String?> confirmPasswordReset(String code, String newPassword) async {
+    try {
+      await _auth.confirmPasswordReset(code: code, newPassword: newPassword);
+      return null;
+    } catch (e) {
+      final err = _authErrorCode(e);
+      debugPrint('❌ [AuthService] confirmPasswordReset: $err — $e');
+      return err;
+    }
+  }
+
+  /// Android Firebase Auth иногда отдаёт числовые коды (PlatformException).
+  static const _androidNumericAuthCodes = {
+    '17004': 'invalid-credential',
+    '17005': 'user-disabled',
+    '17006': 'operation-not-allowed',
+    '17007': 'email-already-in-use',
+    '17008': 'invalid-email',
+    '17009': 'wrong-password',
+    '17010': 'too-many-requests',
+    '17011': 'user-not-found',
+    '17012': 'account-exists-with-different-credential',
+    '17014': 'requires-recent-login',
+    '17020': 'network-request-failed',
+    '17021': 'invalid-user-token',
+    '17023': 'user-token-expired',
+    '17025': 'credential-already-in-use',
+    '17026': 'user-not-found',
+    '17028': 'app-not-authorized',
+    '17029': 'invalid-credential',
+    '17030': 'invalid-credential',
+    '17033': 'invalid-api-key',
+    '17499': 'internal-error',
+  };
+
+  static String _authErrorCode(Object e) {
+    String? raw;
+    String? message;
+    if (e is FirebaseAuthException) {
+      raw = e.code;
+      message = e.message;
+    } else if (e is FirebaseException) {
+      raw = e.code;
+      message = e.message;
+    } else if (e is PlatformException) {
+      raw = e.code;
+      message = e.message;
+    }
+    final haystack = '${raw ?? ''} ${message ?? ''} ${e.toString()}';
+    if (haystack.contains('app-not-authorized') ||
+        haystack.contains('APP_NOT_AUTHORIZED')) {
+      return 'app-not-authorized';
+    }
+    if (haystack.contains('api-key-not-valid') ||
+        haystack.contains('API_KEY_NOT_VALID') ||
+        haystack.contains('INVALID_API_KEY')) {
+      return 'invalid-api-key';
+    }
+    if (haystack.contains('network-request-failed') ||
+        haystack.contains('NETWORK_ERROR')) {
+      return 'network-request-failed';
+    }
+    if (raw != null) {
+      var code = raw.trim();
+      if (code.startsWith('error-code:')) {
+        code = code.substring('error-code:'.length).trim();
+      }
+      final auth = RegExp(r'\(auth/([^)]+)\)|auth/([\w-]+)').firstMatch(haystack);
+      if (auth != null) return auth.group(1) ?? auth.group(2)!;
+      if (RegExp(r'^-?\d+$').hasMatch(code)) {
+        return _androidNumericAuthCodes[code] ?? 'error-code:$code';
+      }
+      code = code.replaceAll('ERROR_', '').toLowerCase().replaceAll('_', '-');
+      if (code.isEmpty) return 'unknown_error';
+      return code;
+    }
+    final auth = RegExp(r'auth/([\w-]+)').firstMatch(haystack);
+    return auth?.group(1) ?? 'unknown_error';
+  }
 
   User? _currentUser;
   UserModel? _userModel;
@@ -167,33 +258,60 @@ class AuthService extends ChangeNotifier {
     try {
       debugPrint('🔐 [AuthService] signIn START: email=$email');
 
-      debugPrint(
-          '🔐 [AuthService] Calling Firebase signInWithEmailAndPassword...');
       await _auth.signInWithEmailAndPassword(email: email, password: password);
 
+      final uid = _auth.currentUser?.uid;
+      if (uid != null) {
+        await _loadUserModel(uid);
+        if (_userModel == null) {
+          await _auth.signOut();
+          return 'profile-not-found';
+        }
+      }
+
       debugPrint('✅ [AuthService] Firebase signIn SUCCESS');
-      debugPrint('🔐 [AuthService] Waiting for authStateChanges to trigger...');
+      unawaited(_logAccessEvent(AccessEventType.login));
 
       return null;
-    } on FirebaseAuthException catch (e) {
-      debugPrint(
-          '❌ [AuthService] FirebaseAuthException: ${e.code} - ${e.message}');
-      return e.code;
     } catch (e) {
-      debugPrint('❌ [AuthService] Unexpected signIn error: $e');
-      return 'unknown_error';
+      final code = _authErrorCode(e);
+      debugPrint('❌ [AuthService] signIn: $code — $e');
+      return code;
     }
+  }
+
+  Future<void> _logAccessEvent(AccessEventType type) async {
+    final uid = _currentUser?.uid ?? _auth.currentUser?.uid;
+    if (uid == null) return;
+    if (_userModel == null) await _loadUserModel(uid);
+    final companyId = _userModel?.companyId;
+    if (companyId == null || companyId.isEmpty) return;
+    await AccessLogService(companyId: companyId).logAccess(
+      actorUid: uid,
+      eventType: type,
+      actorName: _userModel?.name,
+    );
   }
 
   Future<void> signOut() async {
     _viewAsRole = null;
     _viewAsDriverId = null;
-    await _clearViewAsPrefs();
-    // ✅ Останавливаем фоновый GPS-сервис при logout
-    try {
-      await BackgroundLocationService.stop();
-    } catch (_) {}
+    _virtualCompanyId = null;
+    notifyListeners();
+
+    unawaited(_clearViewAsPrefs());
+    unawaited(_logAccessEvent(AccessEventType.logout));
+
+    // Сначала выход — GPS cleanup только если трекинг реально был включён
     await _auth.signOut();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('bg_tracking_active') == true) {
+        await BackgroundLocationService.stop()
+            .timeout(const Duration(seconds: 2));
+      }
+    } catch (_) {}
   }
 
   // 🛡️ Persistent keys for viewAsRole
@@ -265,51 +383,10 @@ class AuthService extends ChangeNotifier {
     try {
       // ✅ Проверяем существует ли компания
       if (companyId.isNotEmpty) {
-        final companyDoc = await FirestorePaths(firestore: _firestore)
-            .companyDoc(companyId)
-            .get();
-
-        // ✅ Если компании нет - создаём её с инициализацией
-        if (!companyDoc.exists) {
-          await FirestorePaths(firestore: _firestore)
-              .companyDoc(companyId)
-              .set({
-            'name': companyId, // Используем ID как имя по умолчанию
-            'createdAt': FieldValue.serverTimestamp(),
-            'createdBy': _userModel?.uid ?? 'system',
-          });
-          print('✅ [AuthService] Created new company: $companyId');
-
-          // Инициализация settings
-          try {
-            final settingsService =
-                CompanySettingsService(companyId: companyId);
-            await settingsService.createDefaultSettings();
-          } catch (e) {
-            debugPrint('⚠️ [AuthService] Failed to init settings: $e');
-          }
-
-          // Инициализация counters (lastNumber: 0 → первый номер будет 1)
-          try {
-            final countersRef = _firestore
-                .collection('companies')
-                .doc(companyId)
-                .collection('counters');
-            final batch = _firestore.batch();
-            for (final docType in [
-              'invoice',
-              'receipt',
-              'delivery',
-              'creditNote'
-            ]) {
-              batch.set(countersRef.doc(docType), {'lastNumber': 0});
-            }
-            await batch.commit();
-            print('✅ [AuthService] Initialized counters for $companyId');
-          } catch (e) {
-            debugPrint('⚠️ [AuthService] Failed to init counters: $e');
-          }
-        }
+        await CompanyProvisionService(firestore: _firestore).ensureCompanyExists(
+          companyId: companyId,
+          createdByUid: _userModel?.uid ?? 'system',
+        );
       }
 
       // ✅ Secondary app — чтобы НЕ разлогинивать текущего админа/суперадмина

@@ -13,8 +13,8 @@
 - **Срок действия**: 10,000 дней (~27 лет)
 
 ### Credentials:
-- **Store Password**: `LogiRoute2026!`
-- **Key Password**: `LogiRoute2026!`
+- **Store Password**: [REDACTED - rotate in keystore]
+- **Key Password**: [REDACTED - rotate in keystore]
 - **Alias**: `release`
 
 ### Certificate Information:
@@ -139,12 +139,12 @@ git status
 
 ### SHA-1:
 ```bash
-keytool -list -v -keystore android/release-keystore.jks -alias release -storepass "LogiRoute2026!"
+keytool -list -v -keystore android/release-keystore.jks -alias release -storepass "YOUR_STORE_PASSWORD"
 ```
 
 ### Только SHA-1 и SHA-256:
 ```bash
-keytool -list -v -keystore android/release-keystore.jks -alias release -storepass "LogiRoute2026!" | findstr "SHA1: SHA256:"
+keytool -list -v -keystore android/release-keystore.jks -alias release -storepass "YOUR_STORE_PASSWORD" | findstr "SHA1: SHA256:"
 ```
 
 ---

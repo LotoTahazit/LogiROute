@@ -5,6 +5,7 @@ import '../../services/company_context.dart';
 import '../../models/delivery_point.dart';
 import '../../models/invoice.dart';
 import '../../services/firestore_paths.dart';
+import '../../theme/app_theme.dart';
 
 /// מסך דוחות — סטטיסטיקות משלוחים, חשבוניות וביצועי נהגים
 /// Module: reports (gated via ModuleGuard)
@@ -487,7 +488,7 @@ class _PercentBar extends StatelessWidget {
         const SizedBox(height: 4),
         LinearProgressIndicator(
           value: value / 100,
-          backgroundColor: Colors.grey.shade200,
+          backgroundColor: AppTheme.surfaceHi,
           valueColor: AlwaysStoppedAnimation(color),
           minHeight: 8,
           borderRadius: BorderRadius.circular(4),
@@ -514,7 +515,7 @@ class _MiniStat extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: color ?? Colors.black87)),
           Text(label,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 10, color: AppTheme.muted)),
         ],
       ),
     );

@@ -319,6 +319,26 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
     console.warn("⚠️ Audit write failed (non-blocking):", e.message);
   }
 
+  // --- 9. External accounting sync (non-blocking scaffold) ---
+  try {
+    const { enqueueExternalAccountingSync } = require("./accounting/sync_external_document");
+    const invSnap = await db
+      .doc(`companies/${companyId}/accounting/_root/invoices/${invoiceId}`)
+      .get();
+    await enqueueExternalAccountingSync({
+      companyId,
+      docId: invoiceId,
+      invoiceData: {
+        ...(invSnap.data() || {}),
+        docNumber: result.docNumber,
+        issuedAt: result.issuedAt,
+      },
+      uid,
+    });
+  } catch (e) {
+    console.warn("⚠️ External accounting sync failed (non-blocking):", e.message);
+  }
+
   return {
     ok: true,
     invoiceId,

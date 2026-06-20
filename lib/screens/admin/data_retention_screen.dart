@@ -5,10 +5,18 @@ import '../../services/data_retention_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Data retention policy screen — run checks, view history, compliance status.
+/// [infoOnly] — только информационные карточки (диспетчер).
+/// [podOnly] — только PoD (водитель).
 class DataRetentionScreen extends StatefulWidget {
-  const DataRetentionScreen({super.key});
+  const DataRetentionScreen({super.key, this.infoOnly = false, this.podOnly = false});
+
+  final bool infoOnly;
+  final bool podOnly;
+
+  bool get _readOnly => infoOnly || podOnly;
 
   @override
   State<DataRetentionScreen> createState() => _DataRetentionScreenState();
@@ -20,12 +28,15 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
   bool _isRunning = false;
   RetentionCheckResult? _lastResult;
   List<Map<String, dynamic>> _history = [];
+  String? _companyId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final companyCtx = CompanyContext.of(context);
-    final companyId = companyCtx.effectiveCompanyId ?? '';
+    if (widget._readOnly) return;
+    final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+    if (companyId == _companyId) return;
+    _companyId = companyId;
     _service = DataRetentionService(companyId: companyId);
     _loadHistory();
   }
@@ -36,7 +47,10 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
       final history = await _service.getCheckHistory();
       setState(() => _history = history);
     } catch (e) {
-      if (mounted) SnackbarHelper.showError(context, 'Error: $e');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        SnackbarHelper.showError(context, l10n.errorWithMessage(e.toString()));
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -52,10 +66,14 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
       setState(() => _lastResult = result);
       _loadHistory();
       if (mounted) {
-        SnackbarHelper.showSuccess(context, 'בדיקה הושלמה');
+        final l10n = AppLocalizations.of(context)!;
+        SnackbarHelper.showSuccess(context, l10n.eventRetentionChecked);
       }
     } catch (e) {
-      if (mounted) SnackbarHelper.showError(context, 'Error: $e');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        SnackbarHelper.showError(context, l10n.errorWithMessage(e.toString()));
+      }
     } finally {
       setState(() => _isRunning = false);
     }
@@ -63,36 +81,62 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('מדיניות שמירת נתונים'),
+          title: Text(widget.podOnly ? l10n.podTitle : l10n.dataRetention),
           actions: [
-            IconButton(
-              onPressed: _isRunning ? null : _runCheck,
-              icon: _isRunning
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.play_arrow),
-              tooltip: 'הפעל בדיקה',
-            ),
+            if (!widget._readOnly)
+              IconButton(
+                onPressed: _isRunning ? null : _runCheck,
+                icon: _isRunning
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.play_arrow),
+                tooltip: l10n.runCheck,
+              ),
           ],
         ),
-        body: _isLoading
+        body: !widget._readOnly && _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Info card
+                    if (!widget.podOnly) ...[
+                      Card(
+                        color: Colors.blue.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.blue),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                    maxWidth: narrow ? 260 : 520),
+                                child: Text(
+                                  l10n.retentionPolicyInfo,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Card(
-                      color: Colors.blue.shade50,
+                      color: Colors.orange.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Wrap(
@@ -100,26 +144,25 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                           runSpacing: 8,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            const Icon(Icons.info_outline, color: Colors.blue),
+                            Icon(Icons.camera_alt_outlined,
+                                color: Colors.orange.shade800),
                             ConstrainedBox(
                               constraints:
                                   BoxConstraints(maxWidth: narrow ? 260 : 520),
-                              child: const Text(
-                                'לפי חוק ניהול ספרים, יש לשמור מסמכים לפחות 7 שנים.\n'
-                                'הבדיקה מוודאת שלא נמחקו מסמכים ושאין פערים במספור.',
-                                style: TextStyle(fontSize: 14),
+                              child: Text(
+                                l10n.podRetentionInfo,
+                                style: const TextStyle(fontSize: 14),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Last result
-                    if (_lastResult != null) ...[
-                      const Text('תוצאת בדיקה אחרונה',
-                          style: TextStyle(
+                    if (!widget._readOnly) ...[
+                      const SizedBox(height: 16),
+                      if (_lastResult != null) ...[
+                      Text(l10n.lastCheckResult,
+                          style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Card(
@@ -152,15 +195,22 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text('מסמכים: ${_lastResult!.totalDocuments}'),
+                              Text(l10n.retentionDocumentsCount(
+                                  _lastResult!.totalDocuments)),
                               if (_lastResult!.oldestDocumentDate != null)
-                                Text(
-                                    'מסמך ישן ביותר: ${_lastResult!.oldestDocumentDate.toString().substring(0, 10)}'),
-                              Text(
-                                  'תאריך חיתוך: ${_lastResult!.retentionCutoffDate.toString().substring(0, 10)}'),
+                                Text(l10n.oldestDocumentDate(_lastResult!
+                                    .oldestDocumentDate
+                                    .toString()
+                                    .substring(0, 10))),
+                              Text(l10n.retentionCutoffDate(_lastResult!
+                                  .retentionCutoffDate
+                                  .toString()
+                                  .substring(0, 10))),
                               if (_lastResult!.hasSequentialGaps)
                                 Text(
-                                  'פערים: ${_lastResult!.totalDocuments} מתוך ${_lastResult!.expectedCount} צפויים',
+                                  l10n.retentionGapsCount(
+                                      _lastResult!.totalDocuments,
+                                      _lastResult!.expectedCount),
                                   style: const TextStyle(color: Colors.red),
                                 ),
                             ],
@@ -169,23 +219,25 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                       ),
                       const SizedBox(height: 24),
                     ],
-
-                    // History
-                    const Text('היסטוריית בדיקות',
-                        style: TextStyle(
+                    Text(l10n.retentionHistory,
+                        style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     if (_history.isEmpty)
-                      const Center(
+                      Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Text('אין בדיקות קודמות. לחץ ▶ להפעלת בדיקה.'),
+                          padding: const EdgeInsets.all(32),
+                          child: Text(l10n.noPreviousChecks),
                         ),
                       )
                     else
                       ..._history.map((h) {
                         final compliant = h['isCompliant'] == true;
                         final ts = h['checkedAt'] as Timestamp?;
+                        final entry = l10n.retentionHistoryEntry(
+                          h['checkedBy'] as String? ?? '',
+                          h['totalDocuments'] as int? ?? 0,
+                        );
                         return Card(
                           child: ListTile(
                             leading: Icon(
@@ -193,22 +245,22 @@ class _DataRetentionScreenState extends State<DataRetentionScreen> {
                               color: compliant ? Colors.green : Colors.red,
                             ),
                             title: Text(
-                              compliant ? 'תקין' : 'בעיות נמצאו',
+                              compliant ? l10n.compliant : l10n.issuesFound,
                             ),
                             subtitle: Text(
-                              '${h['checkedBy']} • ${h['totalDocuments']} מסמכים'
-                              '${ts != null ? ' • ${ts.toDate().toString().substring(0, 16)}' : ''}',
+                              '$entry${ts != null ? ' • ${ts.toDate().toString().substring(0, 16)}' : ''}',
                             ),
                             trailing: h['hasSequentialGaps'] == true
-                                ? const Chip(
-                                    label: Text('פערים',
-                                        style: TextStyle(fontSize: 11)),
+                                ? Chip(
+                                    label: Text(l10n.gapsLabel,
+                                        style: const TextStyle(fontSize: 11)),
                                     backgroundColor: Colors.orange,
                                   )
                                 : null,
                           ),
                         );
                       }),
+                    ],
                   ],
                 ),
               ),

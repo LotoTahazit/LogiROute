@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import '../../models/inventory_change.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/company_context.dart';
+import '../../theme/app_theme.dart';
 
 class InventoryReportScreen extends StatefulWidget {
   const InventoryReportScreen({super.key});
@@ -300,7 +301,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
             // Поле поиска по товару
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.grey.shade100,
+              color: AppTheme.surfaceHi,
               child: Column(
                 children: [
                   TextField(
@@ -421,7 +422,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                           Icon(
                             Icons.inbox_outlined,
                             size: 64,
-                            color: Colors.grey.shade400,
+                            color: AppTheme.muted,
                           ),
                           const SizedBox(height: 16),
                           Text(

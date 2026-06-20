@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 import '../services/dashboard_exceptions.dart';
 
 /// Хелпер для показа ошибок через SnackBar.
@@ -15,7 +16,7 @@ class DashboardSnackbar {
         backgroundColor: Theme.of(context).colorScheme.error,
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'סגור',
+          label: AppLocalizations.of(context)!.close,
           textColor: Colors.white,
           onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
         ),
@@ -50,14 +51,14 @@ class DashboardSnackbar {
 ///
 /// Используется для критических ошибок (нет companyId, billing blocked).
 class FullScreenError extends StatelessWidget {
-  final String title;
+  final String? title;
   final String message;
   final VoidCallback? onRetry;
   final IconData icon;
 
   const FullScreenError({
     super.key,
-    this.title = 'שגיאה',
+    this.title,
     required this.message,
     this.onRetry,
     this.icon = Icons.error_outline,
@@ -66,6 +67,7 @@ class FullScreenError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -75,7 +77,7 @@ class FullScreenError extends StatelessWidget {
             Icon(icon, size: 64, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              title,
+              title ?? l10n.error,
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: theme.colorScheme.error,
                 fontWeight: FontWeight.bold,
@@ -95,7 +97,7 @@ class FullScreenError extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('נסה שוב'),
+                label: Text(l10n.tryAgain),
               ),
             ],
           ],
@@ -121,6 +123,7 @@ class EmptyStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -141,7 +144,7 @@ class EmptyStateWidget extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('נסה שוב'),
+                label: Text(l10n.tryAgain),
               ),
             ],
           ],

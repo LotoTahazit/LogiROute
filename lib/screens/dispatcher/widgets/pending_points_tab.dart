@@ -3,6 +3,7 @@ import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/zone_utils.dart';
+import '../../../theme/app_theme.dart';
 
 /// Вкладка с ожидающими точками доставки
 class PendingPointsTab extends StatefulWidget {
@@ -523,7 +524,7 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                                     _getDisplayAddress(point),
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: Colors.grey.shade700,
+                                      color: AppTheme.muted,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,

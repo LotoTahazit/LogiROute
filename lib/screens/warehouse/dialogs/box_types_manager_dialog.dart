@@ -4,6 +4,7 @@ import 'package:logiroute/services/company_context.dart';
 import 'package:logiroute/l10n/app_localizations.dart';
 import 'package:logiroute/screens/warehouse/dialogs/edit_box_type_dialog.dart';
 import 'package:logiroute/screens/warehouse/dialogs/delete_confirmation_dialog.dart';
+import '../../../theme/app_theme.dart';
 
 class BoxTypesManagerDialog extends StatefulWidget {
   const BoxTypesManagerDialog({super.key});
@@ -209,7 +210,7 @@ class _BoxTypesManagerDialogState extends State<BoxTypesManagerDialog> {
                                                 : l10n.volumeMlLabel,
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey.shade700),
+                                                color: AppTheme.muted),
                                             textDirection: TextDirection.rtl,
                                           ),
                                         ],

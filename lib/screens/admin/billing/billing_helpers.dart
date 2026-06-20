@@ -3,32 +3,38 @@ import 'package:flutter/material.dart';
 // ---------------------------------------------------------------------------
 // Plan display info: plan key → (name, promoPrice, price, setupFee, modules)
 //
-// promoPrice — первые 3 месяца
-// price — после 3 месяцев (ежемесячно)
-// setupFee — разовая установка + интеграция данных
-// Минимальная подписка — 12 месяцев для всех планов
+// promoPrice — первые 3 месяца (config/billing_pricing)
+// price — после promoMonths
+// setupFee — разовая установка (0 в новой сетке)
 // ---------------------------------------------------------------------------
 
 const planDisplayInfo = {
+  'logistics': (
+    name: 'לוגיסטיקה',
+    promoPrice: '₪590',
+    price: '₪790',
+    setupFee: '₪0',
+    modules: ['logistics', 'dispatcher', 'reports'],
+  ),
   'warehouse_only': (
     name: 'מחסן בלבד',
-    promoPrice: '₪450',
-    price: '₪1,490',
-    setupFee: '₪2,000',
+    promoPrice: '₪390',
+    price: '₪490',
+    setupFee: '₪0',
     modules: ['warehouse'],
   ),
   'ops': (
     name: 'תפעול',
     promoPrice: '₪890',
-    price: '₪2,900',
-    setupFee: '₪3,000',
+    price: '₪1,190',
+    setupFee: '₪0',
     modules: ['warehouse', 'logistics', 'dispatcher', 'reports'],
   ),
   'full': (
     name: 'מלא',
-    promoPrice: '₪1,490',
-    price: '₪4,900',
-    setupFee: '₪5,000',
+    promoPrice: '₪1,120',
+    price: '₪1,490',
+    setupFee: '₪0',
     modules: ['warehouse', 'logistics', 'dispatcher', 'accounting', 'reports'],
   ),
 };
@@ -79,7 +85,7 @@ UsageWarningLevel usageWarningLevel(int current, int max) {
 
 /// Returns available plans excluding [currentPlan] and 'custom'.
 List<String> availablePlans(String currentPlan) {
-  return ['warehouse_only', 'ops', 'full']
+  return ['logistics', 'warehouse_only', 'ops', 'full']
       .where((p) => p != currentPlan)
       .toList();
 }

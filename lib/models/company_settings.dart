@@ -116,12 +116,64 @@ class CompanySettings {
   // Дополнительные поля для счетов
   final String driverName; // Имя водителя по умолчанию (например, "יבגני")
   final String driverPhone; // Телефон водителя
-  final String departureTime; // Время выезда по умолчанию
+  final String departureTime; // Время выезда по умолчанию ("H:mm")
+
+  // ── Параметры маршрутизации (ETA / окна доставки) ──
+  final double avgSpeedKmh; // средняя городская скорость для ETA
+  final int serviceMinutes; // время разгрузки на точке (мин)
+  /// Паттерн даты маршрута при создании: 'same' (сегодня) | 'next' (завтра) |
+  /// 'next_working' (ближайший рабочий день, пропуская пт/сб).
+  final String deliveryDayMode;
+
+  /// Требовать POD-фото на каждую доставку. Если true — кнопка «Доставлено»
+  /// (без фото) скрыта, автозакрытие отключено (закрытие только с фото).
+  final bool requirePodPhoto;
+
+  /// Куда выгружать бухгалтерские документы:
+  /// 'none' — никуда (встроенная бухгалтерия), 'export' — файловый экспорт
+  /// (מבנה אחיד), 'greeninvoice' / 'icount' — интеграция с внешней системой.
+  final String accountingProvider;
+
+  /// Плановое время выезда в минутах от полуночи (парсинг [departureTime]).
+  int get departureMinutes => parseTimeToMinutes(departureTime, fallback: 7 * 60);
+
+  /// Дата доставки по умолчанию согласно [deliveryDayMode]:
+  /// 'same' — сегодня, 'next' — завтра, 'next_working' — ближайший рабочий день
+  /// (пропуская пятницу/субботу — выходные в Израиле). Возвращает полночь.
+  DateTime resolveDeliveryDate([DateTime? from]) {
+    final base = from ?? DateTime.now();
+    final d0 = DateTime(base.year, base.month, base.day);
+    switch (deliveryDayMode) {
+      case 'same':
+        return d0;
+      case 'next_working':
+        var d = d0.add(const Duration(days: 1));
+        while (d.weekday == DateTime.friday || d.weekday == DateTime.saturday) {
+          d = d.add(const Duration(days: 1));
+        }
+        return d;
+      case 'next':
+      default:
+        return d0.add(const Duration(days: 1));
+    }
+  }
+
+  /// Парсит "H:mm"/"HH:mm" в минуты от полуночи; при ошибке — [fallback].
+  static int parseTimeToMinutes(String? s, {int fallback = 7 * 60}) {
+    if (s == null || s.trim().isEmpty) return fallback;
+    final parts = s.trim().split(':');
+    if (parts.isEmpty) return fallback;
+    final h = int.tryParse(parts[0]);
+    final m = parts.length > 1 ? int.tryParse(parts[1]) : 0;
+    if (h == null || h < 0 || h > 23) return fallback;
+    final mm = (m == null || m < 0 || m > 59) ? 0 : m;
+    return h * 60 + mm;
+  }
 
   // === Модульность SaaS ===
   final ModuleEntitlements modules;
   final PlanLimits limits;
-  final String plan; // warehouse_only | ops | full
+  final String plan; // logistics | warehouse_only | ops | full
   final String billingStatus; // active | trial | grace | suspended | cancelled
   final DateTime? trialEndsAt;
   final DateTime? accountingLockedUntil; // период закрытия бухгалтерии
@@ -155,6 +207,11 @@ class CompanySettings {
     required this.driverName,
     required this.driverPhone,
     required this.departureTime,
+    this.avgSpeedKmh = 30.0,
+    this.serviceMinutes = 8,
+    this.deliveryDayMode = 'next',
+    this.requirePodPhoto = false,
+    this.accountingProvider = 'none',
     this.modules = const ModuleEntitlements(),
     this.limits = const PlanLimits(),
     this.plan = 'full',
@@ -194,6 +251,15 @@ class CompanySettings {
       driverName: data['driverName'] ?? '',
       driverPhone: data['driverPhone'] ?? '',
       departureTime: data['departureTime'] ?? '7:00',
+      avgSpeedKmh: (data['avgSpeedKmh'] is num)
+          ? (data['avgSpeedKmh'] as num).toDouble()
+          : 30.0,
+      serviceMinutes: (data['serviceMinutes'] is num)
+          ? (data['serviceMinutes'] as num).toInt()
+          : 8,
+      deliveryDayMode: (data['deliveryDayMode'] as String?) ?? 'next',
+      requirePodPhoto: data['requirePodPhoto'] == true,
+      accountingProvider: (data['accountingProvider'] as String?) ?? 'none',
       modules: ModuleEntitlements.fromMap(data['modules'] != null
           ? Map<String, dynamic>.from(data['modules'] as Map)
           : null),
@@ -241,6 +307,11 @@ class CompanySettings {
       'driverName': driverName,
       'driverPhone': driverPhone,
       'departureTime': departureTime,
+      'avgSpeedKmh': avgSpeedKmh,
+      'serviceMinutes': serviceMinutes,
+      'deliveryDayMode': deliveryDayMode,
+      'requirePodPhoto': requirePodPhoto,
+      'accountingProvider': accountingProvider,
       'modules': modules.toMap(),
       'limits': limits.toMap(),
       'plan': plan,
@@ -279,6 +350,11 @@ class CompanySettings {
     String? driverName,
     String? driverPhone,
     String? departureTime,
+    double? avgSpeedKmh,
+    int? serviceMinutes,
+    String? deliveryDayMode,
+    bool? requirePodPhoto,
+    String? accountingProvider,
     ModuleEntitlements? modules,
     PlanLimits? limits,
     String? plan,
@@ -312,6 +388,11 @@ class CompanySettings {
       driverName: driverName ?? this.driverName,
       driverPhone: driverPhone ?? this.driverPhone,
       departureTime: departureTime ?? this.departureTime,
+      avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
+      serviceMinutes: serviceMinutes ?? this.serviceMinutes,
+      deliveryDayMode: deliveryDayMode ?? this.deliveryDayMode,
+      requirePodPhoto: requirePodPhoto ?? this.requirePodPhoto,
+      accountingProvider: accountingProvider ?? this.accountingProvider,
       modules: modules ?? this.modules,
       limits: limits ?? this.limits,
       plan: plan ?? this.plan,

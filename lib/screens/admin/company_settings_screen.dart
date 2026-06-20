@@ -6,6 +6,7 @@ import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../features/owner_dashboard/widgets/sections/integration_settings_dialog.dart';
+import '../../features/owner_dashboard/widgets/sections/accounting_provider_settings_dialog.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
   const CompanySettingsScreen({super.key});
@@ -38,6 +39,23 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   final _invoiceFooterTextController = TextEditingController();
   final _paymentTermsController = TextEditingController();
   final _bankDetailsController = TextEditingController();
+
+  /// Загруженные настройки — чтобы при сохранении не затирать поля, которых
+  /// нет на этой форме (departureTime, driver*, параметры маршрутизации).
+  CompanySettings? _loaded;
+
+  /// Политика «POD-фото обязательно на каждую доставку».
+  bool _requirePodPhoto = false;
+
+  /// Куда выгружать бухгалтерию: none | export | greeninvoice | icount
+  String _accountingProvider = 'none';
+
+  static const _accountingProviders = [
+    'none',
+    'export',
+    'greeninvoice',
+    'icount',
+  ];
 
   @override
   void initState() {
@@ -129,6 +147,9 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           _invoiceFooterTextController.text = settings.invoiceFooterText;
           _paymentTermsController.text = settings.paymentTerms;
           _bankDetailsController.text = settings.bankDetails;
+          _loaded = settings; // сохраняем для безопасного copyWith при записи
+          _requirePodPhoto = settings.requirePodPhoto;
+          _accountingProvider = settings.accountingProvider;
           debugPrint('✅ [CompanySettings] Settings loaded and applied');
         } else {
           debugPrint(
@@ -172,8 +193,31 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final settings = CompanySettings(
-        id: 'settings',
+      // Базируемся на загруженных настройках, чтобы НЕ затереть поля вне этой
+      // формы (departureTime, driver*, скорость/разгрузка/режим даты).
+      final base = _loaded ??
+          CompanySettings(
+            id: 'settings',
+            nameHebrew: '',
+            nameEnglish: '',
+            taxId: '',
+            addressHebrew: '',
+            addressEnglish: '',
+            poBox: '',
+            city: '',
+            zipCode: '',
+            phone: '',
+            fax: '',
+            email: '',
+            website: '',
+            invoiceFooterText: '',
+            paymentTerms: '',
+            bankDetails: '',
+            driverName: '',
+            driverPhone: '',
+            departureTime: '07:00',
+          );
+      final settings = base.copyWith(
         nameHebrew: _nameHebrewController.text,
         nameEnglish: _nameEnglishController.text,
         taxId: _taxIdController.text,
@@ -189,12 +233,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         invoiceFooterText: _invoiceFooterTextController.text,
         paymentTerms: _paymentTermsController.text,
         bankDetails: _bankDetailsController.text,
-        driverName: '',
-        driverPhone: '',
-        departureTime: '07:00',
+        requirePodPhoto: _requirePodPhoto,
+        accountingProvider: _accountingProvider,
       );
 
       await service.saveSettings(settings);
+      _loaded = settings;
 
       if (mounted) {
         SnackbarHelper.showSuccess(context, l10n.settingsSaved);
@@ -417,6 +461,22 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
+                    _buildSection(
+                      l10n.deliverySection,
+                      [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _requirePodPhoto,
+                          onChanged: (v) =>
+                              setState(() => _requirePodPhoto = v),
+                          title: Text(l10n.requirePodPhoto),
+                          subtitle: Text(l10n.requirePodPhotoHint),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildAccountingProviderSection(context),
+                    const SizedBox(height: 24),
                     _buildIntegrationsSection(context),
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
@@ -454,6 +514,70 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  String _accountingProviderLabel(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'export':
+        return l10n.accountingProviderExport;
+      case 'greeninvoice':
+        return l10n.accountingProviderGreeninvoice;
+      case 'icount':
+        return l10n.accountingProviderIcount;
+      case 'none':
+      default:
+        return l10n.accountingProviderNone;
+    }
+  }
+
+  Widget _buildAccountingProviderSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final needsCreds = _accountingProvider == 'greeninvoice' ||
+        _accountingProvider == 'icount';
+
+    return _buildSection(
+      l10n.accountingProviderSection,
+      [
+        DropdownButtonFormField<String>(
+          initialValue: _accountingProvider,
+          decoration: InputDecoration(
+            labelText: l10n.accountingProviderLabel,
+            border: const OutlineInputBorder(),
+          ),
+          items: _accountingProviders
+              .map(
+                (p) => DropdownMenuItem(
+                  value: p,
+                  child: Text(_accountingProviderLabel(p, l10n)),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _accountingProvider = v);
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.accountingProviderHint,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+        ),
+        if (needsCreds && _companyId != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => showDialog<bool>(
+              context: context,
+              builder: (_) => AccountingProviderSettingsDialog(
+                companyId: _companyId!,
+                provider: _accountingProvider,
+              ),
+            ),
+            icon: const Icon(Icons.vpn_key_outlined, size: 18),
+            label: Text(l10n.accountingProviderConfigure),
+          ),
+        ],
+      ],
     );
   }
 

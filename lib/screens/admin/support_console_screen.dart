@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 /// Support Console — "одна компания = вся история"
 /// Только для super_admin. Выбираешь компанию → видишь всё:
@@ -380,7 +381,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
                   const SizedBox(height: 4),
                   Text('ID: $_selectedCompanyId',
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          TextStyle(fontSize: 12, color: AppTheme.muted)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 16,
@@ -493,7 +494,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
               children: [
                 Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(value, style: TextStyle(color: Colors.grey.shade700)),
+                Text(value, style: TextStyle(color: AppTheme.muted)),
               ],
             )
           : Row(
@@ -504,7 +505,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
                         style: const TextStyle(fontWeight: FontWeight.w700))),
                 Expanded(
                     child: Text(value,
-                        style: TextStyle(color: Colors.grey.shade700))),
+                        style: TextStyle(color: AppTheme.muted))),
               ],
             ),
     );

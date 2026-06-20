@@ -61,12 +61,34 @@ class AccessLogService {
     }
   }
 
+  /// Стрим access_log (фильтр по дате — на клиенте)
+  Stream<List<Map<String, dynamic>>> watchAccessLog({
+    DateTime? fromDate,
+    int limit = 500,
+  }) {
+    return _accessLogCollection()
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      final logs = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+      if (fromDate == null) return logs;
+      return logs.where((log) {
+        final ts = log['timestamp'];
+        if (ts is! Timestamp) return false;
+        return !ts.toDate().isBefore(fromDate);
+      }).toList();
+    });
+  }
+
   /// קבלת יומן גישה לתקופה
   Future<List<Map<String, dynamic>>> getAccessLog({
     DateTime? fromDate,
     DateTime? toDate,
-    String? actorUid,
-    AccessEventType? eventType,
     int limit = 100,
   }) async {
     Query query = _accessLogCollection();

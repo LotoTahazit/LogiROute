@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 /// Backup management screen — quarterly backup records, restore tests, compliance report.
 class BackupManagementScreen extends StatefulWidget {
@@ -156,7 +157,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                         labelText: l10n.exactLocation,
                         hintText: hint,
                         hintStyle: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade400),
+                            fontSize: 12, color: AppTheme.muted),
                       ),
                     ),
                   ],

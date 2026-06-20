@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import '../../services/archive_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 class ArchiveManagementScreen extends StatefulWidget {
   const ArchiveManagementScreen({super.key});
@@ -385,7 +386,7 @@ class _ArchiveManagementScreenState extends State<ArchiveManagementScreen> {
                                     '${l10n.created}: ${_formatDate(archive['created'])}',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      color: AppTheme.muted,
                                     ),
                                   ),
                                 ],

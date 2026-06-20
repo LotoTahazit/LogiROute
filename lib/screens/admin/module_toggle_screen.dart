@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 /// מסך ניהול מודולים — בחירת תוכנית → מודולים נקבעים אוטומטית
 /// super_admin only
@@ -40,6 +41,13 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
 
   /// Модули определяются планом — без ручного переключения
   static const _planModules = {
+    'logistics': {
+      'warehouse': false,
+      'logistics': true,
+      'dispatcher': true,
+      'accounting': false,
+      'reports': true,
+    },
     'warehouse_only': {
       'warehouse': true,
       'logistics': false,
@@ -63,9 +71,17 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
     },
   };
 
+  static const _planPriceLabel = {
+    'logistics': '₪590 → ₪790',
+    'warehouse_only': '₪390 → ₪490',
+    'ops': '₪890 → ₪1,190',
+    'full': '₪1,120 → ₪1,490',
+  };
+
   static const _planIconMap = {
+    'logistics': Icons.local_shipping_outlined,
     'warehouse_only': Icons.warehouse,
-    'ops': Icons.local_shipping,
+    'ops': Icons.inventory_2_outlined,
     'full': Icons.all_inclusive,
   };
 
@@ -108,6 +124,8 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
 
   String _planName(String key, AppLocalizations l10n) {
     switch (key) {
+      case 'logistics':
+        return l10n.planLogistics;
       case 'warehouse_only':
         return l10n.planWarehouseOnly;
       case 'ops':
@@ -234,12 +252,8 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                                 final label = _planName(planKey, l10n);
                                 final icon =
                                     _planIconMap[planKey] ?? Icons.help;
-                                // Prices are fixed, not translatable
-                                final price = planKey == 'warehouse_only'
-                                    ? '₪450 → ₪1,490'
-                                    : planKey == 'ops'
-                                        ? '₪890 → ₪2,900'
-                                        : '₪1,490 → ₪4,900';
+                                final price =
+                                    _planPriceLabel[planKey] ?? '';
                                 return ListTile(
                                   leading: Radio<String>(value: planKey),
                                   title: Wrap(
@@ -263,7 +277,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                                   subtitle: Text(price,
                                       style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey.shade600)),
+                                          color: AppTheme.muted)),
                                   selected: isSelected,
                                   selectedTileColor: Colors.blue.shade50,
                                   shape: RoundedRectangleBorder(
@@ -300,7 +314,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                             return ListTile(
                               leading: Icon(icon,
                                   color:
-                                      enabled ? Colors.blue : Colors.grey[300]),
+                                      enabled ? Colors.blue : AppTheme.surfaceHi),
                               title: Text(_moduleName(key, l10n),
                                   style: TextStyle(
                                       color: enabled
@@ -317,7 +331,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                                     ? Icons.check_circle
                                     : Icons.cancel_outlined,
                                 color:
-                                    enabled ? Colors.green : Colors.grey[300],
+                                    enabled ? Colors.green : AppTheme.surfaceHi,
                               ),
                               dense: true,
                             );

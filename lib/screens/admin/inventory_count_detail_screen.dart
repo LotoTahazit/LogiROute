@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../../utils/file_download_stub.dart'
     if (dart.library.html) '../../utils/file_download_web.dart';
+import '../../theme/app_theme.dart';
 
 /// Детальный экран отчета по инвентаризации (Web-ориентированный)
 class InventoryCountDetailScreen extends StatefulWidget {
@@ -70,8 +71,8 @@ class _InventoryCountDetailScreenState
   }
 
   void _exportToExcel(InventoryCount count) {
+    final l10n = AppLocalizations.of(context)!;
     try {
-      final l10n = AppLocalizations.of(context)!;
       final excel = xl.Excel.createExcel();
       final sheet = excel['Inventory'];
 
@@ -124,13 +125,13 @@ class _InventoryCountDetailScreenState
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Excel export available on web only')),
+          SnackBar(content: Text(l10n.excelExportWebOnly)),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Export error: $e'),
+          content: Text(l10n.exportErrorDetail(e.toString())),
           backgroundColor: Colors.red,
         ),
       );
@@ -419,7 +420,7 @@ class _InventoryCountDetailScreenState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.surface,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
@@ -494,7 +495,7 @@ class _InventoryCountDetailScreenState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
@@ -583,7 +584,7 @@ class _InventoryCountDetailScreenState
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppTheme.surface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),

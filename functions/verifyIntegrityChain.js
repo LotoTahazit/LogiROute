@@ -24,6 +24,26 @@ function buildChainHashV1({ companyId, counterKey, docType, docNumber, docId, is
 
 const MAX_RANGE = 2000;
 
+/** First chain doc number in [from..to], or -1 if none. */
+async function findFirstChainEntry(chainBase, counterKey, from, to) {
+  const probe = await db.doc(`${chainBase}/${counterKey}_${from}`).get();
+  if (probe.exists) return from;
+  let lo = from;
+  let hi = to;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const snap = await db.doc(`${chainBase}/${counterKey}_${mid}`).get();
+    if (snap.exists) {
+      found = mid;
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return found;
+}
+
 exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
   // --- 1. Auth ---
   if (!context.auth) {
@@ -87,47 +107,57 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // --- 4. Batch-read chain docs via getAll ---
+  // --- 4. Skip legacy gap: docs before integrity_chain was deployed ---
   const chainBase = `companies/${companyId}/accounting/_root/integrity_chain`;
+  const requestedFrom = from;
+  let actualFrom = from;
+  let legacySkippedTo = null;
 
-  // If from > 1, read from-1 to get starting prevHash
-  const refs = [];
-  if (from > 1) {
-    refs.push(db.doc(`${chainBase}/${counterKey}_${from - 1}`));
+  const firstEntry = await findFirstChainEntry(chainBase, counterKey, from, to);
+  if (firstEntry === -1) {
+    return {
+      ok: true,
+      companyId,
+      counterKey,
+      range: { from: requestedFrom, to },
+      checked: 0,
+      legacyOnly: true,
+      legacySkipped: { from: requestedFrom, to },
+      firstBrokenAt: null,
+    };
   }
-  for (let n = from; n <= to; n++) {
+  if (firstEntry > from) {
+    actualFrom = firstEntry;
+    legacySkippedTo = firstEntry - 1;
+  }
+
+  // --- 5. Batch-read chain docs via getAll ---
+  const refs = [];
+  if (actualFrom > 1) {
+    refs.push(db.doc(`${chainBase}/${counterKey}_${actualFrom - 1}`));
+  }
+  for (let n = actualFrom; n <= to; n++) {
     refs.push(db.doc(`${chainBase}/${counterKey}_${n}`));
   }
 
   const snaps = await db.getAll(...refs);
 
-  // --- 5. Determine starting prevHash ---
+  // --- 6. Determine starting prevHash ---
   let snapIdx = 0;
-  let prevHashExpected = null; // null → first element should have GENESIS
+  let prevHashExpected = null;
 
-  if (from > 1) {
+  if (actualFrom > 1) {
     const prevSnap = snaps[snapIdx++];
-    if (!prevSnap.exists) {
-      return {
-        ok: false,
-        companyId,
-        counterKey,
-        range: { from, to },
-        checkedUntil: from - 1,
-        firstBrokenAt: from - 1,
-        reason: "MISSING_PREV_FOR_RANGE",
-        expected: null,
-        actual: null,
-        doc: null,
-      };
+    if (prevSnap.exists) {
+      prevHashExpected = prevSnap.data().hash || null;
     }
-    prevHashExpected = prevSnap.data().hash || null;
+    // Missing prev before actualFrom = legacy gap; start without linkage check.
   }
 
-  // --- 6. Walk the chain ---
+  // --- 7. Walk the chain ---
   let checked = 0;
 
-  for (let n = from; n <= to; n++) {
+  for (let n = actualFrom; n <= to; n++) {
     const snap = snaps[snapIdx++];
 
     // 6.1 Missing entry
@@ -136,7 +166,7 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
         ok: false,
         companyId,
         counterKey,
-        range: { from, to },
+        range: { from: requestedFrom, to, checkedFrom: actualFrom },
         checkedUntil: n - 1,
         firstBrokenAt: n,
         reason: "MISSING_ENTRY",
@@ -160,7 +190,7 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
         ok: false,
         companyId,
         counterKey,
-        range: { from, to },
+        range: { from: requestedFrom, to, checkedFrom: actualFrom },
         checkedUntil: n - 1,
         firstBrokenAt: n,
         reason: "SCHEMA_INVALID",
@@ -179,7 +209,7 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
         ok: false,
         companyId,
         counterKey,
-        range: { from, to },
+        range: { from: requestedFrom, to, checkedFrom: actualFrom },
         checkedUntil: n - 1,
         firstBrokenAt: n,
         reason: "PREV_HASH_MISMATCH",
@@ -206,7 +236,7 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
         ok: false,
         companyId,
         counterKey,
-        range: { from, to },
+        range: { from: requestedFrom, to, checkedFrom: actualFrom },
         checkedUntil: n - 1,
         firstBrokenAt: n,
         reason: "HASH_MISMATCH",
@@ -220,14 +250,18 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
     checked++;
   }
 
-  // --- 7. Success ---
+  // --- 8. Success ---
   return {
     ok: true,
     companyId,
     counterKey,
-    range: { from, to },
+    range: { from: requestedFrom, to, checkedFrom: actualFrom },
     checked,
     firstBrokenAt: null,
+    legacySkipped:
+        legacySkippedTo != null
+            ? { from: requestedFrom, to: legacySkippedTo }
+            : null,
     last: {
       docNumber: to,
       hash: prevHashExpected,

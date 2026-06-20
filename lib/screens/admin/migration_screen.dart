@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/summary_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 /// One-time migration screen to build summaries for existing data
 /// מסך מעבר חד-פעמי לבניית סיכומים לנתונים קיימים
@@ -196,7 +197,7 @@ class _MigrationScreenState extends State<MigrationScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: AppTheme.surfaceHi,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade300),
                 ),

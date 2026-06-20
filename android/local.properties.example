@@ -1,0 +1,6 @@
+# Скопируйте в android/local.properties (файл в .gitignore)
+# GOOGLE_MAPS_API_KEY берётся из .env.local → GOOGLE_MAPS_ANDROID_KEY
+
+sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\sdk
+flutter.sdk=C\:\\path\\to\\flutter
+GOOGLE_MAPS_API_KEY=your_android_api_key_here

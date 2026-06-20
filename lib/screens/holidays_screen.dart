@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/shift_schedule_config.dart';
 import '../services/firestore_paths.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/app_theme.dart';
 
 /// Экран управления нерабочими днями (праздники + выходные).
 /// Отдельный экран с крупными карточками для удобного просмотра и редактирования.
@@ -44,17 +46,16 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool silent = false}) async {
     setState(() => _saving = true);
     try {
-      // Читаем текущий конфиг чтобы не затереть workingDays/hours
       final snap = await FirestorePaths.companyShiftsOf(widget.companyId).get();
       final existing = snap.data() ?? {};
       await FirestorePaths.companyShiftsOf(widget.companyId).set({
         ...existing,
         'holidays': _holidays.map((h) => h.toMap()).toList(),
-      });
-      if (mounted) {
+      }, SetOptions(merge: true));
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.shiftSaved)),
         );
@@ -112,6 +113,8 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             ..sort((a, b) => a.date.compareTo(b.date));
         });
 
+        await _save(silent: true);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -163,6 +166,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
     setState(() {
       _holidays = _holidays.where((h) => h.date != date).toList();
     });
+    _save(silent: true);
   }
 
   @override
@@ -186,7 +190,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.save),
+              icon: Icon(Icons.save),
               tooltip: l10n.save,
               onPressed: _save,
             ),
@@ -210,7 +214,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Icon(Icons.cloud_download),
+                          : Icon(Icons.cloud_download),
                       label: Text(l10n.shiftLoadHolidays),
                     ),
                   ),
@@ -224,7 +228,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                       Text(
                         '${_holidays.length} ${l10n.shiftHolidaysTitle.toLowerCase()}',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: AppTheme.muted,
                           fontSize: 13,
                         ),
                       ),
@@ -238,7 +242,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                           child: Text(
                             l10n.shiftNoHolidays,
                             style: TextStyle(
-                                color: Colors.grey.shade500, fontSize: 16),
+                                color: AppTheme.muted, fontSize: 16),
                           ),
                         )
                       : ListView.separated(
@@ -305,10 +309,10 @@ class _HolidayCard extends StatelessWidget {
                 children: [
                   Text(
                     dateFormatted,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: AppTheme.text,
                     ),
                   ),
                   if (weekday != null)
@@ -316,7 +320,7 @@ class _HolidayCard extends StatelessWidget {
                       weekday,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: AppTheme.muted,
                       ),
                     ),
                 ],
@@ -329,7 +333,7 @@ class _HolidayCard extends StatelessWidget {
             Expanded(
               child: Text(
                 name.isNotEmpty ? name : date,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),

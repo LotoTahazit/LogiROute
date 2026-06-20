@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/daily_summary.dart';
 import '../services/summary_service.dart';
+import '../theme/app_theme.dart';
 
 /// Dashboard summary widget using optimized queries
 /// ⚡ OPTIMIZATION: Reads 1 summary doc instead of 50+ invoices
@@ -248,7 +249,7 @@ class DeliverySummaryWidget extends StatelessWidget {
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: percentage / 100,
-          backgroundColor: Colors.grey[300],
+          backgroundColor: AppTheme.surfaceHi,
           valueColor: AlwaysStoppedAnimation<Color>(color),
           minHeight: 8,
         ),

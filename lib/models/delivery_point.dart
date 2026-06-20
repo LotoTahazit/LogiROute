@@ -66,7 +66,8 @@ class DeliveryPoint {
   final double longitude;
   final String clientName;
   final String? clientNumber; // 6-значный номер клиента
-  final DateTime? openingTime;
+  final DateTime? openingTime; // Окно доставки: не раньше («с»)
+  final DateTime? closingTime; // Окно доставки: крайний срок («по»)
   final String urgency;
   final int pallets;
   final int boxes; // Количество коробок
@@ -92,6 +93,12 @@ class DeliveryPoint {
   /// Завершённая точка убрана из оперативных списков (незавершённые не архивируются).
   final bool archived;
   final DateTime? archivedAt;
+  /// Proof of Delivery: фото URL, GPS водителя, время, расстояние до клиента (м)
+  final String? podPhotoUrl;
+  final double? podLat;
+  final double? podLng;
+  final DateTime? podAt;
+  final int? podDistanceM;
 
   DeliveryPoint({
     required this.id,
@@ -102,6 +109,7 @@ class DeliveryPoint {
     required this.clientName,
     this.clientNumber,
     this.openingTime,
+    this.closingTime,
     required this.urgency,
     required this.pallets,
     required this.boxes,
@@ -126,6 +134,11 @@ class DeliveryPoint {
     this.createdAt,
     this.archived = false,
     this.archivedAt,
+    this.podPhotoUrl,
+    this.podLat,
+    this.podLng,
+    this.podAt,
+    this.podDistanceM,
   });
 
   factory DeliveryPoint.fromMap(Map<String, dynamic> map, String id) {
@@ -145,6 +158,10 @@ class DeliveryPoint {
         openingTime:
             map['openingTime'] != null && map['openingTime'] is Timestamp
                 ? (map['openingTime'] as Timestamp).toDate()
+                : null,
+        closingTime:
+            map['closingTime'] != null && map['closingTime'] is Timestamp
+                ? (map['closingTime'] as Timestamp).toDate()
                 : null,
         urgency: map['urgency'] ?? 'normal',
         pallets: (map['pallets'] is num)
@@ -201,6 +218,19 @@ class DeliveryPoint {
         archivedAt: map['archivedAt'] != null && map['archivedAt'] is Timestamp
             ? (map['archivedAt'] as Timestamp).toDate()
             : null,
+        podPhotoUrl: map['podPhotoUrl']?.toString(),
+        podLat: (map['podLat'] is num)
+            ? (map['podLat'] as num).toDouble()
+            : double.tryParse('${map['podLat']}'),
+        podLng: (map['podLng'] is num)
+            ? (map['podLng'] as num).toDouble()
+            : double.tryParse('${map['podLng']}'),
+        podAt: map['podAt'] != null && map['podAt'] is Timestamp
+            ? (map['podAt'] as Timestamp).toDate()
+            : null,
+        podDistanceM: (map['podDistanceM'] is num)
+            ? (map['podDistanceM'] as num).toInt()
+            : int.tryParse('${map['podDistanceM']}'),
       );
     } catch (e) {
       print('❌ DeliveryPoint.fromMap error: $e');
@@ -228,6 +258,7 @@ class DeliveryPoint {
       'clientName': clientName,
       if (clientNumber != null) 'clientNumber': clientNumber,
       if (openingTime != null) 'openingTime': Timestamp.fromDate(openingTime!),
+      if (closingTime != null) 'closingTime': Timestamp.fromDate(closingTime!),
       'urgency': urgency,
       'pallets': pallets,
       'boxes': boxes,
@@ -256,6 +287,11 @@ class DeliveryPoint {
       'updatedAt': FieldValue.serverTimestamp(),
       'archived': archived,
       if (archivedAt != null) 'archivedAt': Timestamp.fromDate(archivedAt!),
+      if (podPhotoUrl != null) 'podPhotoUrl': podPhotoUrl,
+      if (podLat != null) 'podLat': podLat,
+      if (podLng != null) 'podLng': podLng,
+      if (podAt != null) 'podAt': Timestamp.fromDate(podAt!),
+      if (podDistanceM != null) 'podDistanceM': podDistanceM,
     };
   }
 
@@ -280,6 +316,7 @@ class DeliveryPoint {
       clientName: clientName,
       clientNumber: clientNumber,
       openingTime: openingTime,
+      closingTime: closingTime,
       urgency: urgency,
       pallets: pallets,
       boxes: boxes,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/company_context.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/auth_service.dart';
@@ -42,13 +43,22 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
     'suspended',
     'cancelled'
   ];
-  static const _statusLabels = {
-    'trial': '🧪 Trial',
-    'active': '✅ Active',
-    'grace': '⏳ Grace',
-    'suspended': '🚫 Suspended',
-    'cancelled': '❌ Cancelled',
-  };
+  String _statusLabel(AppLocalizations l10n, String s) {
+    switch (s) {
+      case 'trial':
+        return l10n.billingDashboardFilterTrial;
+      case 'active':
+        return l10n.billingDashboardFilterActive;
+      case 'grace':
+        return l10n.billingDashboardFilterGrace;
+      case 'suspended':
+        return l10n.billingDashboardFilterSuspended;
+      case 'cancelled':
+        return l10n.billingDashboardFilterCancelled;
+      default:
+        return s;
+    }
+  }
 
   @override
   void initState() {
@@ -91,9 +101,11 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
       });
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error loading: $e'), backgroundColor: Colors.red),
+              content: Text(l10n.errorLoadingWithDetail(e.toString())),
+              backgroundColor: Colors.red),
         );
         setState(() => _isLoading = false);
       }
@@ -168,15 +180,20 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
       _prevPaidUntil = _paidUntil;
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('✅ Saved'), backgroundColor: Colors.green),
+          SnackBar(
+              content: Text(l10n.savedSuccessCheck),
+              backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(l10n.errorWithDetail(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -198,10 +215,11 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Billing & Locks'),
+        title: Text(l10n.billingAndLocks),
         backgroundColor: Colors.deepPurple,
         actions: [
           if (_isSaving)
@@ -216,7 +234,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
           else
             IconButton(
                 icon: const Icon(Icons.save),
-                tooltip: 'Save',
+                tooltip: l10n.save,
                 onPressed: _save),
         ],
       ),
@@ -232,8 +250,8 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Billing Status',
-                            style: TextStyle(
+                        Text(l10n.billingStatusSection,
+                            style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
@@ -242,21 +260,21 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                               : 'active',
                           items: _statuses
                               .map((s) => DropdownMenuItem(
-                                  value: s, child: Text(_statusLabels[s] ?? s)))
+                                  value: s,
+                                  child: Text(_statusLabel(l10n, s))))
                               .toList(),
                           onChanged: (v) =>
                               setState(() => _billingStatus = v ?? 'active'),
-                          decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              labelText: 'Status'),
+                          decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              labelText: l10n.billingStatusLabel),
                         ),
                         if (_billingStatus == 'suspended' ||
                             _billingStatus == 'cancelled')
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                                '⚠️ Users will lose all access (read + write blocked)',
-                                style: TextStyle(color: Colors.red)),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(l10n.usersLoseAccessWarning,
+                                style: const TextStyle(color: Colors.red)),
                           ),
                       ],
                     ),
@@ -270,12 +288,11 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Trial Period',
-                            style: TextStyle(
+                        Text(l10n.trialPeriodSection,
+                            style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        const Text(
-                            'When billingStatus = trial, access expires after this date.'),
+                        Text(l10n.trialPeriodDesc),
                         const SizedBox(height: 12),
                         narrow
                             ? Wrap(
@@ -286,12 +303,12 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                   Text(
                                     _trialUntil != null
                                         ? '${_trialUntil!.day}.${_trialUntil!.month}.${_trialUntil!.year}'
-                                        : 'Not set',
+                                        : l10n.notSet,
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.calendar_today),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(_trialUntil,
                                         (d) => setState(() => _trialUntil = d)),
                                   ),
@@ -310,13 +327,13 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                     child: Text(
                                       _trialUntil != null
                                           ? '${_trialUntil!.day}.${_trialUntil!.month}.${_trialUntil!.year}'
-                                          : 'Not set',
+                                          : l10n.notSet,
                                       style: const TextStyle(fontSize: 16),
                                     ),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.calendar_today),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(_trialUntil,
                                         (d) => setState(() => _trialUntil = d)),
                                   ),
@@ -332,11 +349,10 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                         if (_billingStatus == 'trial' &&
                             _trialUntil != null &&
                             _trialUntil!.isBefore(DateTime.now()))
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                                '⚠️ Trial has expired — access is blocked',
-                                style: TextStyle(color: Colors.orange)),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(l10n.trialExpiredBlocked,
+                                style: const TextStyle(color: Colors.orange)),
                           ),
                       ],
                     ),
@@ -350,12 +366,11 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Payment — Paid Until',
-                            style: TextStyle(
+                        Text(l10n.paymentPaidUntilSection,
+                            style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        const Text(
-                            'Source of truth for billing automation. After this date → grace → suspended.'),
+                        Text(l10n.paymentPaidUntilDesc),
                         const SizedBox(height: 12),
                         narrow
                             ? Wrap(
@@ -366,12 +381,12 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                   Text(
                                     _paidUntil != null
                                         ? '${_paidUntil!.day}.${_paidUntil!.month}.${_paidUntil!.year}'
-                                        : 'Not set',
+                                        : l10n.notSet,
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.payment),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(_paidUntil,
                                         (d) => setState(() => _paidUntil = d)),
                                   ),
@@ -390,13 +405,13 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                     child: Text(
                                       _paidUntil != null
                                           ? '${_paidUntil!.day}.${_paidUntil!.month}.${_paidUntil!.year}'
-                                          : 'Not set',
+                                          : l10n.notSet,
                                       style: const TextStyle(fontSize: 16),
                                     ),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.payment),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(_paidUntil,
                                         (d) => setState(() => _paidUntil = d)),
                                   ),
@@ -411,19 +426,18 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                               ),
                         if (_paidUntil != null &&
                             _paidUntil!.isBefore(DateTime.now()))
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                                '⚠️ Payment expired — billingEnforcer will transition to grace/suspended',
-                                style: TextStyle(color: Colors.orange)),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(l10n.paymentExpiredWarning,
+                                style: const TextStyle(color: Colors.orange)),
                           ),
                         const SizedBox(height: 16),
                         // Payment provider
                         DropdownButtonFormField<String?>(
                           initialValue: _paymentProvider,
                           items: [
-                            const DropdownMenuItem(
-                                value: null, child: Text('Not set')),
+                            DropdownMenuItem(
+                                value: null, child: Text(l10n.notSet)),
                             ...[
                               'stripe',
                               'tranzila',
@@ -435,9 +449,9 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                           ],
                           onChanged: (v) =>
                               setState(() => _paymentProvider = v),
-                          decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              labelText: 'Payment Provider'),
+                          decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              labelText: l10n.labelPaymentProvider),
                         ),
                         const SizedBox(height: 12),
                         // Grace period days
@@ -445,7 +459,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Grace period:'),
+                                  Text(l10n.gracePeriodLabel),
                                   const SizedBox(height: 8),
                                   Wrap(
                                     spacing: 8,
@@ -471,14 +485,14 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                           ),
                                         ),
                                       ),
-                                      const Text('days'),
+                                      Text(l10n.days),
                                     ],
                                   ),
                                 ],
                               )
                             : Row(
                                 children: [
-                                  const Text('Grace period: '),
+                                  Text('${l10n.gracePeriodLabel} '),
                                   SizedBox(
                                     width: 60,
                                     child: TextFormField(
@@ -496,7 +510,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                       ),
                                     ),
                                   ),
-                                  const Text(' days'),
+                                  Text(' ${l10n.days}'),
                                 ],
                               ),
                       ],
@@ -511,12 +525,11 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Accounting Period Lock',
-                            style: TextStyle(
+                        Text(l10n.accountingPeriodLockSection,
+                            style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        const Text(
-                            'Documents with deliveryDate ≤ this date cannot be created or modified.'),
+                        Text(l10n.accountingPeriodLockDesc),
                         const SizedBox(height: 12),
                         narrow
                             ? Wrap(
@@ -527,12 +540,12 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                   Text(
                                     _accountingLockedUntil != null
                                         ? '${_accountingLockedUntil!.day}.${_accountingLockedUntil!.month}.${_accountingLockedUntil!.year}'
-                                        : 'Not set (all periods open)',
+                                        : l10n.notSetAllPeriodsOpen,
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.lock_clock),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(
                                         _accountingLockedUntil,
                                         (d) => setState(() =>
@@ -542,7 +555,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.lock_open,
                                           color: Colors.green),
-                                      tooltip: 'Unlock all periods',
+                                      tooltip: l10n.unlockAllPeriods,
                                       onPressed: () => setState(
                                           () => _accountingLockedUntil = null),
                                     ),
@@ -554,13 +567,13 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                     child: Text(
                                       _accountingLockedUntil != null
                                           ? '${_accountingLockedUntil!.day}.${_accountingLockedUntil!.month}.${_accountingLockedUntil!.year}'
-                                          : 'Not set (all periods open)',
+                                          : l10n.notSetAllPeriodsOpen,
                                       style: const TextStyle(fontSize: 16),
                                     ),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.lock_clock),
-                                    label: const Text('Pick'),
+                                    label: Text(l10n.pickDate),
                                     onPressed: () => _pickDate(
                                         _accountingLockedUntil,
                                         (d) => setState(() =>
@@ -570,7 +583,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.lock_open,
                                           color: Colors.green),
-                                      tooltip: 'Unlock all periods',
+                                      tooltip: l10n.unlockAllPeriods,
                                       onPressed: () => setState(
                                           () => _accountingLockedUntil = null),
                                     ),
@@ -582,7 +595,7 @@ class _BillingLocksScreenState extends State<BillingLocksScreen> {
                 ),
                 const SizedBox(height: 24),
                 // --- Company ID info ---
-                Text('Company: $_companyId',
+                Text(l10n.companyIdLabel(_companyId ?? ''),
                     style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),

@@ -3,10 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../models/invoice.dart';
 import '../services/firestore_paths.dart';
+import '../l10n/app_localizations.dart';
+import '../utils/document_type_labels.dart';
 
-/// Экран просмотра инвойса по deep-link URL.
-/// Загружает документ из Firestore по companyId + docId.
-/// Ожидает инициализации Firebase Auth перед запросом.
+/// Invoice viewer opened via deep-link URL.
 class InvoiceDeepLinkViewer extends StatefulWidget {
   final String companyId;
   final String docId;
@@ -37,7 +37,6 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
 
   Future<Invoice?> _loadInvoice() async {
     try {
-      // Wait for Firebase Auth to restore session (up to 10s)
       var user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         debugPrint('[DeepLink] Auth not ready, waiting...');
@@ -48,7 +47,10 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
       }
       if (user == null) {
         debugPrint('[DeepLink] User not authenticated');
-        setState(() => _errorMessage = 'יש להתחבר למערכת תחילה');
+        if (mounted) {
+          setState(() => _errorMessage =
+              AppLocalizations.of(context)!.loginRequiredFirst);
+        }
         return null;
       }
       debugPrint('[DeepLink] Auth OK: ${user.uid}');
@@ -69,13 +71,17 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
       if (doc.exists) {
         return Invoice.fromMap(doc.data()!, doc.id);
       } else {
-        setState(() => _errorMessage = 'מסמך לא נמצא בנתיב: $path');
+        if (mounted) {
+          setState(() => _errorMessage =
+              AppLocalizations.of(context)!.documentNotFoundAtPath(path));
+        }
       }
     } catch (e, st) {
       debugPrint('[DeepLink] ERROR: $e');
       debugPrint('[DeepLink] Stack: $st');
       if (mounted) {
-        setState(() => _errorMessage = 'שגיאה: $e');
+        setState(() => _errorMessage =
+            AppLocalizations.of(context)!.errorWithMessage(e.toString()));
       }
     }
     return null;
@@ -86,9 +92,10 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
     return FutureBuilder<Invoice?>(
       future: _future,
       builder: (context, snapshot) {
+        final l10n = AppLocalizations.of(context)!;
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
-            appBar: AppBar(title: const Text('טוען מסמך...')),
+            appBar: AppBar(title: Text(l10n.loadingDocument)),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -106,8 +113,6 @@ class _InvoiceDeepLinkViewerState extends State<InvoiceDeepLinkViewer> {
   }
 }
 
-// ── Not Found ──────────────────────────────────────────────────────────────
-
 class _NotFoundScreen extends StatelessWidget {
   final String docId;
   final String companyId;
@@ -120,20 +125,22 @@ class _NotFoundScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('מסמך לא נמצא')),
+      appBar: AppBar(title: Text(l10n.documentNotFound)),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text(errorMessage ?? 'המסמך לא נמצא או שאין גישה',
+            Text(errorMessage ?? l10n.documentNotFoundOrNoAccess,
                 style: const TextStyle(fontSize: 18),
                 textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text('Doc ID: $docId', style: const TextStyle(color: Colors.grey)),
-            Text('Company: $companyId',
+            Text(l10n.docIdLabel(docId),
+                style: const TextStyle(color: Colors.grey)),
+            Text(l10n.companyLabelColon(companyId),
                 style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -145,7 +152,7 @@ class _NotFoundScreen extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.arrow_back),
-              label: const Text('חזרה'),
+              label: Text(l10n.goBack),
             ),
           ],
         ),
@@ -154,20 +161,19 @@ class _NotFoundScreen extends StatelessWidget {
   }
 }
 
-// ── Detail Screen ──────────────────────────────────────────────────────────
-
 class _DetailScreen extends StatelessWidget {
   final Invoice invoice;
   const _DetailScreen({required this.invoice});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final fmt = DateFormat('dd/MM/yyyy');
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '${_docTypeLabel(invoice.documentType)} #${invoice.sequentialNumber}'),
+            '${invoiceDocTypeLabel(l10n, invoice.documentType)} #${invoice.sequentialNumber}'),
       ),
       body: Directionality(
         textDirection: TextDirection.rtl,
@@ -176,13 +182,13 @@ class _DetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _headerCard(theme, fmt),
+              _headerCard(l10n, theme, fmt),
               const SizedBox(height: 16),
-              _itemsCard(theme),
+              _itemsCard(l10n, theme),
               const SizedBox(height: 16),
-              _totalsCard(theme),
+              _totalsCard(l10n, theme),
               if (invoice.status == InvoiceStatus.cancelled)
-                _cancelledCard(theme, fmt),
+                _cancelledCard(l10n, theme, fmt),
             ],
           ),
         ),
@@ -190,7 +196,7 @@ class _DetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _headerCard(ThemeData theme, DateFormat fmt) {
+  Widget _headerCard(AppLocalizations l10n, ThemeData theme, DateFormat fmt) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -201,7 +207,7 @@ class _DetailScreen extends StatelessWidget {
               Icon(Icons.receipt_long, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(_docTypeLabel(invoice.documentType),
+                child: Text(invoiceDocTypeLabel(l10n, invoice.documentType),
                     style: theme.textTheme.titleLarge),
               ),
               Container(
@@ -212,7 +218,7 @@ class _DetailScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  _statusLabel(invoice.status),
+                  _statusLabel(l10n, invoice.status),
                   style: TextStyle(
                     color: _statusColor(invoice.status),
                     fontWeight: FontWeight.bold,
@@ -221,45 +227,45 @@ class _DetailScreen extends StatelessWidget {
               ),
             ]),
             const Divider(height: 24),
-            _kv('מספר מסמך', '#${invoice.sequentialNumber}'),
-            _kv('לקוח', invoice.clientName),
-            _kv('מספר לקוח', invoice.clientNumber),
-            _kv('כתובת', invoice.address),
-            _kv('נהג', invoice.driverName),
-            _kv('משאית', invoice.truckNumber),
-            _kv('תאריך אספקה', fmt.format(invoice.deliveryDate)),
-            _kv('נוצר', fmt.format(invoice.createdAt)),
-            _kv('נוצר על ידי', invoice.createdBy),
+            _kv(l10n.documentNumberLabel, '#${invoice.sequentialNumber}'),
+            _kv(l10n.clientKvLabel, invoice.clientName),
+            _kv(l10n.clientNumber, invoice.clientNumber),
+            _kv(l10n.addressKvLabel, invoice.address),
+            _kv(l10n.driverKvLabel, invoice.driverName),
+            _kv(l10n.truckKvLabel, invoice.truckNumber),
+            _kv(l10n.deliveryDateKvLabel, fmt.format(invoice.deliveryDate)),
+            _kv(l10n.createdAtLabel, fmt.format(invoice.createdAt)),
+            _kv(l10n.createdByLabel, invoice.createdBy),
             if (invoice.paymentMethod != null)
-              _kv('אופן תשלום', invoice.paymentMethod!),
+              _kv(l10n.paymentMethodLabel, invoice.paymentMethod!),
             if (invoice.assignmentNumber != null)
-              _kv('מספר הקצאה', invoice.assignmentNumber!),
+              _kv(l10n.assignmentNumberLabel, invoice.assignmentNumber!),
           ],
         ),
       ),
     );
   }
 
-  Widget _itemsCard(ThemeData theme) {
+  Widget _itemsCard(AppLocalizations l10n, ThemeData theme) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('פריטים', style: theme.textTheme.titleMedium),
+            Text(l10n.itemsTitle, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columnSpacing: 16,
-                columns: const [
-                  DataColumn(label: Text('מק"ט')),
-                  DataColumn(label: Text('סוג')),
-                  DataColumn(label: Text('מספר')),
-                  DataColumn(label: Text('כמות')),
-                  DataColumn(label: Text('מחיר')),
-                  DataColumn(label: Text('סה"כ')),
+                columns: [
+                  DataColumn(label: Text(l10n.skuColumn)),
+                  DataColumn(label: Text(l10n.typeColumn)),
+                  DataColumn(label: Text(l10n.numberColumn)),
+                  DataColumn(label: Text(l10n.quantityColumn)),
+                  DataColumn(label: Text(l10n.priceColumn)),
+                  DataColumn(label: Text(l10n.totalColumn)),
                 ],
                 rows: invoice.items
                     .map((item) => DataRow(cells: [
@@ -281,23 +287,24 @@ class _DetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _totalsCard(ThemeData theme) {
+  Widget _totalsCard(AppLocalizations l10n, ThemeData theme) {
     return Card(
       color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(children: [
-          _sumRow('סה"כ לפני הנחה',
+          _sumRow(l10n.totalBeforeDiscountLabel,
               '₪${invoice.totalBeforeDiscount.toStringAsFixed(2)}'),
           if (invoice.discount > 0)
-            _sumRow('הנחה (${invoice.discount}%)',
+            _sumRow(l10n.discountPercentLabel(invoice.discount.round()),
                 '-₪${invoice.discountAmount.toStringAsFixed(2)}'),
-          _sumRow(
-              'לפני מע"מ', '₪${invoice.subtotalBeforeVAT.toStringAsFixed(2)}'),
-          _sumRow('מע"מ (18%)', '₪${invoice.vatAmount.toStringAsFixed(2)}'),
+          _sumRow(l10n.netBeforeVat,
+              '₪${invoice.subtotalBeforeVAT.toStringAsFixed(2)}'),
+          _sumRow(l10n.vat18Label,
+              '₪${invoice.vatAmount.toStringAsFixed(2)}'),
           const Divider(),
           _sumRow(
-            'סה"כ לתשלום',
+            l10n.totalToPay,
             '₪${invoice.totalWithVAT.toStringAsFixed(2)}',
             bold: true,
             fontSize: 20,
@@ -307,7 +314,8 @@ class _DetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _cancelledCard(ThemeData theme, DateFormat fmt) {
+  Widget _cancelledCard(
+      AppLocalizations l10n, ThemeData theme, DateFormat fmt) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Card(
@@ -320,25 +328,27 @@ class _DetailScreen extends StatelessWidget {
               Row(children: [
                 const Icon(Icons.cancel, color: Colors.red),
                 const SizedBox(width: 8),
-                Text('פרטי ביטול',
+                Text(l10n.cancellationDetailsTitle,
                     style: theme.textTheme.titleMedium
                         ?.copyWith(color: Colors.red)),
               ]),
               const SizedBox(height: 8),
               if (invoice.cancelledBy != null)
-                _kv('בוטל על ידי', invoice.cancelledBy!),
+                _kv(l10n.cancelledByLabel, invoice.cancelledBy!),
               if (invoice.cancelledAt != null)
-                _kv('תאריך ביטול', fmt.format(invoice.cancelledAt!)),
+                _kv(l10n.cancellationDateLabel,
+                    fmt.format(invoice.cancelledAt!)),
               if (invoice.cancellationReason != null)
-                _kv('סיבה', invoice.cancellationReason!),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(l10n.reasonLabel(invoice.cancellationReason!)),
+                ),
             ],
           ),
         ),
       ),
     );
   }
-
-  // ── helpers ──
 
   static Widget _kv(String label, String value) {
     return Padding(
@@ -375,33 +385,18 @@ class _DetailScreen extends StatelessWidget {
     );
   }
 
-  static String _docTypeLabel(InvoiceDocumentType type) {
-    switch (type) {
-      case InvoiceDocumentType.invoice:
-        return 'חשבונית מס';
-      case InvoiceDocumentType.taxInvoiceReceipt:
-        return 'חשבונית מס / קבלה';
-      case InvoiceDocumentType.delivery:
-        return 'תעודת משלוח';
-      case InvoiceDocumentType.creditNote:
-        return 'זיכוי';
-      case InvoiceDocumentType.receipt:
-        return 'קבלה';
-    }
-  }
-
-  static String _statusLabel(InvoiceStatus status) {
+  static String _statusLabel(AppLocalizations l10n, InvoiceStatus status) {
     switch (status) {
       case InvoiceStatus.active:
-        return 'פעיל';
+        return l10n.statusActive;
       case InvoiceStatus.cancelled:
-        return 'מבוטל';
+        return l10n.billingStatusCancelled;
       case InvoiceStatus.draft:
-        return 'טיוטה';
+        return l10n.draftStatus;
       case InvoiceStatus.issued:
-        return 'הונפק';
+        return l10n.issuedStatus;
       case InvoiceStatus.voided:
-        return 'בוטל';
+        return l10n.voidedStatus;
     }
   }
 

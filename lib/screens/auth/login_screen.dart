@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../utils/validation_helper.dart';
+import '../../utils/auth_error_messages.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,8 +39,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final authService = context.read<AuthService>();
     final l10n = AppLocalizations.of(context)!;
+    final email = _emailController.text.trim().toLowerCase();
+    if (email.endsWith('.con')) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.emailTypoCon)),
+      );
+      return;
+    }
+
+    final authService = context.read<AuthService>();
 
     try {
       debugPrint(
@@ -52,33 +64,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (error != null) {
-        String message;
-        switch (error) {
-          case 'wrong-password':
-          case 'user-not-found':
-          case 'invalid-credential':
-            message = l10n.invalidLoginCredentials;
-            break;
-          case 'too-many-requests':
-            message = l10n.tooManyRequests;
-            break;
-          case 'invalid-email':
-            message = l10n.invalidEmail;
-            break;
-          case 'api-key-not-valid':
-            message = l10n.mapViewRequiresApi;
-            break;
-          default:
-            message = '${l10n.error}: $error';
-        }
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AuthErrorMessages.message(l10n, error)),
+          ),
+        );
       }
     } on TimeoutException {
       debugPrint('❌ LOGIN: TIMEOUT (signIn took > 20s)');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l10n.error}: Login timeout (20s)')),
+          SnackBar(content: Text('${l10n.error}: ${l10n.loginTimeout}')),
         );
       }
     } catch (e, st) {
@@ -99,24 +95,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: Colors.blue.shade50,
       appBar: AppBar(
         title: Text(l10n.appTitle),
-        backgroundColor: Colors.blue,
-        elevation: 4,
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
+              border: Border.all(color: AppTheme.border),
               borderRadius: BorderRadius.circular(20),
-              color: Colors.white,
+              color: AppTheme.surfaceHi,
             ),
             child: DropdownButton<String>(
               value: context.watch<LocaleService>().locale.languageCode,
               underline: const SizedBox(),
-              icon: const Icon(Icons.language, size: 16),
+              icon: Icon(Icons.language, size: 16),
               items: const [
                 DropdownMenuItem(
                     value: 'he',
@@ -142,13 +135,14 @@ class _LoginScreenState extends State<LoginScreen> {
           constraints: const BoxConstraints(maxWidth: 400),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withValues(alpha: 0.1),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
@@ -159,14 +153,14 @@ class _LoginScreenState extends State<LoginScreen> {
               Image.asset('assets/logo.png', width: 90, height: 90),
               const SizedBox(height: 12),
               RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   children: [
                     TextSpan(
                       text: 'LOGI',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w300,
-                        color: Color(0xFF1565C0),
+                        color: AppTheme.accentSoft,
                         letterSpacing: 4,
                       ),
                     ),
@@ -175,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1565C0),
+                        color: AppTheme.accentSoft,
                         letterSpacing: 4,
                       ),
                     ),
@@ -185,38 +179,20 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 28),
               TextField(
                 controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: l10n.email,
-                  labelStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
-                style: const TextStyle(
+                decoration: InputDecoration(labelText: l10n.email),
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: l10n.password,
-                  labelStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
-                style: const TextStyle(
+                decoration: InputDecoration(labelText: l10n.password),
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
                 ),
                 obscureText: true,
               ),
@@ -227,37 +203,49 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _isLoading
                       ? null
                       : () async {
-                          final email = _emailController.text.trim();
+                          final email = _emailController.text.trim().toLowerCase();
                           if (email.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(l10n.email)),
                             );
                             return;
                           }
+                          if (!ValidationHelper.isValidEmail(email)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(l10n.invalidEmail)),
+                            );
+                            return;
+                          }
+                          if (email.endsWith('@google.com')) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(l10n.emailTypoGmail)),
+                            );
+                            return;
+                          }
+                          if (email.endsWith('.con')) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(l10n.emailTypoCon)),
+                            );
+                            return;
+                          }
                           setState(() => _isLoading = true);
                           final authService = context.read<AuthService>();
                           final messenger = ScaffoldMessenger.of(context);
-                          final error =
-                              await authService.sendPasswordResetEmail(email);
+                          final error = await authService.sendPasswordResetEmail(
+                            email,
+                            languageCode: context
+                                .read<LocaleService>()
+                                .locale
+                                .languageCode,
+                          );
                           setState(() => _isLoading = false);
-                          String message;
-                          if (error == null) {
-                            message = l10n.passwordResetEmailSent;
-                          } else {
-                            switch (error) {
-                              case 'user-not-found':
-                                message = l10n.invalidEmail;
-                                break;
-                              case 'invalid-email':
-                                message = l10n.invalidEmail;
-                                break;
-                              case 'api-key-not-valid':
-                                message = l10n.mapViewRequiresApi;
-                                break;
-                              default:
-                                message = '${l10n.error}: $error';
-                            }
-                          }
+                          final message = error == null
+                              ? l10n.passwordResetEmailSent
+                              : AuthErrorMessages.message(
+                                  l10n,
+                                  error,
+                                  passwordReset: true,
+                                );
                           messenger.showSnackBar(
                             SnackBar(content: Text(message)),
                           );
@@ -270,10 +258,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 16),
+                    textStyle: TextStyle(fontSize: 16),
                   ),
                   onPressed: _isLoading ? null : _signIn,
                   child: _isLoading

@@ -15,6 +15,9 @@ class ApiConfigService {
     }
   }
 
+  /// Web Push VAPID (Firebase Console → Cloud Messaging → Web Push certificates)
+  static String get fcmVapidKey => dotenv.env['FCM_VAPID_KEY'] ?? '';
+
   // OSRM: все URL маршрутизации — [ApiConstants] (osrmBaseUrl / osrmRouteUrl / fallback).
   // Переменные окружения: OSRM_HOST, OSRM_FALLBACK_HOST или OSRM_BASE_URL (legacy, origin).
 

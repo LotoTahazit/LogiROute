@@ -232,6 +232,44 @@ class AppLocalizationsRu extends AppLocalizations {
   String get invalidLoginCredentials => 'Неверный email или пароль';
 
   @override
+  String get authUserNotFound => 'Пользователь с таким email не найден';
+
+  @override
+  String get authUserDisabled =>
+      'Аккаунт отключён. Обратитесь к администратору';
+
+  @override
+  String get authNetworkError => 'Нет связи с сервером. Проверьте интернет';
+
+  @override
+  String get authOperationNotAllowed =>
+      'Вход по email отключён в настройках проекта';
+
+  @override
+  String get authInvalidApiKey =>
+      'Ошибка конфигурации приложения (API key). Обратитесь к администратору';
+
+  @override
+  String get authAppNotAuthorized =>
+      'Android не авторизован в Firebase. Добавьте SHA-1 release-ключа в Firebase Console → Project settings → Android app';
+
+  @override
+  String get authInternalError =>
+      'Ошибка сервера авторизации. Попробуйте позже';
+
+  @override
+  String get authProfileNotFound =>
+      'Профиль не найден или не настроен. Обратитесь к администратору';
+
+  @override
+  String get authUnknownError =>
+      'Не удалось выполнить вход. Проверьте данные или попробуйте позже';
+
+  @override
+  String get authPasswordResetFailed =>
+      'Не удалось отправить письмо для сброса пароля. Проверьте email или обратитесь к администратору';
+
+  @override
   String get tooManyRequests => 'Слишком много попыток. Попробуйте позже';
 
   @override
@@ -280,6 +318,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get english => 'Английский';
 
   @override
+  String get themeLight => 'Светлая тема';
+
+  @override
+  String get themeDark => 'Тёмная тема';
+
+  @override
+  String get themeSystem => 'Как в системе';
+
+  @override
   String get capacity => 'Вместимость';
 
   @override
@@ -292,6 +339,39 @@ class AppLocalizationsRu extends AppLocalizations {
   String get save => 'Сохранить';
 
   @override
+  String get deliveryWindowTitle => 'Окно доставки';
+
+  @override
+  String get deliveryWindowFrom => 'С';
+
+  @override
+  String get deliveryWindowTo => 'По';
+
+  @override
+  String get deliveryWindowNotSet => 'Не задано';
+
+  @override
+  String get deliveryWindowClear => 'Очистить окно';
+
+  @override
+  String routeLateBy(int minutes) {
+    return 'Опоздание $minutes мин';
+  }
+
+  @override
+  String get routeOnTime => 'Успевает';
+
+  @override
+  String get requirePodPhoto => 'Требовать фото доставки (POD)';
+
+  @override
+  String get requirePodPhotoHint =>
+      'Скрывает закрытие в один тап и отключает автозакрытие — на каждую доставку нужно фото.';
+
+  @override
+  String get deliverySection => 'Доставка';
+
+  @override
   String get pointDone => 'Точка выполнена';
 
   @override
@@ -299,6 +379,45 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get pointCompleted => 'Точка завершена';
+
+  @override
+  String get autoCloseToggle => 'Авто';
+
+  @override
+  String get closeWithPhoto => 'Закрыть с фото';
+
+  @override
+  String get autoCloseUndoMessage => 'Точка закрыта автоматически';
+
+  @override
+  String get undo => 'Отменить';
+
+  @override
+  String get podTitle => 'Подтверждение доставки';
+
+  @override
+  String get podTakePhoto => 'Сделать фото';
+
+  @override
+  String get podRetake => 'Переснять';
+
+  @override
+  String get podConfirm => 'Подтвердить доставку';
+
+  @override
+  String get podGps => 'Ваш GPS';
+
+  @override
+  String get podTime => 'Время';
+
+  @override
+  String get podDistance => 'До клиента';
+
+  @override
+  String get podPhotoRequired => 'Нужно фото доставки';
+
+  @override
+  String get podGpsUnavailable => 'GPS недоступен — включите геолокацию';
 
   @override
   String get next => 'Далее';
@@ -466,7 +585,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeCopiedToClipboard => 'Маршрут скопирован в буфер обмена';
 
   @override
-  String get printError => 'Ошибка печати';
+  String printError(String error) {
+    return '❌ Ошибка печати: $error';
+  }
 
   @override
   String get no => 'Нет';
@@ -609,7 +730,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get forgotPassword => 'Забыли пароль?';
 
   @override
-  String get passwordResetEmailSent => 'Письмо для сброса пароля отправлено';
+  String get passwordResetEmailSent =>
+      'Если email зарегистрирован, проверьте почту и спам — там будет ссылка для сброса';
+
+  @override
+  String get resetPasswordTitle => 'Новый пароль';
+
+  @override
+  String get resetPasswordHint => 'Введите новый пароль для вашего аккаунта';
+
+  @override
+  String get newPasswordLabel => 'Новый пароль';
+
+  @override
+  String get confirmPasswordLabel => 'Подтвердите пароль';
+
+  @override
+  String get saveNewPassword => 'Сохранить пароль';
+
+  @override
+  String get passwordResetSuccess => 'Пароль изменён. Войдите с новым паролем';
+
+  @override
+  String get passwordsDoNotMatch => 'Пароли не совпадают';
+
+  @override
+  String get invalidResetLink =>
+      'Ссылка для сброса недействительна. Запросите новую на экране входа';
+
+  @override
+  String get emailTypoGmail =>
+      'Вы имели в виду @gmail.com? @google.com — не почтовый домен';
+
+  @override
+  String get emailTypoCon => 'Опечатка в домене: .con вместо .com?';
 
   @override
   String get companyId => 'Компания';
@@ -1308,10 +1462,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get companyDetails => 'Данные компании';
 
   @override
-  String get companyNameHebrew => 'Название компании (иврит)';
+  String get companyNameHebrew => 'Название (иврит)';
 
   @override
-  String get companyNameEnglish => 'Название компании (английский)';
+  String get companyNameEnglish => 'Название (англ., необязательно)';
 
   @override
   String get taxId => 'ИНН';
@@ -2090,6 +2244,181 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mapBannerPreviousRouteShown => 'Показан предыдущий маршрут';
 
   @override
+  String get mapDemoRoutesBuilt => 'Построено 3 оптимальных маршрута';
+
+  @override
+  String get mapDemoWarehouseCreatedDeliveries =>
+      'Склад сформировал 12 доставок';
+
+  @override
+  String get mapDemoTruckLoading => 'Погрузка: 12 доставок загружено со склада';
+
+  @override
+  String get mapDemoTasksSentToDrivers => 'Задания отправлены водителям';
+
+  @override
+  String get mapDemoActiveDriver => 'Активный водитель';
+
+  @override
+  String get mapDemoDirectionToWarehouse => 'На склад';
+
+  @override
+  String get mapDemoDirectionUnknown => 'Неизвестно';
+
+  @override
+  String mapDemoDirectionLabel(String direction) {
+    return 'Направление: $direction';
+  }
+
+  @override
+  String mapDemoEtaMinutes(int minutes) {
+    return 'ETA: ~$minutes мин';
+  }
+
+  @override
+  String get mapDemoStage1Title => 'Заказ получен';
+
+  @override
+  String get mapDemoStage1Desc =>
+      'Клиент отправляет заявку на доставку диспетчеру.';
+
+  @override
+  String get mapDemoStage2Title => 'Отправка на склад';
+
+  @override
+  String get mapDemoStage2Desc =>
+      'Диспетчер передаёт заказ на склад для комплектации.';
+
+  @override
+  String get mapDemoStage3Title => 'Подготовка на складе';
+
+  @override
+  String get mapDemoStage3Desc =>
+      'Сотрудники собирают товар и формируют паллеты.';
+
+  @override
+  String get mapDemoStage4Title => 'Маршрут создан';
+
+  @override
+  String get mapDemoStage4Desc =>
+      'Диспетчер строит оптимальный маршрут со всеми точками.';
+
+  @override
+  String get mapDemoStage5Title => 'Погрузка в машину';
+
+  @override
+  String get mapDemoStage5Desc => 'Паллеты загружаются на машину водителя.';
+
+  @override
+  String get mapDemoStage6Title => 'Водитель в пути';
+
+  @override
+  String get mapDemoStage6Desc =>
+      'Водитель едет по маршруту — на карте видны улицы.';
+
+  @override
+  String get mapDemoStage7Title => 'Разгрузка и доставка';
+
+  @override
+  String get mapDemoStage7Desc =>
+      'На каждой точке разгрузка; точка автоматически отмечается выполненной.';
+
+  @override
+  String get mapDemoStage8Title => 'Возврат на склад';
+
+  @override
+  String get mapDemoStage8Desc =>
+      'Водитель завершает маршрут и возвращается на базу.';
+
+  @override
+  String get mapDemoStageCompleteTitle => 'Симуляция завершена';
+
+  @override
+  String get mapDemoStageCompleteDesc =>
+      'Полный цикл доставки успешно выполнен.';
+
+  @override
+  String mapDemoStopLabel(int number) {
+    return 'Точка $number';
+  }
+
+  @override
+  String mapDemoDeliveringAt(String stop) {
+    return 'Разгрузка: $stop';
+  }
+
+  @override
+  String get mapDemoReplay => 'Повторить симуляцию';
+
+  @override
+  String get mapDemoLiveBadge => 'LIVE';
+
+  @override
+  String get mapDemoKpiMileage => 'пробег';
+
+  @override
+  String get mapDemoKpiEtaAccuracy => 'точность ETA';
+
+  @override
+  String get mapDemoKpiCalls => 'звонков';
+
+  @override
+  String get mapDemoKpiDelivered => 'доставлено';
+
+  @override
+  String get mapDemoKpiEnroute => 'в пути';
+
+  @override
+  String get mapDemoKpiDistance => 'маршрут';
+
+  @override
+  String get mapDemoKpiLate => 'опозданий';
+
+  @override
+  String get mapDemoEtaAccuracyValue => '±3 мин';
+
+  @override
+  String get mapDemoFinishSubtitle => 'Диспетчер видел всё в реальном времени';
+
+  @override
+  String get mapDemoFinishNote =>
+      'Ни одного звонка водителю «ты где?» за весь маршрут';
+
+  @override
+  String mapDemoMinutesShort(int minutes) {
+    return '~$minutes мин';
+  }
+
+  @override
+  String mapDemoKmShort(String km) {
+    return '$km км';
+  }
+
+  @override
+  String get mapDemoStepShort1 => 'Заказ';
+
+  @override
+  String get mapDemoStepShort2 => 'Склад';
+
+  @override
+  String get mapDemoStepShort3 => 'Сборка';
+
+  @override
+  String get mapDemoStepShort4 => 'Маршрут';
+
+  @override
+  String get mapDemoStepShort5 => 'Погрузка';
+
+  @override
+  String get mapDemoStepShort6 => 'В пути';
+
+  @override
+  String get mapDemoStepShort7 => 'Доставка';
+
+  @override
+  String get mapDemoStepShort8 => 'Возврат';
+
+  @override
   String get billingGuardAccessSuspendedTitle => 'Доступ приостановлен';
 
   @override
@@ -2231,6 +2560,29 @@ class AppLocalizationsRu extends AppLocalizations {
   String get billingDashboardRunIntegrityTooltip => 'Проверка целостности';
 
   @override
+  String get billingDashboardSeedPricingTooltip =>
+      'Загрузить тарифы в Firestore';
+
+  @override
+  String get billingDashboardSeedPricingTitle =>
+      'Обновить config/billing_pricing?';
+
+  @override
+  String get billingDashboardSeedPricingBody =>
+      'Записывает текущую сетку тарифов (logistics, warehouse, ops, full) в Firestore config/billing_pricing. Checkout сразу начнёт использовать эти цены.';
+
+  @override
+  String get billingDashboardSeedPricingButton => 'Загрузить';
+
+  @override
+  String get billingDashboardSeedPricingRunning => 'Загрузка тарифов…';
+
+  @override
+  String billingDashboardSeedPricingDone(String plans) {
+    return 'Тарифы обновлены: $plans';
+  }
+
+  @override
   String billingDashboardExtendSuccess(String companyName, String date) {
     return '$companyName: продлено до $date';
   }
@@ -2288,36 +2640,166 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get dispatcherTourStep1 =>
-      'Точки доставки: добавляете клиента и товары к заказу — здесь формируется заказ до маршрута.';
+  String get dispatcherTourStopTooltip => 'Закрыть презентацию';
 
   @override
-  String get dispatcherTourStep2 =>
-      'В каждой точке: товары и количества; можно править до построения маршрута.';
-
-  @override
-  String get dispatcherTourStep3 =>
-      'Когда товары готовы — переходите на вкладку «Активные маршруты» и назначьте водителя.';
-
-  @override
-  String get dispatcherTourStep4 =>
-      'Активные маршруты: водитель, порядок остановок и маршрут на карте.';
-
-  @override
-  String get dispatcherTourStep5 =>
-      'После построения маршрута задания попадают водителю в приложение; переключайтесь на карту.';
-
-  @override
-  String get dispatcherTourStopTooltip => 'Остановить демо-тур';
-
-  @override
-  String get dispatcherTourStartTooltip =>
-      'Демо-тур: заказ → маршрут → водитель';
+  String get dispatcherTourStartTooltip => 'Презентация LogiRoute';
 
   @override
   String dispatcherTourProgress(int current, int total) {
     return '$current/$total';
   }
+
+  @override
+  String get salesDemoSkip => 'Пропустить';
+
+  @override
+  String get salesDemoNext => 'Далее';
+
+  @override
+  String get salesDemoBack => 'Назад';
+
+  @override
+  String get salesDemoGetStarted => 'Начать';
+
+  @override
+  String get salesDemoSeeLiveDemo => 'Живое демо';
+
+  @override
+  String get salesDemoBrandTagline => 'Платформа логистики под ключ';
+
+  @override
+  String get salesDemoSlide1Title => 'Логистика не должна быть хаосом';
+
+  @override
+  String get salesDemoSlide1Subtitle =>
+      'Ручные маршруты, срывы доставок и разрозненные команды отнимают время и деньги каждый день.';
+
+  @override
+  String get salesDemoSlide1Benefit1 => 'Часы уходят на таблицы и звонки';
+
+  @override
+  String get salesDemoSlide1Benefit2 =>
+      'Нет видимости автопарка в реальном времени';
+
+  @override
+  String get salesDemoSlide1Benefit3 => 'Счета и доставки не совпадают';
+
+  @override
+  String get salesDemoSlide2Title => 'Знакомьтесь — LogiRoute';
+
+  @override
+  String get salesDemoSlide2Subtitle =>
+      'Одна платформа для склада, диспетчеризации, водителей и биллинга — готова к росту.';
+
+  @override
+  String get salesDemoSlide2Benefit1 => 'От заказа до счёта в одном потоке';
+
+  @override
+  String get salesDemoSlide2Benefit2 =>
+      'Веб и мобильные — команда всегда на связи';
+
+  @override
+  String get salesDemoSlide2Benefit3 => 'Создано для реальной диспетчеризации';
+
+  @override
+  String get salesDemoPersonaAdmin => 'Админ';
+
+  @override
+  String get salesDemoPersonaDispatcher => 'Диспетчер';
+
+  @override
+  String get salesDemoPersonaDriver => 'Водитель';
+
+  @override
+  String get salesDemoPersonaAdminDesc =>
+      'Полный контроль: компании, пользователи, биллинг и аналитика в одной панели.';
+
+  @override
+  String get salesDemoPersonaDispatcherDesc =>
+      'Стройте маршруты, назначайте водителей и отслеживайте каждую доставку на карте.';
+
+  @override
+  String get salesDemoPersonaDriverDesc =>
+      'Чёткие задания, порядок остановок и мгновенные статусы с дороги.';
+
+  @override
+  String get salesDemoSlide3Title => 'Умная маршрутизация';
+
+  @override
+  String get salesDemoSlide3Subtitle =>
+      'Оптимальные маршруты за минуты — не за часы.';
+
+  @override
+  String get salesDemoSlide3Benefit1 => 'Автоматическая оптимизация маршрутов';
+
+  @override
+  String get salesDemoSlide3Benefit2 => 'Назначение водителей перетаскиванием';
+
+  @override
+  String get salesDemoSlide3Benefit3 => 'Живая карта всех активных доставок';
+
+  @override
+  String get salesDemoSlide4Title => 'Приложение водителя и трекинг';
+
+  @override
+  String get salesDemoSlide4Subtitle =>
+      'Каждый водитель знает маршрут — вы видите прогресс в реальном времени.';
+
+  @override
+  String get salesDemoSlide4Benefit1 => 'Задания мгновенно на телефон водителя';
+
+  @override
+  String get salesDemoSlide4Benefit2 => 'GPS-трекинг на интерактивной карте';
+
+  @override
+  String get salesDemoSlide4Benefit3 => 'Меньше звонков, быстрее доставки';
+
+  @override
+  String get salesDemoSlide5Title => 'От склада до счёта';
+
+  @override
+  String get salesDemoSlide5Subtitle =>
+      'Полный жизненный цикл заказа — ничего не теряется.';
+
+  @override
+  String get salesDemoSlide5Benefit1 => 'Складские процессы сборки и погрузки';
+
+  @override
+  String get salesDemoSlide5Benefit2 => 'Счета привязаны к каждой доставке';
+
+  @override
+  String get salesDemoSlide5Benefit3 => 'Полный аудит по каждому заказу';
+
+  @override
+  String get salesDemoLifecycleOrder => 'Заказ';
+
+  @override
+  String get salesDemoLifecycleDispatch => 'Диспетчер';
+
+  @override
+  String get salesDemoLifecycleDelivery => 'Доставка';
+
+  @override
+  String get salesDemoLifecycleInvoice => 'Счёт';
+
+  @override
+  String get salesDemoSlide6Title => 'Корпоративный уровень';
+
+  @override
+  String get salesDemoSlide6Subtitle =>
+      'Профессионально, безопасно и готово к росту вашей доставки.';
+
+  @override
+  String get salesDemoSlide6Benefit1 => 'Ролевой доступ для каждого сотрудника';
+
+  @override
+  String get salesDemoSlide6Benefit2 =>
+      'Английский, русский и иврит из коробки';
+
+  @override
+  String get salesDemoSlide6Benefit3 =>
+      'Доверие диспетчерских команд каждый день';
 
   @override
   String dispatcherSkippedInvoicesMakor(int count) {
@@ -2697,6 +3179,78 @@ class AppLocalizationsRu extends AppLocalizations {
   String reasonLabel(String reason) {
     return 'Причина: $reason';
   }
+
+  @override
+  String get integrityCheckExplain =>
+      'Проверяет криптоцепочку нумерации документов. Документы, созданные до внедрения цепочки, автоматически пропускаются — это не ошибка.';
+
+  @override
+  String get integrityLegacyOnly =>
+      'Записей цепочки нет: все документы этого типа созданы до внедрения проверки. Новые документы будут проверяться нормально.';
+
+  @override
+  String integrityLegacySkipped(int from, int to) {
+    return 'Пропущены старые номера #$from–#$to (до первой записи в цепочке)';
+  }
+
+  @override
+  String integrityCheckedFrom(int from, int to) {
+    return 'Фактическая проверка: с #$from по #$to';
+  }
+
+  @override
+  String get integrityReasonMissingEntry => 'Запись в цепочке отсутствует';
+
+  @override
+  String get integrityReasonMissingPrevForRange =>
+      'Нет предыдущего документа перед диапазоном';
+
+  @override
+  String get integrityReasonSchemaInvalid => 'Повреждённая запись цепочки';
+
+  @override
+  String get integrityReasonPrevHashMismatch =>
+      'Разрыв хеша (цепочка изменена)';
+
+  @override
+  String get integrityReasonHashMismatch => 'Хеш не совпадает';
+
+  @override
+  String integrityOkSummary(int count) {
+    return '✅ Целостность в порядке — проверено: $count';
+  }
+
+  @override
+  String integrityFailedSummary(int number) {
+    return '❌ Ошибка на документе #$number';
+  }
+
+  @override
+  String get createCompany => 'Создать компанию';
+
+  @override
+  String get createCompanyTitle => 'Новая компания';
+
+  @override
+  String get createCompanyDesc =>
+      'Создаёт компанию, настройки по умолчанию и счётчики документов. Trial — 14 дней.';
+
+  @override
+  String get companyIdSlug => 'ID компании (латиница)';
+
+  @override
+  String get companyIdSlugHint => 'acme-logistics';
+
+  @override
+  String companyCreatedSuccess(String name) {
+    return 'Компания «$name» создана';
+  }
+
+  @override
+  String get companyAlreadyExists => 'Компания с таким ID уже существует';
+
+  @override
+  String get invalidCompanyId => 'ID: лatin, цифры, дефис, 3–40 символов';
 
   @override
   String get counterInvoices => 'Налоговые накладные';
@@ -3657,6 +4211,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get planWarehouseOnly => 'Только склад';
 
   @override
+  String get planLogistics => 'Логистика';
+
+  @override
   String get planOps => 'Операции';
 
   @override
@@ -3669,6 +4226,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get planDescWarehouse => 'Только управление складом';
 
   @override
+  String get planDescLogistics => 'Логистика + диспетчер + отчёты (без склада)';
+
+  @override
   String get planDescOps => 'Склад + логистика + отчёты';
 
   @override
@@ -3676,6 +4236,91 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get planDescCustom => 'Индивидуальный тариф';
+
+  @override
+  String get accountingProviderSection => 'Бухгалтерский экспорт';
+
+  @override
+  String get accountingProviderLabel => 'Провайдер';
+
+  @override
+  String get accountingProviderNone => 'Встроенная (LogiRoute)';
+
+  @override
+  String get accountingProviderExport => 'Файловый экспорт (единый CSV)';
+
+  @override
+  String get accountingProviderGreeninvoice => 'Greeninvoice / Morning';
+
+  @override
+  String get accountingProviderIcount => 'iCount';
+
+  @override
+  String get accountingProviderHint =>
+      'Внешний провайдер ведёт налоговое соответствие и нумерацию документов.';
+
+  @override
+  String get accountingProviderConfigure => 'Настроить API-ключи';
+
+  @override
+  String get accountingProviderConfigured => 'Ключи сохранены';
+
+  @override
+  String get accountingProviderSaved => 'Настройки интеграции сохранены';
+
+  @override
+  String get accountingProviderApiKey => 'API key';
+
+  @override
+  String get accountingProviderSecret => 'Secret key';
+
+  @override
+  String get accountingProviderToken => 'API token';
+
+  @override
+  String get accountingProviderSandbox => 'Тестовый режим (sandbox)';
+
+  @override
+  String get accountingProviderSandboxHint =>
+      'API Greeninvoice sandbox (sandbox.d.greeninvoice.co.il)';
+
+  @override
+  String get accountingSyncTitle => 'Синхронизация с внешней бухгалтерией';
+
+  @override
+  String get accountingSyncStatusSynced => 'Синхронизировано';
+
+  @override
+  String get accountingSyncStatusFailed => 'Ошибка';
+
+  @override
+  String get accountingSyncStatusProcessing => 'Обработка';
+
+  @override
+  String get accountingSyncRetry => 'Повторить';
+
+  @override
+  String get accountingSyncNoEntries =>
+      'Записей синхронизации пока нет — здесь появятся выписанные счета.';
+
+  @override
+  String get accountingSyncRetried => 'Повтор синхронизации запущен';
+
+  @override
+  String accountingSyncDistribution(String number) {
+    return 'Номер распределения: $number';
+  }
+
+  @override
+  String get accountingSyncStatusPending => 'Ожидает';
+
+  @override
+  String get accountingDocSyncColumn => 'Синхронизация';
+
+  @override
+  String accountingExternalSyncFailedWith(String error) {
+    return 'Документ выпущен, синхронизация не удалась: $error';
+  }
 
   @override
   String promoMonthlyPrice(int price, int months) {
@@ -3958,6 +4603,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get mapColumnsClients => 'Сопоставление столбцов — Клиенты';
+
+  @override
+  String get mapColumnsDeliveryPoints =>
+      'Сопоставление столбцов — Точки доставки';
+
+  @override
+  String get importDeliveryPointsMenu => 'Импорт точек доставки';
+
+  @override
+  String get importDeliveryPointsTitle => 'Импорт точек доставки';
+
+  @override
+  String get loadDemoDataMenu => 'Демо-данные для видео';
+
+  @override
+  String get loadDemoDataConfirm =>
+      'Загрузить демо-сценарий доставки для 2-минутного видео?';
+
+  @override
+  String get loadDemoDataReplaceWarning =>
+      'Существующие демо-точки будут заменены.';
+
+  @override
+  String loadDemoDataSuccess(int count) {
+    return 'Демо-данные загружены ($count точек)';
+  }
 
   @override
   String importResultUpdated(int updated, int errors) {
@@ -4407,6 +5078,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get truckLabelColon => 'Грузовик:';
 
   @override
+  String get clientKvLabel => 'Клиент';
+
+  @override
+  String get addressKvLabel => 'Адрес';
+
+  @override
+  String get driverKvLabel => 'Водитель';
+
+  @override
+  String get truckKvLabel => 'Грузовик';
+
+  @override
+  String get deliveryDateKvLabel => 'Дата доставки';
+
+  @override
   String get notSpecified => 'Не указано';
 
   @override
@@ -4521,6 +5207,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get shiftSaved => 'Сохранено';
 
   @override
+  String get shiftRoutingSection => 'Параметры маршрутизации';
+
+  @override
+  String get routingAvgSpeedKmh => 'Средняя скорость (км/ч)';
+
+  @override
+  String get routingServiceMinutes => 'Время на точке (мин)';
+
+  @override
+  String get routingDeliveryDayMode => 'Дата доставки в счёте';
+
+  @override
+  String get deliveryDaySame => 'Сегодня';
+
+  @override
+  String get deliveryDayNext => 'Завтра';
+
+  @override
+  String get deliveryDayNextWorking => 'Ближайший рабочий день';
+
+  @override
   String shiftLoadError(String error) {
     return 'Ошибка загрузки: $error';
   }
@@ -4557,4 +5264,783 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get taskNoteHint => 'Забрать чек, возврат, и т.д.';
+
+  @override
+  String get adminActivityLog => 'Журнал событий';
+
+  @override
+  String get period24h => '24 часа';
+
+  @override
+  String get period48h => '48 часов';
+
+  @override
+  String get periodWeek => 'Неделя';
+
+  @override
+  String get searchActivityHint => 'Поиск по пользователю или действию...';
+
+  @override
+  String get noActivityEvents => 'Нет событий за выбранный период';
+
+  @override
+  String get auditSourceLabel => 'Бизнес-аудит';
+
+  @override
+  String get accessSourceLabel => 'Журнал доступа';
+
+  @override
+  String get accessEventLogin => 'Вход';
+
+  @override
+  String get accessEventLogout => 'Выход';
+
+  @override
+  String get accessEventViewDocument => 'Просмотр документа';
+
+  @override
+  String get accessEventPrintDocument => 'Печать документа';
+
+  @override
+  String get accessEventExportData => 'Экспорт данных';
+
+  @override
+  String get accessEventCreateDocument => 'Создание документа';
+
+  @override
+  String get accessEventCancelDocument => 'Отмена документа';
+
+  @override
+  String get accessEventViewAuditLog => 'Просмотр аудита';
+
+  @override
+  String get accessEventViewReport => 'Просмотр отчёта';
+
+  @override
+  String get accessEventAdminAction => 'Действие админа';
+
+  @override
+  String get activityCsvUser => 'Пользователь';
+
+  @override
+  String get activityCsvAction => 'Действие';
+
+  @override
+  String get activityCsvWhen => 'Когда';
+
+  @override
+  String get activityCsvSource => 'Источник';
+
+  @override
+  String errorLoadingWithDetail(String error) {
+    return 'Ошибка загрузки: $error';
+  }
+
+  @override
+  String errorWithDetail(String error) {
+    return '❌ Ошибка: $error';
+  }
+
+  @override
+  String get savedSuccessCheck => '✅ Сохранено';
+
+  @override
+  String get pickDate => 'Выбрать';
+
+  @override
+  String get billingStatusSection => 'Статус биллинга';
+
+  @override
+  String get trialPeriodSection => 'Пробный период';
+
+  @override
+  String get trialPeriodDesc =>
+      'При billingStatus = trial доступ истекает после этой даты.';
+
+  @override
+  String get notSet => 'Не задано';
+
+  @override
+  String get paymentPaidUntilSection => 'Оплата — оплачено до';
+
+  @override
+  String get paymentPaidUntilDesc =>
+      'Источник истины для автоматизации биллинга. После этой даты → grace → suspended.';
+
+  @override
+  String get accountingPeriodLockSection => 'Блокировка учётного периода';
+
+  @override
+  String get accountingPeriodLockDesc =>
+      'Документы с deliveryDate ≤ этой даты нельзя создавать или изменять.';
+
+  @override
+  String get notSetAllPeriodsOpen => 'Не задано (все периоды открыты)';
+
+  @override
+  String get unlockAllPeriods => 'Разблокировать все периоды';
+
+  @override
+  String get usersLoseAccessWarning =>
+      '⚠️ Пользователи потеряют весь доступ (чтение и запись заблокированы)';
+
+  @override
+  String get trialExpiredBlocked =>
+      '⚠️ Пробный период истёк — доступ заблокирован';
+
+  @override
+  String get paymentExpiredWarning =>
+      '⚠️ Оплата истекла — billingEnforcer переведёт в grace/suspended';
+
+  @override
+  String get gracePeriodLabel => 'Льготный период:';
+
+  @override
+  String companyIdLabel(String id) {
+    return 'Компания: $id';
+  }
+
+  @override
+  String get locationNotReady => 'Геолокация не готова';
+
+  @override
+  String get locationPermissionRequired =>
+      'Для продолжения требуется разрешение на геолокацию.';
+
+  @override
+  String get enableDeviceLocation =>
+      'Включите геолокацию на устройстве для продолжения.';
+
+  @override
+  String get openSettings => 'Открыть настройки';
+
+  @override
+  String get checkAgain => 'Проверить снова';
+
+  @override
+  String get locationDeniedForever =>
+      'Разрешение отклонено навсегда. Откройте настройки приложения.';
+
+  @override
+  String get pendingApprovalTitle => 'Ожидание одобрения';
+
+  @override
+  String get pendingApprovalBody =>
+      'Регистрация успешно принята.\nАдминистратор назначит вас в компанию и выдаст роль.';
+
+  @override
+  String get registerTitle => 'Регистрация в LogiRoute';
+
+  @override
+  String get registerSubtitle =>
+      'После регистрации администратор назначит вас в компанию';
+
+  @override
+  String get phoneOptional => 'Телефон (необязательно)';
+
+  @override
+  String get registerButton => 'Зарегистрироваться';
+
+  @override
+  String get alreadyHaveAccountLogin => 'Уже есть аккаунт — Войти';
+
+  @override
+  String get minSixCharacters => 'Минимум 6 символов';
+
+  @override
+  String get invalidEmailShort => 'Некорректный email';
+
+  @override
+  String get creditNoteCreatedSuccess => 'Кредит-нота успешно создана';
+
+  @override
+  String get originalDocumentLabel => 'Исходный документ';
+
+  @override
+  String get correctionTypeLabel => 'Тип коррекции';
+
+  @override
+  String get fullCorrectionTitle => 'Полная коррекция';
+
+  @override
+  String get fullCorrectionSubtitle => 'Все строки из исходного документа';
+
+  @override
+  String get partialCorrectionTitle => 'Частичная коррекция';
+
+  @override
+  String get partialCorrectionSubtitle => 'Редактирование/удаление строк';
+
+  @override
+  String get correctionLinesTitle => 'Строки кредита';
+
+  @override
+  String get correctionSummaryTitle => 'Итого кредита';
+
+  @override
+  String get correctionReasonLabel => 'Причина коррекции *';
+
+  @override
+  String descriptionIndex(int index) {
+    return 'Описание $index';
+  }
+
+  @override
+  String get importNoCompanySelected => 'Ошибка: компания не выбрана';
+
+  @override
+  String get importBack => 'Назад';
+
+  @override
+  String get importClose => 'Закрыть';
+
+  @override
+  String importCount(int count) {
+    return 'Импорт ($count)';
+  }
+
+  @override
+  String get noBusinessTypesAvailable => 'Нет доступных типов бизнеса';
+
+  @override
+  String get noTemplatesForBusinessType =>
+      'Нет шаблонов для этого типа бизнеса';
+
+  @override
+  String get importingProductsWait => 'Импорт товаров, подождите...';
+
+  @override
+  String get loadingDocument => 'Загрузка документа...';
+
+  @override
+  String get documentNotFound => 'Документ не найден';
+
+  @override
+  String get goBack => 'Назад';
+
+  @override
+  String get itemsTitle => 'Позиции';
+
+  @override
+  String get skuColumn => 'Артикул';
+
+  @override
+  String get typeColumn => 'Тип';
+
+  @override
+  String get numberColumn => 'Номер';
+
+  @override
+  String get quantityColumn => 'Количество';
+
+  @override
+  String get priceColumn => 'Цена';
+
+  @override
+  String get totalColumn => 'Итого';
+
+  @override
+  String get cancellationDetailsTitle => 'Детали отмены';
+
+  @override
+  String docIdLabel(String id) {
+    return 'ID док.: $id';
+  }
+
+  @override
+  String documentTypeUnsupported(String collection) {
+    return 'Открытие документа типа $collection пока не поддерживается';
+  }
+
+  @override
+  String get linkCopiedToClipboard => 'Ссылка скопирована в буфер';
+
+  @override
+  String get saveProfileTitle => 'Сохранить профиль';
+
+  @override
+  String get profileNameLabel => 'Имя профиля';
+
+  @override
+  String profileSaved(String name) {
+    return 'Профиль \"$name\" сохранён';
+  }
+
+  @override
+  String get accountingExportTitle => 'Экспорт в бухгалтерию';
+
+  @override
+  String get targetSoftwareLabel => 'Целевое ПО';
+
+  @override
+  String get periodSection => 'Период';
+
+  @override
+  String get untilLabel => 'До';
+
+  @override
+  String get documentTypeSection => 'Тип документа';
+
+  @override
+  String get fileSettingsSection => 'Настройки файла';
+
+  @override
+  String get separatorLabel => 'Разделитель';
+
+  @override
+  String get encodingSection => 'Кодировка';
+
+  @override
+  String exportErrorWithDetail(String error) {
+    return 'Ошибка экспорта: $error';
+  }
+
+  @override
+  String get lastCheckResult => 'Результат последней проверки';
+
+  @override
+  String get noPreviousChecks =>
+      'Нет предыдущих проверок. Нажмите ▶ для запуска.';
+
+  @override
+  String get gapsLabel => 'Пропуски';
+
+  @override
+  String get quantityCannotBeNegative =>
+      'Количество не может быть отрицательным';
+
+  @override
+  String get excelExportWebOnly =>
+      'Экспорт в Excel доступен только в веб-версии';
+
+  @override
+  String exportErrorDetail(String error) {
+    return '❌ Ошибка экспорта: $error';
+  }
+
+  @override
+  String get productCodeRequired => 'Артикул *';
+
+  @override
+  String get typeRequired => 'Тип *';
+
+  @override
+  String get numberRequired => 'Номер *';
+
+  @override
+  String get volumeMlOptional => 'Объём в мл (необязательно)';
+
+  @override
+  String get quantityOnPalletRequired => 'Количество на паллете *';
+
+  @override
+  String get diameterOptional => 'Диаметр (необязательно)';
+
+  @override
+  String get packedCartonOptional =>
+      'Упаковка — кол-во в коробке (необязательно)';
+
+  @override
+  String get additionalInfoOptional => 'Доп. информация (необязательно)';
+
+  @override
+  String get hashbonitUnderConstruction => 'Hashbonit в разработке';
+
+  @override
+  String errorSavingWithDetail(String error) {
+    return 'Ошибка сохранения: $error';
+  }
+
+  @override
+  String get testEmailSent => '✅ Тестовый email отправлен';
+
+  @override
+  String get testWhatsAppSent => '✅ Тестовый WhatsApp отправлен';
+
+  @override
+  String testFailedWithDetail(String error) {
+    return '❌ Тест не пройден: $error';
+  }
+
+  @override
+  String get paperSize80mmReceipt => '80мм (чек)';
+
+  @override
+  String get noDocumentId => 'Нет ID документа';
+
+  @override
+  String get urgencyVeryUrgent => 'Очень срочно';
+
+  @override
+  String get priorityLabel => 'Приоритет';
+
+  @override
+  String get orderInRouteLabel => 'Порядок в маршруте';
+
+  @override
+  String get newCategoryRequired => 'Новая категория *';
+
+  @override
+  String get cancellationReasonRequired => 'Причина отмены (обязательно)';
+
+  @override
+  String get searchBoxTypesHint => 'Поиск по артикулу / типу / номеру';
+
+  @override
+  String get loginTimeout => 'Таймаут входа (20с)';
+
+  @override
+  String errorWithMessage(String error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String get retentionPolicyInfo =>
+      'По закону о ведении учёта документы хранятся не менее 7 лет.\nПроверка подтверждает, что документы не удалены и нет пропусков в нумерации.';
+
+  @override
+  String get podRetentionInfo =>
+      'Фото подтверждения доставки (PoD) хранятся 90 дней, затем удаляются автоматически. Координаты и время доставки сохраняются.';
+
+  @override
+  String oldestDocumentDate(String date) {
+    return 'Старейший документ: $date';
+  }
+
+  @override
+  String retentionCutoffDate(String date) {
+    return 'Дата отсечения: $date';
+  }
+
+  @override
+  String retentionGapsCount(int actual, int expected) {
+    return 'Пропуски: $actual из $expected ожидаемых';
+  }
+
+  @override
+  String retentionHistoryEntry(String user, int count) {
+    return '$user • $count документов';
+  }
+
+  @override
+  String retentionDocumentsCount(int count) {
+    return 'Документы: $count';
+  }
+
+  @override
+  String get issuesFound => 'Обнаружены проблемы';
+
+  @override
+  String get exportFormatHashavshevet => 'Hashavshevet';
+
+  @override
+  String get exportFormatHashavshevetDesc =>
+      'Текстовый файл с табуляцией — совместим с импортом Hashavshevet';
+
+  @override
+  String get exportFormatPriority => 'Priority ERP';
+
+  @override
+  String get exportFormatPriorityDesc =>
+      'CSV-файл, совместимый с импортом Priority';
+
+  @override
+  String get exportFormatCsv => 'Универсальный CSV';
+
+  @override
+  String get exportFormatCsvDesc =>
+      'Универсальный CSV — подходит для любого ПО';
+
+  @override
+  String get encodingUtf8Bom => 'UTF-8 + BOM (рекомендуется для Excel)';
+
+  @override
+  String get encodingUtf8 => 'UTF-8 (без BOM)';
+
+  @override
+  String get encodingWindows1255 => 'Windows-1255 (старый Hashavshevet)';
+
+  @override
+  String get separatorComma => 'Запятая (,)';
+
+  @override
+  String get separatorSemicolon => 'Точка с запятой (;)';
+
+  @override
+  String get separatorTab => 'Табуляция';
+
+  @override
+  String get hashavshevetEncodingHint =>
+      'Для старых версий Hashavshevet — выберите Windows-1255';
+
+  @override
+  String get exportCompleteTitle => 'Экспорт завершён';
+
+  @override
+  String exportRecordsCount(int count, String fileName) {
+    return 'Экспорт завершён — $count записей ($fileName)';
+  }
+
+  @override
+  String fileLabel(String name) {
+    return 'Файл: $name';
+  }
+
+  @override
+  String recordsLabel(int count) {
+    return 'Записи: $count';
+  }
+
+  @override
+  String formatLabel(String name) {
+    return 'Формат: $name';
+  }
+
+  @override
+  String get downloadFileBtn => 'Скачать файл';
+
+  @override
+  String get exportAction => 'Экспорт';
+
+  @override
+  String get loginRequiredFirst => 'Сначала войдите в систему';
+
+  @override
+  String documentNotFoundAtPath(String path) {
+    return 'Документ не найден по пути: $path';
+  }
+
+  @override
+  String get documentNotFoundOrNoAccess => 'Документ не найден или нет доступа';
+
+  @override
+  String companyLabelColon(String name) {
+    return 'Компания: $name';
+  }
+
+  @override
+  String get documentNumberLabel => 'Номер документа';
+
+  @override
+  String get createdAtLabel => 'Создан';
+
+  @override
+  String get createdByLabel => 'Создал';
+
+  @override
+  String get assignmentNumberLabel => 'Номер назначения';
+
+  @override
+  String get cancelledByLabel => 'Отменил';
+
+  @override
+  String get cancellationDateLabel => 'Дата отмены';
+
+  @override
+  String get totalBeforeDiscountLabel => 'Итого до скидки';
+
+  @override
+  String discountPercentLabel(int percent) {
+    return 'Скидка ($percent%)';
+  }
+
+  @override
+  String get vat18Label => 'НДС (18%)';
+
+  @override
+  String get invoiceManagementTitle => 'Управление счетами';
+
+  @override
+  String errorLoadingInvoices(String error) {
+    return '❌ Ошибка загрузки счетов: $error';
+  }
+
+  @override
+  String assignmentNumberReceived(String number) {
+    return '✅ Номер назначения получен: $number';
+  }
+
+  @override
+  String assignmentRequestError(String error) {
+    return '❌ Ошибка запроса назначения: $error';
+  }
+
+  @override
+  String get standaloneInvoiceInDev =>
+      '⚠️ Создание отдельного счёта в разработке';
+
+  @override
+  String receiptPeriodLockedError(String docDate, String lockDate) {
+    return '🔒 Нельзя создать квитанцию — дата документа ($docDate) в закрытом периоде (до $lockDate)';
+  }
+
+  @override
+  String get receiptCreatedAndPrinted => '✅ Квитанция создана и напечатана';
+
+  @override
+  String receiptCreateError(String error) {
+    return '❌ Ошибка создания квитанции: $error';
+  }
+
+  @override
+  String get receiptIssuanceError => 'Ошибка выпуска квитанции с сервера';
+
+  @override
+  String get invoicePrintedSuccess => '✅ Счёт напечатан';
+
+  @override
+  String get cancelInvoiceTitle => 'Отмена счёта';
+
+  @override
+  String cancelInvoiceConfirm(String clientName) {
+    return 'Отменить счёт для $clientName?';
+  }
+
+  @override
+  String get cancelInvoiceLawNote =>
+      'По закону о ведении учёта счета нельзя удалять, только отменять.';
+
+  @override
+  String get enterCancellationReason => 'Введите причину отмены';
+
+  @override
+  String get cancelInvoiceButton => 'Отменить счёт';
+
+  @override
+  String get invoiceCancelledSuccess => '✅ Счёт отменён';
+
+  @override
+  String cancelInvoiceError(String error) {
+    return '❌ Ошибка отмены: $error';
+  }
+
+  @override
+  String get deliveryNoteShort => 'Накл. доставки';
+
+  @override
+  String get taxInvoiceReceiptShort => 'Счёт/квитанция';
+
+  @override
+  String get originalPrintedLabel => 'Оригинал напечатан';
+
+  @override
+  String copiesCountLabel(int count) {
+    return 'Копии: $count';
+  }
+
+  @override
+  String assignmentApprovedLabel(String number) {
+    return 'Назначение: $number';
+  }
+
+  @override
+  String get assignmentPendingLabel => 'Ожидание назначения';
+
+  @override
+  String get assignmentRejectedLabel => 'Назначение отклонено';
+
+  @override
+  String get assignmentErrorLabel => 'Ошибка назначения';
+
+  @override
+  String get assignmentRequiredLabel => 'Требуется назначение';
+
+  @override
+  String get historyTooltip => 'История';
+
+  @override
+  String get reprintTooltip => 'Повторная печать';
+
+  @override
+  String get createReceiptTooltip => 'Создать квитанцию';
+
+  @override
+  String get cancelInvoiceTooltip => 'Отменить счёт';
+
+  @override
+  String get retryAssignmentTooltip => 'Повторить назначение';
+
+  @override
+  String invoiceNumberTitle(int number) {
+    return 'Счёт #$number';
+  }
+
+  @override
+  String driverWithName(String name) {
+    return 'Водитель: $name';
+  }
+
+  @override
+  String deliveryDateWithValue(String date) {
+    return 'Дата доставки: $date';
+  }
+
+  @override
+  String totalWithAmount(String amount) {
+    return 'Итого: ₪$amount';
+  }
+
+  @override
+  String get newInvoiceButton => 'Новый счёт';
+
+  @override
+  String get reprintDialogTitle => 'Повторная печать';
+
+  @override
+  String get copyTypeLabel => 'Копия';
+
+  @override
+  String copyNumberLabel(int number) {
+    return 'Копия номер $number';
+  }
+
+  @override
+  String get trueToOriginalLabel => 'Верно оригиналу';
+
+  @override
+  String get replacesOriginalLabel => 'Заменяет оригинал';
+
+  @override
+  String printCopiesButton(int count) {
+    return 'Печать $count копий';
+  }
+
+  @override
+  String get createReceiptTitle => 'Создание квитанции';
+
+  @override
+  String receiptForInvoice(int number) {
+    return 'Квитанция по счёту #$number';
+  }
+
+  @override
+  String clientWithName(String name) {
+    return 'Клиент: $name';
+  }
+
+  @override
+  String amountWithValue(String amount) {
+    return 'Сумма: ₪$amount';
+  }
+
+  @override
+  String get createReceiptButton => 'Создать квитанцию';
+
+  @override
+  String get addBoxTypeButton => 'Добавить тип коробки';
+
+  @override
+  String inStockCount(int count) {
+    return 'На складе: $count ед.';
+  }
+
+  @override
+  String onPalletCount(String count) {
+    return 'На паллете: $count';
+  }
+
+  @override
+  String volumeWithUnit(String value) {
+    return 'Объём: $value мл';
+  }
 }

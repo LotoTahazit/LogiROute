@@ -53,8 +53,9 @@
 	<string>Требуется для отслеживания местоположения в фоновом режиме</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Требуется для отслеживания местоположения в фоновом режиме</string>
+	<!-- GMSApiKey: GOOGLE_MAPS_ANDROID_KEY из .env.local (см. .env.example) -->
 	<key>GMSApiKey</key>
-	<string>AIzaSyD-mwIOMyBKfH-NH50WMnRlkhBitwZJec</string>
+	<string>YOUR_GOOGLE_MAPS_IOS_KEY</string>
 </dict>
 </plist>
 

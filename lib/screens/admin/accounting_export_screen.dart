@@ -9,9 +9,12 @@ import '../../models/invoice.dart';
 import '../../models/export_preset.dart';
 import '../../utils/file_download_stub.dart'
     if (dart.library.html) '../../utils/file_download_web.dart';
+import '../../l10n/app_localizations.dart';
+import '../../utils/document_type_labels.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/accounting_sync_panel.dart';
 
-/// מסך ייצוא לתוכנות הנהלת חשבונות
-/// תומך: חשבשבת, Priority, CSV אוניברסלי
+/// Accounting export screen — Hashavshevet, Priority, universal CSV.
 class AccountingExportScreen extends StatefulWidget {
   const AccountingExportScreen({super.key});
 
@@ -57,7 +60,52 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
     });
   }
 
+  String _formatLabel(AppLocalizations l10n, AccountingExportFormat f) {
+    switch (f) {
+      case AccountingExportFormat.hashavshevet:
+        return l10n.exportFormatHashavshevet;
+      case AccountingExportFormat.priority:
+        return l10n.exportFormatPriority;
+      case AccountingExportFormat.csv:
+        return l10n.exportFormatCsv;
+    }
+  }
+
+  String _formatDesc(AppLocalizations l10n, AccountingExportFormat f) {
+    switch (f) {
+      case AccountingExportFormat.hashavshevet:
+        return l10n.exportFormatHashavshevetDesc;
+      case AccountingExportFormat.priority:
+        return l10n.exportFormatPriorityDesc;
+      case AccountingExportFormat.csv:
+        return l10n.exportFormatCsvDesc;
+    }
+  }
+
+  String _encodingLabel(AppLocalizations l10n, ExportEncoding e) {
+    switch (e) {
+      case ExportEncoding.utf8bom:
+        return l10n.encodingUtf8Bom;
+      case ExportEncoding.utf8:
+        return l10n.encodingUtf8;
+      case ExportEncoding.windows1255:
+        return l10n.encodingWindows1255;
+    }
+  }
+
+  String _separatorLabel(AppLocalizations l10n, CsvSeparator s) {
+    switch (s) {
+      case CsvSeparator.comma:
+        return l10n.separatorComma;
+      case CsvSeparator.semicolon:
+        return l10n.separatorSemicolon;
+      case CsvSeparator.tab:
+        return l10n.separatorTab;
+    }
+  }
+
   Future<void> _saveCurrentAsPreset() async {
+    final l10n = AppLocalizations.of(context)!;
     final ctx = CompanyContext.of(context);
     final companyId = ctx.effectiveCompanyId;
     if (companyId == null || companyId.isEmpty) return;
@@ -66,21 +114,22 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('שמור פרופיל'),
+        title: Text(l10n.saveProfileTitle),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'שם הפרופיל',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.profileNameLabel,
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('ביטול')),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancelAction2)),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, nameController.text.trim()),
-            child: const Text('שמור'),
+            child: Text(l10n.savePlan),
           ),
         ],
       ),
@@ -104,45 +153,11 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('פרופיל "$name" נשמר'),
+            content: Text(l10n.profileSaved(name)),
             backgroundColor: Colors.green),
       );
     }
   }
-
-  static const _formatLabels = {
-    AccountingExportFormat.hashavshevet: 'חשבשבת',
-    AccountingExportFormat.priority: 'Priority ERP',
-    AccountingExportFormat.csv: 'CSV אוניברסלי',
-  };
-
-  static const _formatDescriptions = {
-    AccountingExportFormat.hashavshevet:
-        'קובץ טקסט עם טאבים — תואם לייבוא חשבשבת',
-    AccountingExportFormat.priority: 'קובץ CSV תואם לייבוא Priority',
-    AccountingExportFormat.csv: 'קובץ CSV אוניברסלי — מתאים לכל תוכנה',
-  };
-
-  static const _encodingLabels = {
-    ExportEncoding.utf8bom: 'UTF-8 + BOM (מומלץ לאקסל)',
-    ExportEncoding.utf8: 'UTF-8 (ללא BOM)',
-    ExportEncoding.windows1255: 'Windows-1255 (חשבשבת ישן)',
-  };
-
-  static const _separatorLabels = {
-    CsvSeparator.comma: 'פסיק (,)',
-    CsvSeparator.semicolon: 'נקודה-פסיק (;)',
-    CsvSeparator.tab: 'טאב',
-  };
-
-  static const _docTypeLabels = {
-    null: 'הכל',
-    InvoiceDocumentType.invoice: 'חשבונית מס',
-    InvoiceDocumentType.taxInvoiceReceipt: 'חשבונית מס/קבלה',
-    InvoiceDocumentType.receipt: 'קבלה',
-    InvoiceDocumentType.delivery: 'תעודת משלוח',
-    InvoiceDocumentType.creditNote: 'זיכוי',
-  };
 
   Future<void> _pickDate(bool isFrom) async {
     final picked = await showDatePicker(
@@ -150,7 +165,7 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
       initialDate: isFrom ? _fromDate : _toDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      locale: const Locale('he'),
+      locale: Localizations.localeOf(context),
     );
     if (picked != null) {
       setState(() {
@@ -164,6 +179,7 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
   }
 
   Future<void> _doExport() async {
+    final l10n = AppLocalizations.of(context)!;
     final ctx = CompanyContext.of(context);
     final companyId = ctx.effectiveCompanyId;
     if (companyId == null || companyId.isEmpty) return;
@@ -189,15 +205,13 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
             : _separator,
       );
 
-      setState(() {
-        _lastResult = result;
-      });
+      setState(() => _lastResult = result);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'ייצוא הושלם — ${result.recordCount} רשומות (${result.fileName})'),
+            content: Text(l10n.exportRecordsCount(
+                result.recordCount, result.fileName)),
             backgroundColor: Colors.green,
           ),
         );
@@ -206,7 +220,8 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('שגיאה בייצוא: $e'), backgroundColor: Colors.red),
+              content: Text(l10n.exportErrorWithDetail(e.toString())),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -216,14 +231,21 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+    final formats = AccountingExportFormat.values;
+    final encodings = ExportEncoding.values;
+    final separators = CsvSeparator.values;
+    final docTypes = <InvoiceDocumentType?>[null, ...InvoiceDocumentType.values];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ייצוא להנהלת חשבונות'),
+        title: Text(l10n.accountingExportTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.save_alt),
-            tooltip: 'שמור פרופיל',
+            tooltip: l10n.settingsSaveProfile,
             onPressed: _saveCurrentAsPreset,
           ),
         ],
@@ -235,7 +257,10 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Preset quick-select
+              if (companyId.isNotEmpty) ...[
+                AccountingSyncPanel(companyId: companyId),
+                const SizedBox(height: 16),
+              ],
               if (_presets.isNotEmpty) ...[
                 SizedBox(
                   height: 40,
@@ -257,35 +282,29 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-
-              // Format selection
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('תוכנת יעד',
+                      Text(l10n.targetSoftwareLabel,
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 12),
                       RadioGroup<AccountingExportFormat>(
                         groupValue: _format,
                         onChanged: (AccountingExportFormat? value) {
-                          if (value != null) {
-                            setState(() => _format = value);
-                          }
+                          if (value != null) setState(() => _format = value);
                         },
                         child: Column(
-                          children: _formatLabels.entries
-                              .map((e) => ListTile(
-                                    title: Text(e.value),
-                                    subtitle:
-                                        Text(_formatDescriptions[e.key] ?? ''),
+                          children: formats
+                              .map((f) => ListTile(
+                                    title: Text(_formatLabel(l10n, f)),
+                                    subtitle: Text(_formatDesc(l10n, f)),
                                     leading: Radio<AccountingExportFormat>(
-                                      value: e.key,
+                                      value: f,
                                     ),
-                                    onTap: () =>
-                                        setState(() => _format = e.key),
+                                    onTap: () => setState(() => _format = f),
                                   ))
                               .toList(),
                         ),
@@ -295,15 +314,13 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Period selection
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('תקופה',
+                      Text(l10n.periodSection,
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 12),
                       Flex(
@@ -323,7 +340,7 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                               horizontal: narrow ? 0 : 8,
                               vertical: narrow ? 8 : 0,
                             ),
-                            child: const Text('עד'),
+                            child: Text(l10n.untilLabel),
                           ),
                           Expanded(
                             flex: narrow ? 0 : 1,
@@ -341,23 +358,21 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Document type filter
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('סוג מסמך',
+                      Text(l10n.documentTypeSection,
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<InvoiceDocumentType?>(
                         initialValue: _docTypeFilter,
-                        items: _docTypeLabels.entries
-                            .map((e) => DropdownMenuItem(
-                                  value: e.key,
-                                  child: Text(e.value),
+                        items: docTypes
+                            .map((t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text(invoiceDocTypeLabelOptional(l10n, t)),
                                 ))
                             .toList(),
                         onChanged: (v) => setState(() => _docTypeFilter = v),
@@ -372,8 +387,6 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Encoding & Separator (only for CSV/Priority)
               if (_format != AccountingExportFormat.hashavshevet) ...[
                 Card(
                   child: Padding(
@@ -381,43 +394,41 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('הגדרות קובץ',
+                        Text(l10n.fileSettingsSection,
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 12),
-                        // Separator
                         DropdownButtonFormField<CsvSeparator>(
                           initialValue: _separator,
-                          items: _separatorLabels.entries
-                              .map((e) => DropdownMenuItem(
-                                    value: e.key,
-                                    child: Text(e.value),
+                          items: separators
+                              .map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(_separatorLabel(l10n, s)),
                                   ))
                               .toList(),
                           onChanged: (v) => setState(
                               () => _separator = v ?? CsvSeparator.comma),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: 'מפריד',
-                            contentPadding: EdgeInsets.symmetric(
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            labelText: l10n.separatorLabel,
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 8),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        // Encoding
                         DropdownButtonFormField<ExportEncoding>(
                           initialValue: _encoding,
-                          items: _encodingLabels.entries
+                          items: encodings
                               .map((e) => DropdownMenuItem(
-                                    value: e.key,
-                                    child: Text(e.value),
+                                    value: e,
+                                    child: Text(_encodingLabel(l10n, e)),
                                   ))
                               .toList(),
                           onChanged: (v) => setState(
                               () => _encoding = v ?? ExportEncoding.utf8bom),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: 'קידוד',
-                            contentPadding: EdgeInsets.symmetric(
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            labelText: l10n.encodingSection,
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 8),
                           ),
                         ),
@@ -427,8 +438,6 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-
-              // Encoding for Hashavshevet
               if (_format == AccountingExportFormat.hashavshevet) ...[
                 Card(
                   child: Padding(
@@ -436,15 +445,15 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('קידוד',
+                        Text(l10n.encodingSection,
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<ExportEncoding>(
                           initialValue: _encoding,
-                          items: _encodingLabels.entries
+                          items: encodings
                               .map((e) => DropdownMenuItem(
-                                    value: e.key,
-                                    child: Text(e.value),
+                                    value: e,
+                                    child: Text(_encodingLabel(l10n, e)),
                                   ))
                               .toList(),
                           onChanged: (v) => setState(
@@ -457,9 +466,9 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'לגרסאות ישנות של חשבשבת — בחר Windows-1255',
+                          l10n.hashavshevetEncodingHint,
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600),
+                              fontSize: 12, color: AppTheme.muted),
                         ),
                       ],
                     ),
@@ -467,8 +476,6 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-
-              // Export button
               FilledButton.icon(
                 onPressed: _isExporting ? null : _doExport,
                 icon: _isExporting
@@ -478,13 +485,11 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.download),
-                label: Text(_isExporting ? 'מייצא...' : 'ייצוא'),
+                label: Text(_isExporting ? l10n.exporting : l10n.exportAction),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
-
-              // Result preview
               if (_lastResult != null) ...[
                 const SizedBox(height: 24),
                 Card(
@@ -498,7 +503,7 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                           children: [
                             const Icon(Icons.check_circle, color: Colors.green),
                             const SizedBox(width: 8),
-                            Text('ייצוא הושלם',
+                            Text(l10n.exportCompleteTitle,
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
@@ -506,9 +511,10 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text('קובץ: ${_lastResult!.fileName}'),
-                        Text('רשומות: ${_lastResult!.recordCount}'),
-                        Text('פורמט: ${_formatLabels[_lastResult!.format]}'),
+                        Text(l10n.fileLabel(_lastResult!.fileName)),
+                        Text(l10n.recordsLabel(_lastResult!.recordCount)),
+                        Text(l10n.formatLabel(
+                            _formatLabel(l10n, _lastResult!.format))),
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: () {
@@ -521,14 +527,13 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                             downloadFile(bytes, _lastResult!.fileName);
                           },
                           icon: const Icon(Icons.download),
-                          label: const Text('הורד קובץ'),
+                          label: Text(l10n.downloadFileBtn),
                         ),
                         const SizedBox(height: 12),
-                        // Preview first lines
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: AppTheme.surfaceHi,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           constraints: const BoxConstraints(maxHeight: 200),

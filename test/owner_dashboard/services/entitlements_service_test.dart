@@ -613,8 +613,9 @@ void main() {
       'Property 23e: isAddon returns true only for enabled modules not in base plan (150 iterations)',
       () {
         final rng = Random(2301);
-        const plans = ['warehouse_only', 'ops', 'full'];
+        const plans = ['logistics', 'warehouse_only', 'ops', 'full'];
         const planBaseModules = <String, Set<String>>{
+          'logistics': {'logistics', 'dispatcher', 'reports'},
           'warehouse_only': {'warehouse'},
           'ops': {'warehouse', 'logistics', 'dispatcher', 'reports'},
           'full': {

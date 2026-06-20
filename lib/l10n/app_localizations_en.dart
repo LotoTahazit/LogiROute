@@ -232,6 +232,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invalidLoginCredentials => 'Invalid email or password';
 
   @override
+  String get authUserNotFound => 'No user found with this email';
+
+  @override
+  String get authUserDisabled => 'Account disabled. Contact your administrator';
+
+  @override
+  String get authNetworkError =>
+      'Cannot reach server. Check your internet connection';
+
+  @override
+  String get authOperationNotAllowed =>
+      'Email sign-in is disabled in project settings';
+
+  @override
+  String get authInvalidApiKey =>
+      'App configuration error (API key). Contact administrator';
+
+  @override
+  String get authAppNotAuthorized =>
+      'Android app not authorized in Firebase. Add release SHA-1 in Firebase Console → Project settings → Android app';
+
+  @override
+  String get authInternalError =>
+      'Authentication server error. Try again later';
+
+  @override
+  String get authProfileNotFound =>
+      'Profile not found or not configured. Contact administrator';
+
+  @override
+  String get authUnknownError =>
+      'Sign-in failed. Check your credentials or try again later';
+
+  @override
+  String get authPasswordResetFailed =>
+      'Could not send password reset email. Check the email or contact administrator';
+
+  @override
   String get tooManyRequests => 'Too many attempts. Please try again later';
 
   @override
@@ -280,6 +318,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
+  String get themeLight => 'Light theme';
+
+  @override
+  String get themeDark => 'Dark theme';
+
+  @override
+  String get themeSystem => 'System default';
+
+  @override
   String get capacity => 'Capacity';
 
   @override
@@ -292,6 +339,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
 
   @override
+  String get deliveryWindowTitle => 'Delivery window';
+
+  @override
+  String get deliveryWindowFrom => 'From';
+
+  @override
+  String get deliveryWindowTo => 'Until';
+
+  @override
+  String get deliveryWindowNotSet => 'Not set';
+
+  @override
+  String get deliveryWindowClear => 'Clear window';
+
+  @override
+  String routeLateBy(int minutes) {
+    return 'Late by $minutes min';
+  }
+
+  @override
+  String get routeOnTime => 'On time';
+
+  @override
+  String get requirePodPhoto => 'Require delivery photo (POD)';
+
+  @override
+  String get requirePodPhotoHint =>
+      'Hides one-tap close and disables auto-close — every delivery needs a photo.';
+
+  @override
+  String get deliverySection => 'Delivery';
+
+  @override
   String get pointDone => 'Point Done';
 
   @override
@@ -299,6 +379,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pointCompleted => 'Point completed';
+
+  @override
+  String get autoCloseToggle => 'Auto';
+
+  @override
+  String get closeWithPhoto => 'Close with photo';
+
+  @override
+  String get autoCloseUndoMessage => 'Point closed automatically';
+
+  @override
+  String get undo => 'Undo';
+
+  @override
+  String get podTitle => 'Proof of delivery';
+
+  @override
+  String get podTakePhoto => 'Take photo';
+
+  @override
+  String get podRetake => 'Retake';
+
+  @override
+  String get podConfirm => 'Confirm delivery';
+
+  @override
+  String get podGps => 'Your GPS';
+
+  @override
+  String get podTime => 'Time';
+
+  @override
+  String get podDistance => 'To client';
+
+  @override
+  String get podPhotoRequired => 'Delivery photo required';
+
+  @override
+  String get podGpsUnavailable => 'GPS unavailable — enable location';
 
   @override
   String get next => 'Next';
@@ -466,7 +585,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeCopiedToClipboard => 'Route copied to clipboard';
 
   @override
-  String get printError => 'Printing error';
+  String printError(String error) {
+    return '❌ Print error: $error';
+  }
 
   @override
   String get no => 'No';
@@ -609,7 +730,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get forgotPassword => 'Forgot password?';
 
   @override
-  String get passwordResetEmailSent => 'Password reset email sent';
+  String get passwordResetEmailSent =>
+      'If this email is registered, check your inbox and spam for a reset link';
+
+  @override
+  String get resetPasswordTitle => 'New password';
+
+  @override
+  String get resetPasswordHint => 'Enter a new password for your account';
+
+  @override
+  String get newPasswordLabel => 'New password';
+
+  @override
+  String get confirmPasswordLabel => 'Confirm password';
+
+  @override
+  String get saveNewPassword => 'Save password';
+
+  @override
+  String get passwordResetSuccess =>
+      'Password updated. Sign in with your new password';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get invalidResetLink =>
+      'Reset link is invalid. Request a new one on the login screen';
+
+  @override
+  String get emailTypoGmail =>
+      'Did you mean @gmail.com? @google.com is not a valid email provider';
+
+  @override
+  String get emailTypoCon => 'Typo in domain: .con instead of .com?';
 
   @override
   String get companyId => 'Company ID';
@@ -1306,10 +1461,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get companyDetails => 'Company Details';
 
   @override
-  String get companyNameHebrew => 'Company Name (Hebrew)';
+  String get companyNameHebrew => 'Name (Hebrew)';
 
   @override
-  String get companyNameEnglish => 'Company Name (English)';
+  String get companyNameEnglish => 'Name (English, optional)';
 
   @override
   String get taxId => 'Tax ID';
@@ -2088,6 +2243,183 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mapBannerPreviousRouteShown => 'Showing previous route';
 
   @override
+  String get mapDemoRoutesBuilt => '3 optimal routes built';
+
+  @override
+  String get mapDemoWarehouseCreatedDeliveries =>
+      'Warehouse created 12 deliveries';
+
+  @override
+  String get mapDemoTruckLoading =>
+      'Truck loading: 12 deliveries loaded from warehouse';
+
+  @override
+  String get mapDemoTasksSentToDrivers => 'Tasks sent to drivers';
+
+  @override
+  String get mapDemoActiveDriver => 'Active driver';
+
+  @override
+  String get mapDemoDirectionToWarehouse => 'To warehouse';
+
+  @override
+  String get mapDemoDirectionUnknown => 'Unknown';
+
+  @override
+  String mapDemoDirectionLabel(String direction) {
+    return 'Direction: $direction';
+  }
+
+  @override
+  String mapDemoEtaMinutes(int minutes) {
+    return 'ETA: ~$minutes min';
+  }
+
+  @override
+  String get mapDemoStage1Title => 'Order received';
+
+  @override
+  String get mapDemoStage1Desc =>
+      'Client submits a delivery request to the dispatcher.';
+
+  @override
+  String get mapDemoStage2Title => 'Sent to warehouse';
+
+  @override
+  String get mapDemoStage2Desc =>
+      'Dispatcher forwards the order for fulfillment.';
+
+  @override
+  String get mapDemoStage3Title => 'Warehouse preparation';
+
+  @override
+  String get mapDemoStage3Desc =>
+      'Staff pick goods and build pallets for shipment.';
+
+  @override
+  String get mapDemoStage4Title => 'Route created';
+
+  @override
+  String get mapDemoStage4Desc =>
+      'Dispatcher plans an optimized route with all stops.';
+
+  @override
+  String get mapDemoStage5Title => 'Truck loading';
+
+  @override
+  String get mapDemoStage5Desc => 'Pallets are loaded onto the driver truck.';
+
+  @override
+  String get mapDemoStage6Title => 'Driver on the road';
+
+  @override
+  String get mapDemoStage6Desc =>
+      'Driver follows the route — streets visible on the map.';
+
+  @override
+  String get mapDemoStage7Title => 'Delivery and unload';
+
+  @override
+  String get mapDemoStage7Desc =>
+      'At each stop goods are unloaded; the stop is marked done.';
+
+  @override
+  String get mapDemoStage8Title => 'Return to warehouse';
+
+  @override
+  String get mapDemoStage8Desc =>
+      'Driver completes the route and returns to base.';
+
+  @override
+  String get mapDemoStageCompleteTitle => 'Simulation complete';
+
+  @override
+  String get mapDemoStageCompleteDesc =>
+      'Full delivery cycle finished successfully.';
+
+  @override
+  String mapDemoStopLabel(int number) {
+    return 'Stop $number';
+  }
+
+  @override
+  String mapDemoDeliveringAt(String stop) {
+    return 'Unloading at $stop';
+  }
+
+  @override
+  String get mapDemoReplay => 'Replay simulation';
+
+  @override
+  String get mapDemoLiveBadge => 'LIVE';
+
+  @override
+  String get mapDemoKpiMileage => 'mileage';
+
+  @override
+  String get mapDemoKpiEtaAccuracy => 'ETA accuracy';
+
+  @override
+  String get mapDemoKpiCalls => 'calls';
+
+  @override
+  String get mapDemoKpiDelivered => 'delivered';
+
+  @override
+  String get mapDemoKpiEnroute => 'en route';
+
+  @override
+  String get mapDemoKpiDistance => 'route';
+
+  @override
+  String get mapDemoKpiLate => 'late';
+
+  @override
+  String get mapDemoEtaAccuracyValue => '±3 min';
+
+  @override
+  String get mapDemoFinishSubtitle =>
+      'The dispatcher saw everything in real time';
+
+  @override
+  String get mapDemoFinishNote =>
+      'Not a single \"where are you?\" call to the driver the whole route';
+
+  @override
+  String mapDemoMinutesShort(int minutes) {
+    return '~$minutes min';
+  }
+
+  @override
+  String mapDemoKmShort(String km) {
+    return '$km km';
+  }
+
+  @override
+  String get mapDemoStepShort1 => 'Order';
+
+  @override
+  String get mapDemoStepShort2 => 'Warehouse';
+
+  @override
+  String get mapDemoStepShort3 => 'Prep';
+
+  @override
+  String get mapDemoStepShort4 => 'Route';
+
+  @override
+  String get mapDemoStepShort5 => 'Load';
+
+  @override
+  String get mapDemoStepShort6 => 'Drive';
+
+  @override
+  String get mapDemoStepShort7 => 'Deliver';
+
+  @override
+  String get mapDemoStepShort8 => 'Return';
+
+  @override
   String get billingGuardAccessSuspendedTitle => 'Access suspended';
 
   @override
@@ -2229,6 +2561,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingDashboardRunIntegrityTooltip => 'Run integrity check';
 
   @override
+  String get billingDashboardSeedPricingTooltip =>
+      'Upload billing pricing to Firestore';
+
+  @override
+  String get billingDashboardSeedPricingTitle =>
+      'Update config/billing_pricing?';
+
+  @override
+  String get billingDashboardSeedPricingBody =>
+      'Writes the current tariff grid (logistics, warehouse, ops, full) to Firestore config/billing_pricing. Checkout will use these prices immediately.';
+
+  @override
+  String get billingDashboardSeedPricingButton => 'Upload';
+
+  @override
+  String get billingDashboardSeedPricingRunning => 'Uploading pricing…';
+
+  @override
+  String billingDashboardSeedPricingDone(String plans) {
+    return 'Pricing updated: $plans';
+  }
+
+  @override
   String billingDashboardExtendSuccess(String companyName, String date) {
     return '$companyName extended to $date';
   }
@@ -2286,36 +2641,169 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dispatcherTourStep1 =>
-      'Delivery points: add a client and products for the order — the order is built here before the route.';
+  String get dispatcherTourStopTooltip => 'Close presentation';
 
   @override
-  String get dispatcherTourStep2 =>
-      'At each point: products and quantities; you can edit before building the route.';
-
-  @override
-  String get dispatcherTourStep3 =>
-      'When products are ready — go to the «Active routes» tab and assign a driver.';
-
-  @override
-  String get dispatcherTourStep4 =>
-      'Active routes: driver assignment, stop order, and route on the map.';
-
-  @override
-  String get dispatcherTourStep5 =>
-      'After the route is built — tasks reach the driver in the app; switch to the map.';
-
-  @override
-  String get dispatcherTourStopTooltip => 'Stop demo tour';
-
-  @override
-  String get dispatcherTourStartTooltip =>
-      'Demo tour: product → route → driver';
+  String get dispatcherTourStartTooltip => 'LogiRoute product presentation';
 
   @override
   String dispatcherTourProgress(int current, int total) {
     return '$current/$total';
   }
+
+  @override
+  String get salesDemoSkip => 'Skip';
+
+  @override
+  String get salesDemoNext => 'Next';
+
+  @override
+  String get salesDemoBack => 'Back';
+
+  @override
+  String get salesDemoGetStarted => 'Get started';
+
+  @override
+  String get salesDemoSeeLiveDemo => 'See live demo';
+
+  @override
+  String get salesDemoBrandTagline => 'End-to-end logistics platform';
+
+  @override
+  String get salesDemoSlide1Title => 'Logistics shouldn\'t feel chaotic';
+
+  @override
+  String get salesDemoSlide1Subtitle =>
+      'Manual routes, missed deliveries, and disconnected teams cost you time and money every day.';
+
+  @override
+  String get salesDemoSlide1Benefit1 =>
+      'Hours lost to spreadsheets and phone calls';
+
+  @override
+  String get salesDemoSlide1Benefit2 =>
+      'No real-time visibility into your fleet';
+
+  @override
+  String get salesDemoSlide1Benefit3 => 'Invoices and deliveries out of sync';
+
+  @override
+  String get salesDemoSlide2Title => 'Meet LogiRoute';
+
+  @override
+  String get salesDemoSlide2Subtitle =>
+      'One platform for warehouse, dispatch, drivers, and billing — built to scale.';
+
+  @override
+  String get salesDemoSlide2Benefit1 =>
+      'From order to invoice in one seamless flow';
+
+  @override
+  String get salesDemoSlide2Benefit2 =>
+      'Web and mobile — your team, always connected';
+
+  @override
+  String get salesDemoSlide2Benefit3 => 'Designed for real dispatch operations';
+
+  @override
+  String get salesDemoPersonaAdmin => 'Admin';
+
+  @override
+  String get salesDemoPersonaDispatcher => 'Dispatcher';
+
+  @override
+  String get salesDemoPersonaDriver => 'Driver';
+
+  @override
+  String get salesDemoPersonaAdminDesc =>
+      'Full control: companies, users, billing, and analytics in one dashboard.';
+
+  @override
+  String get salesDemoPersonaDispatcherDesc =>
+      'Build routes, assign drivers, and track every delivery live on the map.';
+
+  @override
+  String get salesDemoPersonaDriverDesc =>
+      'Clear tasks, turn-by-turn stops, and instant status updates from the road.';
+
+  @override
+  String get salesDemoSlide3Title => 'Smart routing & dispatch';
+
+  @override
+  String get salesDemoSlide3Subtitle =>
+      'Plan optimal routes in minutes — not hours.';
+
+  @override
+  String get salesDemoSlide3Benefit1 => 'Automatic route optimization';
+
+  @override
+  String get salesDemoSlide3Benefit2 => 'Drag-and-drop driver assignment';
+
+  @override
+  String get salesDemoSlide3Benefit3 => 'Live map with all active deliveries';
+
+  @override
+  String get salesDemoSlide4Title => 'Driver app & live tracking';
+
+  @override
+  String get salesDemoSlide4Subtitle =>
+      'Every driver knows where to go — you see progress in real time.';
+
+  @override
+  String get salesDemoSlide4Benefit1 =>
+      'Tasks pushed instantly to driver phones';
+
+  @override
+  String get salesDemoSlide4Benefit2 => 'GPS tracking on an interactive map';
+
+  @override
+  String get salesDemoSlide4Benefit3 => 'Fewer calls, faster deliveries';
+
+  @override
+  String get salesDemoSlide5Title => 'Warehouse to invoice';
+
+  @override
+  String get salesDemoSlide5Subtitle =>
+      'The complete order lifecycle — nothing falls through the cracks.';
+
+  @override
+  String get salesDemoSlide5Benefit1 =>
+      'Warehouse picking and loading workflows';
+
+  @override
+  String get salesDemoSlide5Benefit2 => 'Invoicing aligned with every delivery';
+
+  @override
+  String get salesDemoSlide5Benefit3 => 'Full audit trail for every order';
+
+  @override
+  String get salesDemoLifecycleOrder => 'Order';
+
+  @override
+  String get salesDemoLifecycleDispatch => 'Dispatch';
+
+  @override
+  String get salesDemoLifecycleDelivery => 'Delivery';
+
+  @override
+  String get salesDemoLifecycleInvoice => 'Invoice';
+
+  @override
+  String get salesDemoSlide6Title => 'Enterprise-ready logistics';
+
+  @override
+  String get salesDemoSlide6Subtitle =>
+      'Professional, secure, and ready for growing delivery operations.';
+
+  @override
+  String get salesDemoSlide6Benefit1 =>
+      'Role-based access for every team member';
+
+  @override
+  String get salesDemoSlide6Benefit2 => 'English, Russian, and Hebrew built in';
+
+  @override
+  String get salesDemoSlide6Benefit3 => 'Trusted by dispatch teams every day';
 
   @override
   String dispatcherSkippedInvoicesMakor(int count) {
@@ -2694,6 +3182,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String reasonLabel(String reason) {
     return 'Reason: $reason';
   }
+
+  @override
+  String get integrityCheckExplain =>
+      'Verifies the document numbering crypto chain. Documents issued before the chain was enabled are skipped automatically — this is not an error.';
+
+  @override
+  String get integrityLegacyOnly =>
+      'No chain entries: all documents of this type were issued before integrity checking. New documents will be verified normally.';
+
+  @override
+  String integrityLegacySkipped(int from, int to) {
+    return 'Skipped legacy numbers #$from–#$to (before the first chain entry)';
+  }
+
+  @override
+  String integrityCheckedFrom(int from, int to) {
+    return 'Actually checked: #$from through #$to';
+  }
+
+  @override
+  String get integrityReasonMissingEntry => 'Chain entry missing';
+
+  @override
+  String get integrityReasonMissingPrevForRange =>
+      'Previous document before range is missing';
+
+  @override
+  String get integrityReasonSchemaInvalid => 'Corrupted chain entry';
+
+  @override
+  String get integrityReasonPrevHashMismatch =>
+      'Hash chain broken (prev mismatch)';
+
+  @override
+  String get integrityReasonHashMismatch => 'Hash mismatch';
+
+  @override
+  String integrityOkSummary(int count) {
+    return '✅ Integrity OK — checked: $count';
+  }
+
+  @override
+  String integrityFailedSummary(int number) {
+    return '❌ Error at document #$number';
+  }
+
+  @override
+  String get createCompany => 'Create company';
+
+  @override
+  String get createCompanyTitle => 'New company';
+
+  @override
+  String get createCompanyDesc =>
+      'Creates the company, default settings and document counters. 14-day trial.';
+
+  @override
+  String get companyIdSlug => 'Company ID (Latin slug)';
+
+  @override
+  String get companyIdSlugHint => 'acme-logistics';
+
+  @override
+  String companyCreatedSuccess(String name) {
+    return 'Company \"$name\" created';
+  }
+
+  @override
+  String get companyAlreadyExists => 'A company with this ID already exists';
+
+  @override
+  String get invalidCompanyId =>
+      'ID: Latin letters, digits, hyphen, 3–40 chars';
 
   @override
   String get counterInvoices => 'Tax Invoices';
@@ -3647,6 +4208,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planWarehouseOnly => 'Warehouse Only';
 
   @override
+  String get planLogistics => 'Logistics';
+
+  @override
   String get planOps => 'Operations';
 
   @override
@@ -3659,6 +4223,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planDescWarehouse => 'Inventory management only';
 
   @override
+  String get planDescLogistics =>
+      'Logistics + dispatcher + reports (no warehouse)';
+
+  @override
   String get planDescOps => 'Warehouse + logistics + reports';
 
   @override
@@ -3666,6 +4234,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get planDescCustom => 'Custom plan';
+
+  @override
+  String get accountingProviderSection => 'Accounting export';
+
+  @override
+  String get accountingProviderLabel => 'Provider';
+
+  @override
+  String get accountingProviderNone => 'Built-in (LogiRoute)';
+
+  @override
+  String get accountingProviderExport => 'File export (uniform CSV)';
+
+  @override
+  String get accountingProviderGreeninvoice => 'Greeninvoice / Morning';
+
+  @override
+  String get accountingProviderIcount => 'iCount';
+
+  @override
+  String get accountingProviderHint =>
+      'External provider handles tax compliance and document numbering.';
+
+  @override
+  String get accountingProviderConfigure => 'Configure API credentials';
+
+  @override
+  String get accountingProviderConfigured => 'Credentials saved';
+
+  @override
+  String get accountingProviderSaved => 'Accounting integration settings saved';
+
+  @override
+  String get accountingProviderApiKey => 'API key';
+
+  @override
+  String get accountingProviderSecret => 'Secret key';
+
+  @override
+  String get accountingProviderToken => 'API token';
+
+  @override
+  String get accountingProviderSandbox => 'Sandbox mode';
+
+  @override
+  String get accountingProviderSandboxHint =>
+      'Use Greeninvoice test API (sandbox.d.greeninvoice.co.il)';
+
+  @override
+  String get accountingSyncTitle => 'External accounting sync';
+
+  @override
+  String get accountingSyncStatusSynced => 'Synced';
+
+  @override
+  String get accountingSyncStatusFailed => 'Failed';
+
+  @override
+  String get accountingSyncStatusProcessing => 'Processing';
+
+  @override
+  String get accountingSyncRetry => 'Retry sync';
+
+  @override
+  String get accountingSyncNoEntries =>
+      'No sync records yet — issued invoices appear here.';
+
+  @override
+  String get accountingSyncRetried => 'Sync retry started';
+
+  @override
+  String accountingSyncDistribution(String number) {
+    return 'Allocation #: $number';
+  }
+
+  @override
+  String get accountingSyncStatusPending => 'Pending';
+
+  @override
+  String get accountingDocSyncColumn => 'Sync';
+
+  @override
+  String accountingExternalSyncFailedWith(String error) {
+    return 'Document issued, sync failed: $error';
+  }
 
   @override
   String promoMonthlyPrice(int price, int months) {
@@ -3948,6 +4601,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mapColumnsClients => 'Map Columns — Clients';
+
+  @override
+  String get mapColumnsDeliveryPoints => 'Map Columns — Delivery Points';
+
+  @override
+  String get importDeliveryPointsMenu => 'Import delivery points';
+
+  @override
+  String get importDeliveryPointsTitle => 'Import Delivery Points';
+
+  @override
+  String get loadDemoDataMenu => 'Demo data for video';
+
+  @override
+  String get loadDemoDataConfirm =>
+      'Load demo delivery scenario for a 2-minute product video?';
+
+  @override
+  String get loadDemoDataReplaceWarning =>
+      'Existing demo points will be replaced.';
+
+  @override
+  String loadDemoDataSuccess(int count) {
+    return 'Demo data loaded ($count points)';
+  }
 
   @override
   String importResultUpdated(int updated, int errors) {
@@ -4395,6 +5073,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get truckLabelColon => 'Truck:';
 
   @override
+  String get clientKvLabel => 'Client';
+
+  @override
+  String get addressKvLabel => 'Address';
+
+  @override
+  String get driverKvLabel => 'Driver';
+
+  @override
+  String get truckKvLabel => 'Truck';
+
+  @override
+  String get deliveryDateKvLabel => 'Delivery date';
+
+  @override
   String get notSpecified => 'Not specified';
 
   @override
@@ -4508,6 +5201,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shiftSaved => 'Saved';
 
   @override
+  String get shiftRoutingSection => 'Routing parameters';
+
+  @override
+  String get routingAvgSpeedKmh => 'Average speed (km/h)';
+
+  @override
+  String get routingServiceMinutes => 'Service time per stop (min)';
+
+  @override
+  String get routingDeliveryDayMode => 'Default delivery date in invoices';
+
+  @override
+  String get deliveryDaySame => 'Today';
+
+  @override
+  String get deliveryDayNext => 'Tomorrow';
+
+  @override
+  String get deliveryDayNextWorking => 'Next working day';
+
+  @override
   String shiftLoadError(String error) {
     return 'Failed to load: $error';
   }
@@ -4544,4 +5258,778 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskNoteHint => 'Collect check, return, etc.';
+
+  @override
+  String get adminActivityLog => 'Activity log';
+
+  @override
+  String get period24h => '24 hours';
+
+  @override
+  String get period48h => '48 hours';
+
+  @override
+  String get periodWeek => 'Week';
+
+  @override
+  String get searchActivityHint => 'Search user or action...';
+
+  @override
+  String get noActivityEvents => 'No events for selected period';
+
+  @override
+  String get auditSourceLabel => 'Business audit';
+
+  @override
+  String get accessSourceLabel => 'Access log';
+
+  @override
+  String get accessEventLogin => 'Login';
+
+  @override
+  String get accessEventLogout => 'Logout';
+
+  @override
+  String get accessEventViewDocument => 'Viewed document';
+
+  @override
+  String get accessEventPrintDocument => 'Printed document';
+
+  @override
+  String get accessEventExportData => 'Exported data';
+
+  @override
+  String get accessEventCreateDocument => 'Created document';
+
+  @override
+  String get accessEventCancelDocument => 'Cancelled document';
+
+  @override
+  String get accessEventViewAuditLog => 'Viewed audit log';
+
+  @override
+  String get accessEventViewReport => 'Viewed report';
+
+  @override
+  String get accessEventAdminAction => 'Admin action';
+
+  @override
+  String get activityCsvUser => 'User';
+
+  @override
+  String get activityCsvAction => 'Action';
+
+  @override
+  String get activityCsvWhen => 'When';
+
+  @override
+  String get activityCsvSource => 'Source';
+
+  @override
+  String errorLoadingWithDetail(String error) {
+    return 'Error loading: $error';
+  }
+
+  @override
+  String errorWithDetail(String error) {
+    return '❌ Error: $error';
+  }
+
+  @override
+  String get savedSuccessCheck => '✅ Saved';
+
+  @override
+  String get pickDate => 'Pick';
+
+  @override
+  String get billingStatusSection => 'Billing Status';
+
+  @override
+  String get trialPeriodSection => 'Trial Period';
+
+  @override
+  String get trialPeriodDesc =>
+      'When billingStatus = trial, access expires after this date.';
+
+  @override
+  String get notSet => 'Not set';
+
+  @override
+  String get paymentPaidUntilSection => 'Payment — Paid Until';
+
+  @override
+  String get paymentPaidUntilDesc =>
+      'Source of truth for billing automation. After this date → grace → suspended.';
+
+  @override
+  String get accountingPeriodLockSection => 'Accounting Period Lock';
+
+  @override
+  String get accountingPeriodLockDesc =>
+      'Documents with deliveryDate ≤ this date cannot be created or modified.';
+
+  @override
+  String get notSetAllPeriodsOpen => 'Not set (all periods open)';
+
+  @override
+  String get unlockAllPeriods => 'Unlock all periods';
+
+  @override
+  String get usersLoseAccessWarning =>
+      '⚠️ Users will lose all access (read + write blocked)';
+
+  @override
+  String get trialExpiredBlocked => '⚠️ Trial has expired — access is blocked';
+
+  @override
+  String get paymentExpiredWarning =>
+      '⚠️ Payment expired — billingEnforcer will transition to grace/suspended';
+
+  @override
+  String get gracePeriodLabel => 'Grace period:';
+
+  @override
+  String companyIdLabel(String id) {
+    return 'Company: $id';
+  }
+
+  @override
+  String get locationNotReady => 'Location is not ready';
+
+  @override
+  String get locationPermissionRequired =>
+      'Location permission is required to continue.';
+
+  @override
+  String get enableDeviceLocation =>
+      'Please enable device location to continue.';
+
+  @override
+  String get openSettings => 'Open Settings';
+
+  @override
+  String get checkAgain => 'Check Again';
+
+  @override
+  String get locationDeniedForever =>
+      'Permission is permanently denied. Open app settings to allow location.';
+
+  @override
+  String get pendingApprovalTitle => 'Waiting for approval';
+
+  @override
+  String get pendingApprovalBody =>
+      'Registration received successfully.\nThe system administrator will assign you to a company and assign a role.';
+
+  @override
+  String get registerTitle => 'Register for LogiRoute';
+
+  @override
+  String get registerSubtitle =>
+      'After registration, the system administrator will assign you to a company';
+
+  @override
+  String get phoneOptional => 'Phone (optional)';
+
+  @override
+  String get registerButton => 'Register';
+
+  @override
+  String get alreadyHaveAccountLogin => 'Already have an account — Login';
+
+  @override
+  String get minSixCharacters => 'Minimum 6 characters';
+
+  @override
+  String get invalidEmailShort => 'Invalid email';
+
+  @override
+  String get creditNoteCreatedSuccess => 'Credit note created successfully';
+
+  @override
+  String get originalDocumentLabel => 'Original document';
+
+  @override
+  String get correctionTypeLabel => 'Correction type';
+
+  @override
+  String get fullCorrectionTitle => 'Full correction';
+
+  @override
+  String get fullCorrectionSubtitle => 'All lines from the original document';
+
+  @override
+  String get partialCorrectionTitle => 'Partial correction';
+
+  @override
+  String get partialCorrectionSubtitle => 'Edit/remove lines';
+
+  @override
+  String get correctionLinesTitle => 'Credit lines';
+
+  @override
+  String get correctionSummaryTitle => 'Credit summary';
+
+  @override
+  String get correctionReasonLabel => 'Correction reason *';
+
+  @override
+  String descriptionIndex(int index) {
+    return 'Description $index';
+  }
+
+  @override
+  String get importNoCompanySelected => 'Error: no company selected';
+
+  @override
+  String get importBack => 'Back';
+
+  @override
+  String get importClose => 'Close';
+
+  @override
+  String importCount(int count) {
+    return 'Import ($count)';
+  }
+
+  @override
+  String get noBusinessTypesAvailable => 'No business types available';
+
+  @override
+  String get noTemplatesForBusinessType =>
+      'No templates available for this business type';
+
+  @override
+  String get importingProductsWait => 'Importing products, please wait...';
+
+  @override
+  String get loadingDocument => 'Loading document...';
+
+  @override
+  String get documentNotFound => 'Document not found';
+
+  @override
+  String get goBack => 'Go back';
+
+  @override
+  String get itemsTitle => 'Items';
+
+  @override
+  String get skuColumn => 'SKU';
+
+  @override
+  String get typeColumn => 'Type';
+
+  @override
+  String get numberColumn => 'Number';
+
+  @override
+  String get quantityColumn => 'Quantity';
+
+  @override
+  String get priceColumn => 'Price';
+
+  @override
+  String get totalColumn => 'Total';
+
+  @override
+  String get cancellationDetailsTitle => 'Cancellation details';
+
+  @override
+  String docIdLabel(String id) {
+    return 'Doc ID: $id';
+  }
+
+  @override
+  String documentTypeUnsupported(String collection) {
+    return 'Opening document type $collection is not yet supported';
+  }
+
+  @override
+  String get linkCopiedToClipboard => 'Link copied to clipboard';
+
+  @override
+  String get saveProfileTitle => 'Save profile';
+
+  @override
+  String get profileNameLabel => 'Profile name';
+
+  @override
+  String profileSaved(String name) {
+    return 'Profile \"$name\" saved';
+  }
+
+  @override
+  String get accountingExportTitle => 'Export to accounting';
+
+  @override
+  String get targetSoftwareLabel => 'Target software';
+
+  @override
+  String get periodSection => 'Period';
+
+  @override
+  String get untilLabel => 'Until';
+
+  @override
+  String get documentTypeSection => 'Document type';
+
+  @override
+  String get fileSettingsSection => 'File settings';
+
+  @override
+  String get separatorLabel => 'Separator';
+
+  @override
+  String get encodingSection => 'Encoding';
+
+  @override
+  String exportErrorWithDetail(String error) {
+    return 'Export error: $error';
+  }
+
+  @override
+  String get lastCheckResult => 'Last check result';
+
+  @override
+  String get noPreviousChecks => 'No previous checks. Press ▶ to run a check.';
+
+  @override
+  String get gapsLabel => 'Gaps';
+
+  @override
+  String get quantityCannotBeNegative => 'Quantity cannot be negative';
+
+  @override
+  String get excelExportWebOnly => 'Excel export available on web only';
+
+  @override
+  String exportErrorDetail(String error) {
+    return '❌ Export error: $error';
+  }
+
+  @override
+  String get productCodeRequired => 'SKU *';
+
+  @override
+  String get typeRequired => 'Type *';
+
+  @override
+  String get numberRequired => 'Number *';
+
+  @override
+  String get volumeMlOptional => 'Volume in ml (optional)';
+
+  @override
+  String get quantityOnPalletRequired => 'Quantity on pallet *';
+
+  @override
+  String get diameterOptional => 'Diameter (optional)';
+
+  @override
+  String get packedCartonOptional => 'Packed — quantity per carton (optional)';
+
+  @override
+  String get additionalInfoOptional => 'Additional info (optional)';
+
+  @override
+  String get hashbonitUnderConstruction => 'Hashbonit is under construction';
+
+  @override
+  String errorSavingWithDetail(String error) {
+    return 'Error saving: $error';
+  }
+
+  @override
+  String get testEmailSent => '✅ Test email sent';
+
+  @override
+  String get testWhatsAppSent => '✅ Test WhatsApp sent';
+
+  @override
+  String testFailedWithDetail(String error) {
+    return '❌ Test failed: $error';
+  }
+
+  @override
+  String get paperSize80mmReceipt => '80mm (receipt)';
+
+  @override
+  String get noDocumentId => 'No document ID';
+
+  @override
+  String get urgencyVeryUrgent => 'Very urgent';
+
+  @override
+  String get priorityLabel => 'Priority';
+
+  @override
+  String get orderInRouteLabel => 'Order in route';
+
+  @override
+  String get newCategoryRequired => 'New category *';
+
+  @override
+  String get cancellationReasonRequired => 'Cancellation reason (required)';
+
+  @override
+  String get searchBoxTypesHint => 'Search by SKU / type / number';
+
+  @override
+  String get loginTimeout => 'Login timeout (20s)';
+
+  @override
+  String errorWithMessage(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get retentionPolicyInfo =>
+      'Under bookkeeping law, documents must be kept for at least 7 years.\nThe check verifies no documents were deleted and there are no numbering gaps.';
+
+  @override
+  String get podRetentionInfo =>
+      'Proof of delivery photos are kept for 90 days, then deleted automatically. GPS coordinates and delivery time are retained.';
+
+  @override
+  String oldestDocumentDate(String date) {
+    return 'Oldest document: $date';
+  }
+
+  @override
+  String retentionCutoffDate(String date) {
+    return 'Cutoff date: $date';
+  }
+
+  @override
+  String retentionGapsCount(int actual, int expected) {
+    return 'Gaps: $actual of $expected expected';
+  }
+
+  @override
+  String retentionHistoryEntry(String user, int count) {
+    return '$user • $count documents';
+  }
+
+  @override
+  String retentionDocumentsCount(int count) {
+    return 'Documents: $count';
+  }
+
+  @override
+  String get issuesFound => 'Issues found';
+
+  @override
+  String get exportFormatHashavshevet => 'Hashavshevet';
+
+  @override
+  String get exportFormatHashavshevetDesc =>
+      'Tab-separated text file — compatible with Hashavshevet import';
+
+  @override
+  String get exportFormatPriority => 'Priority ERP';
+
+  @override
+  String get exportFormatPriorityDesc =>
+      'CSV file compatible with Priority import';
+
+  @override
+  String get exportFormatCsv => 'Universal CSV';
+
+  @override
+  String get exportFormatCsvDesc =>
+      'Universal CSV file — works with any software';
+
+  @override
+  String get encodingUtf8Bom => 'UTF-8 + BOM (recommended for Excel)';
+
+  @override
+  String get encodingUtf8 => 'UTF-8 (no BOM)';
+
+  @override
+  String get encodingWindows1255 => 'Windows-1255 (legacy Hashavshevet)';
+
+  @override
+  String get separatorComma => 'Comma (,)';
+
+  @override
+  String get separatorSemicolon => 'Semicolon (;)';
+
+  @override
+  String get separatorTab => 'Tab';
+
+  @override
+  String get hashavshevetEncodingHint =>
+      'For older Hashavshevet versions — choose Windows-1255';
+
+  @override
+  String get exportCompleteTitle => 'Export complete';
+
+  @override
+  String exportRecordsCount(int count, String fileName) {
+    return 'Export complete — $count records ($fileName)';
+  }
+
+  @override
+  String fileLabel(String name) {
+    return 'File: $name';
+  }
+
+  @override
+  String recordsLabel(int count) {
+    return 'Records: $count';
+  }
+
+  @override
+  String formatLabel(String name) {
+    return 'Format: $name';
+  }
+
+  @override
+  String get downloadFileBtn => 'Download file';
+
+  @override
+  String get exportAction => 'Export';
+
+  @override
+  String get loginRequiredFirst => 'Please log in first';
+
+  @override
+  String documentNotFoundAtPath(String path) {
+    return 'Document not found at path: $path';
+  }
+
+  @override
+  String get documentNotFoundOrNoAccess => 'Document not found or no access';
+
+  @override
+  String companyLabelColon(String name) {
+    return 'Company: $name';
+  }
+
+  @override
+  String get documentNumberLabel => 'Document number';
+
+  @override
+  String get createdAtLabel => 'Created';
+
+  @override
+  String get createdByLabel => 'Created by';
+
+  @override
+  String get assignmentNumberLabel => 'Assignment number';
+
+  @override
+  String get cancelledByLabel => 'Cancelled by';
+
+  @override
+  String get cancellationDateLabel => 'Cancellation date';
+
+  @override
+  String get totalBeforeDiscountLabel => 'Total before discount';
+
+  @override
+  String discountPercentLabel(int percent) {
+    return 'Discount ($percent%)';
+  }
+
+  @override
+  String get vat18Label => 'VAT (18%)';
+
+  @override
+  String get invoiceManagementTitle => 'Invoice management';
+
+  @override
+  String errorLoadingInvoices(String error) {
+    return '❌ Error loading invoices: $error';
+  }
+
+  @override
+  String assignmentNumberReceived(String number) {
+    return '✅ Assignment number received: $number';
+  }
+
+  @override
+  String assignmentRequestError(String error) {
+    return '❌ Assignment request error: $error';
+  }
+
+  @override
+  String get standaloneInvoiceInDev =>
+      '⚠️ Standalone invoice creation in development';
+
+  @override
+  String receiptPeriodLockedError(String docDate, String lockDate) {
+    return '🔒 Cannot create receipt — document date ($docDate) is in a closed accounting period (until $lockDate)';
+  }
+
+  @override
+  String get receiptCreatedAndPrinted => '✅ Receipt created and printed';
+
+  @override
+  String receiptCreateError(String error) {
+    return '❌ Error creating receipt: $error';
+  }
+
+  @override
+  String get receiptIssuanceError => 'Error issuing receipt from server';
+
+  @override
+  String get invoicePrintedSuccess => '✅ Invoice printed';
+
+  @override
+  String get cancelInvoiceTitle => 'Cancel invoice';
+
+  @override
+  String cancelInvoiceConfirm(String clientName) {
+    return 'Cancel invoice for $clientName?';
+  }
+
+  @override
+  String get cancelInvoiceLawNote =>
+      'Under bookkeeping law, invoices cannot be deleted, only cancelled.';
+
+  @override
+  String get enterCancellationReason => 'Please enter a cancellation reason';
+
+  @override
+  String get cancelInvoiceButton => 'Cancel invoice';
+
+  @override
+  String get invoiceCancelledSuccess => '✅ Invoice cancelled';
+
+  @override
+  String cancelInvoiceError(String error) {
+    return '❌ Cancellation error: $error';
+  }
+
+  @override
+  String get deliveryNoteShort => 'Del. note';
+
+  @override
+  String get taxInvoiceReceiptShort => 'Tax inv./receipt';
+
+  @override
+  String get originalPrintedLabel => 'Original printed';
+
+  @override
+  String copiesCountLabel(int count) {
+    return 'Copies: $count';
+  }
+
+  @override
+  String assignmentApprovedLabel(String number) {
+    return 'Assignment: $number';
+  }
+
+  @override
+  String get assignmentPendingLabel => 'Awaiting assignment';
+
+  @override
+  String get assignmentRejectedLabel => 'Assignment rejected';
+
+  @override
+  String get assignmentErrorLabel => 'Assignment error';
+
+  @override
+  String get assignmentRequiredLabel => 'Assignment required';
+
+  @override
+  String get historyTooltip => 'History';
+
+  @override
+  String get reprintTooltip => 'Reprint';
+
+  @override
+  String get createReceiptTooltip => 'Create receipt';
+
+  @override
+  String get cancelInvoiceTooltip => 'Cancel invoice';
+
+  @override
+  String get retryAssignmentTooltip => 'Retry assignment';
+
+  @override
+  String invoiceNumberTitle(int number) {
+    return 'Invoice #$number';
+  }
+
+  @override
+  String driverWithName(String name) {
+    return 'Driver: $name';
+  }
+
+  @override
+  String deliveryDateWithValue(String date) {
+    return 'Delivery date: $date';
+  }
+
+  @override
+  String totalWithAmount(String amount) {
+    return 'Total: ₪$amount';
+  }
+
+  @override
+  String get newInvoiceButton => 'New invoice';
+
+  @override
+  String get reprintDialogTitle => 'Reprint';
+
+  @override
+  String get copyTypeLabel => 'Copy';
+
+  @override
+  String copyNumberLabel(int number) {
+    return 'Copy number $number';
+  }
+
+  @override
+  String get trueToOriginalLabel => 'True to original';
+
+  @override
+  String get replacesOriginalLabel => 'Replaces the original';
+
+  @override
+  String printCopiesButton(int count) {
+    return 'Print $count copies';
+  }
+
+  @override
+  String get createReceiptTitle => 'Create receipt';
+
+  @override
+  String receiptForInvoice(int number) {
+    return 'Receipt for invoice #$number';
+  }
+
+  @override
+  String clientWithName(String name) {
+    return 'Client: $name';
+  }
+
+  @override
+  String amountWithValue(String amount) {
+    return 'Amount: ₪$amount';
+  }
+
+  @override
+  String get createReceiptButton => 'Create receipt';
+
+  @override
+  String get addBoxTypeButton => 'Add box type';
+
+  @override
+  String inStockCount(int count) {
+    return 'In stock: $count units';
+  }
+
+  @override
+  String onPalletCount(String count) {
+    return 'On pallet: $count';
+  }
+
+  @override
+  String volumeWithUnit(String value) {
+    return 'Volume: $value ml';
+  }
 }

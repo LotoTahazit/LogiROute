@@ -65,9 +65,19 @@ service cloud.firestore {
         (userDoc().companyId == companyId && billingAllowsRead(companyId))
       );
     }
+    // Как isCompanyMember, но БЕЗ billing-гейта. Только для ЧТЕНИЯ статуса и
+    // биллинга, чтобы компания в suspended/cancelled видела своё состояние и
+    // могла оплатить (само-реактивация). Записи остаются заблокированы.
+    function isCompanyMemberAnyBilling(companyId) {
+      return signedIn() && (
+        isSuperAdmin() ||
+        userDoc().companyId == companyId
+      );
+    }
     // Layer 3: data integrity — companyId в документе == companyId из пути
     function companyIdMatchesPath(companyId) {
-      return request.resource.data.companyId == companyId;
+      return !('companyId' in request.resource.data)
+        || request.resource.data.companyId == companyId;
     }
     // Layer 4: immutable fields — поле не изменилось при update
     function unchanged(field) {
@@ -124,8 +134,8 @@ service cloud.firestore {
     function canWriteModule(companyId, moduleKey) {
       return isSuperAdmin() || (
         isCompanyMember(companyId) && billingAllowsWrite(companyId) && hasModule(companyId, moduleKey) && (
-          (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher'])) ||
-          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper', 'dispatcher'])) ||
+          (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher', 'owner'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
           (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant'])) ||
           (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
         )
@@ -202,7 +212,10 @@ service cloud.firestore {
     // Companies root doc
     // =========================================================
     match /companies/{companyId} {
-      allow read: if isCompanyMember(companyId);
+      // Чтение company-дока — без billing-гейта: suspended/cancelled должны
+      // видеть свой статус и иметь возможность оплатить. Записи ниже остаются
+      // под isCompanyMember/canAdminWrite (billing-гейт сохранён).
+      allow read: if isCompanyMemberAnyBilling(companyId);
       // Only super_admin can create new companies.
       // This prevents uncontrolled company creation.
       allow create: if signedIn() && isSuperAdmin();
@@ -305,7 +318,7 @@ service cloud.firestore {
       // OWNER DASHBOARD: Billing Invoices (read-only, Cloud Functions)
       // =========================================================
       match /billing_invoices/{invoiceId} {
-        allow read: if isCompanyMember(companyId) && isOwnerOrAbove();
+        allow read: if isCompanyMemberAnyBilling(companyId) && isOwnerOrAbove();
         allow write: if false;
       }
 
@@ -360,7 +373,7 @@ service cloud.firestore {
       match /warehouse/_root/box_types/{boxTypeId} {
         allow read: if canUseModule(companyId, 'warehouse')
           || (signedIn() && userDoc().companyId == companyId && hasAnyRole(['dispatcher']));
-        allow create, update: if (canWriteModule(companyId, 'warehouse') || (signedIn() && userDoc().companyId == companyId && hasAnyRole(['dispatcher']))) && companyIdMatchesPath(companyId);
+        allow create, update: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
         allow delete: if canWriteModule(companyId, 'warehouse')
           || (signedIn() && userDoc().companyId == companyId && hasAnyRole(['dispatcher']));
       }
@@ -369,17 +382,17 @@ service cloud.firestore {
       match /warehouse/_root/product_types/{productTypeId} {
         allow read: if canUseModule(companyId, 'warehouse')
           || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']));
-        allow create: if (canWriteModule(companyId, 'warehouse') || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']))) && companyIdMatchesPath(companyId);
-        allow update: if canWriteModule(companyId, 'warehouse') || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']));
+        allow create: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
+        allow update: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
         allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
       }
 
       // inventory: текущие остатки (writable snapshot, set merge/update/delete)
       match /warehouse/_root/inventory/{itemId} {
+        // read: диспетчер тоже (нужно для счёта — piecesPerBox); write — нет.
         allow read: if canUseModule(companyId, 'warehouse')
           || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']));
-        allow create, update: if canWriteModule(companyId, 'warehouse')
-          || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']));
+        allow create, update: if canWriteModule(companyId, 'warehouse');
         allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
       }
 
@@ -427,7 +440,7 @@ service cloud.firestore {
           (isRole('driver')
             && resource.data.driverId == request.auth.uid
             && request.resource.data.diff(resource.data).changedKeys()
-                .hasOnly(['status', 'completedAt', 'autoCompleted', 'updatedByUid', 'updatedAt'])
+                .hasOnly(['status', 'completedAt', 'autoCompleted', 'updatedByUid', 'updatedAt', 'podPhotoUrl', 'podLat', 'podLng', 'podAt', 'podDistanceM'])
             && request.resource.data.driverId == resource.data.driverId
             && request.resource.data.driverName == resource.data.driverName
           )
@@ -657,7 +670,7 @@ service cloud.firestore {
       // delete: admin-only (для очистки inbox)
       // =========================================================
       match /notifications/{notificationId} {
-        allow read: if isCompanyMember(companyId);
+        allow read: if isCompanyMemberAnyBilling(companyId);
         allow create: if false; // server-only via Admin SDK (billingEnforcer, webhook, onboarding)
         allow update: if isCompanyMember(companyId)
           // Можно менять ТОЛЬКО read и readAt — ничего больше
@@ -725,7 +738,7 @@ service cloud.firestore {
       // read: admin/super_admin (содержит данные о платежах)
       // create/update/delete: ЗАПРЕЩЕНО клиенту — только Admin SDK
       match /payment_events/{eventId} {
-        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow read: if isCompanyMemberAnyBilling(companyId) && isAdminOrAbove();
         allow create, update, delete: if false; // server-only via Admin SDK
       }
 
@@ -736,7 +749,7 @@ service cloud.firestore {
       // read: admin/super_admin
       // create/update/delete: ЗАПРЕЩЕНО клиенту — только Admin SDK
       match /checkout_sessions/{sessionId} {
-        allow read: if isCompanyMember(companyId) && isAdminOrAbove();
+        allow read: if isCompanyMemberAnyBilling(companyId) && isAdminOrAbove();
         allow create, update, delete: if false; // server-only via Admin SDK
       }
 

@@ -149,8 +149,8 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
     if (actualQuantity < 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('כמות לא יכולה להיות שלילית'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.quantityCannotBeNegative),
             backgroundColor: Colors.red,
           ),
         );

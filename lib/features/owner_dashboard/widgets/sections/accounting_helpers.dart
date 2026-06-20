@@ -67,3 +67,30 @@ String formatCurrency(double value) {
   }
   return '${negative ? '-' : ''}${buffer.toString()}.$decPart';
 }
+
+String externalSyncLabel(BuildContext context, String? status) {
+  final l10n = AppLocalizations.of(context)!;
+  switch (status) {
+    case 'synced':
+      return l10n.accountingSyncStatusSynced;
+    case 'failed':
+      return l10n.accountingSyncStatusFailed;
+    case 'processing':
+      return l10n.accountingSyncStatusProcessing;
+    default:
+      return l10n.accountingSyncStatusPending;
+  }
+}
+
+Color externalSyncColor(String? status) {
+  switch (status) {
+    case 'synced':
+      return Colors.green;
+    case 'failed':
+      return Colors.red;
+    case 'processing':
+      return Colors.orange;
+    default:
+      return Colors.grey;
+  }
+}

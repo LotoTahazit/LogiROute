@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../models/company_config.dart';
 import 'client_service.dart';
 import 'box_type_service.dart';
+import 'firestore_paths.dart';
 import 'auth_service.dart';
 
 /// Единый кеш данных компании.
@@ -74,24 +75,57 @@ class CompanyCache {
 
   Future<void> _loadCompanyConfig(String companyId) async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final docRef = FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
           .collection('settings')
-          .doc('config')
-          .get();
+          .doc('config');
+      final doc = await docRef.get();
 
       if (doc.exists) {
-        _config = CompanyConfig.fromMap(doc.data()!);
+        final data = doc.data()!;
+        if (data['demoSeed'] == true) {
+          await docRef.set({
+            'warehouseLat': CompanyConfig.defaults.warehouseLat,
+            'warehouseLng': CompanyConfig.defaults.warehouseLng,
+            'demoSeed': FieldValue.delete(),
+          }, SetOptions(merge: true));
+          _config = CompanyConfig.fromMap({
+            ...data,
+            'warehouseLat': CompanyConfig.defaults.warehouseLat,
+            'warehouseLng': CompanyConfig.defaults.warehouseLng,
+          });
+          debugPrint('🧹 [CompanyCache] Demo warehouse reset to Mishmarot');
+        } else {
+          _config = CompanyConfig.fromMap(data);
+        }
         debugPrint(
             '🏭 [CompanyCache] Config loaded: warehouse=(${_config.warehouseLat}, ${_config.warehouseLng})');
       } else {
         _config = CompanyConfig.defaults;
         debugPrint('🏭 [CompanyCache] No config doc, using defaults');
       }
+      await _purgeDemoPoints(companyId);
     } catch (e) {
       debugPrint('⚠️ [CompanyCache] Config load error (using defaults): $e');
       _config = CompanyConfig.defaults;
+    }
+  }
+
+  Future<void> _purgeDemoPoints(String companyId) async {
+    try {
+      final snap = await FirestorePaths.deliveryPointsOf(companyId)
+          .where('demoSeed', isEqualTo: true)
+          .get();
+      if (snap.docs.isEmpty) return;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final d in snap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+      debugPrint('🧹 [CompanyCache] Removed ${snap.docs.length} demo points');
+    } catch (e) {
+      debugPrint('⚠️ [CompanyCache] Demo points purge error: $e');
     }
   }
 
