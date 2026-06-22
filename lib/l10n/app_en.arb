@@ -1,4 +1,6 @@
 {
+  "routeHistoryTitle": "Route history",
+  "routeHistoryEmpty": "No completed routes yet",
   "autoDistributePallets": "Auto-distribute pallets",
   "autoDistributeSuccess": "Pallets have been automatically assigned to drivers!",
   "autoDistributeError": "Auto-distribution error",

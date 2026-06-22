@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../admin/data_retention_screen.dart';
 import '../android_setup_sheet.dart';
+import '../driver_route_history_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../widgets/notification_bell.dart';
@@ -27,6 +28,23 @@ class DriverAppBarActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NotificationBell(companyId: companyId),
+        IconButton(
+          icon: const Icon(Icons.history),
+          tooltip: l10n.routeHistoryTitle,
+          onPressed: () {
+            final driverId = authService.currentUser?.uid;
+            if (driverId == null) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DriverRouteHistoryScreen(
+                  companyId: companyId,
+                  driverId: driverId,
+                ),
+              ),
+            );
+          },
+        ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.help_outline),
           tooltip: l10n.appBarGroupHelp,

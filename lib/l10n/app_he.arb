@@ -1,4 +1,6 @@
 {
+  "routeHistoryTitle": "היסטוריית מסלולים",
+  "routeHistoryEmpty": "אין עדיין מסלולים שהושלמו",
   "autoDistributePallets": "פצל אוטומטית משטחים",
   "autoDistributeSuccess": "המשטחים חולקו אוטומטית לנהגים!",
   "autoDistributeError": "שגיאת פיצול אוטומטי",

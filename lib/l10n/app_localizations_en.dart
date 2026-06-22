@@ -9,6 +9,12 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get routeHistoryTitle => 'Route history';
+
+  @override
+  String get routeHistoryEmpty => 'No completed routes yet';
+
+  @override
   String get autoDistributePallets => 'Auto-distribute pallets';
 
   @override

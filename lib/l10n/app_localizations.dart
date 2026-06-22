@@ -100,6 +100,18 @@ abstract class AppLocalizations {
     Locale('ru')
   ];
 
+  /// No description provided for @routeHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route history'**
+  String get routeHistoryTitle;
+
+  /// No description provided for @routeHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No completed routes yet'**
+  String get routeHistoryEmpty;
+
   /// No description provided for @autoDistributePallets.
   ///
   /// In en, this message translates to:

@@ -1,4 +1,6 @@
 {
+  "routeHistoryTitle": "История маршрутов",
+  "routeHistoryEmpty": "Завершённых маршрутов пока нет",
   "autoDistributePallets": "Авто-распределить паллеты",
   "autoDistributeSuccess": "Паллеты автоматически распределены по водителям!",
   "autoDistributeError": "Ошибка автосплита",

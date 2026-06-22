@@ -9,6 +9,12 @@ class AppLocalizationsHe extends AppLocalizations {
   AppLocalizationsHe([String locale = 'he']) : super(locale);
 
   @override
+  String get routeHistoryTitle => 'היסטוריית מסלולים';
+
+  @override
+  String get routeHistoryEmpty => 'אין עדיין מסלולים שהושלמו';
+
+  @override
   String get autoDistributePallets => 'פצל אוטומטית משטחים';
 
   @override

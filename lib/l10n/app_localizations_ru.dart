@@ -9,6 +9,12 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
+  String get routeHistoryTitle => 'История маршрутов';
+
+  @override
+  String get routeHistoryEmpty => 'Завершённых маршрутов пока нет';
+
+  @override
   String get autoDistributePallets => 'Авто-распределить паллеты';
 
   @override

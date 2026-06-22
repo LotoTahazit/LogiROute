@@ -1545,6 +1545,30 @@ class RouteService {
         .toList();
   }
 
+  /// Завершённые точки водителя — для экрана «История маршрутов».
+  /// Показывает закрытые точки (включая 2-й маршрут того же дня, который
+  /// уходит из активного дашборда). Сортировка клиентская — без orderBy,
+  /// чтобы не требовать составной индекс Firestore.
+  Future<List<DeliveryPoint>> getDriverCompletedPoints(
+    String driverId, {
+    int limit = 300,
+  }) async {
+    final snapshot = await _deliveryPointsCollection()
+        .where('driverId', isEqualTo: driverId)
+        .where('status', isEqualTo: DeliveryPoint.statusCompleted)
+        .limit(limit)
+        .get();
+    final points = snapshot.docs
+        .map((doc) => DeliveryPoint.fromMap(doc.data(), doc.id))
+        .toList();
+    points.sort((a, b) {
+      final da = a.completedAt ?? a.updatedAt ?? DateTime(1970);
+      final db = b.completedAt ?? b.updatedAt ?? DateTime(1970);
+      return db.compareTo(da);
+    });
+    return points;
+  }
+
   /// Добавить новую точку доставки
   Future<void> addDeliveryPoint(DeliveryPoint point) async {
     // toMap() автоматически добавляет createdAt и updatedAt
