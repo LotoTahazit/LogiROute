@@ -47,14 +47,15 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   /// Политика «POD-фото обязательно на каждую доставку».
   bool _requirePodPhoto = false;
 
+  /// Политика «автозакрытие точек по GPS включено» (по умолчанию да).
+  bool _autoCloseEnabled = true;
+
   /// Куда выгружать бухгалтерию: none | export | greeninvoice | icount
   String _accountingProvider = 'none';
 
   static const _accountingProviders = [
     'none',
-    'export',
     'greeninvoice',
-    'icount',
   ];
 
   @override
@@ -149,6 +150,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           _bankDetailsController.text = settings.bankDetails;
           _loaded = settings; // сохраняем для безопасного copyWith при записи
           _requirePodPhoto = settings.requirePodPhoto;
+          _autoCloseEnabled = settings.autoCloseEnabled;
           _accountingProvider = settings.accountingProvider;
           debugPrint('✅ [CompanySettings] Settings loaded and applied');
         } else {
@@ -234,6 +236,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         paymentTerms: _paymentTermsController.text,
         bankDetails: _bankDetailsController.text,
         requirePodPhoto: _requirePodPhoto,
+        autoCloseEnabled: _autoCloseEnabled,
         accountingProvider: _accountingProvider,
       );
 
@@ -472,6 +475,17 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           title: Text(l10n.requirePodPhoto),
                           subtitle: Text(l10n.requirePodPhotoHint),
                         ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          // При обязательном фото закрытие всегда ручное —
+                          // автозакрытие неактуально, гасим переключатель.
+                          value: _autoCloseEnabled && !_requirePodPhoto,
+                          onChanged: _requirePodPhoto
+                              ? null
+                              : (v) => setState(() => _autoCloseEnabled = v),
+                          title: Text(l10n.autoCloseEnabledTitle),
+                          subtitle: Text(l10n.autoCloseEnabledHint),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -533,8 +547,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
 
   Widget _buildAccountingProviderSection(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final needsCreds = _accountingProvider == 'greeninvoice' ||
-        _accountingProvider == 'icount';
+    final needsCreds = _accountingProvider == 'greeninvoice';
 
     return _buildSection(
       l10n.accountingProviderSection,

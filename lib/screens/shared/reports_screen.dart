@@ -6,6 +6,7 @@ import '../../models/delivery_point.dart';
 import '../../models/invoice.dart';
 import '../../services/firestore_paths.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 /// מסך דוחות — סטטיסטיקות משלוחים, חשבוניות וביצועי נהגים
 /// Module: reports (gated via ModuleGuard)
@@ -86,18 +87,16 @@ class _ReportsScreenState extends State<ReportsScreen>
                 ],
               ),
             ),
-            TabBar(
+            LogiRouteTabBar(
               controller: _tabController,
               tabs: [
-                Tab(
-                    text: l10n.deliveriesTab,
-                    icon: const Icon(Icons.local_shipping, size: 18)),
-                Tab(
-                    text: l10n.invoicesTab,
-                    icon: const Icon(Icons.receipt_long, size: 18)),
-                Tab(
-                    text: l10n.driversTab,
-                    icon: const Icon(Icons.person, size: 18)),
+                LogiRouteTabItem(
+                    label: l10n.deliveriesTab,
+                    icon: Icons.local_shipping),
+                LogiRouteTabItem(
+                    label: l10n.invoicesTab, icon: Icons.receipt_long),
+                LogiRouteTabItem(
+                    label: l10n.driversTab, icon: Icons.person),
               ],
             ),
             Expanded(
@@ -271,11 +270,7 @@ class _InvoiceReport extends StatelessWidget {
 
     final invoices =
         snap.docs.map((d) => Invoice.fromMap(d.data(), d.id)).toList();
-    final active = invoices
-        .where((i) =>
-            i.status == InvoiceStatus.issued ||
-            i.status == InvoiceStatus.active)
-        .toList();
+    final active = invoices.where((i) => i.isLive).toList();
 
     return _InvoiceStats(
       total: active.length,

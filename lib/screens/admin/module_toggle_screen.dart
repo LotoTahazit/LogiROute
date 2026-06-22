@@ -7,6 +7,7 @@ import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
+import 'billing/billing_helpers.dart';
 
 /// מסך ניהול מודולים — בחירת תוכנית → מודולים נקבעים אוטומטית
 /// super_admin only
@@ -72,10 +73,10 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
   };
 
   static const _planPriceLabel = {
-    'logistics': '₪590 → ₪790',
-    'warehouse_only': '₪390 → ₪490',
-    'ops': '₪890 → ₪1,190',
-    'full': '₪1,120 → ₪1,490',
+    'warehouse_only': '₪990 → ₪1,290',
+    'logistics': '₪1,490 → ₪1,990',
+    'ops': '₪2,290 → ₪2,990',
+    'full': '₪2,990 → ₪3,990',
   };
 
   static const _planIconMap = {
@@ -336,6 +337,55 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                               dense: true,
                             );
                           }),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Card(
+                    color: Colors.amber.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.billingAddonsTitle,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.billingExtraDriverMonthly(
+                              billingAddons.extraDriverPerMonth,
+                              billingAddons.includedDrivers,
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.billingExtraWarehouseMonthly(
+                              billingAddons.extraWarehousePerMonth,
+                              billingAddons.includedWarehouseLocations,
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.billingDedicatedExportMonthly(
+                              billingAddons.dedicatedExportPerMonth,
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
                         ],
                       ),
                     ),

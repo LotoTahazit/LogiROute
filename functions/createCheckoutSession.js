@@ -129,11 +129,15 @@ const DEFAULT_PRICING = {
   promoMonths: 3,
   currency: "ILS",
   plans: {
-    logistics: { promo: 590, regular: 790, setup: 0 },
-    warehouse_only: { promo: 390, regular: 490, setup: 0 },
-    ops: { promo: 890, regular: 1190, setup: 0 },
-    full: { promo: 1120, regular: 1490, setup: 0 },
-    custom: { promo: 1120, regular: 1490, setup: 0 },
+    warehouse_only: { promo: 990, regular: 1290, setup: 1500 },
+    logistics: { promo: 1490, regular: 1990, setup: 2000 },
+    ops: { promo: 2290, regular: 2990, setup: 3000 },
+    full: { promo: 2990, regular: 3990, setup: 5000 },
+    custom: { promo: 2990, regular: 3990, setup: 5000 },
+  },
+  addons: {
+    driver: { included: 5, pricePerMonth: 99 },
+    warehouseLocation: { included: 1, pricePerMonth: 199 },
   },
 };
 
@@ -168,6 +172,28 @@ async function _loadPricing() {
       currency:
         typeof data.currency === "string" ? data.currency : DEFAULT_PRICING.currency,
       plans,
+      addons: {
+        driver: {
+          included: _num(
+            data.addons?.driver?.included,
+            DEFAULT_PRICING.addons.driver.included
+          ),
+          pricePerMonth: _num(
+            data.addons?.driver?.pricePerMonth,
+            DEFAULT_PRICING.addons.driver.pricePerMonth
+          ),
+        },
+        warehouseLocation: {
+          included: _num(
+            data.addons?.warehouseLocation?.included,
+            DEFAULT_PRICING.addons.warehouseLocation.included
+          ),
+          pricePerMonth: _num(
+            data.addons?.warehouseLocation?.pricePerMonth,
+            DEFAULT_PRICING.addons.warehouseLocation.pricePerMonth
+          ),
+        },
+      },
     };
   } catch (e) {
     console.warn(`⚠️ config/billing_pricing load failed, using defaults: ${e.message}`);

@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../services/invoice_service.dart';
 import '../../models/accounting_doc.dart';
-import '../../repositories/accounting_docs_repository.dart';
 import 'accounting_helpers.dart';
 
 /// Dialog that displays the chain of related accounting documents.
 ///
 /// Shows: original document → credit note(s) → any related documents.
-/// Uses [AccountingDocsRepository.getDocumentChain] to load the chain.
+/// Uses [InvoiceService.getAccountingDocumentChain] to load the chain.
 ///
 /// Requirements: 16.6, 18.4
 class DocumentChainDialog extends StatefulWidget {
   final String docId;
-  final AccountingDocsRepository docsRepo;
+  final InvoiceService invoiceService;
   final AccountingDoc currentDoc;
 
   const DocumentChainDialog({
     super.key,
     required this.docId,
-    required this.docsRepo,
+    required this.invoiceService,
     required this.currentDoc,
   });
 
@@ -34,7 +34,7 @@ class _DocumentChainDialogState extends State<DocumentChainDialog> {
   @override
   void initState() {
     super.initState();
-    _chainFuture = widget.docsRepo.getDocumentChain(widget.docId);
+    _chainFuture = widget.invoiceService.getAccountingDocumentChain(widget.docId);
   }
 
   @override

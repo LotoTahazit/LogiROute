@@ -620,7 +620,7 @@ void main() {
   );
 
   test(
-    'Property 25d: accountant writableCollections returns [accountingDocs] (150 iterations)',
+    'Property 25d: accountant writableCollections returns [invoices] (150 iterations)',
     () {
       final rng = Random(315);
 
@@ -629,9 +629,9 @@ void main() {
         final svc = _service(AppRole.accountant, companyId);
 
         final collections = svc.writableCollections();
-        expect(collections, equals(['accountingDocs']),
+        expect(collections, equals(['invoices']),
             reason:
-                'Iteration $i: accountant writableCollections should be [accountingDocs]');
+                'Iteration $i: accountant writableCollections should be [invoices]');
       }
     },
   );

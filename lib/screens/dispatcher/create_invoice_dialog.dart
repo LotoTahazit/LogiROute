@@ -16,6 +16,7 @@ import '../../services/company_settings_service.dart';
 import '../../services/company_cache.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 import '../../theme/app_theme.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
@@ -325,7 +326,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         issuanceResult = await IssuanceService().issueDocument(
           companyId: companyId,
           invoiceId: invoiceId,
-          counterKey: _effectiveDocumentType.name,
+          counterKey: _effectiveDocumentType.canonicalCounterKey,
         );
 
         if (!issuanceResult.ok) {
@@ -569,23 +570,25 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SegmentedButton<int>(
-            segments: [
-              ButtonSegment(value: 30, label: Text(l10n.days30)),
-              ButtonSegment(value: 60, label: Text(l10n.days60)),
-              ButtonSegment(value: 90, label: Text(l10n.days90)),
-              ButtonSegment(value: -1, label: Text(l10n.manualEntry)),
+          child: LogiRoutePillSelector(
+            labels: [
+              l10n.days30,
+              l10n.days60,
+              l10n.days90,
+              l10n.manualEntry,
             ],
-            selected: {_customPaymentDate ? -1 : _paymentTermDays},
-            onSelectionChanged: (Set<int> selected) {
+            selectedIndex: _customPaymentDate
+                ? 3
+                : [30, 60, 90].indexOf(_paymentTermDays).clamp(0, 2),
+            onSelected: (i) {
               setState(() {
-                if (selected.first == -1) {
+                if (i == 3) {
                   _customPaymentDate = true;
                   _manualPaymentDate ??=
                       _deliveryDate.add(const Duration(days: 30));
                 } else {
                   _customPaymentDate = false;
-                  _paymentTermDays = selected.first;
+                  _paymentTermDays = [30, 60, 90][i];
                 }
               });
             },

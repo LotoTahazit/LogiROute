@@ -7,22 +7,10 @@ const Timestamp = admin.firestore.Timestamp;
 const FieldValue = admin.firestore.FieldValue;
 
 // =========================================================
-// Canonical hash helpers
+// Canonical hash helpers (единая integrity-chain)
 // =========================================================
 
-function sha256hex(s) {
-  return crypto.createHash("sha256").update(s, "utf8").digest("hex");
-}
-
-/**
- * Canonical chain hash v1.
- * v1|{companyId}|{counterKey}|{docType}|{docNumber}|{docId}|{issuedAtMillis}|{prevHashOrGENESIS}
- */
-function buildChainHashV1({ companyId, counterKey, docType, docNumber, docId, issuedAtMillis, prevHash }) {
-  const prev = prevHash ?? "GENESIS";
-  const canonical = `v1|${companyId}|${counterKey}|${docType}|${docNumber}|${docId}|${issuedAtMillis}|${prev}`;
-  return sha256hex(canonical);
-}
+const { sha256hex, buildChainHashV1 } = require("./accounting/chain_hash");
 
 // =========================================================
 // issueInvoice — Callable Function

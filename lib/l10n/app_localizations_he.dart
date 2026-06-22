@@ -355,11 +355,23 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeOnTime => 'בזמן';
 
   @override
+  String avgMinutesPerPoint(int minutes) {
+    return '~$minutes דק׳/נק׳';
+  }
+
+  @override
   String get requirePodPhoto => 'לחייב צילום מסירה (POD)';
 
   @override
   String get requirePodPhotoHint =>
       'מסתיר סגירה בנגיעה ומכבה סגירה אוטומטית — כל מסירה דורשת צילום.';
+
+  @override
+  String get autoCloseEnabledTitle => 'סגירת נקודות אוטומטית לפי GPS';
+
+  @override
+  String get autoCloseEnabledHint =>
+      'הנקודה נסגרת אוטומטית כשהנהג עומד אצל הלקוח. כבה אם ברצונך שהנהג יסגור נקודות רק ידנית.';
 
   @override
   String get deliverySection => 'מסירה';
@@ -377,7 +389,77 @@ class AppLocalizationsHe extends AppLocalizations {
   String get autoCloseToggle => 'אוטו';
 
   @override
+  String get bgLocationTitle => 'מיקום ברקע';
+
+  @override
+  String get bgLocationBody =>
+      'כדי שמסלול הנהג יירשם במלואו (גם כשהמסך נעול), אפשר גישה למיקום \"תמיד\" בהגדרות האפליקציה.';
+
+  @override
+  String get bgLocationOpenSettings => 'פתח הגדרות';
+
+  @override
+  String get androidSetupTitle => 'הגדרת אנדרואיד למשמרת';
+
+  @override
+  String get androidSetupIntro =>
+      'כדי שהמשמרת וה-GPS יעבדו ברקע (גם כשהמסך נעול), הפעל 3 הגדרות:';
+
+  @override
+  String get androidSetupLocationTitle => 'מיקום: \"אפשר תמיד\"';
+
+  @override
+  String get androidSetupLocationDesc => 'בלי זה ה-GPS נעלם כשהמסך נעול.';
+
+  @override
+  String get androidSetupBatteryTitle => 'סוללה: ללא הגבלות';
+
+  @override
+  String get androidSetupBatteryDesc =>
+      'כדי שהמערכת לא תסגור את שירות הרקע של המשמרת.';
+
+  @override
+  String get androidSetupAutostartTitle =>
+      'הפעלה אוטומטית (Xiaomi/MIUI, Huawei, Oppo…)';
+
+  @override
+  String get androidSetupAutostartDesc =>
+      'אפשר הפעלה אוטומטית של האפליקציה — אחרת השירות לא יתחיל אחרי הפעלה מחדש. בדוק ידנית בהגדרות האפליקציה.';
+
+  @override
+  String get androidSetupEnable => 'הפעל';
+
+  @override
+  String get androidSetupDone => 'סיום';
+
+  @override
+  String get androidSetupGranted => 'מופעל';
+
+  @override
+  String get androidSetupMenu => 'הגדרת אנדרואיד (רקע)';
+
+  @override
   String get closeWithPhoto => 'סגור עם תמונה';
+
+  @override
+  String get fixLocationButton => 'מיקום שגוי';
+
+  @override
+  String get fixLocationTitle => 'לעדכן את מיקום הלקוח?';
+
+  @override
+  String fixLocationBody(String clientName) {
+    return 'לשמור את מיקומך הנוכחי כקואורדינטות של הלקוח \"$clientName\"? זה יתקן את הנקודה למשלוחים הבאים.';
+  }
+
+  @override
+  String get fixLocationSuccess => 'מיקום הלקוח עודכן';
+
+  @override
+  String get fixLocationGpsError => 'אין GPS מדויק, או מיקום מחוץ לישראל';
+
+  @override
+  String get fixLocationClientMissing => 'הלקוח לא נמצא';
 
   @override
   String get autoCloseUndoMessage => 'הנקודה נסגרה אוטומטית';
@@ -411,6 +493,45 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get podGpsUnavailable => 'GPS לא זמין — הפעל מיקום';
+
+  @override
+  String get podUploadFailed => 'העלאת התמונה נכשלה — בדוק את החיבור ונסה שוב';
+
+  @override
+  String get podViewerTooltip => 'תמונת מסירה';
+
+  @override
+  String get podViewerNoPhoto => 'לא צורפה תמונה — הנקודה נסגרה ללא צילום';
+
+  @override
+  String get podViewerPhotoError => 'טעינת התמונה נכשלה';
+
+  @override
+  String get podViewerAutoClosed => 'נסגר אוטומטית לפי GPS';
+
+  @override
+  String get podSharePhoto => 'שתף';
+
+  @override
+  String get routeArchiveTitle => 'ארכיון מסלולים';
+
+  @override
+  String get routeArchiveHint =>
+      'משלוחים מ-90 הימים האחרונים. תמונות זמינות במהלך התקופה; GPS ושעה נשמרים לאחר מכן.';
+
+  @override
+  String get routeArchiveEmpty => 'אין משלוחים בארכיון לתקופה זו';
+
+  @override
+  String get routeArchiveSearchHint => 'חיפוש לקוח, נהג או כתובת';
+
+  @override
+  String routeArchivePointsCount(Object count) {
+    return '$count נקודות';
+  }
+
+  @override
+  String get routeArchiveGpsOnly => 'GPS בלבד';
 
   @override
   String get next => 'הבא';
@@ -1888,6 +2009,30 @@ class AppLocalizationsHe extends AppLocalizations {
   String get clientReport => 'דוח לקוחות';
 
   @override
+  String get reportStockTab => 'מלאי';
+
+  @override
+  String get reportStockSku => 'מק\"ט';
+
+  @override
+  String get reportStockProduct => 'מוצר';
+
+  @override
+  String get reportStockQty => 'כמות (יח\')';
+
+  @override
+  String get reportStockPallets => 'משטחים';
+
+  @override
+  String get reportStockTotalSkus => 'פריטים';
+
+  @override
+  String get reportStockTotalUnits => 'סה\"כ יחידות';
+
+  @override
+  String get reportStockTotalPallets => 'סה\"כ משטחים';
+
+  @override
   String get errorLoadingData => 'שגיאה בטעינת נתונים';
 
   @override
@@ -3204,7 +3349,7 @@ class AppLocalizationsHe extends AppLocalizations {
       'יוצר חברה, הגדרות ברירת מחדל ומוני מסמכים. ניסיון 14 יום.';
 
   @override
-  String get companyIdSlug => 'מזהה חברה (לatin)';
+  String get companyIdSlug => 'מזהה מערכת (a-z, מספרים)';
 
   @override
   String get companyIdSlugHint => 'acme-logistics';
@@ -3218,7 +3363,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get companyAlreadyExists => 'חברה עם מזהה זה כבר קיימת';
 
   @override
-  String get invalidCompanyId => 'מזהה: אותיות לatin, ספרות, מקף, 3–40 תווים';
+  String get invalidCompanyId => 'מזהה: a-z, ספרות, מקף, 3–40 תווים';
 
   @override
   String get counterInvoices => 'חשבוניות מס';
@@ -4186,16 +4331,36 @@ class AppLocalizationsHe extends AppLocalizations {
   String get planDescLogistics => 'לוגיסטיקה + דיספצ׳ר + דוחות (ללא מחסן)';
 
   @override
-  String get planDescOps => 'מחסן + לוגיסטיקה + דוחות';
+  String get planDescOps =>
+      'מחסן + לוגיסטיקה + דיספצ׳ר + דוחות (ללא הנהלת חשבונות)';
 
   @override
-  String get planDescFull => 'כל המודולים כולל הנהלת חשבונות';
+  String get planDescFull => 'כל המודולים כולל הנהלת חשבונות ו-Greeninvoice';
 
   @override
   String get planDescCustom => 'תוכנית מותאמת';
 
   @override
-  String get accountingProviderSection => 'ייצוא חשבונאי';
+  String get planAccountingNote =>
+      'הנהלת חשבונות (חשבוניות, מע״מ, Greeninvoice) — רק בתוכנית «מלא». ללא תשלום נפרד למודול.';
+
+  @override
+  String get planBackupNote =>
+      'DR ענן (Firestore Backup של Google): כלול ב«מלא»; בתוכניות אחרות — יומן ביקורת חינם, export ייעודי +₪149/חודש. חשבון Google משולם על ידי LogiRoute (~₪30–120/חודש לכל הפרויקט).';
+
+  @override
+  String billingDedicatedExportMonthly(int price) {
+    return '+₪$price/חודש — export רבעוני ייעודי לחברה (אופציונלי)';
+  }
+
+  @override
+  String get planModulesLabel => 'מודולים:';
+
+  @override
+  String get planCurrentBadge => 'תוכנית נוכחית';
+
+  @override
+  String get accountingProviderSection => 'אינטגרציית API מס';
 
   @override
   String get accountingProviderLabel => 'ספק';
@@ -4269,6 +4434,11 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String accountingExternalDocNumber(String number) {
+    return 'מס׳ חיצוני: $number';
+  }
+
+  @override
   String get accountingSyncStatusPending => 'ממתין';
 
   @override
@@ -4277,6 +4447,19 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String accountingExternalSyncFailedWith(String error) {
     return 'המסמך הונפק, הסנכרון נכשל: $error';
+  }
+
+  @override
+  String get billingAddonsTitle => 'תוספות לפי שימוש';
+
+  @override
+  String billingExtraDriverMonthly(int price, int included) {
+    return '+₪$price/חודש לכל נהג מעבר ל-$included הכלולים';
+  }
+
+  @override
+  String billingExtraWarehouseMonthly(int price, int included) {
+    return '+₪$price/חודש לכל מחסן/נקודה מעבר ל-$included הכלול';
   }
 
   @override
@@ -4787,6 +4970,33 @@ class AppLocalizationsHe extends AppLocalizations {
   String get registerBackupTitle => 'רישום גיבוי';
 
   @override
+  String get registerLogiRouteCloudBackup => 'רשום גיבוי ענן LogiRoute';
+
+  @override
+  String get registerBackupOther => 'אחסון אחר…';
+
+  @override
+  String get backupCloudInfoTitle => 'גיבוי ענן';
+
+  @override
+  String get backupCloudInfoBody =>
+      'נתוני LogiRoute נשמרים בענן Firebase (פרויקט logiroute-app). הכפתור למעלה — רישום ביומן ביקורת, לא שירות Google נפרד.';
+
+  @override
+  String get backupCloudPricingNote =>
+      'תוכנית «מלא»: DR ענן כלול (LogiRoute משלם על גיבוי הפרויקט). תוכניות אחרות: יומן בלבד; export ייעודי — +₪149/חודש.';
+
+  @override
+  String get backupFirebaseLocationLabel => 'שם פרויקט Firebase';
+
+  @override
+  String get backupFirebaseHelper =>
+      'ללקוחות LogiRoute בדרך כלל מספיק logiroute-app.';
+
+  @override
+  String get storageRecommended => '(מומלץ)';
+
+  @override
   String get storageType => 'סוג אחסון';
 
   @override
@@ -5103,6 +5313,11 @@ class AppLocalizationsHe extends AppLocalizations {
   String get driverRouteTitle => 'מסלול נהג';
 
   @override
+  String driverAnotherRoutePoints(int count) {
+    return 'מסלול נוסף: $count נקודות';
+  }
+
+  @override
   String wazeOpenError(String error) {
     return 'שגיאה בפתיחת Waze: $error';
   }
@@ -5217,6 +5432,48 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get adminActivityLog => 'יומן פעילות';
+
+  @override
+  String get appBarGroupReports => 'דוחות';
+
+  @override
+  String get appBarGroupWarehouse => 'מחסן';
+
+  @override
+  String get appBarGroupCompany => 'חברה';
+
+  @override
+  String get appBarGroupBilling => 'חיוב';
+
+  @override
+  String get appBarGroupPlatform => 'פלטפורמה';
+
+  @override
+  String get appBarGroupLogistics => 'לוגיסטיקה';
+
+  @override
+  String get appBarGroupArchive => 'ארכיון ונתונים';
+
+  @override
+  String get appBarGroupOperations => 'תפעול';
+
+  @override
+  String get appBarGroupImportExport => 'ייבוא וייצוא';
+
+  @override
+  String get appBarGroupHelp => 'עזרה';
+
+  @override
+  String get ownerNavOverview => 'סקירה';
+
+  @override
+  String get ownerNavManagement => 'ניהול';
+
+  @override
+  String get ownerNavOperations => 'תפעול';
+
+  @override
+  String get ownerNavCompliance => 'בקרה';
 
   @override
   String get period24h => '24 שעות';

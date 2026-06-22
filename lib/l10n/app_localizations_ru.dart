@@ -362,11 +362,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeOnTime => 'Успевает';
 
   @override
+  String avgMinutesPerPoint(int minutes) {
+    return '~$minutes мин/точку';
+  }
+
+  @override
   String get requirePodPhoto => 'Требовать фото доставки (POD)';
 
   @override
   String get requirePodPhotoHint =>
       'Скрывает закрытие в один тап и отключает автозакрытие — на каждую доставку нужно фото.';
+
+  @override
+  String get autoCloseEnabledTitle => 'Автозакрытие точек по GPS';
+
+  @override
+  String get autoCloseEnabledHint =>
+      'Точка закрывается сама, когда водитель стоит у клиента. Выключите, если хотите, чтобы водитель закрывал точки только вручную.';
 
   @override
   String get deliverySection => 'Доставка';
@@ -384,7 +396,78 @@ class AppLocalizationsRu extends AppLocalizations {
   String get autoCloseToggle => 'Авто';
 
   @override
+  String get bgLocationTitle => 'Геолокация в фоне';
+
+  @override
+  String get bgLocationBody =>
+      'Чтобы маршрут водителя записывался полностью (даже когда экран заблокирован), включите доступ к геолокации «Разрешать всегда» в настройках приложения.';
+
+  @override
+  String get bgLocationOpenSettings => 'Открыть настройки';
+
+  @override
+  String get androidSetupTitle => 'Настройка Android для смены';
+
+  @override
+  String get androidSetupIntro =>
+      'Чтобы смена и GPS работали в фоне (когда экран заблокирован), включите 3 настройки:';
+
+  @override
+  String get androidSetupLocationTitle => 'Геолокация: «Разрешить всегда»';
+
+  @override
+  String get androidSetupLocationDesc =>
+      'Без этого GPS пропадает, когда экран заблокирован.';
+
+  @override
+  String get androidSetupBatteryTitle => 'Батарея: без ограничений';
+
+  @override
+  String get androidSetupBatteryDesc =>
+      'Чтобы система не выгружала фоновый сервис смены.';
+
+  @override
+  String get androidSetupAutostartTitle =>
+      'Автозапуск (Xiaomi/MIUI, Huawei, Oppo…)';
+
+  @override
+  String get androidSetupAutostartDesc =>
+      'Разрешите автозапуск приложения — иначе сервис не стартует после перезагрузки. Проверьте вручную в настройках приложения.';
+
+  @override
+  String get androidSetupEnable => 'Включить';
+
+  @override
+  String get androidSetupDone => 'Готово';
+
+  @override
+  String get androidSetupGranted => 'Включено';
+
+  @override
+  String get androidSetupMenu => 'Настройка Android (фон)';
+
+  @override
   String get closeWithPhoto => 'Закрыть с фото';
+
+  @override
+  String get fixLocationButton => 'Неверное место';
+
+  @override
+  String get fixLocationTitle => 'Обновить координаты клиента?';
+
+  @override
+  String fixLocationBody(String clientName) {
+    return 'Сохранить ваше текущее местоположение как координаты клиента «$clientName»? Это исправит точку для будущих доставок.';
+  }
+
+  @override
+  String get fixLocationSuccess => 'Координаты клиента обновлены';
+
+  @override
+  String get fixLocationGpsError => 'Нет точного GPS или место вне Израиля';
+
+  @override
+  String get fixLocationClientMissing => 'Клиент не найден';
 
   @override
   String get autoCloseUndoMessage => 'Точка закрыта автоматически';
@@ -418,6 +501,46 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get podGpsUnavailable => 'GPS недоступен — включите геолокацию';
+
+  @override
+  String get podUploadFailed =>
+      'Не удалось загрузить фото — проверьте интернет и повторите';
+
+  @override
+  String get podViewerTooltip => 'Фото доставки';
+
+  @override
+  String get podViewerNoPhoto => 'Фото не прикреплено — точка закрыта без фото';
+
+  @override
+  String get podViewerPhotoError => 'Не удалось загрузить фото';
+
+  @override
+  String get podViewerAutoClosed => 'Закрыто автоматически по GPS';
+
+  @override
+  String get podSharePhoto => 'Поделиться';
+
+  @override
+  String get routeArchiveTitle => 'Архив маршрутов';
+
+  @override
+  String get routeArchiveHint =>
+      'Доставки за последние 90 дней. Фото доступны всё это время, затем остаются GPS и время.';
+
+  @override
+  String get routeArchiveEmpty => 'Архив пуст за этот период';
+
+  @override
+  String get routeArchiveSearchHint => 'Поиск по клиенту, водителю или адресу';
+
+  @override
+  String routeArchivePointsCount(Object count) {
+    return '$count точек';
+  }
+
+  @override
+  String get routeArchiveGpsOnly => 'только GPS';
 
   @override
   String get next => 'Далее';
@@ -1902,6 +2025,30 @@ class AppLocalizationsRu extends AppLocalizations {
   String get clientReport => 'Отчёт по клиентам';
 
   @override
+  String get reportStockTab => 'Остатки склада';
+
+  @override
+  String get reportStockSku => 'Артикул';
+
+  @override
+  String get reportStockProduct => 'Товар';
+
+  @override
+  String get reportStockQty => 'Кол-во (шт)';
+
+  @override
+  String get reportStockPallets => 'Миштахи';
+
+  @override
+  String get reportStockTotalSkus => 'Позиций';
+
+  @override
+  String get reportStockTotalUnits => 'Всего единиц';
+
+  @override
+  String get reportStockTotalPallets => 'Всего миштахов';
+
+  @override
   String get errorLoadingData => 'Ошибка загрузки данных';
 
   @override
@@ -3250,7 +3397,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get companyAlreadyExists => 'Компания с таким ID уже существует';
 
   @override
-  String get invalidCompanyId => 'ID: лatin, цифры, дефис, 3–40 символов';
+  String get invalidCompanyId => 'ID: лatinица, цифры, дефис, 3–40 символов';
 
   @override
   String get counterInvoices => 'Налоговые накладные';
@@ -4229,16 +4376,37 @@ class AppLocalizationsRu extends AppLocalizations {
   String get planDescLogistics => 'Логистика + диспетчер + отчёты (без склада)';
 
   @override
-  String get planDescOps => 'Склад + логистика + отчёты';
+  String get planDescOps =>
+      'Склад + логистика + диспетчер + отчёты (без бухгалтерии)';
 
   @override
-  String get planDescFull => 'Все модули включая бухгалтерию';
+  String get planDescFull =>
+      'Все модули, включая бухгалтерию и интеграцию с Greeninvoice';
 
   @override
   String get planDescCustom => 'Индивидуальный тариф';
 
   @override
-  String get accountingProviderSection => 'Бухгалтерский экспорт';
+  String get planAccountingNote =>
+      'Бухгалтерия (счета, НДС, Greeninvoice) — только в тарифе «Полный». Отдельной доплаты за модуль нет.';
+
+  @override
+  String get planBackupNote =>
+      'Облачный DR (Firestore Backup Google): включён в «Полный»; на других тарифах — журнал аудита бесплатно, выделенный export +₪149/мес. Счёт Google платит LogiRoute (~₪30–120/мес на весь проект).';
+
+  @override
+  String billingDedicatedExportMonthly(int price) {
+    return '+₪$price/мес — выделенный квартальный export данных компании (опционально)';
+  }
+
+  @override
+  String get planModulesLabel => 'Модули:';
+
+  @override
+  String get planCurrentBadge => 'Текущий тариф';
+
+  @override
+  String get accountingProviderSection => 'Интеграция с налоговой API';
 
   @override
   String get accountingProviderLabel => 'Провайдер';
@@ -4312,6 +4480,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String accountingExternalDocNumber(String number) {
+    return 'Внешний №: $number';
+  }
+
+  @override
   String get accountingSyncStatusPending => 'Ожидает';
 
   @override
@@ -4320,6 +4493,19 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String accountingExternalSyncFailedWith(String error) {
     return 'Документ выпущен, синхронизация не удалась: $error';
+  }
+
+  @override
+  String get billingAddonsTitle => 'Доплаты за использование';
+
+  @override
+  String billingExtraDriverMonthly(int price, int included) {
+    return '+₪$price/мес за каждого водителя сверх $included включённых';
+  }
+
+  @override
+  String billingExtraWarehouseMonthly(int price, int included) {
+    return '+₪$price/мес за каждый склад/точку сверх $included включённой';
   }
 
   @override
@@ -4834,6 +5020,34 @@ class AppLocalizationsRu extends AppLocalizations {
   String get registerBackupTitle => 'Регистрация резервной копии';
 
   @override
+  String get registerLogiRouteCloudBackup =>
+      'Зарегистрировать облачный бэкап LogiRoute';
+
+  @override
+  String get registerBackupOther => 'Другое хранилище…';
+
+  @override
+  String get backupCloudInfoTitle => 'Облачное резервирование';
+
+  @override
+  String get backupCloudInfoBody =>
+      'Данные LogiRoute хранятся в облаке Firebase (проект logiroute-app). Кнопка выше — запись в журнал аудита для бухгалтерии, не отдельная услуга Google.';
+
+  @override
+  String get backupCloudPricingNote =>
+      'Тариф «Полный»: облачное DR включено (бэкап проекта платит LogiRoute). Остальные тарифы: только журнал; выделенный экспорт данных — доп. ₪149/мес.';
+
+  @override
+  String get backupFirebaseLocationLabel => 'Имя проекта Firebase';
+
+  @override
+  String get backupFirebaseHelper =>
+      'Для клиентов LogiRoute обычно достаточно logiroute-app.';
+
+  @override
+  String get storageRecommended => '(рекомендуется)';
+
+  @override
   String get storageType => 'Тип хранилища';
 
   @override
@@ -5153,6 +5367,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get driverRouteTitle => 'Маршрут водителя';
 
   @override
+  String driverAnotherRoutePoints(int count) {
+    return 'Ещё маршрут: $count точек';
+  }
+
+  @override
   String wazeOpenError(String error) {
     return 'Ошибка открытия Waze: $error';
   }
@@ -5267,6 +5486,48 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get adminActivityLog => 'Журнал событий';
+
+  @override
+  String get appBarGroupReports => 'Отчёты';
+
+  @override
+  String get appBarGroupWarehouse => 'Склад';
+
+  @override
+  String get appBarGroupCompany => 'Компания';
+
+  @override
+  String get appBarGroupBilling => 'Биллинг';
+
+  @override
+  String get appBarGroupPlatform => 'Платформа';
+
+  @override
+  String get appBarGroupLogistics => 'Логистика';
+
+  @override
+  String get appBarGroupArchive => 'Архив и данные';
+
+  @override
+  String get appBarGroupOperations => 'Операции';
+
+  @override
+  String get appBarGroupImportExport => 'Импорт и экспорт';
+
+  @override
+  String get appBarGroupHelp => 'Справка';
+
+  @override
+  String get ownerNavOverview => 'Обзор';
+
+  @override
+  String get ownerNavManagement => 'Управление';
+
+  @override
+  String get ownerNavOperations => 'Операции';
+
+  @override
+  String get ownerNavCompliance => 'Контроль';
 
   @override
   String get period24h => '24 часа';

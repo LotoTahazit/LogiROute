@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'logi_route_tab_bar.dart';
 
 /// Result of column mapping
 class ColumnMapping {
@@ -230,28 +231,11 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
   }
 
   Widget _buildDuplicateOptions(AppLocalizations l10n) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        ChoiceChip(
-          label: Text(l10n.duplicateSkip),
-          selected: _duplicateMode == DuplicateMode.skip,
-          onSelected: (_) =>
-              setState(() => _duplicateMode = DuplicateMode.skip),
-        ),
-        ChoiceChip(
-          label: Text(l10n.duplicateUpdate),
-          selected: _duplicateMode == DuplicateMode.update,
-          onSelected: (_) =>
-              setState(() => _duplicateMode = DuplicateMode.update),
-        ),
-        ChoiceChip(
-          label: Text(l10n.duplicateAdd),
-          selected: _duplicateMode == DuplicateMode.addAnyway,
-          onSelected: (_) =>
-              setState(() => _duplicateMode = DuplicateMode.addAnyway),
-        ),
-      ],
+    return LogiRoutePillSelector(
+      labels: [l10n.duplicateSkip, l10n.duplicateUpdate, l10n.duplicateAdd],
+      selectedIndex: DuplicateMode.values.indexOf(_duplicateMode),
+      onSelected: (i) =>
+          setState(() => _duplicateMode = DuplicateMode.values[i]),
     );
   }
 }

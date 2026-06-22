@@ -45,6 +45,10 @@ function buildFormBody(payload) {
   });
 
   if (payload.notes) params.set("comment", payload.notes);
+  const doctype = mapDocType(payload.docType);
+  if (doctype === "refund" && payload.references?.originalDocNumber != null) {
+    params.set("related_doc_num", String(payload.references.originalDocNumber));
+  }
   return params;
 }
 

@@ -64,7 +64,10 @@ class RouteService {
   String _buildUniqueRouteId(String driverId, DateTime now) =>
       '${driverId}_${now.year}_${now.month}_${now.day}_${now.millisecondsSinceEpoch}';
 
-  Future<String> _resolveRouteIdForDriver(String driverId, DateTime now) async {
+  Future<String> _resolveRouteIdForDriver(String driverId, DateTime now,
+      {bool forceNew = false}) async {
+    if (forceNew) return _buildUniqueRouteId(driverId, now);
+
     final activeSnapshot = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
         .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
@@ -386,6 +389,14 @@ class RouteService {
         if (normalizedStatus == DeliveryPoint.statusCompleted ||
             normalizedStatus == DeliveryPoint.statusCancelled) {
           if (!includeCompleted) return false;
+          // Экран водителя: все завершённые за сегодня (несколько маршрутов)
+          if (driverId != null) {
+            if (p.completedAt != null &&
+                p.completedAt!.isAfter(todayMidnight)) {
+              return true;
+            }
+            return false;
+          }
           final did = p.driverId ?? '';
           final driverActiveRoutes = activeRouteIdsByDriver[did];
           // Водитель имеет active маршрут → completed только из него
@@ -793,7 +804,8 @@ class RouteService {
         startLocation: startLocation,
         tripPolyline: tripPolyline,
         tripDurationMinutes: tripDurationMinutes,
-        tripDistanceKm: tripDistanceKm);
+        tripDistanceKm: tripDistanceKm,
+        separateRoute: true);
   }
 
   /// � Начать маршрут — установить статус active
@@ -1808,7 +1820,8 @@ class RouteService {
       {Map<String, double>? startLocation,
       String? tripPolyline,
       double? tripDurationMinutes,
-      double? tripDistanceKm}) async {
+      double? tripDistanceKm,
+      bool separateRoute = false}) async {
     // 🛡️ Жёсткая проверка перегрузки
     final existingLoad = await _deliveryPointsCollection()
         .where('driverId', isEqualTo: driverId)
@@ -1825,38 +1838,37 @@ class RouteService {
     // Генерируем routeId для этого маршрута
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
-    final routeId = await _resolveRouteIdForDriver(driverId, now);
+    final routeId = separateRoute
+        ? _buildUniqueRouteId(driverId, now)
+        : await _resolveRouteIdForDriver(driverId, now);
 
-    // Завершённые «вчерашние» точки уходят в архив (archived) через archiveStaleCompletedPoints,
-    // незавершённые не трогаем — см. getTodayRoutes.
+    // Отдельный маршрут — не трогаем точки других маршрутов того же водителя.
+    if (!separateRoute) {
+      final orphanedPoints = await _deliveryPointsCollection()
+          .where('driverId', isEqualTo: driverId)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
 
-    // 🧹 Очищаем осиротевшие assigned/in_progress точки от СТАРЫХ маршрутов
-    // Возвращаем их в pending чтобы диспетчер мог перераспределить
-    final orphanedPoints = await _deliveryPointsCollection()
-        .where('driverId', isEqualTo: driverId)
-        .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
-        .get();
-
-    int orphanedCount = 0;
-    for (final doc in orphanedPoints.docs) {
-      final data = doc.data();
-      final oldRouteId = data['routeId'] as String?;
-      // Если routeId отличается от нового — это осиротевшая точка
-      if (oldRouteId != null && oldRouteId != routeId) {
-        await doc.reference.update({
-          'status': DeliveryPoint.statusPending,
-          'driverId': null,
-          'driverName': null,
-          'routeId': null,
-          'orderInRoute': 0,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        orphanedCount++;
+      int orphanedCount = 0;
+      for (final doc in orphanedPoints.docs) {
+        final data = doc.data();
+        final oldRouteId = data['routeId'] as String?;
+        if (oldRouteId != null && oldRouteId != routeId) {
+          await doc.reference.update({
+            'status': DeliveryPoint.statusPending,
+            'driverId': null,
+            'driverName': null,
+            'routeId': null,
+            'orderInRoute': 0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          orphanedCount++;
+        }
       }
-    }
-    if (orphanedCount > 0) {
-      print(
-          '🧹 [RouteService] Returned $orphanedCount orphaned points to pending for driver $driverName');
+      if (orphanedCount > 0) {
+        print(
+            '🧹 [RouteService] Returned $orphanedCount orphaned points to pending for driver $driverName');
+      }
     }
 
     // Получаем активные точки водителя (незавершенные)
@@ -1878,7 +1890,11 @@ class RouteService {
       return completedAt != null && completedAt.isAfter(todayMidnight);
     }).toList();
 
-    final startOrder = existingPoints.docs.length;
+    final startOrder = separateRoute
+        ? 0
+        : existingPoints.docs
+            .where((d) => (d.data()['routeId'] as String?) == routeId)
+            .length;
     print(
         '📊 [RouteService] Driver has $startOrder active points, ${todayCompleted.length} completed today');
 

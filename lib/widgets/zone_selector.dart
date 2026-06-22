@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../utils/zone_utils.dart';
 
-/// Мульти-выбор зон доставки с цветными чипами
+import '../utils/zone_utils.dart';
+import 'logi_route_tab_bar.dart';
+
+/// Мульти-выбор зон доставки с единым pill-стилем LogiRoute.
 class ZoneSelector extends StatelessWidget {
   final List<String> selectedZones;
   final ValueChanged<List<String>> onChanged;
@@ -18,39 +20,28 @@ class ZoneSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final zones = ZoneUtils.allZones;
+    final selectedIndices = {
+      for (var i = 0; i < zones.length; i++)
+        if (selectedZones.contains(zones[i].id)) i,
+    };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: ZoneUtils.allZones.map((zone) {
-            final selected = selectedZones.contains(zone.id);
-            return FilterChip(
-              label: Text(
-                zone.nameHe,
-                style: TextStyle(
-                  color: selected ? Colors.white : zone.color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              selected: selected,
-              selectedColor: zone.color,
-              checkmarkColor: Colors.white,
-              backgroundColor: zone.color.withValues(alpha: 0.1),
-              side: BorderSide(color: zone.color, width: 1.5),
-              onSelected: (val) {
-                final updated = List<String>.from(selectedZones);
-                if (val) {
-                  updated.add(zone.id);
-                } else {
-                  updated.remove(zone.id);
-                }
-                onChanged(updated);
-              },
-            );
-          }).toList(),
+        LogiRoutePillToggleBar(
+          labels: zones.map((z) => z.nameHe).toList(),
+          selectedIndices: selectedIndices,
+          onToggle: (i) {
+            final updated = List<String>.from(selectedZones);
+            final id = zones[i].id;
+            if (updated.contains(id)) {
+              updated.remove(id);
+            } else {
+              updated.add(id);
+            }
+            onChanged(updated);
+          },
         ),
         if (errorText != null)
           Padding(

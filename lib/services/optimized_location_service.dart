@@ -147,6 +147,21 @@ class OptimizedLocationService {
       return;
     }
 
+    // Для фонового трекинга нужен доступ «Всегда». Если выдан только «при
+    // использовании» — пробуем поднять до always (на Android это вызывает
+    // запрос фонового разрешения; на части версий уводит в настройки).
+    if (permission == LocationPermission.whileInUse) {
+      try {
+        final escalated = await Geolocator.requestPermission();
+        if (escalated == LocationPermission.always ||
+            escalated == LocationPermission.whileInUse) {
+          permission = escalated;
+        }
+      } catch (e) {
+        debugPrint('[Location] background permission escalation: $e');
+      }
+    }
+
     // ✅ Сохраняем имя водителя и роль при старте трекинга
     try {
       await _driverLocationsRef.doc(driverId).set({

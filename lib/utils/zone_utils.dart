@@ -81,6 +81,20 @@ class ZoneUtils {
     }
   }
 
+  /// Локализует строку зоны, которая может содержать несколько id через запятую
+  /// (например `"center,south"` → «Центр, Юг» / «מרכז, דרום» / «Center, South»).
+  /// Неизвестные id остаются как есть. Пустая строка → ''.
+  static String getZonesName(String? zones, String locale) {
+    if (zones == null || zones.trim().isEmpty) return '';
+    final names = zones
+        .split(',')
+        .map((z) => z.trim())
+        .where((z) => z.isNotEmpty)
+        .map((z) => getZoneName(z, locale))
+        .toList();
+    return names.join(', ');
+  }
+
   /// Виджет с цветными точками зон клиента
   static Widget buildZoneDots(List<String> zones, {double size = 10}) {
     if (zones.isEmpty) return const SizedBox.shrink();

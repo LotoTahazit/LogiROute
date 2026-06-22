@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/delivery_point.dart';
@@ -69,12 +69,49 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
   }
 
   Future<void> _loadGps() async {
-    final pos = await _pod.getCurrentPosition();
-    if (mounted) {
-      setState(() {
-        _position = pos;
-        _loadingGps = false;
-      });
+    // getCurrentPosition с timeLimit бросает TimeoutException, если фикс не
+    // успел прийти. Без catch исключение проглатывалось, _loadingGps навсегда
+    // оставался true, и sheet «зависал» на загрузке GPS.
+    try {
+      final pos = await _pod.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _position = pos;
+          _loadingGps = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _position = null;
+          _loadingGps = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sharePreview() async {
+    final bytes = _preview;
+    if (bytes == null || _submitting) return;
+    final l10n = AppLocalizations.of(context)!;
+    final safeName = widget.point.clientName
+        .replaceAll(RegExp(r'[^\w\s-]', unicode: true), '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_');
+    final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+    final name = safeName.isEmpty ? widget.point.id : safeName;
+    final filename = 'LogiRoute_pod_${name}_$stamp.jpg';
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/jpeg', name: filename)],
+        text: '${widget.point.clientName} — LogiRoute',
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null,
+      );
+    } catch (_) {
+      _showError(l10n.podViewerPhotoError);
     }
   }
 
@@ -99,15 +136,25 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
     );
   }
 
+  void _showError(String message) {
+    setState(() => _error = message);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
     if (_preview == null) {
-      setState(() => _error = l10n.podPhotoRequired);
+      _showError(l10n.podPhotoRequired);
       return;
     }
     final pos = _position;
     if (pos == null) {
-      setState(() => _error = l10n.podGpsUnavailable);
+      // GPS не получен — даём повторить попытку, а не «зависаем».
+      _showError(l10n.podGpsUnavailable);
+      _retryGps();
       return;
     }
     setState(() {
@@ -115,11 +162,14 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
       _error = null;
     });
     try {
-      final url = await _pod.uploadPhoto(
-        companyId: widget.companyId,
-        pointId: widget.point.id,
-        bytes: _preview!,
-      );
+      // Таймаут, чтобы загрузка фото не висела бесконечно при плохой сети.
+      final url = await _pod
+          .uploadPhoto(
+            companyId: widget.companyId,
+            pointId: widget.point.id,
+            bytes: _preview!,
+          )
+          .timeout(const Duration(seconds: 45));
       if (!mounted) return;
       Navigator.pop(
         context,
@@ -132,12 +182,18 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
       );
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _submitting = false;
-          _error = e.toString();
-        });
+        setState(() => _submitting = false);
+        // Показываем реальную причину (код Firebase) — для диагностики
+        // загрузки в Storage: unauthorized / App Check / network и т.п.
+        _showError('${l10n.podUploadFailed}\n$e');
       }
     }
+  }
+
+  Future<void> _retryGps() async {
+    if (!mounted) return;
+    setState(() => _loadingGps = true);
+    await _loadGps();
   }
 
   @override
@@ -171,10 +227,24 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      l10n.podTitle,
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
+                    Row(
+                      children: [
+                        const SizedBox(width: 40),
+                        Expanded(
+                          child: Text(
+                            l10n.podTitle,
+                            style: Theme.of(context).textTheme.titleLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: l10n.cancelButton,
+                          icon: const Icon(Icons.close),
+                          onPressed: _submitting
+                              ? null
+                              : () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -211,12 +281,28 @@ class _ProofOfDeliverySheetState extends State<_ProofOfDeliverySheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _submitting ? null : _takePhoto,
-                      icon: const Icon(Icons.camera_alt),
-                      label: Text(_preview == null
-                          ? l10n.podTakePhoto
-                          : l10n.podRetake),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _submitting ? null : _takePhoto,
+                            icon: const Icon(Icons.camera_alt),
+                            label: Text(_preview == null
+                                ? l10n.podTakePhoto
+                                : l10n.podRetake),
+                          ),
+                        ),
+                        if (_preview != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _submitting ? null : _sharePreview,
+                              icon: const Icon(Icons.share),
+                              label: Text(l10n.podSharePhoto),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 12),
                     _InfoRow(

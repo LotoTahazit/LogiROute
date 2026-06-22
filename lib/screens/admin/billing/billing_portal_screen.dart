@@ -189,11 +189,28 @@ class _PlanStatusSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
+                        localizedPlanDescription(plan, l10n),
+                        style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatPlanModulesLine(plan, l10n),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
                         l10n.priceArrow(info.promoPrice, 3, info.price),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[600],
                         ),
+                      ),
+                      Text(
+                        l10n.billingExtraDriverMonthly(
+                          billingAddons.extraDriverPerMonth,
+                          billingAddons.includedDrivers,
+                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                     ],
                   ),
@@ -307,6 +324,95 @@ class _PlanStatusSection extends StatelessWidget {
 // Dialog: Plan Change
 // ---------------------------------------------------------------------------
 
+Widget _buildPlanOfferCard(
+  BuildContext context, {
+  required String planKey,
+  required AppLocalizations l10n,
+  required bool isCurrent,
+  required bool narrow,
+  VoidCallback? onSelect,
+}) {
+  final info = planDisplayInfo[planKey]!;
+  return Card(
+    margin: EdgeInsets.zero,
+    color: isCurrent ? Colors.blue.shade50 : null,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(
+        color: isCurrent ? Colors.blue : Colors.grey.shade300,
+        width: isCurrent ? 2 : 1,
+      ),
+    ),
+    child: ListTile(
+      title: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            _localizedPlanName(planKey, l10n),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          if (isCurrent)
+            Chip(
+              label: Text(
+                l10n.planCurrentBadge,
+                style: const TextStyle(color: Colors.white, fontSize: 11),
+              ),
+              backgroundColor: Colors.blue,
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(localizedPlanDescription(planKey, l10n)),
+          const SizedBox(height: 4),
+          Text(l10n.priceArrow(info.promoPrice, 3, info.price)),
+          Text(l10n.setupAndIntegrationStr(info.setupFee)),
+          Text(
+            l10n.minimumMonths(minSubscriptionMonths),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          Text(
+            l10n.billingExtraDriverMonthly(
+              billingAddons.extraDriverPerMonth,
+              billingAddons.includedDrivers,
+            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          Text(
+            l10n.billingExtraWarehouseMonthly(
+              billingAddons.extraWarehousePerMonth,
+              billingAddons.includedWarehouseLocations,
+            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          Text(
+            l10n.billingDedicatedExportMonthly(
+              billingAddons.dedicatedExportPerMonth,
+            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${l10n.planModulesLabel} ${formatPlanModulesLine(planKey, l10n)}',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+          if (onSelect != null && narrow) ...[
+            const SizedBox(height: 8),
+            FilledButton(onPressed: onSelect, child: Text(l10n.select)),
+          ],
+        ],
+      ),
+      trailing: onSelect != null && !narrow
+          ? FilledButton(onPressed: onSelect, child: Text(l10n.select))
+          : null,
+    ),
+  );
+}
+
 class _PlanChangeDialog extends StatelessWidget {
   final String currentPlan;
   final String companyId;
@@ -327,49 +433,45 @@ class _PlanChangeDialog extends StatelessWidget {
       title: Text(l10n.changePlan),
       content: SizedBox(
         width: double.maxFinite,
-        child: ListView.separated(
+        child: ListView(
           shrinkWrap: true,
-          itemCount: plans.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final planKey = plans[index];
-            final info = planDisplayInfo[planKey]!;
-            return Card(
-              child: ListTile(
-                title: Text(
-                  _localizedPlanName(planKey, l10n),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          children: [
+            _buildPlanOfferCard(
+              context,
+              planKey: currentPlan,
+              l10n: l10n,
+              isCurrent: true,
+              narrow: narrow,
+            ),
+            if (plans.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(l10n.changePlanTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              ...plans.map(
+                (planKey) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildPlanOfferCard(
+                    context,
+                    planKey: planKey,
+                    l10n: l10n,
+                    isCurrent: false,
+                    narrow: narrow,
+                    onSelect: () => _confirmPlan(context, planKey),
+                  ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.priceArrow(info.promoPrice, 3, info.price)),
-                    Text(l10n.setupAndIntegrationStr(info.setupFee)),
-                    Text(l10n.minimumMonths(minSubscriptionMonths),
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
-                    const SizedBox(height: 4),
-                    Text(info.modules.join(', '),
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600])),
-                    if (narrow) ...[
-                      const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: () => _confirmPlan(context, planKey),
-                        child: Text(l10n.select),
-                      ),
-                    ],
-                  ],
-                ),
-                trailing: narrow
-                    ? null
-                    : FilledButton(
-                        onPressed: () => _confirmPlan(context, planKey),
-                        child: Text(l10n.select),
-                      ),
               ),
-            );
-          },
+            ],
+            const SizedBox(height: 8),
+            Text(
+              l10n.planAccountingNote,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            Text(
+              l10n.planBackupNote,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
         ),
       ),
       actions: [

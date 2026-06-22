@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/integrity_verify_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 /// Admin UI: проверка целостности криптоцепочки
 class IntegrityCheckScreen extends StatefulWidget {
@@ -164,21 +165,17 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
               Text(l10n.documentTypeLabel,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: counterKeys.map((entry) {
-                  final (key, label) = entry;
-                  final count = _counterValues[key] ?? 0;
-                  return ChoiceChip(
-                    label: Text('$label ($count)'),
-                    selected: _counterKey == key,
-                    onSelected: (_) => setState(() {
-                      _counterKey = key;
-                      _result = null;
-                      _error = null;
-                    }),
-                  );
-                }).toList(),
+              LogiRoutePillSelector(
+                labels: counterKeys
+                    .map((e) => '${e.$2} (${_counterValues[e.$1] ?? 0})')
+                    .toList(),
+                selectedIndex:
+                    counterKeys.indexWhere((e) => e.$1 == _counterKey),
+                onSelected: (i) => setState(() {
+                  _counterKey = counterKeys[i].$1;
+                  _result = null;
+                  _error = null;
+                }),
               ),
               const SizedBox(height: 16),
 
@@ -186,15 +183,13 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
               Text(l10n.checkRangeLabel,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [100, 500, 1000, 2000].map((size) {
-                  return ChoiceChip(
-                    label: Text(l10n.lastNItems(size)),
-                    selected: _rangeSize == size,
-                    onSelected: (_) => setState(() => _rangeSize = size),
-                  );
-                }).toList(),
+              LogiRoutePillSelector(
+                labels: [100, 500, 1000, 2000]
+                    .map((size) => l10n.lastNItems(size))
+                    .toList(),
+                selectedIndex: [100, 500, 1000, 2000].indexOf(_rangeSize),
+                onSelected: (i) =>
+                    setState(() => _rangeSize = [100, 500, 1000, 2000][i]),
               ),
               const SizedBox(height: 24),
 

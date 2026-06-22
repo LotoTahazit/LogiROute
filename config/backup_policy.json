@@ -1,0 +1,30 @@
+{
+  "currency": "ILS",
+  "projectId": "logiroute-app",
+  "firestoreLocation": "nam5",
+  "provider": {
+    "gcpProduct": "Firestore scheduled backups",
+    "recommendedSchedule": "daily",
+    "retentionDays": 28,
+    "estimatedMonthlyCostIls": { "min": 30, "max": 120 },
+    "costNote": "Один счёт GCP на весь проект (все клиенты). Зависит от объёма Firestore + Storage.",
+    "setup": {
+      "console": "GCP → Firestore → Backups → Create schedule (daily, 28 days retention)",
+      "gcloud": "gcloud firestore backups schedules create --database=\"(default)\" --recurrence=daily --retention=4w --location=YOUR_REGION"
+    },
+    "alternative": {
+      "product": "Firestore export → Cloud Storage",
+      "bucketExample": "gs://logiroute-app-backups",
+      "useWhen": "Долгий архив 7+ лет или экспорт одной компании (addon dedicatedExport)"
+    }
+  },
+  "client": {
+    "auditJournal": { "priceIls": 0, "allPlans": true },
+    "platformDrIncludedInPlans": ["full"],
+    "addonDedicatedExport": {
+      "pricePerMonth": 149,
+      "estimatedGcpCostIlsPerClient": 5,
+      "includes": "Квартальный export данных компании в GCS + запись в журнал аудита"
+    }
+  }
+}

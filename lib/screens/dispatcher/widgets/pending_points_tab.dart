@@ -4,6 +4,7 @@ import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/zone_utils.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/logi_route_tab_bar.dart';
 
 /// Вкладка с ожидающими точками доставки
 class PendingPointsTab extends StatefulWidget {
@@ -90,7 +91,7 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
     if (zone == null || zone.isEmpty) {
       return AppLocalizations.of(context)!.noZoneLabel;
     }
-    return ZoneUtils.getZoneName(
+    return ZoneUtils.getZonesName(
         zone, Localizations.localeOf(context).languageCode);
   }
 
@@ -129,41 +130,6 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
     }
 
     widget.onCreateRouteFromSelection!(selectedPoints);
-  }
-
-  Widget _buildZoneButton(
-      String? zoneId, String text, String tooltip, int count) {
-    final isSelected = selectedZone == zoneId;
-    final Color zoneColor =
-        zoneId != null ? ZoneUtils.getZoneColor(zoneId) : Colors.grey;
-
-    return FilterChip(
-      label: Text(
-        '$text ($count)',
-        style: TextStyle(
-          color: isSelected ? Colors.white : zoneColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
-      selected: isSelected,
-      selectedColor: zoneColor,
-      checkmarkColor: Colors.white,
-      backgroundColor:
-          zoneColor.withValues(alpha: (zoneColor.a * 0.1).clamp(0.0, 1.0)),
-      side: BorderSide(color: zoneColor, width: 1.5),
-      onSelected: (val) {
-        setState(() {
-          selectedZone = val ? zoneId : null;
-        });
-
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      },
-    );
   }
 
   @override
@@ -334,43 +300,53 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
             ),
           ),
         if (widget.points.isNotEmpty)
-          Container(
-            height: 60,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: LogiRoutePillSelector(
+              labels: [
+                '${l10n.all} (${widget.points.length})',
+                ...ZoneUtils.allZones.map(
+                  (z) => '${z.nameHe} (${zoneCounts[z.id] ?? 0})',
+                ),
+              ],
+              selectedIndex: selectedZone == null
+                  ? 0
+                  : ZoneUtils.allZones.indexWhere((z) => z.id == selectedZone) +
+                      1,
+              onSelected: (i) {
+                setState(() {
+                  selectedZone = i == 0 ? null : ZoneUtils.allZones[i - 1].id;
+                });
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+            ),
+          ),
+        if (widget.points.isNotEmpty && selectedZone != null)
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildZoneButton(null, 'הכל', l10n.all, widget.points.length),
-                  const SizedBox(width: 8),
-                  ...ZoneUtils.allZones.map((zone) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildZoneButton(zone.id, zone.nameHe, zone.nameHe,
-                          zoneCounts[zone.id] ?? 0),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.route, size: 16),
+                label: Text(l10n.createRouteByZone,
+                    style: const TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ZoneUtils.getZoneColor(selectedZone!),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: () {
+                  if (widget.onCreateRouteByZone != null) {
+                    widget.onCreateRouteByZone!(
+                      List<DeliveryPoint>.from(filteredPoints),
                     );
-                  }),
-                  const SizedBox(width: 16),
-                  if (selectedZone != null)
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.route, size: 16),
-                      label: Text(l10n.createRouteByZone,
-                          style: const TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ZoneUtils.getZoneColor(selectedZone!),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                      onPressed: () {
-                        if (widget.onCreateRouteByZone != null) {
-                          widget.onCreateRouteByZone!(
-                            List<DeliveryPoint>.from(filteredPoints),
-                          );
-                        }
-                      },
-                    ),
-                ],
+                  }
+                },
               ),
             ),
           ),
@@ -642,9 +618,15 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
                     final localeCode =
                         Localizations.localeOf(context).languageCode;
 
-                    final zoneName = ZoneUtils.getZoneName(zoneId, localeCode);
+                    // Зона может быть составной ("center,south") — переводим
+                    // каждую часть, иначе выводится сырой id.
+                    final zoneName = ZoneUtils.getZonesName(zoneId, localeCode);
 
-                    final zoneCount = zoneCounts[zoneId] ?? 0;
+                    // Счётчик группы — по точному составу зоны (zoneCounts
+                    // считает по одиночным id и для составной зоны даёт 0).
+                    final zoneCount = filteredPoints
+                        .where((p) => (p.zone ?? '') == zoneId)
+                        .length;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

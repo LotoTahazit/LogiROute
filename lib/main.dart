@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show kIsWeb, kDebugMode, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
@@ -88,6 +90,15 @@ Future<void> _requestIgnoreBatteryOptimizationOnce() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Мобильный клиент — только портрет: верстки рассчитаны на портрет, в
+  // landscape контент уезжал/пропадал. На web/desktop — без эффекта.
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
+
   try {
     await dotenv.load(fileName: '.env.local');
   } catch (e) {
@@ -109,6 +120,38 @@ void main() async {
   };
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // 🛡️ App Check: привязывает запросы к настоящему экземпляру приложения, чтобы
+  // публичный конфиг Firebase нельзя было использовать из скрипта/бота. Включение
+  // enforcement — отдельно в Firebase Console (Firestore/Functions/Storage).
+  // На web активируем только при заданном публичном reCAPTCHA v3 site key —
+  // иначе пропускаем, чтобы билд работал до настройки в консоли.
+  try {
+    if (kIsWeb) {
+      final recaptchaKey =
+          dotenv.env['APP_CHECK_RECAPTCHA_SITE_KEY']?.trim() ?? '';
+      if (recaptchaKey.isNotEmpty) {
+        // ignore: deprecated_member_use — новые providerWeb/Android/Apple ждут
+        // другой тип провайдера; старые параметры работают и стабильны.
+        await FirebaseAppCheck.instance.activate(
+          webProvider: ReCaptchaV3Provider(recaptchaKey),
+        );
+      } else {
+        debugPrint(
+            'ℹ️ [AppCheck] web: APP_CHECK_RECAPTCHA_SITE_KEY не задан — пропуск');
+      }
+    } else {
+      // ignore: deprecated_member_use
+      await FirebaseAppCheck.instance.activate(
+        androidProvider:
+            kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+        appleProvider:
+            kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
+      );
+    }
+  } catch (e) {
+    debugPrint('⚠️ [AppCheck] activate failed: $e');
+  }
 
   AppTheme.setDark(false);
 

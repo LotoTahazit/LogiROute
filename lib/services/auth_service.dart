@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,25 +17,35 @@ class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Отправляет письмо сброса пароля (Firebase Authentication, не Firestore).
+  /// Письмо сброса пароля через Cloud Function (ссылка logiroute-app.web.app).
   Future<String?> sendPasswordResetEmail(
     String email, {
     String? languageCode,
   }) async {
     try {
-      if (languageCode != null && languageCode.isNotEmpty) {
-        try {
-          await _auth.setLanguageCode(languageCode);
-        } catch (e) {
-          debugPrint('⚠️ [AuthService] setLanguageCode: $e');
-        }
-      }
-      await _auth.sendPasswordResetEmail(email: email);
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'sendPasswordResetEmail',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+      );
+      await callable.call<Map<String, dynamic>>({
+        'email': email.trim().toLowerCase(),
+        if (languageCode != null && languageCode.isNotEmpty)
+          'languageCode': languageCode,
+      });
       return null;
-    } catch (e) {
-      final code = _authErrorCode(e);
-      debugPrint('❌ [AuthService] sendPasswordResetEmail: $code — $e');
+    } on FirebaseFunctionsException catch (e) {
+      final detail = e.message?.trim();
+      final code = (detail != null &&
+              detail.isNotEmpty &&
+              detail != e.code &&
+              !detail.contains(' '))
+          ? detail
+          : e.code;
+      debugPrint('❌ [AuthService] sendPasswordResetEmail: $code — ${e.message}');
       return code;
+    } catch (e) {
+      debugPrint('❌ [AuthService] sendPasswordResetEmail: $e');
+      return 'unknown_error';
     }
   }
 
@@ -188,6 +199,11 @@ class AuthService extends ChangeNotifier {
       await _loadUserModel(user.uid);
       debugPrint(
           '✅ [AuthService] User model loaded: ${_userModel?.email}, role=${_userModel?.role}');
+      // 🔑 Гарантируем custom claims (role/companyId) в токене — нужны правилам
+      // Storage/Firestore. Бэкофилл существующих + рефреш токена при изменении.
+      if (_userModel != null) {
+        await _ensureClaims(user);
+      }
       // 🛡️ Восстанавливаем viewAsRole из SharedPreferences (только для админов)
       if (_userModel?.isAdmin == true) {
         await _restoreViewAsFromPrefs();
@@ -205,6 +221,26 @@ class AuthService extends ChangeNotifier {
     debugPrint(
         '✅ [AuthService] _onAuthStateChanged COMPLETE, notifying listeners');
     notifyListeners();
+  }
+
+  /// Вызывает Cloud Function ensureMyClaims (ставит role/companyId в токен по
+  /// users/{uid}) и, если claims изменились, форсит обновление ID-токена, чтобы
+  /// правила Storage/Firestore сразу видели request.auth.token.role/companyId.
+  /// Не блокирует вход при ошибке.
+  Future<void> _ensureClaims(User user) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'ensureMyClaims',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 20)),
+      );
+      final res = await callable.call<Map<String, dynamic>>();
+      if (res.data['changed'] == true) {
+        await user.getIdToken(true);
+        debugPrint('🔑 [AuthService] Claims updated → token refreshed');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] ensureMyClaims failed (non-blocking): $e');
+    }
   }
 
   Future<void> _loadUserModel(String uid) async {

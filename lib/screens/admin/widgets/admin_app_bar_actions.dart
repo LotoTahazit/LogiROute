@@ -6,6 +6,7 @@ import '../../../screens/shared/reports_screen.dart';
 import '../inventory_counts_list_screen.dart';
 import '../company_settings_screen.dart';
 import '../archive_management_screen.dart';
+import '../../shared/route_archive_screen.dart';
 import '../billing_locks_screen.dart';
 import '../module_toggle_screen.dart';
 import '../subscription_screen.dart';
@@ -22,10 +23,8 @@ import '../terminology_settings_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locale_service.dart';
-import '../../../services/company_selection_service.dart';
-import 'package:provider/provider.dart';
 
-/// AppBar actions для админа
+/// AppBar actions для админа — сгруппированные меню (вариант A).
 class AdminAppBarActions extends StatelessWidget {
   final VoidCallback onAddUser;
   final VoidCallback onRefresh;
@@ -42,13 +41,249 @@ class AdminAppBarActions extends StatelessWidget {
     required this.localeService,
   });
 
+  bool get _isSuperAdmin => authService.userModel?.isSuperAdmin == true;
+
+  void _handleAction(BuildContext context, String value) {
+    switch (value) {
+      case 'add_user':
+        onAddUser();
+      case 'refresh':
+        onRefresh();
+      case 'activity_log':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminActivityScreen()),
+        );
+      case 'analytics':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+        );
+      case 'reports':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ReportsScreen()),
+        );
+      case 'warehouse':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const WarehouseDashboard()),
+        );
+      case 'products':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProductManagementScreen()),
+        );
+      case 'inventory_report':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const InventoryReportScreen()),
+        );
+      case 'inventory_counts':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const InventoryCountsListScreen()),
+        );
+      case 'company_settings':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CompanySettingsScreen()),
+        );
+      case 'terminology':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TerminologySettingsScreen()),
+        );
+      case 'route_archive':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RouteArchiveScreen()),
+        );
+      case 'archive':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ArchiveManagementScreen()),
+        );
+      case 'subscription':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+        );
+      case 'billing_portal':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BillingPortalScreen()),
+        );
+      case 'client_management':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientManagementScreen()),
+        );
+      case 'billing_locks':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BillingLocksScreen()),
+        );
+      case 'module_toggle':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ModuleToggleScreen()),
+        );
+      case 'backup':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BackupManagementScreen()),
+        );
+      case 'data_retention':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DataRetentionScreen()),
+        );
+      case 'integrity_check':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const IntegrityCheckScreen()),
+        );
+      case 'create_company':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
+        );
+      case 'support_console':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SupportConsoleScreen()),
+        );
+      case 'logout':
+        authService.signOut();
+      case 'he':
+      case 'ru':
+      case 'en':
+        localeService.setLocale(value);
+    }
+  }
+
+  PopupMenuItem<String> _item(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _sectionHeader(String label) {
+    return PopupMenuItem<String>(
+      enabled: false,
+      height: 36,
+      child: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _reportItems(AppLocalizations l10n) => [
+        _item('analytics', Icons.analytics, l10n.analytics),
+        _item('reports', Icons.assessment, l10n.reports),
+        _item('inventory_report', Icons.swap_horiz, l10n.inventoryChangesReport),
+        _item('inventory_counts', Icons.fact_check, l10n.inventoryCountReportsTooltip),
+        _item('activity_log', Icons.history, l10n.adminActivityLog),
+      ];
+
+  List<PopupMenuEntry<String>> _warehouseItems(AppLocalizations l10n) => [
+        _item('warehouse', Icons.inventory_2, l10n.warehouseInventory),
+        _item('products', Icons.category, l10n.productManagement),
+      ];
+
+  List<PopupMenuEntry<String>> _companyItems(AppLocalizations l10n) => [
+        _item('company_settings', Icons.business, l10n.companySettings),
+        _item('terminology', Icons.translate, l10n.terminologySettings),
+        _item('route_archive', Icons.history, l10n.routeArchiveTitle),
+        _item('archive', Icons.archive, l10n.archiveManagement),
+        _item('client_management', Icons.people, l10n.clientManagement),
+      ];
+
+  List<PopupMenuEntry<String>> _billingItems(AppLocalizations l10n) => [
+        _item('billing_portal', Icons.receipt_long, l10n.billingPortal),
+        _item('subscription', Icons.card_membership, l10n.subscriptionManagement),
+      ];
+
+  List<PopupMenuEntry<String>> _platformItems(AppLocalizations l10n) => [
+        _item('billing_locks', Icons.payments, l10n.billingAndLocks),
+        _item('module_toggle', Icons.toggle_on, l10n.moduleManagement),
+        _item('backup', Icons.backup, l10n.backupManagement),
+        _item('data_retention', Icons.policy, l10n.dataRetention),
+        _item('integrity_check', Icons.verified_user, l10n.integrityCheck),
+        _item('create_company', Icons.add_business, l10n.createCompany),
+        _item('support_console', Icons.support_agent, l10n.supportConsoleTitle),
+      ];
+
+  Widget _groupMenu({
+    required IconData icon,
+    required String tooltip,
+    required List<PopupMenuEntry<String>> items,
+    required BuildContext context,
+  }) {
+    return PopupMenuButton<String>(
+      icon: Icon(icon),
+      tooltip: tooltip,
+      onSelected: (v) => _handleAction(context, v),
+      itemBuilder: (_) => items,
+    );
+  }
+
+  List<PopupMenuEntry<String>> _mobileMenuItems(AppLocalizations l10n) {
+    return [
+      _item('add_user', Icons.add, l10n.addUser),
+      PopupMenuItem(
+        value: 'refresh',
+        enabled: !isLoading,
+        child: Row(
+          children: [
+            const Icon(Icons.refresh, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.refresh),
+          ],
+        ),
+      ),
+      const PopupMenuDivider(),
+      _sectionHeader(l10n.appBarGroupReports),
+      ..._reportItems(l10n),
+      const PopupMenuDivider(),
+      _sectionHeader(l10n.appBarGroupWarehouse),
+      ..._warehouseItems(l10n),
+      const PopupMenuDivider(),
+      _sectionHeader(l10n.appBarGroupCompany),
+      ..._companyItems(l10n),
+      const PopupMenuDivider(),
+      _sectionHeader(l10n.appBarGroupBilling),
+      ..._billingItems(l10n),
+      if (_isSuperAdmin) ...[
+        const PopupMenuDivider(),
+        _sectionHeader(l10n.appBarGroupPlatform),
+        ..._platformItems(l10n),
+      ],
+      const PopupMenuDivider(),
+      _sectionHeader(l10n.settings),
+      PopupMenuItem(value: 'he', child: Text(l10n.hebrew)),
+      PopupMenuItem(value: 'ru', child: Text(l10n.russian)),
+      PopupMenuItem(value: 'en', child: Text(l10n.english)),
+      const PopupMenuDivider(),
+      _item('logout', Icons.logout, l10n.logout),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     if (isMobile) {
-      // На мобилке — выход отдельной кнопкой + меню
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -58,394 +293,15 @@ class AdminAppBarActions extends StatelessWidget {
             onPressed: () => authService.signOut(),
           ),
           PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        tooltip: l10n.settings,
-        onSelected: (value) {
-          switch (value) {
-            case 'add_user':
-              onAddUser();
-              break;
-            case 'refresh':
-              onRefresh();
-              break;
-            case 'activity_log':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AdminActivityScreen()));
-              break;
-            case 'analytics':
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
-              break;
-            case 'reports':
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ReportsScreen()));
-              break;
-            case 'warehouse':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const WarehouseDashboard()));
-              break;
-            case 'products':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ProductManagementScreen()));
-              break;
-            case 'inventory_report':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const InventoryReportScreen()));
-              break;
-            case 'inventory_counts':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const InventoryCountsListScreen()));
-              break;
-            case 'company_settings':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const CompanySettingsScreen()));
-              break;
-            case 'terminology':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const TerminologySettingsScreen()));
-              break;
-            case 'archive':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ArchiveManagementScreen()));
-              break;
-            case 'billing_locks':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const BillingLocksScreen()));
-              break;
-            case 'module_toggle':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ModuleToggleScreen()));
-              break;
-            case 'subscription':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SubscriptionScreen()));
-              break;
-            case 'billing_portal':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const BillingPortalScreen()));
-              break;
-            case 'client_management':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ClientManagementScreen()));
-              break;
-            case 'backup':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const BackupManagementScreen()));
-              break;
-            case 'data_retention':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const DataRetentionScreen()));
-              break;
-            case 'integrity_check':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const IntegrityCheckScreen()));
-              break;
-            case 'create_company':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const CreateCompanyScreen()));
-              break;
-            case 'support_console':
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SupportConsoleScreen()));
-              break;
-            case 'logout':
-              authService.signOut();
-              break;
-            case 'he':
-            case 'ru':
-            case 'en':
-              localeService.setLocale(value);
-              break;
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'add_user',
-            child: Row(
-              children: [
-                const Icon(Icons.add),
-                const SizedBox(width: 8),
-                Text(l10n.addUser),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'refresh',
-            enabled: !isLoading,
-            child: Row(
-              children: [
-                const Icon(Icons.refresh),
-                const SizedBox(width: 8),
-                Text(l10n.refresh),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: 'activity_log',
-            child: Row(
-              children: [
-                const Icon(Icons.history),
-                const SizedBox(width: 8),
-                Text(l10n.adminActivityLog),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'analytics',
-            child: Row(
-              children: [
-                const Icon(Icons.analytics),
-                const SizedBox(width: 8),
-                Text(l10n.analytics),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'reports',
-            child: Row(
-              children: [
-                const Icon(Icons.assessment),
-                const SizedBox(width: 8),
-                Text(l10n.reports),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'warehouse',
-            child: Row(
-              children: [
-                const Icon(Icons.inventory_2),
-                const SizedBox(width: 8),
-                Text(l10n.warehouseInventory),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'products',
-            child: Row(
-              children: [
-                const Icon(Icons.category),
-                const SizedBox(width: 8),
-                Text(l10n.productManagement),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'inventory_report',
-            child: Row(
-              children: [
-                const Icon(Icons.assessment),
-                const SizedBox(width: 8),
-                Text(l10n.inventoryChangesReport),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'inventory_counts',
-            child: Row(
-              children: [
-                const Icon(Icons.fact_check),
-                const SizedBox(width: 8),
-                Text(l10n.inventoryCountReportsTooltip),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'company_settings',
-            child: Row(
-              children: [
-                const Icon(Icons.business),
-                const SizedBox(width: 8),
-                Text(l10n.companySettings),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'terminology',
-            child: Row(
-              children: [
-                const Icon(Icons.translate),
-                const SizedBox(width: 8),
-                Text(l10n.terminologySettings),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'archive',
-            child: Row(
-              children: [
-                const Icon(Icons.archive),
-                const SizedBox(width: 8),
-                Text(l10n.archiveManagement),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'subscription',
-            child: Row(
-              children: [
-                const Icon(Icons.card_membership),
-                const SizedBox(width: 8),
-                Text(l10n.subscriptionManagement),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'billing_portal',
-            child: Row(
-              children: [
-                const Icon(Icons.receipt_long),
-                const SizedBox(width: 8),
-                Text(l10n.billingPortal),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'client_management',
-            child: Row(
-              children: [
-                const Icon(Icons.people),
-                const SizedBox(width: 8),
-                Text(l10n.clientManagement),
-              ],
-            ),
-          ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'backup',
-              child: Row(
-                children: [
-                  const Icon(Icons.backup),
-                  const SizedBox(width: 8),
-                  Text(l10n.backupManagement),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'data_retention',
-              child: Row(
-                children: [
-                  const Icon(Icons.policy),
-                  const SizedBox(width: 8),
-                  Text(l10n.dataRetention),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'billing_locks',
-              child: Row(
-                children: [
-                  const Icon(Icons.payments),
-                  const SizedBox(width: 8),
-                  Text(l10n.billingAndLocks),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'module_toggle',
-              child: Row(
-                children: [
-                  const Icon(Icons.toggle_on),
-                  const SizedBox(width: 8),
-                  Text(l10n.moduleManagement),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'integrity_check',
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_user),
-                  const SizedBox(width: 8),
-                  Text(l10n.integrityCheck),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'create_company',
-              child: Row(
-                children: [
-                  const Icon(Icons.add_business),
-                  const SizedBox(width: 8),
-                  Text(l10n.createCompany),
-                ],
-              ),
-            ),
-          if (authService.userModel?.isSuperAdmin == true)
-            PopupMenuItem(
-              value: 'support_console',
-              child: Row(
-                children: [
-                  const Icon(Icons.support_agent),
-                  const SizedBox(width: 8),
-                  Text(l10n.supportConsoleTitle),
-                ],
-              ),
-            ),
-          const PopupMenuDivider(),
-          PopupMenuItem(value: 'he', child: Text(l10n.hebrew)),
-          PopupMenuItem(value: 'ru', child: Text(l10n.russian)),
-          PopupMenuItem(value: 'en', child: Text(l10n.english)),
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: 'logout',
-            child: Row(
-              children: [
-                const Icon(Icons.logout, color: Colors.red),
-                const SizedBox(width: 8),
-                Text(l10n.logout, style: const TextStyle(color: Colors.red)),
-              ],
-            ),
-          ),
-        ],
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.settings,
+            onSelected: (v) => _handleAction(context, v),
+            itemBuilder: (_) => _mobileMenuItems(l10n),
           ),
         ],
       );
     }
 
-    // На десктопе - иконки как раньше
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -459,216 +315,42 @@ class AdminAppBarActions extends StatelessWidget {
           tooltip: l10n.refresh,
           onPressed: isLoading ? null : onRefresh,
         ),
-        IconButton(
-          icon: const Icon(Icons.history),
-          tooltip: l10n.adminActivityLog,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminActivityScreen()),
-            );
-          },
+        _groupMenu(
+          context: context,
+          icon: Icons.bar_chart,
+          tooltip: l10n.appBarGroupReports,
+          items: _reportItems(l10n),
         ),
-        IconButton(
-          icon: const Icon(Icons.analytics),
-          tooltip: l10n.analytics,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-            );
-          },
+        _groupMenu(
+          context: context,
+          icon: Icons.inventory_2_outlined,
+          tooltip: l10n.appBarGroupWarehouse,
+          items: _warehouseItems(l10n),
         ),
-        IconButton(
-          icon: const Icon(Icons.assessment),
-          tooltip: l10n.reports,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReportsScreen()),
-            );
-          },
+        _groupMenu(
+          context: context,
+          icon: Icons.business_outlined,
+          tooltip: l10n.appBarGroupCompany,
+          items: _companyItems(l10n),
         ),
-        IconButton(
-          icon: const Icon(Icons.inventory_2),
-          tooltip: l10n.warehouseInventory,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WarehouseDashboard()),
-            );
-          },
+        _groupMenu(
+          context: context,
+          icon: Icons.receipt_long_outlined,
+          tooltip: l10n.appBarGroupBilling,
+          items: _billingItems(l10n),
         ),
-        IconButton(
-          icon: const Icon(Icons.category),
-          tooltip: l10n.productManagement,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const ProductManagementScreen()),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.assessment),
-          tooltip: l10n.inventoryChangesReport,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const InventoryReportScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.fact_check),
-          tooltip: l10n.inventoryCountReportsTooltip,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const InventoryCountsListScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.business),
-          tooltip: l10n.companySettings,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const CompanySettingsScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.translate),
-          tooltip: l10n.terminologySettings,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TerminologySettingsScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.archive),
-          tooltip: l10n.archiveManagement,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ArchiveManagementScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.receipt_long),
-          tooltip: l10n.billingPortal,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BillingPortalScreen()),
-            );
-          },
-        ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.payments),
-            tooltip: l10n.billingAndLocks,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const BillingLocksScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.backup),
-            tooltip: l10n.backupManagement,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const BackupManagementScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.policy),
-            tooltip: l10n.dataRetention,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DataRetentionScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.toggle_on),
-            tooltip: l10n.moduleManagement,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ModuleToggleScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.verified_user),
-            tooltip: l10n.integrityCheck,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const IntegrityCheckScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.add_business),
-            tooltip: l10n.createCompany,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
-              );
-            },
-          ),
-        if (authService.userModel?.isSuperAdmin == true)
-          IconButton(
-            icon: const Icon(Icons.support_agent),
-            tooltip: l10n.supportConsoleTitle,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SupportConsoleScreen()),
-              );
-            },
+        if (_isSuperAdmin)
+          _groupMenu(
+            context: context,
+            icon: Icons.admin_panel_settings_outlined,
+            tooltip: l10n.appBarGroupPlatform,
+            items: _platformItems(l10n),
           ),
         PopupMenuButton<String>(
+          icon: const Icon(Icons.language),
           tooltip: l10n.settings,
-          onSelected: (value) {
-            if (value == 'logout') {
-              authService.signOut();
-            } else if (value == 'he' || value == 'ru' || value == 'en') {
-              localeService.setLocale(value);
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuDivider(),
+          onSelected: (v) => _handleAction(context, v),
+          itemBuilder: (_) => [
             PopupMenuItem(value: 'he', child: Text(l10n.hebrew)),
             PopupMenuItem(value: 'ru', child: Text(l10n.russian)),
             PopupMenuItem(value: 'en', child: Text(l10n.english)),

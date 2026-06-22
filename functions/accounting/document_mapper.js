@@ -44,6 +44,15 @@ function mapInvoiceToExternalDoc({ invoice, companySettings }) {
     ? invoice.type || "tax_invoice"
     : invoice.docType || invoice.counterKey || "invoice";
 
+  const refs = invoice.references || {};
+  const isCreditNote = docType === "credit_note";
+  let notes = invoice.notes || "";
+  if (isCreditNote) {
+    const origNum = refs.originalDocNumber ?? "";
+    const reason = invoice.reason || "";
+    notes = `זיכוי למסמך ${origNum}: ${reason}`;
+  }
+
   return {
     docType,
     docNumber: invoice.docNumber,
@@ -55,7 +64,14 @@ function mapInvoiceToExternalDoc({ invoice, companySettings }) {
     net,
     vat,
     gross: grossFromTotals || net + vat,
-    notes: invoice.notes || "",
+    notes,
+    reason: invoice.reason || "",
+    correctionType: invoice.correctionType || "",
+    references: {
+      originalDocId: refs.originalDocId || null,
+      originalDocNumber: refs.originalDocNumber ?? null,
+      originalExternalDocNumber: refs.originalExternalDocNumber ?? null,
+    },
     issuedAt: invoice.issuedAt,
     company: {
       name: companySettings?.nameHebrew || companySettings?.nameEnglish || "",

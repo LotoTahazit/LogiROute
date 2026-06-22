@@ -15,6 +15,7 @@ import '../../services/cross_module_audit_service.dart';
 import '../../utils/file_download_stub.dart'
     if (dart.library.html) '../../utils/file_download_web.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 enum _ActivityPeriod { h24, h48, week }
 
@@ -374,16 +375,13 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SegmentedButton<_ActivityPeriod>(
-                        segments: _ActivityPeriod.values
-                            .map((p) => ButtonSegment(
-                                  value: p,
-                                  label: Text(p.label(l10n)),
-                                ))
+                      LogiRoutePillSelector(
+                        labels: _ActivityPeriod.values
+                            .map((p) => p.label(l10n))
                             .toList(),
-                        selected: {_period},
-                        onSelectionChanged: (s) => setState(() {
-                          _period = s.first;
+                        selectedIndex: _ActivityPeriod.values.indexOf(_period),
+                        onSelected: (i) => setState(() {
+                          _period = _ActivityPeriod.values[i];
                           _itemsFuture = null;
                         }),
                       ),

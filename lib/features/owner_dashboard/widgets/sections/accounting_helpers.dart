@@ -1,12 +1,46 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../models/invoice.dart';
 import '../../models/accounting_doc.dart';
 
 /// Shared helpers for accounting section widgets.
 ///
 /// Contains label/color resolvers used by multiple widgets:
 /// AccountingSection, CreateDocFormDialog, DocumentChainDialog.
+
+/// Конвертация типов owner-UI → единый движок `invoices`.
+extension AccountingDocTypeInvoice on AccountingDocType {
+  InvoiceDocumentType get toInvoiceDocumentType {
+    switch (this) {
+      case AccountingDocType.taxInvoice:
+        return InvoiceDocumentType.invoice;
+      case AccountingDocType.receipt:
+        return InvoiceDocumentType.receipt;
+      case AccountingDocType.taxInvoiceReceipt:
+        return InvoiceDocumentType.taxInvoiceReceipt;
+      case AccountingDocType.creditNote:
+        return InvoiceDocumentType.creditNote;
+      case AccountingDocType.deliveryNote:
+        return InvoiceDocumentType.delivery;
+    }
+  }
+
+  String get canonicalCounterKey => toInvoiceDocumentType.canonicalCounterKey;
+}
+
+/// Строка owner-формы → [InvoiceItem].
+InvoiceItem accountingLineToInvoiceItem(AccountingDocLine line) {
+  return InvoiceItem(
+    productCode: 'OWNER',
+    type: '',
+    number: '',
+    quantity: line.quantity.round().clamp(1, 999999),
+    pricePerUnit: line.unitPrice,
+    description: line.description,
+    vatRate: line.vatRate,
+  );
+}
 
 String docTypeLabel(BuildContext context, AccountingDocType type) {
   final l10n = AppLocalizations.of(context)!;
@@ -19,6 +53,8 @@ String docTypeLabel(BuildContext context, AccountingDocType type) {
       return l10n.taxInvoiceReceipt;
     case AccountingDocType.creditNote:
       return l10n.creditNote;
+    case AccountingDocType.deliveryNote:
+      return l10n.settingsDeliveryNote;
   }
 }
 

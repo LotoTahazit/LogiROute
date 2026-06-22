@@ -1,27 +1,39 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/invoice.dart';
+import '../../../services/invoice_service.dart';
+import '../../../services/issuance_service.dart';
+import '../../../utils/accounting_period_lock.dart';
 import '../models/accounting_doc.dart';
-import '../models/credit_note_data.dart';
-import '../repositories/accounting_docs_repository.dart';
+import 'sections/accounting_helpers.dart';
 
 /// Диалог создания Credit Note (תעודת זיכוי).
 ///
 /// Получает оригинальный документ как контекст, предзаполняет поля,
 /// позволяет выбрать тип коррекции (full/partial) и отправляет данные
-/// через [AccountingDocsRepository.createCreditNote].
+/// через [InvoiceService.createCreditNote] + [IssuanceService].
 ///
 /// Аудит-событие записывается внутри репозитория (transaction).
 ///
 /// Requirements: 16.1, 16.2, 16.3, 16.4, 16.5
 class CreditNoteFormDialog extends StatefulWidget {
   final AccountingDoc originalDoc;
-  final AccountingDocsRepository docsRepo;
+  final InvoiceService invoiceService;
+  final String companyId;
+  final DateTime? accountingLockedUntil;
+
+  /// Автовыпуск credit note после создания (триггерит external sync).
+  static const bool issueImmediately = true;
 
   const CreditNoteFormDialog({
     super.key,
     required this.originalDoc,
-    required this.docsRepo,
+    required this.invoiceService,
+    required this.companyId,
+    this.accountingLockedUntil,
   });
 
   @override
@@ -122,6 +134,24 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final l10n = AppLocalizations.of(context)!;
+    final lock = widget.accountingLockedUntil;
+    final cnDate = DateTime.now();
+    if (lock != null && AccountingPeriodLock.isLocked(cnDate, lock)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.periodLockedError(
+              DateFormat('dd/MM/yyyy').format(cnDate),
+              DateFormat('dd/MM/yyyy').format(lock),
+            )),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     final originalStatus = widget.originalDoc.status;
     if (originalStatus != AccountingDocStatus.issued &&
         originalStatus != AccountingDocStatus.locked) {
@@ -136,18 +166,41 @@ class _CreditNoteFormDialogState extends State<CreditNoteFormDialog> {
 
     setState(() => _saving = true);
     try {
-      final totals = _computedTotals;
-      final data = CreditNoteData(
-        originalDocId: widget.originalDoc.id!,
-        originalDocNumber: widget.originalDoc.docNumber ?? 0,
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final original = await widget.invoiceService
+          .getInvoice(widget.originalDoc.id!);
+      if (original == null) throw Exception('Original invoice not found');
+
+      final creditItems = _buildLines
+          .map((line) {
+            final item = accountingLineToInvoiceItem(line);
+            return InvoiceItem(
+              productCode: item.productCode,
+              type: item.type,
+              number: item.number,
+              quantity: item.quantity,
+              piecesPerBox: item.piecesPerBox,
+              pricePerUnit: -item.pricePerUnit.abs(),
+              description: item.description,
+              vatRate: item.vatRate,
+            );
+          })
+          .toList();
+
+      final creditNoteId = await widget.invoiceService.createCreditNote(
+        originalInvoice: original,
         reason: _reasonCtrl.text.trim(),
-        correctionType: _correctionType,
-        customerId: widget.originalDoc.customerId,
-        lines: _buildLines,
-        totals: totals,
+        createdBy: uid,
+        items: creditItems,
       );
 
-      await widget.docsRepo.createCreditNote(data);
+      if (CreditNoteFormDialog.issueImmediately) {
+        await IssuanceService().issueDocument(
+          companyId: widget.companyId,
+          invoiceId: creditNoteId,
+          counterKey: AccountingDocType.creditNote.canonicalCounterKey,
+        );
+      }
 
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;

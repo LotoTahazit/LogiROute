@@ -7,6 +7,8 @@ import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logi_route_tab_bar.dart';
+import '../../firebase_options.dart';
 
 /// Backup management screen — quarterly backup records, restore tests, compliance report.
 class BackupManagementScreen extends StatefulWidget {
@@ -59,9 +61,13 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     }
   }
 
+  String get _firebaseProjectId =>
+      DefaultFirebaseOptions.currentPlatform.projectId;
+
   List<(String, String, IconData, String)> _storageTypes(
           AppLocalizations l10n) =>
       [
+        ('firebase', l10n.storageFirebase, Icons.backup, l10n.hintFirebase),
         (
           'google_drive',
           l10n.storageGoogleDrive,
@@ -84,7 +90,6 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
         ),
         ('nas', l10n.storageNas, Icons.dns, l10n.hintNas),
         ('usb', l10n.storageUsb, Icons.usb, l10n.hintUsb),
-        ('firebase', l10n.storageFirebase, Icons.backup, l10n.hintFirebase),
         (
           'local_server',
           l10n.storageLocalServer,
@@ -95,12 +100,49 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
         ('other', l10n.storageOther, Icons.edit, l10n.hintOther),
       ];
 
-  Future<void> _recordBackup() async {
+  Future<void> _persistBackup({
+    required String selectedType,
+    required String path,
+    String? notes,
+  }) async {
     final auth = context.read<AuthService>();
     final l10n = AppLocalizations.of(context)!;
+    final typeLabel = _storageTypes(l10n)
+        .firstWhere((t) => t.$1 == selectedType,
+            orElse: () => ('', selectedType, Icons.help, ''))
+        .$2;
+    await _backupService.recordBackup(
+      performedBy: auth.userModel?.name ?? auth.currentUser?.uid ?? '',
+      backupLocation: '$typeLabel: $path',
+      notes: notes?.trim().isEmpty ?? true ? null : notes!.trim(),
+    );
+    if (mounted) {
+      SnackbarHelper.showSuccess(context, l10n.backupRecorded);
+      _loadData();
+    }
+  }
+
+  Future<void> _quickRegisterLogiRouteCloudBackup() async {
+    setState(() => _isLoading = true);
+    try {
+      await _persistBackup(
+        selectedType: 'firebase',
+        path: _firebaseProjectId,
+      );
+    } catch (e) {
+      if (mounted) SnackbarHelper.showError(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _recordBackup({bool prefilled = true}) async {
+    final l10n = AppLocalizations.of(context)!;
     final storageTypes = _storageTypes(l10n);
-    String selectedType = '';
-    final pathController = TextEditingController();
+    String selectedType = prefilled ? 'firebase' : '';
+    final pathController = TextEditingController(
+      text: prefilled ? _firebaseProjectId : '',
+    );
     final notesController = TextEditingController();
 
     final result = await showDialog<bool>(
@@ -129,6 +171,9 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                     initialValue: selectedType.isEmpty ? null : selectedType,
                     items: storageTypes.map((t) {
                       final (key, label, icon, _) = t;
+                      final display = key == 'firebase'
+                          ? '$label ${l10n.storageRecommended}'
+                          : label;
                       return DropdownMenuItem(
                         value: key,
                         child: Row(children: [
@@ -136,7 +181,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              label,
+                              display,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -145,7 +190,9 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                     }).toList(),
                     onChanged: (v) => setDialogState(() {
                       selectedType = v ?? '';
-                      pathController.clear();
+                      pathController.text = selectedType == 'firebase'
+                          ? _firebaseProjectId
+                          : '';
                     }),
                   ),
                   if (selectedType.isNotEmpty) ...[
@@ -154,8 +201,13 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                       controller: pathController,
                       onChanged: (_) => setDialogState(() {}),
                       decoration: InputDecoration(
-                        labelText: l10n.exactLocation,
+                        labelText: selectedType == 'firebase'
+                            ? l10n.backupFirebaseLocationLabel
+                            : l10n.exactLocation,
                         hintText: hint,
+                        helperText: selectedType == 'firebase'
+                            ? l10n.backupFirebaseHelper
+                            : null,
                         hintStyle: TextStyle(
                             fontSize: 12, color: AppTheme.muted),
                       ),
@@ -186,23 +238,11 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     if (result == true &&
         selectedType.isNotEmpty &&
         pathController.text.trim().isNotEmpty) {
-      final typeLabel = storageTypes
-          .firstWhere((t) => t.$1 == selectedType,
-              orElse: () => ('', selectedType, Icons.help, ''))
-          .$2;
-      final fullLocation = '$typeLabel: ${pathController.text.trim()}';
-
-      await _backupService.recordBackup(
-        performedBy: auth.userModel?.name ?? auth.currentUser?.uid ?? '',
-        backupLocation: fullLocation,
-        notes: notesController.text.trim().isEmpty
-            ? null
-            : notesController.text.trim(),
+      await _persistBackup(
+        selectedType: selectedType,
+        path: pathController.text.trim(),
+        notes: notesController.text,
       );
-      if (mounted) {
-        SnackbarHelper.showSuccess(context, l10n.backupRecorded);
-        _loadData();
-      }
     }
   }
 
@@ -306,13 +346,13 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.backupManagementTitle),
-          bottom: TabBar(
+          bottom: LogiRouteAppBarTabBar.labels(
             controller: _tabController,
             isScrollable: narrow,
-            tabs: [
-              Tab(text: l10n.tabBackups),
-              Tab(text: l10n.tabRestoreTests),
-              Tab(text: l10n.tabComplianceReport),
+            labels: [
+              l10n.tabBackups,
+              l10n.tabRestoreTests,
+              l10n.tabComplianceReport,
             ],
           ),
         ),
@@ -330,6 +370,102 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     );
   }
 
+  Widget _buildBackupActions(AppLocalizations l10n, {required bool narrow}) {
+    final due = _backupService.isQuarterlyBackupDue();
+    final dueCard = due
+        ? Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(l10n.quarterlyBackupRequired)),
+                ],
+              ),
+            ),
+          )
+        : null;
+
+    final infoCard = Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue.shade700),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.backupCloudInfoTitle,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(l10n.backupCloudInfoBody),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.backupCloudPricingNote,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final quickBtn = FilledButton.icon(
+      onPressed: _isLoading ? null : _quickRegisterLogiRouteCloudBackup,
+      icon: const Icon(Icons.cloud_done),
+      label: Text(l10n.registerLogiRouteCloudBackup),
+    );
+    final customBtn = OutlinedButton.icon(
+      onPressed: _isLoading ? null : _recordBackup,
+      icon: const Icon(Icons.edit_location_alt_outlined),
+      label: Text(l10n.registerBackupOther),
+    );
+
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          infoCard,
+          const SizedBox(height: 12),
+          if (dueCard != null) ...[dueCard, const SizedBox(height: 12)],
+          quickBtn,
+          const SizedBox(height: 8),
+          customBtn,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        infoCard,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            if (dueCard != null) Expanded(child: dueCard),
+            if (dueCard != null) const SizedBox(width: 12),
+            quickBtn,
+            const SizedBox(width: 8),
+            customBtn,
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildBackupsTab() {
     final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
@@ -337,62 +473,7 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: narrow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_backupService.isQuarterlyBackupDue())
-                      Card(
-                        color: Colors.orange.shade50,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.warning_amber,
-                                  color: Colors.orange),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(l10n.quarterlyBackupRequired)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (_backupService.isQuarterlyBackupDue())
-                      const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _recordBackup,
-                      icon: const Icon(Icons.backup),
-                      label: Text(l10n.registerBackup),
-                    ),
-                  ],
-                )
-              : Row(
-                  children: [
-                    if (_backupService.isQuarterlyBackupDue())
-                      Expanded(
-                        child: Card(
-                          color: Colors.orange.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning_amber,
-                                    color: Colors.orange),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                    child: Text(l10n.quarterlyBackupRequired)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    const Spacer(),
-                    FilledButton.icon(
-                      onPressed: _recordBackup,
-                      icon: const Icon(Icons.backup),
-                      label: Text(l10n.registerBackup),
-                    ),
-                  ],
-                ),
+          child: _buildBackupActions(l10n, narrow: narrow),
         ),
         Expanded(
           child: _backups.isEmpty

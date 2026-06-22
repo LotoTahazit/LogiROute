@@ -307,6 +307,17 @@ class FirestorePaths {
         .collection('routes');
   }
 
+  /// Static: архив завершённых точек маршрута (Cloud Function archiveOldRoutes).
+  static CollectionReference<Map<String, dynamic>> archiveRoutesOf(
+      String companyId) {
+    return FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('logistics')
+        .doc('_root')
+        .collection('archive_routes');
+  }
+
   /// Static: коллекция driver_locations компании
   static CollectionReference<Map<String, dynamic>> driverLocationsOf(
       String companyId) {
@@ -533,15 +544,6 @@ class FirestorePaths {
         .collection('companies')
         .doc(companyId)
         .collection('email_delivery_logs');
-  }
-
-  /// Коллекция бухгалтерских документов компании
-  CollectionReference<Map<String, dynamic>> accountingDocs(String companyId) {
-    validateCompanyId(companyId);
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('accountingDocs');
   }
 
   /// Коллекция счётчиков нумерации бухгалтерских документов

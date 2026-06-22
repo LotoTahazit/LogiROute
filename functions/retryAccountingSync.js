@@ -28,7 +28,7 @@ exports.retryAccountingSync = functions.https.onCall(async (data, context) => {
   const allowed =
     role === "super_admin" ||
     (userCompany === companyId &&
-      ["admin", "accountant", "dispatcher"].includes(role));
+      ["admin", "accountant", "dispatcher", "owner"].includes(role));
   if (!allowed) {
     throw new functions.https.HttpsError("permission-denied", "Not allowed");
   }
@@ -36,14 +36,8 @@ exports.retryAccountingSync = functions.https.onCall(async (data, context) => {
   const invRef = db.doc(
     `companies/${companyId}/accounting/_root/invoices/${invoiceId}`
   );
-  const ownerRef = db.doc(`companies/${companyId}/accountingDocs/${invoiceId}`);
   const invSnap = await invRef.get();
-  const ownerSnap = await ownerRef.get();
-  const inv = invSnap.exists
-    ? invSnap.data() || {}
-    : ownerSnap.exists
-        ? ownerSnap.data() || {}
-        : null;
+  const inv = invSnap.exists ? invSnap.data() || {} : null;
   if (inv == null) {
     throw new functions.https.HttpsError("not-found", "Document not found");
   }

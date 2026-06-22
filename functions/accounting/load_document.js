@@ -1,17 +1,7 @@
 /**
- * Load accounting document from Owner Dashboard (accountingDocs) or legacy invoices.
+ * Load accounting document from unified invoices collection.
  */
 async function loadAccountingDocument(db, companyId, docId) {
-  const ownerRef = db.doc(`companies/${companyId}/accountingDocs/${docId}`);
-  const ownerSnap = await ownerRef.get();
-  if (ownerSnap.exists) {
-    return {
-      data: ownerSnap.data() || {},
-      source: "accountingDocs",
-      ref: ownerRef,
-    };
-  }
-
   const invoiceRef = db.doc(
     `companies/${companyId}/accounting/_root/invoices/${docId}`
   );

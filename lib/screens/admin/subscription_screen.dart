@@ -8,6 +8,7 @@ import '../../services/checkout_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../theme/app_theme.dart';
+import 'billing/billing_helpers.dart';
 
 /// Subscription management screen
 class SubscriptionScreen extends StatefulWidget {
@@ -23,19 +24,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   _PlanInfo _getPlanInfo(String key, AppLocalizations l10n) {
     switch (key) {
       case 'logistics':
-        return _PlanInfo(l10n.planLogistics, 790, 590, 0, l10n.planDescLogistics,
+        return _PlanInfo(l10n.planLogistics, 1990, 1490, 2000, l10n.planDescLogistics,
             Icons.local_shipping_outlined);
       case 'warehouse_only':
-        return _PlanInfo(l10n.planWarehouseOnly, 490, 390, 0,
+        return _PlanInfo(l10n.planWarehouseOnly, 1290, 990, 1500,
             l10n.planDescWarehouse, Icons.warehouse);
       case 'ops':
-        return _PlanInfo(l10n.planOps, 1190, 890, 0, l10n.planDescOps,
+        return _PlanInfo(l10n.planOps, 2990, 2290, 3000, l10n.planDescOps,
             Icons.inventory_2_outlined);
       case 'full':
-        return _PlanInfo(l10n.planFull, 1490, 1120, 0, l10n.planDescFull,
+        return _PlanInfo(l10n.planFull, 3990, 2990, 5000, l10n.planDescFull,
             Icons.all_inclusive);
       default:
-        return _PlanInfo(l10n.planFull, 1490, 1120, 0, l10n.planDescFull,
+        return _PlanInfo(l10n.planFull, 3990, 2990, 5000, l10n.planDescFull,
             Icons.all_inclusive);
     }
   }
@@ -167,6 +168,27 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   style: TextStyle(fontSize: 13, color: AppTheme.muted)),
               Text(l10n.minimumMonths(12),
                   style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+              const SizedBox(height: 6),
+              Text(
+                l10n.billingExtraDriverMonthly(
+                  billingAddons.extraDriverPerMonth,
+                  billingAddons.includedDrivers,
+                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              ),
+              Text(
+                l10n.billingExtraWarehouseMonthly(
+                  billingAddons.extraWarehousePerMonth,
+                  billingAddons.includedWarehouseLocations,
+                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              ),
+              Text(
+                l10n.billingDedicatedExportMonthly(
+                  billingAddons.dedicatedExportPerMonth,
+                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              ),
             ],
             if (paidUntil != null)
               Text(
@@ -224,6 +246,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(info.description),
+            const SizedBox(height: 4),
+            Text(
+              formatPlanModulesLine(planKey, l10n),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
             if (narrow && isCurrent) ...[
               const SizedBox(height: 6),
               Chip(

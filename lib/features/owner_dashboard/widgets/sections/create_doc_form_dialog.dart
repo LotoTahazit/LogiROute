@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../config/app_config.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/client_model.dart';
 import '../../../../screens/shared/dialogs/create_client_dialog.dart';
 import '../../../../services/client_service.dart';
+import '../../../../models/invoice.dart';
+import '../../../../services/invoice_service.dart';
+import '../../../../utils/accounting_period_lock.dart';
 import '../../models/accounting_doc.dart';
-import '../../repositories/accounting_docs_repository.dart';
 import 'accounting_helpers.dart';
 
 // =============================================================================
@@ -49,7 +52,7 @@ class CreateDocTypeDialog extends StatelessWidget {
             _TypeOption(
               icon: Icons.description,
               label: l10n.taxInvoiceReceipt,
-              subtitle: 'Tax Invoice Receipt • Under construction',
+              subtitle: 'Tax Invoice Receipt',
               enabled: AppConfig.enableTaxInvoiceReceipt,
               onTap: () => onTypeSelected(AccountingDocType.taxInvoiceReceipt),
             ),
@@ -115,13 +118,15 @@ class _TypeOption extends StatelessWidget {
 class CreateDocFormDialog extends StatefulWidget {
   final AccountingDocType docType;
   final String companyId;
-  final AccountingDocsRepository docsRepo;
+  final InvoiceService invoiceService;
+  final DateTime? accountingLockedUntil;
 
   const CreateDocFormDialog({
     super.key,
     required this.docType,
     required this.companyId,
-    required this.docsRepo,
+    required this.invoiceService,
+    this.accountingLockedUntil,
   });
 
   @override
@@ -140,9 +145,53 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
   List<ClientModel> _clientSearchResults = [];
   ClientModel? _selectedClient;
 
+  late DateTime _deliveryDate;
+  String? _periodLockError;
+
   bool get _taxInvoiceReceiptBlocked =>
       widget.docType == AccountingDocType.taxInvoiceReceipt &&
       !AppConfig.enableTaxInvoiceReceipt;
+
+  @override
+  void initState() {
+    super.initState();
+    _deliveryDate = AccountingPeriodLock.resolveOpenDate(
+      DateTime.now(),
+      widget.accountingLockedUntil,
+    );
+  }
+
+  void _validatePeriodLock() {
+    final lock = widget.accountingLockedUntil;
+    if (lock != null && AccountingPeriodLock.isLocked(_deliveryDate, lock)) {
+      final l10n = AppLocalizations.of(context)!;
+      _periodLockError = l10n.invoicePeriodLockedError(
+        DateFormat('dd/MM/yyyy').format(_deliveryDate),
+        DateFormat('dd/MM/yyyy').format(lock),
+      );
+    } else {
+      _periodLockError = null;
+    }
+  }
+
+  Future<void> _pickDeliveryDate() async {
+    final lock = widget.accountingLockedUntil;
+    final firstDate = lock != null
+        ? AccountingPeriodLock.firstOpenDate(lock)
+        : DateTime(2020);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _deliveryDate,
+      firstDate: firstDate,
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _deliveryDate = picked;
+        _validatePeriodLock();
+      });
+    }
+  }
 
   Future<void> _searchClients(String query) async {
     if (query.length < 2) {
@@ -212,6 +261,8 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    _validatePeriodLock();
+    if (_periodLockError != null) return;
     if (_taxInvoiceReceiptBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -224,24 +275,34 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
     setState(() => _saving = true);
     try {
-      final totals = _computedTotals;
-      final doc = AccountingDoc(
-        type: widget.docType,
-        status: AccountingDocStatus.draft,
-        customerId: _selectedClient?.id ?? '',
-        customerName: _customerNameCtrl.text.trim(),
-        customerTaxId: _customerTaxIdCtrl.text.trim().isNotEmpty
-            ? _customerTaxIdCtrl.text.trim()
-            : null,
-        lines: _buildLines,
-        totals: totals,
-        createdBy: FirebaseAuth.instance.currentUser?.uid ?? '',
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final now = DateTime.now();
+      final items = _buildLines.map(accountingLineToInvoiceItem).toList();
+      final invoice = Invoice(
+        id: '',
         companyId: widget.companyId,
-        notes:
-            _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        sequentialNumber: 0,
+        clientName: _customerNameCtrl.text.trim(),
+        clientNumber: _selectedClient?.clientNumber ??
+            (_customerTaxIdCtrl.text.trim().isNotEmpty
+                ? _customerTaxIdCtrl.text.trim()
+                : _customerNameCtrl.text.trim()),
+        address: _selectedClient?.address ?? '',
+        driverName: '',
+        truckNumber: '',
+        deliveryDate: _deliveryDate,
+        departureTime: now,
+        items: items,
+        createdAt: now,
+        createdBy: uid,
+        documentType: widget.docType.toInvoiceDocumentType,
+        status: InvoiceStatus.draft,
+        paymentMethod: widget.docType == AccountingDocType.taxInvoiceReceipt
+            ? 'cash'
+            : null,
       );
 
-      await widget.docsRepo.createDoc(doc);
+      await widget.invoiceService.createInvoice(invoice, uid);
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -338,6 +399,15 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                       children: [
                         _buildCustomerSection(theme),
                         const SizedBox(height: 16),
+                        _buildDeliveryDateField(theme, l10n),
+                        if (_periodLockError != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _periodLockError!,
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
                         _buildLinesSection(theme),
                         const SizedBox(height: 16),
                         _buildTotalsCard(theme, totals),
@@ -366,8 +436,11 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                       child: Text(l10n.cancel),
                     ),
                     FilledButton(
-                      onPressed:
-                          (_saving || _taxInvoiceReceiptBlocked) ? null : _save,
+                      onPressed: (_saving ||
+                              _taxInvoiceReceiptBlocked ||
+                              _periodLockError != null)
+                          ? null
+                          : _save,
                       child: _saving
                           ? const SizedBox(
                               width: 20,
@@ -382,6 +455,21 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryDateField(ThemeData theme, AppLocalizations l10n) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+      title: Text(l10n.deliveryDateLabel),
+      subtitle: Text(DateFormat('dd/MM/yyyy').format(_deliveryDate)),
+      trailing: const Icon(Icons.edit_outlined, size: 20),
+      onTap: _pickDeliveryDate,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
     );
   }

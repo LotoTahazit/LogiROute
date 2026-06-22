@@ -1,12 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
 import '../../../../services/accounting_sync_service.dart';
+import '../../../../services/invoice_service.dart';
+import '../../../../services/issuance_service.dart';
+import '../../../../utils/accounting_period_lock.dart';
 import '../../../../widgets/accounting_sync_panel.dart';
+import '../../../../widgets/logi_route_tab_bar.dart';
 import '../../models/accounting_doc.dart';
-import '../../repositories/accounting_docs_repository.dart';
 import '../credit_note_form.dart';
 import 'accounting_helpers.dart';
 import 'create_doc_form_dialog.dart';
@@ -37,7 +42,7 @@ class AccountingSection extends StatefulWidget {
 }
 
 class _AccountingSectionState extends State<AccountingSection> {
-  late final AccountingDocsRepository _docsRepo;
+  late final InvoiceService _invoiceService;
   late final AccountingSyncService _syncService;
 
   AccountingDocType? _filterType;
@@ -46,7 +51,7 @@ class _AccountingSectionState extends State<AccountingSection> {
   @override
   void initState() {
     super.initState();
-    _docsRepo = AccountingDocsRepository(companyId: widget.companyId);
+    _invoiceService = InvoiceService(companyId: widget.companyId);
     _syncService = AccountingSyncService(companyId: widget.companyId);
   }
 
@@ -60,11 +65,36 @@ class _AccountingSectionState extends State<AccountingSection> {
     return p == 'greeninvoice' || p == 'icount' || p == 'export';
   }
 
+  DateTime? get _accountingLockedUntil =>
+      widget.companySettings.accountingLockedUntil;
+
+  bool _isDocPeriodLocked(AccountingDoc doc) {
+    final lock = _accountingLockedUntil;
+    final date = doc.deliveryDate;
+    if (lock == null || date == null) return false;
+    return AccountingPeriodLock.isLocked(date, lock);
+  }
+
+  void _showPeriodLockedSnack(BuildContext context, AccountingDoc doc) {
+    final l10n = AppLocalizations.of(context)!;
+    final lock = _accountingLockedUntil!;
+    final date = doc.deliveryDate ?? doc.createdAt ?? DateTime.now();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.invoicePeriodLockedError(
+          DateFormat('dd/MM/yyyy').format(date),
+          DateFormat('dd/MM/yyyy').format(lock),
+        )),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 500;
     return StreamBuilder<List<AccountingDoc>>(
-      stream: _docsRepo.watchDocs(filter: _currentFilter),
+      stream: _invoiceService.watchAccountingDocs(filter: _currentFilter),
       builder: (context, snapshot) {
         return SingleChildScrollView(
           padding: EdgeInsets.all(narrow ? 12 : 24),
@@ -72,6 +102,10 @@ class _AccountingSectionState extends State<AccountingSection> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHeader(context),
+              if (_accountingLockedUntil != null) ...[
+                const SizedBox(height: 12),
+                _buildPeriodLockBanner(context, snapshot.data ?? []),
+              ],
               const SizedBox(height: 16),
               if (_hasExternalAccounting) ...[
                 AccountingSyncPanel(companyId: widget.companyId),
@@ -114,7 +148,7 @@ class _AccountingSectionState extends State<AccountingSection> {
     final l10n = AppLocalizations.of(context)!;
     // Use ALL docs (unfiltered) for summary — listen to a separate unfiltered stream
     return StreamBuilder<List<AccountingDoc>>(
-      stream: _docsRepo.watchDocs(),
+      stream: _invoiceService.watchAccountingDocs(),
       builder: (context, allSnapshot) {
         final allDocs = allSnapshot.data ?? [];
 
@@ -198,6 +232,26 @@ class _AccountingSectionState extends State<AccountingSection> {
   // Header with title and create button
   // ---------------------------------------------------------------------------
 
+  Widget _buildPeriodLockBanner(
+      BuildContext context, List<AccountingDoc> docs) {
+    final l10n = AppLocalizations.of(context)!;
+    final lock = _accountingLockedUntil!;
+    final lockedDrafts = docs
+        .where((d) =>
+            d.status == AccountingDocStatus.draft && _isDocPeriodLocked(d))
+        .length;
+    return MaterialBanner(
+      backgroundColor: Colors.orange.withValues(alpha: 0.12),
+      leading: const Icon(Icons.lock_clock, color: Colors.orange),
+      content: Text(
+        '${l10n.accountingPeriodLockDesc} '
+        '(${DateFormat('dd/MM/yyyy').format(lock)})'
+        '${lockedDrafts > 0 ? ' · ${l10n.draftsCount(lockedDrafts)}' : ''}',
+      ),
+      actions: const [SizedBox.shrink()],
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
@@ -280,32 +334,17 @@ class _AccountingSectionState extends State<AccountingSection> {
       counts[s] = docs.where((d) => d.status == s).length;
     }
 
-    Widget chip(String label, AccountingDocStatus? status, int count) {
-      final selected = _filterStatus == status;
-      return FilterChip(
-        label: Text('$label ($count)'),
-        selected: selected,
-        onSelected: (_) => setState(() => _filterStatus = status),
-        selectedColor: status != null
-            ? docStatusColor(status).withValues(alpha: 0.2)
-            : Theme.of(context).colorScheme.primaryContainer,
-      );
-    }
+    final statuses = <AccountingDocStatus?>[null, ...AccountingDocStatus.values];
+    final labels = statuses
+        .map((s) => s == null
+            ? '${l10n.allFilter} (${docs.length})'
+            : '${docStatusLabel(context, s)} (${counts[s] ?? 0})')
+        .toList();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          chip(l10n.allFilter, null, docs.length),
-          const SizedBox(width: 6),
-          ...AccountingDocStatus.values.map(
-            (s) => Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: chip(docStatusLabel(context, s), s, counts[s] ?? 0),
-            ),
-          ),
-        ],
-      ),
+    return LogiRoutePillSelector(
+      labels: labels,
+      selectedIndex: statuses.indexOf(_filterStatus),
+      onSelected: (i) => setState(() => _filterStatus = statuses[i]),
     );
   }
 
@@ -326,25 +365,53 @@ class _AccountingSectionState extends State<AccountingSection> {
     final entry = syncMap[doc.id!];
     final status = entry?.status;
     final color = externalSyncColor(status);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    final extNumber =
+        doc.externalDocNumber ?? entry?.externalNumber;
+    final pdfUrl = doc.externalPdfUrl ?? entry?.pdfUrl;
+    final alloc = doc.externalDistributionNumber ?? entry?.distributionNumber;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            externalSyncLabel(context, status),
-            style: TextStyle(color: color, fontSize: 11),
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                externalSyncLabel(context, status),
+                style: TextStyle(color: color, fontSize: 11),
+              ),
+            ),
+            if (status == 'failed')
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 16),
+                tooltip: AppLocalizations.of(context)!.accountingSyncRetry,
+                onPressed: () => _retrySync(context, doc.id!),
+              ),
+            if (pdfUrl != null)
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf, size: 16),
+                tooltip: 'PDF',
+                onPressed: () => launchUrl(
+                  Uri.parse(pdfUrl),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+          ],
         ),
-        if (status == 'failed')
-          IconButton(
-            icon: const Icon(Icons.refresh, size: 16),
-            tooltip: AppLocalizations.of(context)!.accountingSyncRetry,
-            onPressed: () => _retrySync(context, doc.id!),
+        if (extNumber != null && extNumber.isNotEmpty)
+          Text(
+            AppLocalizations.of(context)!.accountingExternalDocNumber(extNumber),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+        if (alloc != null && alloc.isNotEmpty)
+          Text(
+            AppLocalizations.of(context)!.accountingSyncDistribution(alloc),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
       ],
     );
@@ -523,7 +590,7 @@ class _AccountingSectionState extends State<AccountingSection> {
     final dateStr =
         doc.createdAt != null ? dateFmt.format(doc.createdAt!) : '\u2014';
     final statusColor = docStatusColor(doc.status);
-    final isClickable = doc.id != null;
+    final isClickable = doc.id != null && doc.isOwnerManaged;
     final narrow = MediaQuery.sizeOf(context).width < 500;
     return Card(
       elevation: 1,
@@ -629,7 +696,7 @@ class _AccountingSectionState extends State<AccountingSection> {
     final isImmutable = doc.status != AccountingDocStatus.draft;
 
     return DataRow(
-        onSelectChanged: doc.id != null
+        onSelectChanged: doc.id != null && doc.isOwnerManaged
             ? (_) => _showDocumentChainDialog(context, doc)
             : null,
         cells: [
@@ -676,29 +743,49 @@ class _AccountingSectionState extends State<AccountingSection> {
 
   Widget _buildActionButtons(BuildContext context, AccountingDoc doc) {
     final l10n = AppLocalizations.of(context)!;
+    if (!doc.isOwnerManaged) {
+      return Tooltip(
+        message: l10n.dispatcher,
+        child: Icon(Icons.local_shipping_outlined, size: 20, color: Colors.grey.shade600),
+      );
+    }
+    final periodLocked = _isDocPeriodLocked(doc);
     switch (doc.status) {
       case AccountingDocStatus.draft:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (periodLocked)
+              Tooltip(
+                message: l10n.accountingPeriodLockDesc,
+                child: Icon(Icons.lock, size: 18, color: Colors.orange.shade700),
+              ),
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: l10n.editTooltip,
-              onPressed: () => _showDocForm(context, doc.type),
+              onPressed: periodLocked
+                  ? null
+                  : () => _showDocForm(context, doc.type),
             ),
             IconButton(
               icon: const Icon(Icons.publish_outlined, size: 20),
               tooltip: l10n.issueTooltip,
               color: Colors.green,
-              onPressed:
-                  doc.id != null ? () => _confirmIssueDoc(context, doc) : null,
+              onPressed: doc.id != null && !periodLocked
+                  ? () => _confirmIssueDoc(context, doc)
+                  : periodLocked
+                      ? () => _showPeriodLockedSnack(context, doc)
+                      : null,
             ),
             IconButton(
               icon: const Icon(Icons.cancel_outlined, size: 20),
               tooltip: l10n.cancelTooltip,
               color: Colors.red,
-              onPressed:
-                  doc.id != null ? () => _confirmVoidDoc(context, doc) : null,
+              onPressed: doc.id != null && !periodLocked
+                  ? () => _confirmVoidDoc(context, doc)
+                  : periodLocked
+                      ? () => _showPeriodLockedSnack(context, doc)
+                      : null,
             ),
           ],
         );
@@ -728,6 +815,10 @@ class _AccountingSectionState extends State<AccountingSection> {
   // ---------------------------------------------------------------------------
 
   Future<void> _confirmIssueDoc(BuildContext context, AccountingDoc doc) async {
+    if (_isDocPeriodLocked(doc)) {
+      _showPeriodLockedSnack(context, doc);
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
@@ -750,22 +841,11 @@ class _AccountingSectionState extends State<AccountingSection> {
 
     if (confirmed == true && doc.id != null && mounted) {
       try {
-        await _docsRepo.issueDoc(doc.id!);
-        if (_hasExternalAccounting) {
-          try {
-            await _syncService.retry(doc.id!);
-          } catch (syncErr) {
-            if (mounted) {
-              messenger.showSnackBar(
-                SnackBar(
-                  content: Text(l10n.accountingExternalSyncFailedWith(
-                      syncErr.toString())),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
-          }
-        }
+        await IssuanceService().issueDocument(
+          companyId: widget.companyId,
+          invoiceId: doc.id!,
+          counterKey: doc.type.canonicalCounterKey,
+        );
         if (mounted) {
           messenger.showSnackBar(
             SnackBar(content: Text(l10n.documentIssuedSuccess)),
@@ -782,6 +862,10 @@ class _AccountingSectionState extends State<AccountingSection> {
   }
 
   Future<void> _confirmVoidDoc(BuildContext context, AccountingDoc doc) async {
+    if (_isDocPeriodLocked(doc)) {
+      _showPeriodLockedSnack(context, doc);
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     final reasonController = TextEditingController();
@@ -831,8 +915,10 @@ class _AccountingSectionState extends State<AccountingSection> {
 
     if (confirmed == true && doc.id != null && mounted) {
       try {
-        await _docsRepo.voidBeforeDelivery(
+        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        await _invoiceService.voidDraftInvoice(
           doc.id!,
+          uid,
           reasonController.text.trim(),
         );
         if (mounted) {
@@ -861,7 +947,7 @@ class _AccountingSectionState extends State<AccountingSection> {
       context: context,
       builder: (ctx) => DocumentChainDialog(
         docId: doc.id!,
-        docsRepo: _docsRepo,
+        invoiceService: _invoiceService,
         currentDoc: doc,
       ),
     );
@@ -877,7 +963,9 @@ class _AccountingSectionState extends State<AccountingSection> {
       barrierDismissible: false,
       builder: (ctx) => CreditNoteFormDialog(
         originalDoc: doc,
-        docsRepo: _docsRepo,
+        invoiceService: _invoiceService,
+        companyId: widget.companyId,
+        accountingLockedUntil: _accountingLockedUntil,
       ),
     );
   }
@@ -905,7 +993,8 @@ class _AccountingSectionState extends State<AccountingSection> {
       builder: (ctx) => CreateDocFormDialog(
         docType: type,
         companyId: widget.companyId,
-        docsRepo: _docsRepo,
+        invoiceService: _invoiceService,
+        accountingLockedUntil: _accountingLockedUntil,
       ),
     );
   }

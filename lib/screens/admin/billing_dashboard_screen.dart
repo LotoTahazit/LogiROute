@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/firestore_paths.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 /// Billing & Compliance Dashboard для super_admin.
 /// Один экран для управления 50–200 компаниями:
@@ -30,6 +31,15 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
         'suspended': l10n.billingDashboardFilterSuspended,
         'cancelled': l10n.billingDashboardFilterCancelled,
       };
+
+  Widget _buildStatusFilterPills(Map<String, String> filterLabels) {
+    final keys = filterLabels.keys.toList();
+    return LogiRoutePillSelector(
+      labels: keys.map((k) => filterLabels[k]!).toList(),
+      selectedIndex: keys.indexOf(_statusFilter),
+      onSelected: (i) => setState(() => _statusFilter = keys[i]),
+    );
+  }
 
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> query = _firestore.collection('companies');
@@ -306,26 +316,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: filterLabels.entries.map((e) {
-                            final isSelected = _statusFilter == e.key;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: FilterChip(
-                                label: Text(e.value),
-                                selected: isSelected,
-                                onSelected: (_) =>
-                                    setState(() => _statusFilter = e.key),
-                                selectedColor: e.key == 'all'
-                                    ? Colors.deepPurple.shade100
-                                    : _statusColor(e.key).withValues(alpha: 0.2),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
+                      _buildStatusFilterPills(filterLabels),
                       const SizedBox(height: 12),
                       TextField(
                         decoration: InputDecoration(
@@ -344,27 +335,7 @@ class _BillingDashboardScreenState extends State<BillingDashboardScreen> {
                 : Row(
                     children: [
                       Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: filterLabels.entries.map((e) {
-                              final isSelected = _statusFilter == e.key;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: FilterChip(
-                                  label: Text(e.value),
-                                  selected: isSelected,
-                                  onSelected: (_) =>
-                                      setState(() => _statusFilter = e.key),
-                                  selectedColor: e.key == 'all'
-                                      ? Colors.deepPurple.shade100
-                                      : _statusColor(e.key)
-                                          .withValues(alpha: 0.2),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                        child: _buildStatusFilterPills(filterLabels),
                       ),
                       const SizedBox(width: 12),
                       SizedBox(

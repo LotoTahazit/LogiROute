@@ -111,7 +111,12 @@ async function enqueueExternalAccountingSync({
   );
 
   try {
-    const result = await adapter.createDocument({ payload, credentials });
+    const result = await adapter.createDocument({
+      payload,
+      credentials,
+      companyId,
+      docId: documentId,
+    });
     const ok = result.ok === true;
     await ledgerRef.set(
       {

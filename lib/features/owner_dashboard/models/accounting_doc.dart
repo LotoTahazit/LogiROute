@@ -1,11 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../models/invoice.dart';
+
+/// Источник записи в едином реестре бухгалтерии.
+enum AccountingDocSource {
+  /// Legacy (удалённая коллекция accountingDocs)
+  accountingDocs,
+
+  /// Единый движок `invoices`
+  invoices,
+}
+
 /// Тип бухгалтерского документа.
 enum AccountingDocType {
   taxInvoice,
   receipt,
   taxInvoiceReceipt,
-  creditNote;
+  creditNote,
+  deliveryNote;
 
   String get value {
     switch (this) {
@@ -17,6 +29,8 @@ enum AccountingDocType {
         return 'tax_invoice_receipt';
       case AccountingDocType.creditNote:
         return 'credit_note';
+      case AccountingDocType.deliveryNote:
+        return 'delivery_note';
     }
   }
 
@@ -30,6 +44,8 @@ enum AccountingDocType {
         return AccountingDocType.taxInvoiceReceipt;
       case 'credit_note':
         return AccountingDocType.creditNote;
+      case 'delivery_note':
+        return AccountingDocType.deliveryNote;
       default:
         throw ArgumentError('Unknown accounting doc type: $type');
     }
@@ -75,6 +91,15 @@ enum AccountingDocStatus {
         throw ArgumentError('Unknown accounting doc status: $status');
     }
   }
+}
+
+/// Фильтр для списка бухгалтерских документов (owner UI).
+class AccountingDocFilter {
+  final AccountingDocType? type;
+  final AccountingDocStatus? status;
+  final String? customerId;
+
+  const AccountingDocFilter({this.type, this.status, this.customerId});
 }
 
 /// Строка бухгалтерского документа.
@@ -155,11 +180,13 @@ class AccountingDocTotals {
 class AccountingDocReferences {
   final String? originalDocId;
   final int? originalDocNumber;
+  final String? originalExternalDocNumber;
   final List<String>? creditNoteIds;
 
   AccountingDocReferences({
     this.originalDocId,
     this.originalDocNumber,
+    this.originalExternalDocNumber,
     this.creditNoteIds,
   });
 
@@ -169,6 +196,7 @@ class AccountingDocReferences {
       originalDocNumber: map['originalDocNumber'] != null
           ? (map['originalDocNumber'] as num).toInt()
           : null,
+      originalExternalDocNumber: map['originalExternalDocNumber'] as String?,
       creditNoteIds: map['creditNoteIds'] != null
           ? List<String>.from(map['creditNoteIds'])
           : null,
@@ -179,14 +207,14 @@ class AccountingDocReferences {
     return {
       if (originalDocId != null) 'originalDocId': originalDocId,
       if (originalDocNumber != null) 'originalDocNumber': originalDocNumber,
+      if (originalExternalDocNumber != null)
+        'originalExternalDocNumber': originalExternalDocNumber,
       if (creditNoteIds != null) 'creditNoteIds': creditNoteIds,
     };
   }
 }
 
-/// AccountingDoc-документ: `/companies/{companyId}/accountingDocs/{docId}`
-///
-/// Бухгалтерский документ: חשבונית מס, קבלה, חשבונית מס קבלה, תעודת זיכוי.
+/// UI-модель бухгалтерского документа (адаптер над [Invoice]).
 class AccountingDoc {
   /// Firestore document ID (populated when reading from Firestore).
   final String? id;
@@ -203,12 +231,25 @@ class AccountingDoc {
   final String? reason;
   final String? correctionType;
   final DateTime? createdAt;
+  /// Дата документа для period-lock (из Invoice.deliveryDate).
+  final DateTime? deliveryDate;
   final String createdBy;
   final String companyId;
   final String? immutableSnapshotHash;
   final DateTime? updatedAt;
   final String? updatedBy;
   final String? notes;
+  final String? externalProvider;
+  final String? externalId;
+  final String? externalDocNumber;
+  final String? externalDistributionNumber;
+  final String? externalPdfUrl;
+
+  /// Откуда документ попал в единый реестр (по умолчанию — owner).
+  final AccountingDocSource source;
+
+  /// Привязка к точке доставки — документы диспетчера; null = owner вручную.
+  final String? deliveryPointId;
 
   AccountingDoc({
     this.id,
@@ -225,16 +266,29 @@ class AccountingDoc {
     this.reason,
     this.correctionType,
     this.createdAt,
+    this.deliveryDate,
     required this.createdBy,
     required this.companyId,
     this.immutableSnapshotHash,
     this.updatedAt,
     this.updatedBy,
     this.notes,
+    this.externalProvider,
+    this.externalId,
+    this.externalDocNumber,
+    this.externalDistributionNumber,
+    this.externalPdfUrl,
+    this.source = AccountingDocSource.invoices,
+    this.deliveryPointId,
   });
 
-  factory AccountingDoc.fromMap(Map<String, dynamic> map) {
+  /// Owner вручную (без точки доставки) — редактирование/выпуск/зачёт.
+  bool get isOwnerManaged =>
+      deliveryPointId == null || deliveryPointId!.isEmpty;
+
+  factory AccountingDoc.fromMap(Map<String, dynamic> map, {String? id}) {
     return AccountingDoc(
+      id: id ?? map['id'] as String?,
       type: AccountingDocType.fromString(map['type'] ?? 'tax_invoice'),
       status: AccountingDocStatus.fromString(map['status'] ?? 'draft'),
       docNumber:
@@ -272,7 +326,95 @@ class AccountingDoc {
           : null,
       updatedBy: map['updatedBy'],
       notes: map['notes'],
+      externalProvider: map['externalProvider'] as String?,
+      externalId: map['externalId'] as String?,
+      externalDocNumber: map['externalDocNumber'] as String?,
+      externalDistributionNumber: map['externalDistributionNumber'] as String?,
+      externalPdfUrl: map['externalPdfUrl'] as String?,
     );
+  }
+
+  /// Адаптер диспетчерского [Invoice] → запись единого реестра.
+  factory AccountingDoc.fromInvoice(Invoice invoice) {
+    final vatRate = Invoice.vatRate;
+    final lines = invoice.items.map((item) {
+      final lineNet = item.totalBeforeVAT.toDouble();
+      final rate = item.vatRate ?? vatRate;
+      final lineVat = lineNet * rate;
+      return AccountingDocLine(
+        description: item.displayText,
+        quantity: item.quantity.toDouble(),
+        unitPrice: item.pricePerUnit,
+        totalBeforeVat: lineNet,
+        vatRate: rate,
+        vatAmount: lineVat,
+        totalWithVat: lineNet + lineVat,
+      );
+    }).toList();
+
+    return AccountingDoc(
+      id: invoice.id,
+      source: AccountingDocSource.invoices,
+      type: _typeFromInvoice(invoice.documentType),
+      status: _statusFromInvoice(invoice),
+      docNumber:
+          invoice.sequentialNumber > 0 ? invoice.sequentialNumber : null,
+      issuedAt: invoice.finalizedAt ??
+          (invoice.isLive ? invoice.createdAt : null),
+      customerId: invoice.clientNumber,
+      customerName: invoice.clientName,
+      customerTaxId: invoice.clientNumber,
+      lines: lines,
+      totals: AccountingDocTotals(
+        net: invoice.subtotalBeforeVAT,
+        vat: invoice.vatAmount,
+        gross: invoice.totalWithVAT,
+      ),
+      references: invoice.creditNoteIds.isNotEmpty
+          ? AccountingDocReferences(creditNoteIds: invoice.creditNoteIds)
+          : invoice.linkedInvoiceId != null
+              ? AccountingDocReferences(originalDocId: invoice.linkedInvoiceId)
+              : null,
+      createdAt: invoice.createdAt,
+      deliveryDate: invoice.deliveryDate,
+      createdBy: invoice.createdBy,
+      companyId: invoice.companyId,
+      immutableSnapshotHash: invoice.immutableSnapshotHash,
+      deliveryPointId: invoice.deliveryPointId,
+    );
+  }
+
+  static AccountingDocType _typeFromInvoice(InvoiceDocumentType t) {
+    switch (t) {
+      case InvoiceDocumentType.invoice:
+        return AccountingDocType.taxInvoice;
+      case InvoiceDocumentType.receipt:
+        return AccountingDocType.receipt;
+      case InvoiceDocumentType.delivery:
+        return AccountingDocType.deliveryNote;
+      case InvoiceDocumentType.creditNote:
+        return AccountingDocType.creditNote;
+      case InvoiceDocumentType.taxInvoiceReceipt:
+        return AccountingDocType.taxInvoiceReceipt;
+    }
+  }
+
+  static AccountingDocStatus _statusFromInvoice(Invoice invoice) {
+    if (invoice.creditNoteIds.isNotEmpty &&
+        (invoice.status == InvoiceStatus.issued ||
+            invoice.status == InvoiceStatus.active)) {
+      return AccountingDocStatus.credited;
+    }
+    switch (invoice.status) {
+      case InvoiceStatus.draft:
+        return AccountingDocStatus.draft;
+      case InvoiceStatus.issued:
+      case InvoiceStatus.active:
+        return AccountingDocStatus.issued;
+      case InvoiceStatus.cancelled:
+      case InvoiceStatus.voided:
+        return AccountingDocStatus.voidedBeforeDelivery;
+    }
   }
 
   Map<String, dynamic> toMap() {
@@ -299,6 +441,12 @@ class AccountingDoc {
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
       if (updatedBy != null) 'updatedBy': updatedBy,
       if (notes != null) 'notes': notes,
+      if (externalProvider != null) 'externalProvider': externalProvider,
+      if (externalId != null) 'externalId': externalId,
+      if (externalDocNumber != null) 'externalDocNumber': externalDocNumber,
+      if (externalDistributionNumber != null)
+        'externalDistributionNumber': externalDistributionNumber,
+      if (externalPdfUrl != null) 'externalPdfUrl': externalPdfUrl,
     };
   }
 }

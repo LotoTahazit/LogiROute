@@ -522,6 +522,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
 
     try {
       final tracks = <Polyline>{};
+      final osrm = OsrmDirectionsService();
       final cutoff = Timestamp.fromDate(
         DateTime.now().subtract(const Duration(hours: 24)),
       );
@@ -655,14 +656,38 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           continue;
         }
 
+        // Привязка к дорогам (OSRM match): сырой трек — это редкие GPS-точки,
+        // соединённые прямыми хордами. Map-matching ведёт линию по реальным
+        // дорогам. При неудаче/ошибке — деградируем к исходному сегменту.
+        final displaySegments = <List<LatLng>>[];
+        for (final seg in segments) {
+          if (seg.length < 3) {
+            displaySegments.add(seg);
+            continue;
+          }
+          final geoms = await osrm.matchToRoad(
+            seg.map((p) => [p.latitude, p.longitude]).toList(),
+          );
+          if (geoms != null) {
+            final snapped = <LatLng>[];
+            for (final g in geoms) {
+              snapped.addAll(PolylineDecoder.decode(g, precision: 5));
+            }
+            displaySegments.add(
+                PolylineDecoder.isValid(snapped) ? snapped : seg);
+          } else {
+            displaySegments.add(seg);
+          }
+        }
+
         const trackOuterColor = Color(0x6677AFFF);
         const trackInnerColor = Color(0xFF2F80ED);
 
-        for (int i = 0; i < segments.length; i++) {
+        for (int i = 0; i < displaySegments.length; i++) {
           tracks.add(
             Polyline(
               polylineId: PolylineId('track_${driverId}_${i}_outer'),
-              points: segments[i],
+              points: displaySegments[i],
               width: 12,
               color: trackOuterColor,
               zIndex: 5,
@@ -671,7 +696,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           tracks.add(
             Polyline(
               polylineId: PolylineId('track_${driverId}_${i}_inner'),
-              points: segments[i],
+              points: displaySegments[i],
               width: 7,
               color: trackInnerColor,
               zIndex: 6,
@@ -680,7 +705,7 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
         }
 
         debugPrint(
-          '🛤️ [Track] Driver $driverId: ${segments.length} track segments added',
+          '🛤️ [Track] Driver $driverId: ${displaySegments.length} track segments added (road-snapped)',
         );
       }
 

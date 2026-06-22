@@ -6,6 +6,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 /// Support Console — "одна компания = вся история"
 /// Только для super_admin. Выбираешь компанию → видишь всё:
@@ -261,18 +262,16 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
             ],
           ],
           bottom: _selectedCompanyId != null
-              ? TabBar(
+              ? LogiRouteAppBarTabBar.labels(
                   controller: _tabController,
-                  isScrollable: true,
-                  tabs: [
-                    Tab(text: l10n.tabOverview),
-                    Tab(text: l10n.tabBillingAudit),
-                    Tab(text: l10n.tabPayments(_paymentEvents.length)),
-                    Tab(
-                        text: l10n.tabNotifications(
-                            _notifications.length, _unreadCount)),
-                    Tab(text: l10n.tabPushErrors(_pushLogs.length)),
-                    Tab(text: l10n.tabEmailErrors(_emailLogs.length)),
+                  labels: [
+                    l10n.tabOverview,
+                    l10n.tabBillingAudit,
+                    l10n.tabPayments(_paymentEvents.length),
+                    l10n.tabNotifications(
+                        _notifications.length, _unreadCount),
+                    l10n.tabPushErrors(_pushLogs.length),
+                    l10n.tabEmailErrors(_emailLogs.length),
                   ],
                 )
               : null,

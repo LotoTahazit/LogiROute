@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../widgets/proof_of_delivery_viewer.dart';
 import '../../../utils/eta_calculator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/route_optimizer.dart';
@@ -390,7 +391,7 @@ class ActiveRoutesTab extends StatelessWidget {
       }).toList();
       final avgTimeOnPoint = _calcAvgTimeOnPoint(completedPts);
       final progressText = completedPts.isNotEmpty && avgTimeOnPoint > 0
-          ? ' • ~${avgTimeOnPoint}m/pt'
+          ? ' • ${l10n.avgMinutesPerPoint(avgTimeOnPoint)}'
           : '';
 
       return Card(
@@ -573,6 +574,18 @@ class ActiveRoutesTab extends StatelessWidget {
                         onPressed: () => onRemovePoint(r),
                       ),
                     ],
+                    // Завершённая точка: просмотр доказательства доставки
+                    // (фото + GPS + время). Доступно диспетчеру и выше.
+                    if (isClosed)
+                      IconButton(
+                        icon: Icon(Icons.image_outlined,
+                            color: AppTheme.accentSoft),
+                        tooltip: l10n.podViewerTooltip,
+                        onPressed: () => showProofOfDeliveryViewer(
+                          context: context,
+                          point: r,
+                        ),
+                      ),
                   ];
 
                   final pointText = Column(
@@ -838,6 +851,10 @@ class ActiveRoutesTab extends StatelessWidget {
                       title: Text(p.clientName),
                       subtitle: Text(
                         '${p.driverName ?? ""} • ${_getDisplayAddress(p)}',
+                      ),
+                      onTap: () => showProofOfDeliveryViewer(
+                        context: context,
+                        point: p,
                       ),
                       trailing: TextButton.icon(
                         icon: Icon(Icons.undo, size: 18),

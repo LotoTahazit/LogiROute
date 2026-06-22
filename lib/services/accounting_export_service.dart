@@ -56,6 +56,36 @@ class AccountingExportService {
         .collection('accounting_export_runs');
   }
 
+  CollectionReference<Map<String, dynamic>> _exportQueueCollection() {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('accounting')
+        .doc('_root')
+        .collection('export_queue');
+  }
+
+  /// Owner-dashboard rows from export_queue only (invoices уже в основном запросе).
+  Future<List<Map<String, dynamic>>> _fetchOwnerDashboardCsvRows(
+    DateTime fromDate,
+    DateTime toDate,
+  ) async {
+    final rows = <Map<String, dynamic>>[];
+
+    final queueSnap = await _exportQueueCollection()
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
+        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(toDate))
+        .get();
+    for (final doc in queueSnap.docs) {
+      final csvRow = doc.data()['csvRow'];
+      if (csvRow is! Map) continue;
+      rows.add(Map<String, dynamic>.from(csvRow));
+    }
+
+    return rows;
+  }
+
   /// Экспорт за период в выбранном формате.
   /// Возвращает строку с содержимым файла.
   Future<AccountingExportResult> export({
@@ -101,6 +131,11 @@ class AccountingExportService {
           invoices.where((i) => i.documentType == filterDocType).toList();
     }
 
+    List<Map<String, dynamic>> extraCsvRows = const [];
+    if (format == AccountingExportFormat.csv) {
+      extraCsvRows = await _fetchOwnerDashboardCsvRows(fromDate, toDate);
+    }
+
     String content;
     String fileExtension;
     String mimeType;
@@ -119,11 +154,19 @@ class AccountingExportService {
         break;
       case AccountingExportFormat.csv:
         final sep = separator ?? CsvSeparator.comma;
-        content = _buildUniversalCsv(invoices, fromDate, toDate, sep);
+        content = _buildUniversalCsv(
+          invoices,
+          fromDate,
+          toDate,
+          sep,
+          extraCsvRows: extraCsvRows,
+        );
         fileExtension = 'csv';
         mimeType = 'text/csv';
         break;
     }
+
+    final totalRecords = invoices.length + extraCsvRows.length;
 
     // Log export run
     await _exportRunsCollection().add({
@@ -131,7 +174,7 @@ class AccountingExportService {
       'toDate': Timestamp.fromDate(toDate),
       'exportedBy': exportedBy,
       'exportedAt': FieldValue.serverTimestamp(),
-      'recordCount': invoices.length,
+      'recordCount': totalRecords,
       'format': format.name,
       if (filterDocType != null) 'docTypeFilter': filterDocType.name,
     });
@@ -143,7 +186,7 @@ class AccountingExportService {
       content: content,
       fileName: fileName,
       mimeType: mimeType,
-      recordCount: invoices.length,
+      recordCount: totalRecords,
       format: format,
       separator: separator ?? CsvSeparator.comma,
     );
@@ -340,10 +383,16 @@ class AccountingExportService {
   // =========================================================
 
   String _buildUniversalCsv(
-      List<Invoice> invoices, DateTime from, DateTime to, CsvSeparator sep) {
+    List<Invoice> invoices,
+    DateTime from,
+    DateTime to,
+    CsvSeparator sep, {
+    List<Map<String, dynamic>> extraCsvRows = const [],
+  }) {
     final buf = StringBuffer();
     final d = _sepChar(sep);
     final esc = sep == CsvSeparator.semicolon ? _semicolonEscape : _csvEscape;
+    final totalRecords = invoices.length + extraCsvRows.length;
 
     // Metadata
     buf.writeln('# Accounting Export — LogiRoute');
@@ -351,7 +400,7 @@ class AccountingExportService {
     buf.writeln('# Period: ${_fmtDate(from)} - ${_fmtDate(to)}');
     buf.writeln(
         '# Exported: ${_fmtDate(DateTime.now())} ${_fmtTime(DateTime.now())}');
-    buf.writeln('# Records: ${invoices.length}');
+    buf.writeln('# Records: $totalRecords');
     buf.writeln('# Separator: ${sep.name}');
     buf.writeln('');
 
@@ -389,6 +438,25 @@ class AccountingExportService {
         inv.status.name,
         inv.id,
         inv.linkedInvoiceId ?? '',
+      ].join(d));
+    }
+
+    for (final row in extraCsvRows) {
+      buf.writeln([
+        row['doc_type'] ?? '',
+        row['doc_number'] ?? '',
+        row['date'] ?? '',
+        esc('${row['client_name'] ?? ''}'),
+        esc('${row['client_number'] ?? ''}'),
+        row['net_amount'] ?? '0.00',
+        row['vat_amount'] ?? '0.00',
+        row['total_amount'] ?? '0.00',
+        row['discount'] ?? '0.00',
+        row['payment_due'] ?? '',
+        row['payment_method'] ?? '',
+        row['status'] ?? 'issued',
+        row['doc_id'] ?? '',
+        row['linked_doc_id'] ?? '',
       ].join(d));
     }
 

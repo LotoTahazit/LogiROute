@@ -236,14 +236,19 @@ service cloud.firestore {
       // shifts — גם dispatcher + owner (לוח משמרות בממשק דיספצ׳ר).
       // config — dispatcher может задать координаты склада.
       match /settings/{docId} {
-        allow read: if isCompanyMember(companyId);
+        allow read: if isCompanyMember(companyId) && docId != 'accounting_credentials';
         allow create, update: if isCompanyMember(companyId) && billingAllowsWrite(companyId) && (
           canAdminWrite(companyId) ||
           (
             docId in ['shifts', 'config'] &&
             hasAnyRole(['owner', 'dispatcher'])
           )
-        );
+        ) && docId != 'accounting_credentials';
+        allow delete: if false;
+      }
+
+      match /settings/accounting_credentials {
+        allow read, create, update: if canAdminWrite(companyId) && billingAllowsWrite(companyId);
         allow delete: if false;
       }
 
@@ -330,34 +335,6 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // =========================================================
-      // OWNER DASHBOARD: Accounting Documents (accountant block)
-      // =========================================================
-      match /accountingDocs/{docId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId)
-          && hasAnyRole(['accountant', 'admin', 'super_admin'])
-          && companyIdMatchesPath(companyId)
-          && request.resource.data.createdBy == request.auth.uid
-          // credit_note requires originalDocId and reason
-          && (request.resource.data.type != 'credit_note' || (
-            request.resource.data.references.originalDocId is string
-            && request.resource.data.references.originalDocId.size() > 0
-            && request.resource.data.reason is string
-            && request.resource.data.reason.size() > 0
-          ));
-        allow update: if isCompanyMember(companyId)
-          && hasAnyRole(['accountant', 'admin', 'super_admin'])
-          && unchanged('createdAt') && unchanged('createdBy') && unchanged('companyId')
-          // accountant can only edit draft documents
-          && (hasAnyRole(['admin', 'super_admin']) || resource.data.status == 'draft')
-          // docNumber, issuedAt, immutableSnapshotHash immutable after issued
-          && (!('docNumber' in resource.data) || resource.data.status == 'draft' || unchanged('docNumber'))
-          && (!('issuedAt' in resource.data) || resource.data.status == 'draft' || unchanged('issuedAt'))
-          && (!('immutableSnapshotHash' in resource.data) || resource.data.status == 'draft' || unchanged('immutableSnapshotHash'));
-        allow delete: if false;
-      }
-
       // Entitlements (если отдельная подколлекция)
       match /entitlements/{docId} {
         allow read: if canAdminWrite(companyId);
@@ -425,6 +402,11 @@ service cloud.firestore {
       match /logistics/_root/clients/{clientId} {
         allow read: if canUseModule(companyId, 'logistics');
         allow create, update: if canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId);
+        // Водитель (член компании) физически на точке — может исправить ТОЛЬКО
+        // координаты клиента (его GPS = правда). Прочие поля менять нельзя.
+        allow update: if isRole('driver') && isCompanyMember(companyId)
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['latitude', 'longitude']);
         allow delete: if canWriteModule(companyId, 'logistics');
       }
 
@@ -453,6 +435,12 @@ service cloud.firestore {
         allow read: if canUseModule(companyId, 'logistics');
         allow create, update: if canWriteModule(companyId, 'logistics');
         allow delete: if canWriteModule(companyId, 'logistics');
+      }
+
+      // archive_routes: завершённые точки (только Cloud Functions пишут)
+      match /logistics/_root/archive_routes/{pointId} {
+        allow read: if canUseModule(companyId, 'logistics');
+        allow write: if false;
       }
 
       // cached_routes: /companies/{c}/logistics/_root/cached_routes/{routeId}
@@ -493,7 +481,7 @@ service cloud.firestore {
         allow create: if canWriteModule(companyId, 'accounting') && companyIdMatchesPath(companyId)
           && isNewDocUnlocked(companyId, request.resource.data.deliveryDate)
           && (
-            hasAnyRole(['admin', 'super_admin']) ||
+            hasAnyRole(['admin', 'super_admin', 'accountant']) ||
             (isRole('dispatcher') && request.resource.data.documentType in ['delivery', 'invoice', 'taxInvoiceReceipt'])
           );
         // update: only admin/super_admin, immutable fields, period lock on existing doc
@@ -505,21 +493,23 @@ service cloud.firestore {
         //   issued → voided (admin only, client)
         //   voided → nothing (frozen)
         //   Client cannot set status to 'issued' — only server can
-        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']) && companyIdMatchesPath(companyId)
+        allow update: if canWriteModule(companyId, 'accounting') && companyIdMatchesPath(companyId)
           && unchanged('createdAt') && unchanged('createdBy') && unchanged('deliveryDate')
           && (!('sequentialNumber' in resource.data) || unchanged('sequentialNumber'))
           && (!('finalizedAt' in resource.data) || unchanged('finalizedAt'))
           && (!('finalizedBy' in resource.data) || unchanged('finalizedBy'))
           && (!('immutableSnapshotHash' in resource.data) || unchanged('immutableSnapshotHash'))
           && isExistingDocUnlocked(companyId, resource.data.deliveryDate)
-          // Client cannot flip status to 'issued' — only server can
           && (!('status' in request.resource.data) || request.resource.data.status != 'issued' || ('status' in resource.data && resource.data.status == 'issued'))
-          // Voided docs are frozen — no further updates
           && (!('status' in resource.data) || resource.data.status != 'voided')
-          // When voiding (issued → voided): voidedBy must be the caller
           && (
             !('status' in request.resource.data) || request.resource.data.status != 'voided'
             || ('voidedBy' in request.resource.data && request.resource.data.voidedBy == request.auth.uid)
+          )
+          && (
+            hasAnyRole(['admin', 'super_admin'])
+            || (hasAnyRole(['accountant']) && resource.data.status == 'draft'
+              && (!('status' in request.resource.data) || request.resource.data.status in ['draft', 'cancelled']))
           );
         allow delete: if false;
 
@@ -633,7 +623,7 @@ service cloud.firestore {
                'payment_received', 'module_changed', 'plan_changed', 'backup_recorded', 'retention_checked'
              ]
           && request.resource.data.entity.collection in [
-               'invoices', 'receipts', 'credit_notes', 'accountingDocs',
+               'invoices', 'receipts', 'credit_notes',
                'inventory', 'inventory_counts',
                'routes', 'delivery_points', 'assignments',
                'users', 'billing',

@@ -407,9 +407,11 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             client.zones
-                                                .map((z) =>
-                                                    ZoneUtils.getZoneName(
-                                                        z, 'he'))
+                                                .map((z) => ZoneUtils.getZoneName(
+                                                    z,
+                                                    Localizations.localeOf(
+                                                            context)
+                                                        .languageCode))
                                                 .join(', '),
                                             style:
                                                 const TextStyle(fontSize: 11),

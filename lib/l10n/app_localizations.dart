@@ -772,6 +772,12 @@ abstract class AppLocalizations {
   /// **'On time'**
   String get routeOnTime;
 
+  /// No description provided for @avgMinutesPerPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min/pt'**
+  String avgMinutesPerPoint(int minutes);
+
   /// No description provided for @requirePodPhoto.
   ///
   /// In en, this message translates to:
@@ -783,6 +789,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hides one-tap close and disables auto-close — every delivery needs a photo.'**
   String get requirePodPhotoHint;
+
+  /// No description provided for @autoCloseEnabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-close points by GPS'**
+  String get autoCloseEnabledTitle;
+
+  /// No description provided for @autoCloseEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A point closes automatically when the driver stops at the client. Turn off if you want the driver to close points only manually.'**
+  String get autoCloseEnabledHint;
 
   /// No description provided for @deliverySection.
   ///
@@ -814,11 +832,137 @@ abstract class AppLocalizations {
   /// **'Auto'**
   String get autoCloseToggle;
 
+  /// No description provided for @bgLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Background location'**
+  String get bgLocationTitle;
+
+  /// No description provided for @bgLocationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'So the driver\'s route is recorded in full (even when the screen is locked), allow location access \"All the time\" in the app settings.'**
+  String get bgLocationBody;
+
+  /// No description provided for @bgLocationOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get bgLocationOpenSettings;
+
+  /// No description provided for @androidSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Android setup for shifts'**
+  String get androidSetupTitle;
+
+  /// No description provided for @androidSetupIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'So shifts and GPS work in the background (even when the screen is locked), enable these 3 settings:'**
+  String get androidSetupIntro;
+
+  /// No description provided for @androidSetupLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location: \"Allow all the time\"'**
+  String get androidSetupLocationTitle;
+
+  /// No description provided for @androidSetupLocationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Without this, GPS stops when the screen is locked.'**
+  String get androidSetupLocationDesc;
+
+  /// No description provided for @androidSetupBatteryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery: no restrictions'**
+  String get androidSetupBatteryTitle;
+
+  /// No description provided for @androidSetupBatteryDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'So the system doesn\'t kill the shift\'s background service.'**
+  String get androidSetupBatteryDesc;
+
+  /// No description provided for @androidSetupAutostartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Autostart (Xiaomi/MIUI, Huawei, Oppo…)'**
+  String get androidSetupAutostartTitle;
+
+  /// No description provided for @androidSetupAutostartDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the app to autostart — otherwise the service won\'t start after a reboot. Check manually in app settings.'**
+  String get androidSetupAutostartDesc;
+
+  /// No description provided for @androidSetupEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get androidSetupEnable;
+
+  /// No description provided for @androidSetupDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get androidSetupDone;
+
+  /// No description provided for @androidSetupGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get androidSetupGranted;
+
+  /// No description provided for @androidSetupMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Android setup (background)'**
+  String get androidSetupMenu;
+
   /// No description provided for @closeWithPhoto.
   ///
   /// In en, this message translates to:
   /// **'Close with photo'**
   String get closeWithPhoto;
+
+  /// No description provided for @fixLocationButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix location'**
+  String get fixLocationButton;
+
+  /// No description provided for @fixLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update client location?'**
+  String get fixLocationTitle;
+
+  /// No description provided for @fixLocationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your current location as the coordinates for client \"{clientName}\"? This fixes the pin for future deliveries.'**
+  String fixLocationBody(String clientName);
+
+  /// No description provided for @fixLocationSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Client location updated'**
+  String get fixLocationSuccess;
+
+  /// No description provided for @fixLocationGpsError.
+  ///
+  /// In en, this message translates to:
+  /// **'No accurate GPS, or location outside Israel'**
+  String get fixLocationGpsError;
+
+  /// No description provided for @fixLocationClientMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Client not found'**
+  String get fixLocationClientMissing;
 
   /// No description provided for @autoCloseUndoMessage.
   ///
@@ -885,6 +1029,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'GPS unavailable — enable location'**
   String get podGpsUnavailable;
+
+  /// No description provided for @podUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo upload failed — check your connection and retry'**
+  String get podUploadFailed;
+
+  /// No description provided for @podViewerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery photo'**
+  String get podViewerTooltip;
+
+  /// No description provided for @podViewerNoPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'No photo attached — point closed without a photo'**
+  String get podViewerNoPhoto;
+
+  /// No description provided for @podViewerPhotoError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load photo'**
+  String get podViewerPhotoError;
+
+  /// No description provided for @podViewerAutoClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed automatically by GPS'**
+  String get podViewerAutoClosed;
+
+  /// No description provided for @podSharePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get podSharePhoto;
+
+  /// No description provided for @routeArchiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route archive'**
+  String get routeArchiveTitle;
+
+  /// No description provided for @routeArchiveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliveries from the last 90 days. Photos are available during that period; GPS and time remain after.'**
+  String get routeArchiveHint;
+
+  /// No description provided for @routeArchiveEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No archived deliveries in this period'**
+  String get routeArchiveEmpty;
+
+  /// No description provided for @routeArchiveSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search client, driver or address'**
+  String get routeArchiveSearchHint;
+
+  /// No description provided for @routeArchivePointsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} stops'**
+  String routeArchivePointsCount(Object count);
+
+  /// No description provided for @routeArchiveGpsOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS only'**
+  String get routeArchiveGpsOnly;
 
   /// No description provided for @next.
   ///
@@ -3712,6 +3928,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Client Report'**
   String get clientReport;
+
+  /// No description provided for @reportStockTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock'**
+  String get reportStockTab;
+
+  /// No description provided for @reportStockSku.
+  ///
+  /// In en, this message translates to:
+  /// **'SKU'**
+  String get reportStockSku;
+
+  /// No description provided for @reportStockProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get reportStockProduct;
+
+  /// No description provided for @reportStockQty.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity (units)'**
+  String get reportStockQty;
+
+  /// No description provided for @reportStockPallets.
+  ///
+  /// In en, this message translates to:
+  /// **'Pallets'**
+  String get reportStockPallets;
+
+  /// No description provided for @reportStockTotalSkus.
+  ///
+  /// In en, this message translates to:
+  /// **'SKUs'**
+  String get reportStockTotalSkus;
+
+  /// No description provided for @reportStockTotalUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Total units'**
+  String get reportStockTotalUnits;
+
+  /// No description provided for @reportStockTotalPallets.
+  ///
+  /// In en, this message translates to:
+  /// **'Total pallets'**
+  String get reportStockTotalPallets;
 
   /// No description provided for @errorLoadingData.
   ///
@@ -7832,13 +8096,13 @@ abstract class AppLocalizations {
   /// No description provided for @planDescOps.
   ///
   /// In en, this message translates to:
-  /// **'Warehouse + logistics + reports'**
+  /// **'Warehouse + logistics + dispatcher + reports (no accounting)'**
   String get planDescOps;
 
   /// No description provided for @planDescFull.
   ///
   /// In en, this message translates to:
-  /// **'All modules including accounting'**
+  /// **'All modules including accounting and Greeninvoice'**
   String get planDescFull;
 
   /// No description provided for @planDescCustom.
@@ -7847,10 +8111,40 @@ abstract class AppLocalizations {
   /// **'Custom plan'**
   String get planDescCustom;
 
+  /// No description provided for @planAccountingNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting (invoices, VAT, Greeninvoice) is included only in the Full plan. No separate module fee.'**
+  String get planAccountingNote;
+
+  /// No description provided for @planBackupNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud DR (Google Firestore Backup): included in Full; other plans get free audit journal, dedicated export +₪149/mo. Google bill is paid by LogiRoute (~₪30–120/mo for the whole project).'**
+  String get planBackupNote;
+
+  /// No description provided for @billingDedicatedExportMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'+₪{price}/mo — optional quarterly company data export'**
+  String billingDedicatedExportMonthly(int price);
+
+  /// No description provided for @planModulesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Modules:'**
+  String get planModulesLabel;
+
+  /// No description provided for @planCurrentBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Current plan'**
+  String get planCurrentBadge;
+
   /// No description provided for @accountingProviderSection.
   ///
   /// In en, this message translates to:
-  /// **'Accounting export'**
+  /// **'Tax API integration'**
   String get accountingProviderSection;
 
   /// No description provided for @accountingProviderLabel.
@@ -7985,6 +8279,12 @@ abstract class AppLocalizations {
   /// **'Allocation #: {number}'**
   String accountingSyncDistribution(String number);
 
+  /// No description provided for @accountingExternalDocNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'External doc #: {number}'**
+  String accountingExternalDocNumber(String number);
+
   /// No description provided for @accountingSyncStatusPending.
   ///
   /// In en, this message translates to:
@@ -8002,6 +8302,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Document issued, sync failed: {error}'**
   String accountingExternalSyncFailedWith(String error);
+
+  /// No description provided for @billingAddonsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage-based add-ons'**
+  String get billingAddonsTitle;
+
+  /// No description provided for @billingExtraDriverMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'+₪{price}/month per driver above {included} included'**
+  String billingExtraDriverMonthly(int price, int included);
+
+  /// No description provided for @billingExtraWarehouseMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'+₪{price}/month per warehouse location above {included} included'**
+  String billingExtraWarehouseMonthly(int price, int included);
 
   /// No description provided for @promoMonthlyPrice.
   ///
@@ -8887,6 +9205,54 @@ abstract class AppLocalizations {
   /// **'Register Backup'**
   String get registerBackupTitle;
 
+  /// No description provided for @registerLogiRouteCloudBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Register LogiRoute cloud backup'**
+  String get registerLogiRouteCloudBackup;
+
+  /// No description provided for @registerBackupOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other storage…'**
+  String get registerBackupOther;
+
+  /// No description provided for @backupCloudInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud backup'**
+  String get backupCloudInfoTitle;
+
+  /// No description provided for @backupCloudInfoBody.
+  ///
+  /// In en, this message translates to:
+  /// **'LogiRoute data is stored in Firebase cloud (project logiroute-app). The button above is an audit log entry for compliance — not a separate Google billing item.'**
+  String get backupCloudInfoBody;
+
+  /// No description provided for @backupCloudPricingNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Full plan: cloud DR included (LogiRoute pays project backup). Other plans: audit journal only; dedicated data export — +₪149/mo addon.'**
+  String get backupCloudPricingNote;
+
+  /// No description provided for @backupFirebaseLocationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Firebase project name'**
+  String get backupFirebaseLocationLabel;
+
+  /// No description provided for @backupFirebaseHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For LogiRoute clients, logiroute-app is usually sufficient.'**
+  String get backupFirebaseHelper;
+
+  /// No description provided for @storageRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'(recommended)'**
+  String get storageRecommended;
+
   /// No description provided for @storageType.
   ///
   /// In en, this message translates to:
@@ -9487,6 +9853,12 @@ abstract class AppLocalizations {
   /// **'Driver route'**
   String get driverRouteTitle;
 
+  /// No description provided for @driverAnotherRoutePoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Another route: {count} stops'**
+  String driverAnotherRoutePoints(int count);
+
   /// No description provided for @wazeOpenError.
   ///
   /// In en, this message translates to:
@@ -9690,6 +10062,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Activity log'**
   String get adminActivityLog;
+
+  /// No description provided for @appBarGroupReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports'**
+  String get appBarGroupReports;
+
+  /// No description provided for @appBarGroupWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get appBarGroupWarehouse;
+
+  /// No description provided for @appBarGroupCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get appBarGroupCompany;
+
+  /// No description provided for @appBarGroupBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get appBarGroupBilling;
+
+  /// No description provided for @appBarGroupPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get appBarGroupPlatform;
+
+  /// No description provided for @appBarGroupLogistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics'**
+  String get appBarGroupLogistics;
+
+  /// No description provided for @appBarGroupArchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive & data'**
+  String get appBarGroupArchive;
+
+  /// No description provided for @appBarGroupOperations.
+  ///
+  /// In en, this message translates to:
+  /// **'Operations'**
+  String get appBarGroupOperations;
+
+  /// No description provided for @appBarGroupImportExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import & export'**
+  String get appBarGroupImportExport;
+
+  /// No description provided for @appBarGroupHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get appBarGroupHelp;
+
+  /// No description provided for @ownerNavOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get ownerNavOverview;
+
+  /// No description provided for @ownerNavManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Management'**
+  String get ownerNavManagement;
+
+  /// No description provided for @ownerNavOperations.
+  ///
+  /// In en, this message translates to:
+  /// **'Operations'**
+  String get ownerNavOperations;
+
+  /// No description provided for @ownerNavCompliance.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance'**
+  String get ownerNavCompliance;
 
   /// No description provided for @period24h.
   ///

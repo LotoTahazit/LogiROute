@@ -286,14 +286,20 @@ class AppTheme {
           backgroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)
                 ? c.accent
-                : c.surfaceHi,
+                : c.surface,
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)
                 ? Colors.white
-                : c.muted,
+                : c.text,
           ),
           side: WidgetStatePropertyAll(BorderSide(color: c.border)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          ),
         ),
       ),
       chipTheme: ChipThemeData(
@@ -313,10 +319,11 @@ class AppTheme {
         side: BorderSide(color: c.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      tabBarTheme: TabBarThemeData(
-        labelColor: c.text,
-        unselectedLabelColor: c.muted,
-        indicatorColor: c.accent,
+      tabBarTheme: const TabBarThemeData(
+        // Legacy TabBar — предпочитайте LogiRouteTabBar / LogiRouteAppBarTabBar.
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
         dividerColor: Colors.transparent,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(

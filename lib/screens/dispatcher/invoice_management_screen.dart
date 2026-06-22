@@ -170,7 +170,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       final issuanceResult = await IssuanceService().issueDocument(
         companyId: companyId,
         invoiceId: receiptId,
-        counterKey: InvoiceDocumentType.receipt.name,
+        counterKey: InvoiceDocumentType.receipt.canonicalCounterKey,
       );
 
       if (!issuanceResult.ok) {

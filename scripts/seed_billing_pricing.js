@@ -1,13 +1,10 @@
 /**
  * Upload config/billing_pricing.json → Firestore config/billing_pricing
- *
- * Usage (from repo root):
- *   node scripts/seed_billing_pricing.js
- *   node scripts/seed_billing_pricing.js --project logiroute-app
+ * Auth: firebase login (refresh token from configstore) or GOOGLE_APPLICATION_CREDENTIALS
  */
 const fs = require("fs");
 const path = require("path");
-const admin = require(path.join(__dirname, "..", "functions", "node_modules", "firebase-admin"));
+const { adminFromFirebaseCli } = require("./_firebase_cli_auth");
 
 const projectArg = process.argv.find((a) => a.startsWith("--project="));
 const projectId = projectArg
@@ -17,12 +14,11 @@ const projectId = projectArg
 const jsonPath = path.join(__dirname, "..", "config", "billing_pricing.json");
 const payload = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 
-admin.initializeApp({ projectId });
-const db = admin.firestore();
-
 async function main() {
-  await db.doc("config/billing_pricing").set(payload, { merge: true });
-  console.log(`✅ config/billing_pricing uploaded to ${projectId}`);
+  const admin = adminFromFirebaseCli(projectId);
+  await admin.firestore().doc("config/billing_pricing").set(payload, { merge: true });
+  console.log(`✅ config/billing_pricing → ${projectId}`);
+  console.log("   addons:", Object.keys(payload.addons || {}).join(", "));
 }
 
 main().catch((e) => {

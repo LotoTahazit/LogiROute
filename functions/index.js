@@ -10,6 +10,11 @@ const storage = admin.storage();
 const { issueInvoice } = require('./issueInvoice');
 exports.issueInvoice = issueInvoice;
 
+// === Custom claims (role/companyId) для правил Storage/Firestore ===
+const { syncUserClaims, ensureMyClaims } = require('./userClaims');
+exports.syncUserClaims = syncUserClaims;
+exports.ensureMyClaims = ensureMyClaims;
+
 const { verifyIntegrityChain } = require('./verifyIntegrityChain');
 exports.verifyIntegrityChain = verifyIntegrityChain;
 

@@ -52,6 +52,7 @@ dependencies:
   http: ^1.1.2
   flutter_dotenv: ^5.1.0
   url_launcher: ^6.2.2
+  share_plus: ^10.1.4
   google_polyline_algorithm: ^3.1.0
   
   # Printing
@@ -70,6 +71,8 @@ dependencies:
   # Web APIs (замена для dart:html и dart:js)
   web: ^1.1.1
   permission_handler: ^12.0.1
+  firebase_app_check: ^0.4.5
+  android_intent_plus: ^6.0.0
 
 dev_dependencies:
   flutter_test:

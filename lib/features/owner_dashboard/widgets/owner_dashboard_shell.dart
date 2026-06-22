@@ -5,7 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/company_selection_service.dart';
 import '../../../widgets/company_selector_widget.dart';
-import '../../../widgets/notification_bell.dart';
+import 'owner_app_bar_actions.dart';
 import '../../../models/company_settings.dart';
 import '../models/role_hierarchy.dart';
 import '../services/entitlements_service.dart';
@@ -76,6 +76,29 @@ const _allSections = <_DashboardSection>[
       icon: Icons.bar_chart_outlined,
       moduleKey: 'reports'),
 ];
+
+/// Группы боковой навигации Owner Dashboard.
+const _navGroups = <(String labelKey, List<String> sectionKeys)>[
+  ('ownerNavOverview', ['overview']),
+  ('ownerNavManagement', ['users_roles', 'billing', 'settings']),
+  ('ownerNavOperations', ['ops_health', 'reports']),
+  ('ownerNavCompliance', ['audit', 'accounting']),
+];
+
+String _groupLabel(String key, AppLocalizations l10n) {
+  switch (key) {
+    case 'ownerNavOverview':
+      return l10n.ownerNavOverview;
+    case 'ownerNavManagement':
+      return l10n.ownerNavManagement;
+    case 'ownerNavOperations':
+      return l10n.ownerNavOperations;
+    case 'ownerNavCompliance':
+      return l10n.ownerNavCompliance;
+    default:
+      return key;
+  }
+}
 
 String _sectionLabel(String key, AppLocalizations l10n) {
   switch (key) {
@@ -241,27 +264,29 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                       ? _buildSectionContent(
                           currentSection.key, companyId, companySettings)
                       : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            NavigationRail(
-                              selectedIndex: safeIndex,
-                              onDestinationSelected: (index) {
-                                final section = visibleSections[index];
-                                if (_isSectionUnderConstruction(section.key)) {
-                                  _showUnderConstructionDialog();
-                                  return;
-                                }
-                                setState(() => _selectedIndex = index);
-                              },
-                              labelType: NavigationRailLabelType.all,
-                              leading: const SizedBox(height: 8),
-                              destinations: visibleSections.map((section) {
-                                return NavigationRailDestination(
-                                  icon: Icon(section.icon),
-                                  selectedIcon: Icon(section.icon),
-                                  label:
-                                      Text(_sectionLabelForUi(section.key, l10n)),
-                                );
-                              }).toList(),
+                            SizedBox(
+                              width: 220,
+                              child: ListView(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                children: _buildGroupedNavWidgets(
+                                  context,
+                                  l10n,
+                                  visibleSections,
+                                  safeIndex,
+                                  onSelect: (index) {
+                                    final section = visibleSections[index];
+                                    if (_isSectionUnderConstruction(
+                                        section.key)) {
+                                      _showUnderConstructionDialog();
+                                      return;
+                                    }
+                                    setState(() => _selectedIndex = index);
+                                  },
+                                ),
+                              ),
                             ),
                             const VerticalDivider(thickness: 1, width: 1),
                             Expanded(
@@ -336,6 +361,63 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
     );
   }
 
+  List<Widget> _buildGroupedNavWidgets(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<_DashboardSection> sections,
+    int selectedIndex, {
+    required void Function(int index) onSelect,
+  }) {
+    final theme = Theme.of(context);
+    final widgets = <Widget>[];
+
+    for (final (groupKey, keys) in _navGroups) {
+      final inGroup =
+          sections.where((s) => keys.contains(s.key)).toList(growable: false);
+      if (inGroup.isEmpty) continue;
+
+      if (widgets.isNotEmpty) {
+        widgets.add(const Divider(height: 1, indent: 12, endIndent: 12));
+      }
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            _groupLabel(groupKey, l10n),
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ),
+      );
+
+      for (final section in inGroup) {
+        final i = sections.indexOf(section);
+        final selected = i == selectedIndex;
+        widgets.add(
+          ListTile(
+            leading: Icon(section.icon,
+                size: 22, color: selected ? theme.primaryColor : null),
+            title: Text(
+              _sectionLabelForUi(section.key, l10n),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? theme.primaryColor : null,
+              ),
+            ),
+            selected: selected,
+            dense: true,
+            onTap: () => onSelect(i),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
   Widget _buildDrawer(BuildContext context, AppLocalizations l10n,
       List<_DashboardSection> sections, int selectedIndex) {
     final theme = Theme.of(context);
@@ -360,33 +442,22 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                 ),
               ),
             ),
-            ...sections.asMap().entries.map((entry) {
-              final i = entry.key;
-              final section = entry.value;
-              final isSelected = i == selectedIndex;
-              return ListTile(
-                leading: Icon(section.icon,
-                    color: isSelected ? theme.primaryColor : null),
-                title: Text(_sectionLabelForUi(section.key, l10n),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? theme.primaryColor : null,
-                    )),
-                selected: isSelected,
-                onTap: () {
-                  if (_isSectionUnderConstruction(section.key)) {
-                    _showUnderConstructionDialog();
-                    Navigator.pop(context);
-                    return;
-                  }
-                  setState(() => _selectedIndex = i);
+            ..._buildGroupedNavWidgets(
+              context,
+              l10n,
+              sections,
+              selectedIndex,
+              onSelect: (i) {
+                final section = sections[i];
+                if (_isSectionUnderConstruction(section.key)) {
+                  _showUnderConstructionDialog();
                   Navigator.pop(context);
-                },
-              );
-            }),
+                  return;
+                }
+                setState(() => _selectedIndex = i);
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
@@ -483,46 +554,10 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
               ],
             ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          tooltip: AppLocalizations.of(context)?.refresh ?? 'Refresh',
-          onPressed: () => setState(() {}),
-        ),
-        NotificationBell(companyId: companyId),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.account_circle_outlined),
-          tooltip: AppLocalizations.of(context)?.userMenu ?? 'User menu',
-          onSelected: (value) {
-            if (value == 'logout') {
-              context.read<AuthService>().signOut();
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              enabled: false,
-              child: Text(
-                userModel.name ?? userModel.email ?? '',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-            PopupMenuItem(
-              enabled: false,
-              child:
-                  Text(userModel.role ?? '', style: theme.textTheme.bodySmall),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem(
-              value: 'logout',
-              child: Row(
-                children: [
-                  const Icon(Icons.logout, size: 18),
-                  const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)?.logout ?? 'Logout'),
-                ],
-              ),
-            ),
-          ],
+        OwnerAppBarActions(
+          companyId: companyId,
+          userModel: userModel,
+          onRefresh: () => setState(() {}),
         ),
       ],
     );

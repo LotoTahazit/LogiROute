@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../utils/document_type_labels.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/accounting_sync_panel.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 
 /// Accounting export screen — Hashavshevet, Priority, universal CSV.
 class AccountingExportScreen extends StatefulWidget {
@@ -262,23 +263,13 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 const SizedBox(height: 16),
               ],
               if (_presets.isNotEmpty) ...[
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _presets.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (context, index) {
-                      final preset = _presets[index];
-                      final isSelected = _selectedPreset?.id == preset.id;
-                      return FilterChip(
-                        label: Text(preset.name),
-                        selected: isSelected,
-                        onSelected: (_) => _applyPreset(preset),
-                        selectedColor: Colors.deepPurple.shade100,
-                      );
-                    },
-                  ),
+                LogiRoutePillSelector(
+                  labels: _presets.map((p) => p.name).toList(),
+                  selectedIndex: _selectedPreset == null
+                      ? 0
+                      : _presets.indexWhere((p) => p.id == _selectedPreset!.id)
+                          .clamp(0, _presets.length - 1),
+                  onSelected: (i) => _applyPreset(_presets[i]),
                 ),
                 const SizedBox(height: 12),
               ],

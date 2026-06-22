@@ -40,7 +40,7 @@ class PermissionsService {
 
   /// Коллекции, доступные для записи accountant.
   static const _accountantWritableCollections = [
-    'accountingDocs',
+    'invoices',
   ];
 
   /// Модули, доступные для чтения accountant.

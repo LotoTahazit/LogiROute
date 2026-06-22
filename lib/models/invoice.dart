@@ -27,6 +27,26 @@ enum InvoiceDocumentType {
   taxInvoiceReceipt, // חשבונית מס / קבלה
 }
 
+/// Канонический ключ счётчика/типа документа — единая нумерация
+/// по всему бизнесу (требование חוק ניהול ספרים).
+/// Значения совпадают с [AccountingDocType].value.
+extension InvoiceDocumentTypeCanonical on InvoiceDocumentType {
+  String get canonicalCounterKey {
+    switch (this) {
+      case InvoiceDocumentType.invoice:
+        return 'tax_invoice';
+      case InvoiceDocumentType.receipt:
+        return 'receipt';
+      case InvoiceDocumentType.delivery:
+        return 'delivery_note';
+      case InvoiceDocumentType.creditNote:
+        return 'credit_note';
+      case InvoiceDocumentType.taxInvoiceReceipt:
+        return 'tax_invoice_receipt';
+    }
+  }
+}
+
 /// סטטוס מספר הקצאה מרשות המסים
 enum AssignmentStatus {
   notRequired, // לא נדרש — מתחת לסף
@@ -79,6 +99,15 @@ class InvoiceItem {
   final int piecesPerBox; // Штук в картоне
   final double pricePerUnit; // Цена за единицу (до НДС)
 
+  /// Свободное описание строки (для ручных бухгалтерских документов owner).
+  /// У товарных строк диспетчера обычно null — описание собирается из
+  /// [type]/[number]/[productCode]. Для PDF: показывать [description] если задано.
+  final String? description;
+
+  /// Индивидуальная ставка НДС строки (напр. 0 для освобождённых/Эйлат).
+  /// null → используется единая ставка [Invoice.vatRate] (18%).
+  final double? vatRate;
+
   InvoiceItem({
     required this.productCode, // מק"ט - ОБЯЗАТЕЛЬНОЕ поле - ПЕРВЫЙ ПАРАМЕТР
     required this.type,
@@ -86,10 +115,21 @@ class InvoiceItem {
     required this.quantity,
     this.piecesPerBox = 1,
     required this.pricePerUnit,
+    this.description,
+    this.vatRate,
   });
 
   int get totalUnits => quantity * piecesPerBox;
   double get totalBeforeVAT => quantity * pricePerUnit;
+
+  /// Текст строки для отображения/печати: описание, если задано; иначе
+  /// собираем из товарных полей (как было).
+  String get displayText {
+    if (description != null && description!.trim().isNotEmpty) {
+      return description!.trim();
+    }
+    return [type, number].where((s) => s.trim().isNotEmpty).join(' ').trim();
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -99,6 +139,8 @@ class InvoiceItem {
       'quantity': quantity,
       'piecesPerBox': piecesPerBox,
       'pricePerUnit': pricePerUnit,
+      if (description != null) 'description': description,
+      if (vatRate != null) 'vatRate': vatRate,
     };
   }
 
@@ -112,6 +154,9 @@ class InvoiceItem {
       pricePerUnit: (map['pricePerUnit'] is num)
           ? (map['pricePerUnit'] as num).toDouble()
           : 0.0,
+      description: map['description'] as String?,
+      vatRate:
+          (map['vatRate'] is num) ? (map['vatRate'] as num).toDouble() : null,
     );
   }
 }
@@ -161,6 +206,8 @@ class Invoice {
   final DateTime? voidedAt; // מתי בוטל (server time)
   final String? voidedBy; // מי ביטל (uid)
   final String? voidReason; // סיבת ביטול
+  /// ID связанных credit notes (оригинал помечается при создании зичуя).
+  final List<String> creditNoteIds;
 
   Invoice({
     required this.id,
@@ -202,6 +249,7 @@ class Invoice {
     this.voidedAt,
     this.voidedBy,
     this.voidReason,
+    this.creditNoteIds = const [],
   });
 
   // Константа НДС в Израиле
@@ -223,8 +271,18 @@ class Invoice {
     return totalBeforeDiscount - discountAmount;
   }
 
-  // Сумма НДС
-  double get vatAmount => subtotalBeforeVAT * vatRate;
+  // Сумма НДС. Если у строк задан индивидуальный [InvoiceItem.vatRate] —
+  // считаем по строкам (скидка применяется пропорционально). Иначе — единая
+  // ставка 18% на subtotal (как было; поведение для товарных счетов не меняется).
+  double get vatAmount {
+    final hasLineVat = items.any((i) => i.vatRate != null);
+    if (!hasLineVat) return subtotalBeforeVAT * vatRate;
+    final factor = 1 - (discount / 100);
+    return items.fold<double>(
+      0.0,
+      (acc, i) => acc + i.totalBeforeVAT * factor * (i.vatRate ?? vatRate),
+    );
+  }
 
   // Итоговая сумма
   double get totalWithVAT => subtotalBeforeVAT + vatAmount;
@@ -232,6 +290,13 @@ class Invoice {
   /// Check if invoice can be cancelled
   /// חשבונית ניתנת לביטול רק אם היא פעילה
   bool get canBeCancelled => status == InvoiceStatus.active;
+
+  /// «Живой» документ — учитывается в списках/отчётах/реестре: выписан
+  /// (`issued`) или активен (`active`, легаси), но НЕ черновик, не отменён
+  /// (`cancelled`) и не аннулирован после выписки (`voided`). Единый предикат
+  /// вместо разрозненных проверок `== active`, которые прятали issued-счета.
+  bool get isLive =>
+      status == InvoiceStatus.issued || status == InvoiceStatus.active;
 
   /// Check if invoice is immutable (cannot be modified)
   /// חשבונית לא ניתנת לשינוי לאחר סיום
@@ -292,6 +357,8 @@ class Invoice {
       buffer.write(item.number);
       buffer.write(item.quantity);
       buffer.write(item.pricePerUnit);
+      buffer.write(item.description ?? '');
+      buffer.write(item.vatRate ?? '');
     }
     buffer.write(discount);
     buffer.write(deliveryDate.toIso8601String());
@@ -356,6 +423,7 @@ class Invoice {
       if (voidedAt != null) 'voidedAt': Timestamp.fromDate(voidedAt!),
       if (voidedBy != null) 'voidedBy': voidedBy,
       if (voidReason != null) 'voidReason': voidReason,
+      if (creditNoteIds.isNotEmpty) 'creditNoteIds': creditNoteIds,
     };
   }
 
@@ -437,6 +505,10 @@ class Invoice {
           : null,
       voidedBy: map['voidedBy'],
       voidReason: map['voidReason'],
+      creditNoteIds: (map['creditNoteIds'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
@@ -483,6 +555,7 @@ class Invoice {
     DateTime? voidedAt,
     String? voidedBy,
     String? voidReason,
+    List<String>? creditNoteIds,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -527,6 +600,7 @@ class Invoice {
       voidedAt: voidedAt ?? this.voidedAt,
       voidedBy: voidedBy ?? this.voidedBy,
       voidReason: voidReason ?? this.voidReason,
+      creditNoteIds: creditNoteIds ?? this.creditNoteIds,
     );
   }
 }

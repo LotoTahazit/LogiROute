@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/invoice.dart';
 import '../models/audit_event.dart';
 import '../models/document_link.dart';
+import '../features/owner_dashboard/models/accounting_doc.dart';
 import 'summary_service.dart';
 import 'audit_log_service.dart';
 import 'cross_module_audit_service.dart';
@@ -266,9 +267,13 @@ class InvoiceService {
     try {
       Query query = _invoicesCollection();
 
-      // Filter by status
+      // Filter by status — issued не прятать (раньше только active)
       if (!includeCancelled) {
-        query = query.where('status', isEqualTo: InvoiceStatus.active.name);
+        query = query.where('status', whereIn: [
+          InvoiceStatus.active.name,
+          InvoiceStatus.issued.name,
+          InvoiceStatus.draft.name,
+        ]);
       }
 
       // Filter by date range
@@ -302,6 +307,90 @@ class InvoiceService {
       print('❌ [Invoice] Error getting invoices: $e');
       return [];
     }
+  }
+
+  /// Стрим ВСЕХ документов компании — для owner-дашборда «Бухгалтерия»
+  /// (единый реестр после слияния систем). Фильтры по типу/статусу и подсчёты
+  /// делаются на клиенте (как в отчётах), чтобы не плодить составные индексы.
+  Stream<List<Invoice>> watchInvoices() {
+    return _invoicesCollection()
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Invoice.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  /// Owner «Бухгалтерия»: стрим `invoices` как [AccountingDoc] + клиентские фильтры.
+  Stream<List<AccountingDoc>> watchAccountingDocs(
+      {AccountingDocFilter? filter}) {
+    return watchInvoices().map((invoices) {
+      var docs = invoices.map(AccountingDoc.fromInvoice).toList();
+      if (filter?.type != null) {
+        docs = docs.where((d) => d.type == filter!.type).toList();
+      }
+      if (filter?.status != null) {
+        docs = docs.where((d) => d.status == filter!.status).toList();
+      }
+      if (filter?.customerId != null) {
+        docs = docs.where((d) => d.customerId == filter!.customerId).toList();
+      }
+      return docs;
+    });
+  }
+
+  /// Цепочка документов: оригинал → credit notes (через linkedInvoiceId).
+  Future<List<AccountingDoc>> getAccountingDocumentChain(String docId) async {
+    final root = await getInvoice(docId);
+    if (root == null) return [];
+
+    final result = <AccountingDoc>[];
+
+    if (root.documentType == InvoiceDocumentType.creditNote &&
+        root.linkedInvoiceId != null &&
+        root.linkedInvoiceId!.isNotEmpty) {
+      final original = await getInvoice(root.linkedInvoiceId!);
+      if (original != null) result.add(AccountingDoc.fromInvoice(original));
+      result.add(AccountingDoc.fromInvoice(root));
+      return result;
+    }
+
+    result.add(AccountingDoc.fromInvoice(root));
+    final cnSnap = await _invoicesCollection()
+        .where('linkedInvoiceId', isEqualTo: docId)
+        .where('documentType', isEqualTo: InvoiceDocumentType.creditNote.name)
+        .get();
+    for (final d in cnSnap.docs) {
+      result.add(AccountingDoc.fromInvoice(Invoice.fromMap(d.data(), d.id)));
+    }
+    return result;
+  }
+
+  /// Отмена черновика (draft → cancelled).
+  Future<void> voidDraftInvoice(
+    String id,
+    String voidedByUid,
+    String reason,
+  ) async {
+    final invoice = await getInvoice(id);
+    if (invoice == null) throw Exception('Invoice not found');
+    if (invoice.status != InvoiceStatus.draft) {
+      throw Exception(
+          'Only draft documents can be voided (status: ${invoice.status.name})');
+    }
+    await _auditLogService.logEvent(
+      entityId: id,
+      entityType: invoice.documentType.name,
+      eventType: AuditEventType.cancelled,
+      actorUid: voidedByUid,
+      metadata: {'reason': reason, 'action': 'voided_before_delivery'},
+    );
+    await _invoicesCollection().doc(id).update({
+      'status': InvoiceStatus.cancelled.name,
+      'cancelledAt': FieldValue.serverTimestamp(),
+      'cancelledBy': voidedByUid,
+      'cancellationReason': reason,
+    });
   }
 
   /// Get recent invoices (today, this week, this month)
@@ -398,7 +487,11 @@ class InvoiceService {
           .orderBy('sequentialNumber', descending: true);
 
       if (!includeCancelled) {
-        query = query.where('status', isEqualTo: InvoiceStatus.active.name);
+        query = query.where('status', whereIn: [
+          InvoiceStatus.active.name,
+          InvoiceStatus.issued.name,
+          InvoiceStatus.draft.name,
+        ]);
       }
 
       final snapshot = await query.get();
@@ -440,6 +533,7 @@ class InvoiceService {
     required Invoice originalInvoice,
     required String reason,
     required String createdBy,
+    List<InvoiceItem>? items,
   }) async {
     try {
       if (originalInvoice.status != InvoiceStatus.active &&
@@ -457,15 +551,19 @@ class InvoiceService {
       }
 
       // פריטים עם מחיר שלילי (סטורנו)
-      final creditItems = originalInvoice.items
-          .map((item) => InvoiceItem(
-                productCode: item.productCode,
-                type: item.type,
-                number: item.number,
-                quantity: item.quantity,
-                pricePerUnit: -item.pricePerUnit,
-              ))
-          .toList();
+      final creditItems = items ??
+          originalInvoice.items
+              .map((item) => InvoiceItem(
+                    productCode: item.productCode,
+                    type: item.type,
+                    number: item.number,
+                    quantity: item.quantity,
+                    piecesPerBox: item.piecesPerBox,
+                    pricePerUnit: -item.pricePerUnit,
+                    description: item.description,
+                    vatRate: item.vatRate,
+                  ))
+              .toList();
 
       final creditNote = Invoice(
         id: '',
@@ -476,9 +574,9 @@ class InvoiceService {
         address: originalInvoice.address,
         driverName: originalInvoice.driverName,
         truckNumber: originalInvoice.truckNumber,
-        deliveryDate: originalInvoice.deliveryDate,
+        deliveryDate: DateTime.now(),
         paymentDueDate: originalInvoice.paymentDueDate,
-        departureTime: originalInvoice.departureTime,
+        departureTime: DateTime.now(),
         items: creditItems,
         discount: originalInvoice.discount,
         createdAt: DateTime.now(),
@@ -510,6 +608,10 @@ class InvoiceService {
 
       // Создаём документ
       await docRef.set(creditNote.toMap());
+
+      await _invoicesCollection().doc(originalInvoice.id).update({
+        'creditNoteIds': FieldValue.arrayUnion([docRef.id]),
+      });
 
       // יצירת קישור רשמי בין מסמכים
       await _documentLinkService.createLink(DocumentLink(

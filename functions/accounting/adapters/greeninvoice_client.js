@@ -120,6 +120,22 @@ function buildDocumentBody(payload) {
     ];
   }
 
+  if (type === 330) {
+    const linkNum =
+      payload.references?.originalExternalDocNumber ??
+      payload.references?.originalDocNumber;
+    body.remarks =
+      payload.notes ||
+      (linkNum != null ? `זיכוי למסמך ${linkNum}` : "");
+    if (linkNum != null) {
+      body.linkedDocuments = [{ type: 305, number: String(linkNum) }];
+    } else if (payload.references?.originalDocId) {
+      body.linkedDocuments = [
+        { type: 305, number: payload.references.originalDocId },
+      ];
+    }
+  }
+
   return body;
 }
 

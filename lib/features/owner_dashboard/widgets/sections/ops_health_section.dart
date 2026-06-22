@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../widgets/logi_route_tab_bar.dart';
 import '../../../../models/company_settings.dart';
 import '../../models/print_event.dart';
 import '../../models/system_event.dart';
@@ -149,26 +150,17 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
       children: [
         Text(l10n.printEvents, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            ChoiceChip(
-              label: Text(l10n.filterAll),
-              selected: _printStatusFilter == null,
-              onSelected: (_) => setState(() => _printStatusFilter = null),
-            ),
-            ChoiceChip(
-              label: Text(l10n.filterSuccess),
-              selected: _printStatusFilter == 'success',
-              onSelected: (_) => setState(() => _printStatusFilter = 'success'),
-            ),
-            ChoiceChip(
-              label: Text(l10n.filterError),
-              selected: _printStatusFilter == 'error',
-              onSelected: (_) => setState(() => _printStatusFilter = 'error'),
-            ),
-          ],
+        LogiRoutePillSelector(
+          labels: [l10n.filterAll, l10n.filterSuccess, l10n.filterError],
+          selectedIndex: _printStatusFilter == null
+              ? 0
+              : _printStatusFilter == 'success'
+                  ? 1
+                  : 2,
+          onSelected: (i) => setState(() {
+            _printStatusFilter =
+                i == 0 ? null : i == 1 ? 'success' : 'error';
+          }),
         ),
         const SizedBox(height: 8),
         StreamBuilder<List<PrintEvent>>(
@@ -230,32 +222,27 @@ class _OpsHealthSectionState extends State<OpsHealthSection> {
       children: [
         Text(l10n.systemEvents, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            ChoiceChip(
-              label: Text(l10n.filterAll),
-              selected: _systemStatusFilter == null,
-              onSelected: (_) => setState(() => _systemStatusFilter = null),
-            ),
-            ChoiceChip(
-              label: Text(l10n.filterError),
-              selected: _systemStatusFilter == 'error',
-              onSelected: (_) => setState(() => _systemStatusFilter = 'error'),
-            ),
-            ChoiceChip(
-              label: Text(l10n.filterFailed),
-              selected: _systemStatusFilter == 'failed',
-              onSelected: (_) => setState(() => _systemStatusFilter = 'failed'),
-            ),
-            ChoiceChip(
-              label: Text(l10n.filterSuccess),
-              selected: _systemStatusFilter == 'success',
-              onSelected: (_) =>
-                  setState(() => _systemStatusFilter = 'success'),
-            ),
+        LogiRoutePillSelector(
+          labels: [
+            l10n.filterAll,
+            l10n.filterError,
+            l10n.filterFailed,
+            l10n.filterSuccess,
           ],
+          selectedIndex: switch (_systemStatusFilter) {
+            null => 0,
+            'error' => 1,
+            'failed' => 2,
+            _ => 3,
+          },
+          onSelected: (i) => setState(() {
+            _systemStatusFilter = switch (i) {
+              0 => null,
+              1 => 'error',
+              2 => 'failed',
+              _ => 'success',
+            };
+          }),
         ),
         const SizedBox(height: 8),
         StreamBuilder<List<SystemEvent>>(

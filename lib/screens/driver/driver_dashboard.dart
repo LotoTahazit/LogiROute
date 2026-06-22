@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
 import '../../services/optimized_location_service.dart';
@@ -18,7 +19,8 @@ import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../models/shift_schedule_config.dart';
-import '../../widgets/notification_bell.dart';
+import 'widgets/driver_app_bar_actions.dart';
+import 'android_setup_sheet.dart';
 import '../../widgets/delivery_map_widget.dart';
 import '../../services/company_cache.dart';
 import '../../services/firestore_paths.dart';
@@ -26,7 +28,6 @@ import '../../config/app_config.dart';
 import '../../widgets/proof_of_delivery_sheet.dart';
 import '../../services/driver_auto_close_prefs.dart';
 import '../../services/company_settings_service.dart';
-import '../admin/data_retention_screen.dart';
 import '../../theme/app_theme.dart';
 
 // === ARRIVAL CONFIG ===
@@ -66,6 +67,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
   /// Политика компании: требовать POD-фото на каждую доставку (тогда нет
   /// автозакрытия и кнопки «Доставлено» — только «Закрыть с фото»).
   bool _photoRequired = false;
+  /// Политика компании: разрешено ли автозакрытие точек по GPS. Если false —
+  /// точки закрывает только водитель вручную (без таймера стоянки).
+  bool _autoCloseCompanyEnabled = true;
+  /// Показали ли уже в этой сессии подсказку про фоновое разрешение «Всегда».
+  bool _bgPromptShown = false;
   /// id точек, для которых уже показали undo (чтобы не дублировать при ребилдах
   /// и не показывать для давно закрытых при первой загрузке потока).
   final Set<String> _undoShownIds = {};
@@ -101,6 +107,62 @@ class _DriverDashboardState extends State<DriverDashboard> {
         status == DeliveryPoint.statusCancelled;
   }
 
+  /// Другие маршруты с активными (assigned/in_progress) точками.
+  int _otherActiveRoutePointCount(List<DeliveryPoint> all) {
+    if (_visibleRouteKey == null) return 0;
+    return all
+        .where((p) =>
+            _isActiveRoutePoint(p) &&
+            _routeKeyForPoint(p) != _visibleRouteKey)
+        .length;
+  }
+
+  String? _firstOtherActiveRouteKey(List<DeliveryPoint> all) {
+    for (final p in all) {
+      if (!_isActiveRoutePoint(p)) continue;
+      final key = _routeKeyForPoint(p);
+      if (key != _visibleRouteKey) return key;
+    }
+    return null;
+  }
+
+  Widget _buildOtherRouteBanner(
+    List<DeliveryPoint> allPoints,
+    AppLocalizations l10n,
+  ) {
+    final count = _otherActiveRoutePointCount(allPoints);
+    if (count == 0) return const SizedBox.shrink();
+    final otherKey = _firstOtherActiveRouteKey(allPoints);
+    return Material(
+      color: Colors.orange.shade50,
+      child: InkWell(
+        onTap: otherKey == null
+            ? null
+            : () => setState(() => _visibleRouteKey = otherKey),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.alt_route, color: Colors.orange.shade800, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.driverAnotherRoutePoints(count),
+                  style: TextStyle(
+                    color: Colors.orange.shade900,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.orange.shade700),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   bool _shouldApplyPointUpdate(DeliveryPoint incoming, DeliveryPoint? local) {
     if (local == null) return true;
     if (incoming.updatedAt == null) return true;
@@ -123,7 +185,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
     DateTime? bestTime;
 
     if (preferredRouteKey != null && byRoute.containsKey(preferredRouteKey)) {
-      return preferredRouteKey;
+      final group = byRoute[preferredRouteKey]!;
+      // Кеш маршрута удерживаем только пока есть незакрытые точки
+      if (group.any((p) => !_isClosedPoint(p))) {
+        return preferredRouteKey;
+      }
     }
 
     void consider(String key, List<DeliveryPoint> group) {
@@ -477,8 +543,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
         final cs =
             await CompanySettingsService(companyId: companyId).getSettings();
         final req = cs?.requirePodPhoto ?? false;
+        final autoOn = cs?.autoCloseEnabled ?? true;
         await DriverAutoClosePrefs.setPhotoRequired(req);
-        if (mounted) setState(() => _photoRequired = req);
+        await DriverAutoClosePrefs.setAutoCloseEnabled(autoOn);
+        if (mounted) {
+          setState(() {
+            _photoRequired = req;
+            _autoCloseCompanyEnabled = autoOn;
+          });
+        }
       }
     } catch (e) {
       debugPrint('autoclose: load company photo policy: $e');
@@ -505,7 +578,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(l10n.autoCloseUndoMessage),
-        duration: AppConfig.autoCloseUndoWindow,
+        // Короткий floating-тост: не перекрывает кнопки точки и сам исчезает.
+        // Раньше держался 90с (autoCloseUndoWindow) и блокировал низ экрана —
+        // единственным способом убрать его было «Отменить» (что переоткрывало точку).
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
         action: SnackBarAction(
           label: l10n.undo,
           onPressed: () => _undoAutoComplete(point),
@@ -625,7 +702,59 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     setState(() => _isTrackingActive = true);
     _showGpsNotification();
+    if (!kIsWeb && Platform.isAndroid) {
+      _maybeShowAndroidSetup();
+    } else {
+      _ensureBackgroundLocation();
+    }
     debugPrint('✅ [Driver] Tracking started: $driverName');
+  }
+
+  /// Один раз на установку показываем памятку по фоновым настройкам Android
+  /// (геолокация «Всегда», батарея, автозапуск). Потом доступна из меню «?».
+  Future<void> _maybeShowAndroidSetup() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('driver_android_setup_shown') ?? false) return;
+    await prefs.setBool('driver_android_setup_shown', true);
+    if (!mounted) return;
+    await showAndroidSetupSheet(context);
+  }
+
+  /// Если выдан доступ к локации только «при использовании» — трек обрывается,
+  /// когда телефон заблокирован. Подсказываем водителю включить «Всегда».
+  Future<void> _ensureBackgroundLocation() async {
+    if (kIsWeb || _bgPromptShown) return;
+    try {
+      final perm = await Geolocator.checkPermission();
+      if (perm != LocationPermission.whileInUse) return;
+      if (!mounted) return;
+      _bgPromptShown = true;
+      final l10n = AppLocalizations.of(context);
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n?.bgLocationTitle ?? 'Background location'),
+          content: Text(l10n?.bgLocationBody ??
+              'For full trip tracking, allow location "All the time".'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n?.cancelButton ?? 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n?.bgLocationOpenSettings ?? 'Open settings'),
+            ),
+          ],
+        ),
+      );
+      if (open == true) {
+        await Geolocator.openAppSettings();
+      }
+    } catch (e) {
+      debugPrint('bg-location prompt: $e');
+    }
   }
 
   void _stopTracking() async {
@@ -804,6 +933,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   /// Работает даже когда distanceFilter не генерирует GPS-апдейты (водитель стоит).
   Future<void> _checkAutoClose() async {
     if (_photoRequired) return; // политика «только с фото» — авто отключено
+    if (!_autoCloseCompanyEnabled) return; // компания отключила автозакрытие
     final lat = _lastKnownLat;
     final lng = _lastKnownLng;
     if (lat == null || lng == null) return;
@@ -1052,20 +1182,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(l10n.driver),
           actions: [
-            NotificationBell(companyId: companyId),
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              tooltip: l10n.podTitle,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const DataRetentionScreen(podOnly: true),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => authService.signOut(),
+            DriverAppBarActions(
+              companyId: companyId,
+              authService: authService,
             ),
           ],
         ),
@@ -1239,9 +1358,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         }
 
                         final isAndroidNoMap = !kIsWeb && Platform.isAndroid;
+                        final allIncoming = snapshot.data ?? const <DeliveryPoint>[];
 
                         return Column(
                           children: [
+                            _buildOtherRouteBanner(allIncoming, l10n),
                             if (isAndroidNoMap)
                               _buildAndroidRouteSummary(points, l10n)
                             else
@@ -1600,7 +1721,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       runSpacing: 4,
       children: [
         if (!kIsWeb) ...[
-          if (!_photoRequired)
+          if (!_photoRequired && _autoCloseCompanyEnabled)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1658,8 +1779,118 @@ class _DriverDashboardState extends State<DriverDashboard> {
               child: Text(l10n.pointDone),
             ),
           ),
+        // «Неверное место» — водитель на точке, обновляет координаты клиента
+        // по своему текущему GPS (мобильное; его позиция = реальное место).
+        if (!kIsWeb)
+          SizedBox(
+            height: 32,
+            child: OutlinedButton.icon(
+              onPressed: () => _fixClientLocation(point, l10n),
+              icon: const Icon(Icons.wrong_location_outlined, size: 16),
+              label: Text(l10n.fixLocationButton),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange.shade800,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
       ],
     );
+  }
+
+  /// Водитель на точке исправляет координаты КЛИЕНТА по своему текущему GPS
+  /// (он физически на месте). Меняем только lat/lng клиента (правила это
+  /// разрешают водителю); адрес/прочее не трогаем. Чинит будущие доставки.
+  Future<void> _fixClientLocation(
+    DeliveryPoint point,
+    AppLocalizations l10n,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final authService = context.read<AuthService>();
+    final companyId = authService.userModel?.companyId ?? '';
+    final clientNumber = point.clientNumber ?? '';
+    if (companyId.isEmpty || clientNumber.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.fixLocationClientMissing)),
+      );
+      return;
+    }
+
+    // Свежий GPS (водитель сейчас на месте).
+    Position? pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+    } catch (_) {
+      pos = await Geolocator.getLastKnownPosition();
+    }
+    if (pos == null ||
+        !DeliveryPoint.isValidCoordinates(pos.latitude, pos.longitude)) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(l10n.fixLocationGpsError),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+    final lat = pos.latitude;
+    final lng = pos.longitude;
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.fixLocationTitle),
+        content: Text(l10n.fixLocationBody(point.clientName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final q = await FirestorePaths()
+          .clients(companyId)
+          .where('clientNumber', isEqualTo: clientNumber)
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) {
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(l10n.fixLocationClientMissing)),
+          );
+        }
+        return;
+      }
+      await q.docs.first.reference
+          .update({'latitude': lat, 'longitude': lng});
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.fixLocationSuccess),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('${l10n.fixLocationGpsError}: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   /// Компактная сводка маршрута на Android (без карты).

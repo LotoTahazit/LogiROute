@@ -7,6 +7,7 @@ import '../../services/auth_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/issuance_service.dart';
 import '../../services/company_context.dart';
+import '../../utils/accounting_period_lock.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
@@ -43,7 +44,7 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
     final auth = context.read<AuthService>();
     final uid = auth.currentUser?.uid ?? '';
 
-    // Проверка period lock: credit note наследует deliveryDate от оригинала
+    // Period lock: дата credit note = сегодня (можно ссылаться на старый счёт)
     try {
       final companyCtx = CompanyContext.of(context);
       final companyDoc =
@@ -52,9 +53,10 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
       if (data['accountingLockedUntil'] != null) {
         final lockedUntil =
             (data['accountingLockedUntil'] as Timestamp).toDate();
-        if (!widget.originalInvoice.deliveryDate.isAfter(lockedUntil)) {
+        final cnDate = DateTime.now();
+        if (AccountingPeriodLock.isLocked(cnDate, lockedUntil)) {
           setState(() => _error =
-              '🔒 ${l10n.periodLockedError(DateFormat('dd/MM/yyyy').format(widget.originalInvoice.deliveryDate), DateFormat('dd/MM/yyyy').format(lockedUntil))}');
+              '🔒 ${l10n.periodLockedError(DateFormat('dd/MM/yyyy').format(cnDate), DateFormat('dd/MM/yyyy').format(lockedUntil))}');
           return;
         }
       }
@@ -82,7 +84,7 @@ class _CreditNoteDialogState extends State<CreditNoteDialog> {
       final issuanceResult = await IssuanceService().issueDocument(
         companyId: widget.originalInvoice.companyId,
         invoiceId: creditNoteId,
-        counterKey: InvoiceDocumentType.creditNote.name,
+        counterKey: InvoiceDocumentType.creditNote.canonicalCounterKey,
       );
 
       if (!issuanceResult.ok) {

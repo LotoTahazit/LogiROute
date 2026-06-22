@@ -54,5 +54,5 @@ class AppConfig {
 
   // 🧾 Tax invoice/receipt UI gate.
   // Keep the document type in the domain model so Mas Hachnasa API can be added later.
-  static const bool enableTaxInvoiceReceipt = false;
+  static const bool enableTaxInvoiceReceipt = true;
 }

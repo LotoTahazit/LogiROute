@@ -62,6 +62,61 @@ class OsrmDirectionsService {
     }
   }
 
+  /// Привязать GPS-трек к дорогам (OSRM match / snap-to-road).
+  ///
+  /// [latLngs] — точки трека в порядке времени, формат [[lat, lng], ...].
+  /// Возвращает список закодированных polyline-геометрий (по одной на каждый
+  /// matching OSRM) или null при неудаче — тогда вызывающий рисует исходные
+  /// прямые отрезки. [radiusMeters] — допуск поиска дороги для каждой точки
+  /// (для разреженного GPS нужен запас).
+  Future<List<String>?> matchToRoad(
+    List<List<double>> latLngs, {
+    double radiusMeters = 35,
+  }) async {
+    if (latLngs.length < 2) return null;
+    // У OSRM match лимит ~100 координат на запрос — при необходимости прорежаем.
+    var pts = latLngs;
+    if (pts.length > 100) {
+      final step = (pts.length / 100).ceil();
+      final sampled = <List<double>>[];
+      for (var i = 0; i < pts.length; i += step) {
+        sampled.add(pts[i]);
+      }
+      if (sampled.isEmpty || sampled.last != pts.last) sampled.add(pts.last);
+      pts = sampled;
+    }
+    final coords = pts.map((p) => '${p[1]},${p[0]}').join(';');
+    final radiuses =
+        List.filled(pts.length, radiusMeters.toStringAsFixed(0)).join(';');
+    try {
+      final url = Uri.parse(
+        '${ApiConstants.osrmMatchUrl}/$coords'
+        '?geometries=polyline&overview=full&tidy=true&radiuses=$radiuses',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) {
+        if (kDebugMode) debugPrint('OSRM match HTTP error: ${response.statusCode}');
+        return null;
+      }
+      final data = json.decode(response.body);
+      if (data == null || data['code'] != 'Ok') {
+        if (kDebugMode) debugPrint('OSRM match response: ${data?['code']}');
+        return null;
+      }
+      final matchings = data['matchings'];
+      if (matchings is! List || matchings.isEmpty) return null;
+      final geoms = <String>[];
+      for (final m in matchings) {
+        final g = m['geometry'];
+        if (g is String && g.isNotEmpty) geoms.add(g);
+      }
+      return geoms.isEmpty ? null : geoms;
+    } catch (e) {
+      if (kDebugMode) debugPrint('OSRM match error: $e');
+      return null;
+    }
+  }
+
   /// Получить маршрут через несколько точек (waypoints)
   Future<RouteInfo?> getRouteWithWaypoints({
     required double originLat,

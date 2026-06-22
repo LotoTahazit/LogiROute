@@ -86,7 +86,6 @@ void main() {
         'systemEvents': () => paths.systemEvents(''),
         'printEvents': () => paths.printEvents(''),
         'audit': () => paths.audit(''),
-        'accountingDocs': () => paths.accountingDocs(''),
         'accountingCounters': () => paths.accountingCounters(''),
       };
 
@@ -122,7 +121,7 @@ void main() {
           'systemEvents': paths.systemEvents(companyId).path,
           'printEvents': paths.printEvents(companyId).path,
           'audit': paths.audit(companyId).path,
-          'accountingDocs': paths.accountingDocs(companyId).path,
+          'invoices': paths.invoices(companyId).path,
           'accountingCounters': paths.accountingCounters(companyId).path,
         };
 
@@ -155,7 +154,7 @@ void main() {
           'systemEvents': paths.systemEvents(companyId).path,
           'printEvents': paths.printEvents(companyId).path,
           'audit': paths.audit(companyId).path,
-          'accountingDocs': paths.accountingDocs(companyId).path,
+          'invoices': paths.invoices(companyId).path,
           'accountingCounters': paths.accountingCounters(companyId).path,
         };
 

@@ -362,11 +362,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeOnTime => 'On time';
 
   @override
+  String avgMinutesPerPoint(int minutes) {
+    return '~$minutes min/pt';
+  }
+
+  @override
   String get requirePodPhoto => 'Require delivery photo (POD)';
 
   @override
   String get requirePodPhotoHint =>
       'Hides one-tap close and disables auto-close — every delivery needs a photo.';
+
+  @override
+  String get autoCloseEnabledTitle => 'Auto-close points by GPS';
+
+  @override
+  String get autoCloseEnabledHint =>
+      'A point closes automatically when the driver stops at the client. Turn off if you want the driver to close points only manually.';
 
   @override
   String get deliverySection => 'Delivery';
@@ -384,7 +396,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoCloseToggle => 'Auto';
 
   @override
+  String get bgLocationTitle => 'Background location';
+
+  @override
+  String get bgLocationBody =>
+      'So the driver\'s route is recorded in full (even when the screen is locked), allow location access \"All the time\" in the app settings.';
+
+  @override
+  String get bgLocationOpenSettings => 'Open settings';
+
+  @override
+  String get androidSetupTitle => 'Android setup for shifts';
+
+  @override
+  String get androidSetupIntro =>
+      'So shifts and GPS work in the background (even when the screen is locked), enable these 3 settings:';
+
+  @override
+  String get androidSetupLocationTitle => 'Location: \"Allow all the time\"';
+
+  @override
+  String get androidSetupLocationDesc =>
+      'Without this, GPS stops when the screen is locked.';
+
+  @override
+  String get androidSetupBatteryTitle => 'Battery: no restrictions';
+
+  @override
+  String get androidSetupBatteryDesc =>
+      'So the system doesn\'t kill the shift\'s background service.';
+
+  @override
+  String get androidSetupAutostartTitle =>
+      'Autostart (Xiaomi/MIUI, Huawei, Oppo…)';
+
+  @override
+  String get androidSetupAutostartDesc =>
+      'Allow the app to autostart — otherwise the service won\'t start after a reboot. Check manually in app settings.';
+
+  @override
+  String get androidSetupEnable => 'Enable';
+
+  @override
+  String get androidSetupDone => 'Done';
+
+  @override
+  String get androidSetupGranted => 'Enabled';
+
+  @override
+  String get androidSetupMenu => 'Android setup (background)';
+
+  @override
   String get closeWithPhoto => 'Close with photo';
+
+  @override
+  String get fixLocationButton => 'Fix location';
+
+  @override
+  String get fixLocationTitle => 'Update client location?';
+
+  @override
+  String fixLocationBody(String clientName) {
+    return 'Save your current location as the coordinates for client \"$clientName\"? This fixes the pin for future deliveries.';
+  }
+
+  @override
+  String get fixLocationSuccess => 'Client location updated';
+
+  @override
+  String get fixLocationGpsError =>
+      'No accurate GPS, or location outside Israel';
+
+  @override
+  String get fixLocationClientMissing => 'Client not found';
 
   @override
   String get autoCloseUndoMessage => 'Point closed automatically';
@@ -418,6 +502,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get podGpsUnavailable => 'GPS unavailable — enable location';
+
+  @override
+  String get podUploadFailed =>
+      'Photo upload failed — check your connection and retry';
+
+  @override
+  String get podViewerTooltip => 'Delivery photo';
+
+  @override
+  String get podViewerNoPhoto =>
+      'No photo attached — point closed without a photo';
+
+  @override
+  String get podViewerPhotoError => 'Failed to load photo';
+
+  @override
+  String get podViewerAutoClosed => 'Closed automatically by GPS';
+
+  @override
+  String get podSharePhoto => 'Share';
+
+  @override
+  String get routeArchiveTitle => 'Route archive';
+
+  @override
+  String get routeArchiveHint =>
+      'Deliveries from the last 90 days. Photos are available during that period; GPS and time remain after.';
+
+  @override
+  String get routeArchiveEmpty => 'No archived deliveries in this period';
+
+  @override
+  String get routeArchiveSearchHint => 'Search client, driver or address';
+
+  @override
+  String routeArchivePointsCount(Object count) {
+    return '$count stops';
+  }
+
+  @override
+  String get routeArchiveGpsOnly => 'GPS only';
 
   @override
   String get next => 'Next';
@@ -1899,6 +2024,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clientReport => 'Client Report';
+
+  @override
+  String get reportStockTab => 'Stock';
+
+  @override
+  String get reportStockSku => 'SKU';
+
+  @override
+  String get reportStockProduct => 'Product';
+
+  @override
+  String get reportStockQty => 'Quantity (units)';
+
+  @override
+  String get reportStockPallets => 'Pallets';
+
+  @override
+  String get reportStockTotalSkus => 'SKUs';
+
+  @override
+  String get reportStockTotalUnits => 'Total units';
+
+  @override
+  String get reportStockTotalPallets => 'Total pallets';
 
   @override
   String get errorLoadingData => 'Error loading data';
@@ -4227,16 +4376,37 @@ class AppLocalizationsEn extends AppLocalizations {
       'Logistics + dispatcher + reports (no warehouse)';
 
   @override
-  String get planDescOps => 'Warehouse + logistics + reports';
+  String get planDescOps =>
+      'Warehouse + logistics + dispatcher + reports (no accounting)';
 
   @override
-  String get planDescFull => 'All modules including accounting';
+  String get planDescFull =>
+      'All modules including accounting and Greeninvoice';
 
   @override
   String get planDescCustom => 'Custom plan';
 
   @override
-  String get accountingProviderSection => 'Accounting export';
+  String get planAccountingNote =>
+      'Accounting (invoices, VAT, Greeninvoice) is included only in the Full plan. No separate module fee.';
+
+  @override
+  String get planBackupNote =>
+      'Cloud DR (Google Firestore Backup): included in Full; other plans get free audit journal, dedicated export +₪149/mo. Google bill is paid by LogiRoute (~₪30–120/mo for the whole project).';
+
+  @override
+  String billingDedicatedExportMonthly(int price) {
+    return '+₪$price/mo — optional quarterly company data export';
+  }
+
+  @override
+  String get planModulesLabel => 'Modules:';
+
+  @override
+  String get planCurrentBadge => 'Current plan';
+
+  @override
+  String get accountingProviderSection => 'Tax API integration';
 
   @override
   String get accountingProviderLabel => 'Provider';
@@ -4310,6 +4480,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String accountingExternalDocNumber(String number) {
+    return 'External doc #: $number';
+  }
+
+  @override
   String get accountingSyncStatusPending => 'Pending';
 
   @override
@@ -4318,6 +4493,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String accountingExternalSyncFailedWith(String error) {
     return 'Document issued, sync failed: $error';
+  }
+
+  @override
+  String get billingAddonsTitle => 'Usage-based add-ons';
+
+  @override
+  String billingExtraDriverMonthly(int price, int included) {
+    return '+₪$price/month per driver above $included included';
+  }
+
+  @override
+  String billingExtraWarehouseMonthly(int price, int included) {
+    return '+₪$price/month per warehouse location above $included included';
   }
 
   @override
@@ -4830,6 +5018,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get registerBackupTitle => 'Register Backup';
 
   @override
+  String get registerLogiRouteCloudBackup => 'Register LogiRoute cloud backup';
+
+  @override
+  String get registerBackupOther => 'Other storage…';
+
+  @override
+  String get backupCloudInfoTitle => 'Cloud backup';
+
+  @override
+  String get backupCloudInfoBody =>
+      'LogiRoute data is stored in Firebase cloud (project logiroute-app). The button above is an audit log entry for compliance — not a separate Google billing item.';
+
+  @override
+  String get backupCloudPricingNote =>
+      'Full plan: cloud DR included (LogiRoute pays project backup). Other plans: audit journal only; dedicated data export — +₪149/mo addon.';
+
+  @override
+  String get backupFirebaseLocationLabel => 'Firebase project name';
+
+  @override
+  String get backupFirebaseHelper =>
+      'For LogiRoute clients, logiroute-app is usually sufficient.';
+
+  @override
+  String get storageRecommended => '(recommended)';
+
+  @override
   String get storageType => 'Storage Type';
 
   @override
@@ -5147,6 +5362,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverRouteTitle => 'Driver route';
 
   @override
+  String driverAnotherRoutePoints(int count) {
+    return 'Another route: $count stops';
+  }
+
+  @override
   String wazeOpenError(String error) {
     return 'Error opening Waze: $error';
   }
@@ -5261,6 +5481,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminActivityLog => 'Activity log';
+
+  @override
+  String get appBarGroupReports => 'Reports';
+
+  @override
+  String get appBarGroupWarehouse => 'Warehouse';
+
+  @override
+  String get appBarGroupCompany => 'Company';
+
+  @override
+  String get appBarGroupBilling => 'Billing';
+
+  @override
+  String get appBarGroupPlatform => 'Platform';
+
+  @override
+  String get appBarGroupLogistics => 'Logistics';
+
+  @override
+  String get appBarGroupArchive => 'Archive & data';
+
+  @override
+  String get appBarGroupOperations => 'Operations';
+
+  @override
+  String get appBarGroupImportExport => 'Import & export';
+
+  @override
+  String get appBarGroupHelp => 'Help';
+
+  @override
+  String get ownerNavOverview => 'Overview';
+
+  @override
+  String get ownerNavManagement => 'Management';
+
+  @override
+  String get ownerNavOperations => 'Operations';
+
+  @override
+  String get ownerNavCompliance => 'Compliance';
 
   @override
   String get period24h => '24 hours';

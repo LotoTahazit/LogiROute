@@ -86,6 +86,12 @@ android/local.properties
 android/build/
 android/app/build/
 
+# Local toolchain (node/npm/firebase) — must never be committed
+.tools/
+
+# Stray temp script
+/_fix_const.js
+
 # Node modules
 functions/node_modules/
 node_modules/

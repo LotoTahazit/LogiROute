@@ -9,6 +9,7 @@ import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/dialog_helper.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 import 'dialogs/add_product_type_dialog.dart';
 import 'dialogs/edit_product_type_dialog.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -220,35 +221,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         final categories = snapshot.data ?? [];
         if (categories.isEmpty) return const SizedBox.shrink();
 
-        return Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              FilterChip(
-                label: Text(l10n.allCategories),
-                selected: _selectedCategory == null,
-                onSelected: (selected) {
-                  setState(() => _selectedCategory = null);
-                },
-              ),
-              const SizedBox(width: 8),
-              ...categories.map((category) {
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: FilterChip(
-                    label: Text(_getCategoryName(category, l10n)),
-                    selected: _selectedCategory == category,
-                    onSelected: (selected) {
-                      setState(
-                          () => _selectedCategory = selected ? category : null);
-                    },
-                  ),
-                );
-              }),
-            ],
-          ),
+        return LogiRoutePillSelector(
+          labels: [
+            l10n.allCategories,
+            ...categories.map((c) => _getCategoryName(c, l10n)),
+          ],
+          selectedIndex: _selectedCategory == null
+              ? 0
+              : categories.indexOf(_selectedCategory!) + 1,
+          onSelected: (i) => setState(() {
+            _selectedCategory = i == 0 ? null : categories[i - 1];
+          }),
         );
       },
     );

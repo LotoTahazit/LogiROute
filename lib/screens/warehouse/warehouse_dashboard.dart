@@ -212,208 +212,174 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
   }
 
+  Future<void> _signOut() async {
+    final navigator = Navigator.of(context);
+    await _authService.signOut();
+    if (mounted) navigator.pushReplacementNamed('/login');
+  }
+
+  void _handleWarehouseMenuAction(String value) {
+    switch (value) {
+      case 'inventory_count':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InventoryCountScreen(userName: _userName),
+          ),
+        );
+      case 'manage_types':
+        _showBoxTypesManager();
+      case 'add_type':
+        _showAddNewBoxTypeDialog();
+      case 'filter':
+        setState(() => _showLowStockOnly = !_showLowStockOnly);
+      case 'history':
+        _showInventoryHistory();
+      case 'export':
+        _exportReport();
+      case 'import':
+        _importInventory();
+      case 'logout':
+        _signOut();
+    }
+  }
+
+  PopupMenuItem<String> _whMenuItem(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _whSectionHeader(String label) {
+    return PopupMenuItem<String>(
+      enabled: false,
+      height: 36,
+      child: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _warehouseOperationsItems(AppLocalizations l10n) =>
+      [
+        _whMenuItem('inventory_count', Icons.fact_check, l10n.inventoryCount),
+        _whMenuItem('manage_types', Icons.library_books, l10n.manageBoxTypes),
+        _whMenuItem(
+            'add_type', Icons.add_circle_outline, l10n.addNewBoxTypeToCatalog),
+      ];
+
+  List<PopupMenuEntry<String>> _warehouseReportItems(AppLocalizations l10n) => [
+        _whMenuItem('history', Icons.history, l10n.changeHistory),
+      ];
+
+  List<PopupMenuEntry<String>> _warehouseImportExportItems(
+      AppLocalizations l10n) {
+    return [
+      if (kIsWeb) _whMenuItem('export', Icons.download, l10n.exportReport),
+      _whMenuItem('import', Icons.upload_file, l10n.importFromExcel),
+    ];
+  }
+
+  Widget _whGroupMenu({
+    required IconData icon,
+    required String tooltip,
+    required List<PopupMenuEntry<String>> items,
+  }) {
+    return PopupMenuButton<String>(
+      icon: Icon(icon),
+      tooltip: tooltip,
+      onSelected: _handleWarehouseMenuAction,
+      itemBuilder: (_) => items,
+    );
+  }
+
+  List<PopupMenuEntry<String>> _warehouseMobileMenuItems(AppLocalizations l10n) {
+    return [
+      _whSectionHeader(l10n.appBarGroupOperations),
+      ..._warehouseOperationsItems(l10n),
+      _whMenuItem(
+        'filter',
+        _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+        l10n.showLowStockOnly,
+      ),
+      const PopupMenuDivider(),
+      _whSectionHeader(l10n.appBarGroupReports),
+      ..._warehouseReportItems(l10n),
+      const PopupMenuDivider(),
+      _whSectionHeader(l10n.appBarGroupImportExport),
+      ..._warehouseImportExportItems(l10n),
+      const PopupMenuDivider(),
+      _whMenuItem('logout', Icons.logout, l10n.logout),
+    ];
+  }
+
   List<Widget> _buildAppBarActions(
       BuildContext context, AppLocalizations l10n) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isNarrow = screenWidth < 600;
+    final isNarrow = MediaQuery.of(context).size.width < 600;
+    final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
 
     if (isNarrow) {
-      // Мобильный — notification bell + меню
       return [
-        NotificationBell(
-          companyId: CompanyContext.of(context).effectiveCompanyId ?? '',
+        NotificationBell(companyId: companyId),
+        IconButton(
+          icon: Icon(
+            _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+            color: _showLowStockOnly ? Colors.orange : null,
+          ),
+          tooltip: l10n.showLowStockOnly,
+          onPressed: () => setState(() => _showLowStockOnly = !_showLowStockOnly),
         ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
-          onSelected: (value) async {
-            switch (value) {
-              case 'inventory_count':
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        InventoryCountScreen(userName: _userName),
-                  ),
-                );
-                break;
-              case 'manage_types':
-                _showBoxTypesManager();
-                break;
-              case 'add_type':
-                _showAddNewBoxTypeDialog();
-                break;
-              case 'filter':
-                setState(() => _showLowStockOnly = !_showLowStockOnly);
-                break;
-              case 'history':
-                _showInventoryHistory();
-                break;
-              case 'export':
-                _exportReport();
-                break;
-              case 'import':
-                _importInventory();
-                break;
-              case 'logout':
-                final navigator = Navigator.of(context);
-                await _authService.signOut();
-                if (mounted) {
-                  navigator.pushReplacementNamed('/login');
-                }
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'inventory_count',
-              child: ListTile(
-                leading: const Icon(Icons.fact_check),
-                title: Text(l10n.inventoryCount),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            PopupMenuItem(
-              value: 'manage_types',
-              child: ListTile(
-                leading: const Icon(Icons.library_books),
-                title: Text(l10n.manageBoxTypes),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            PopupMenuItem(
-              value: 'add_type',
-              child: ListTile(
-                leading: const Icon(Icons.add_circle_outline),
-                title: Text(l10n.addNewBoxTypeToCatalog),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            PopupMenuItem(
-              value: 'filter',
-              child: ListTile(
-                leading: Icon(
-                  _showLowStockOnly
-                      ? Icons.filter_alt
-                      : Icons.filter_alt_outlined,
-                  color: _showLowStockOnly ? Colors.orange : null,
-                ),
-                title: Text(l10n.showLowStockOnly),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            PopupMenuItem(
-              value: 'history',
-              child: ListTile(
-                leading: const Icon(Icons.history),
-                title: Text(l10n.changeHistory),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            if (kIsWeb)
-              PopupMenuItem(
-                value: 'export',
-                child: ListTile(
-                  leading: const Icon(Icons.download),
-                  title: Text(l10n.exportReport),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            PopupMenuItem(
-              value: 'import',
-              child: ListTile(
-                leading: const Icon(Icons.upload_file),
-                title: Text(l10n.importFromExcel),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem(
-              value: 'logout',
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: Text(l10n.logout,
-                    style: const TextStyle(color: Colors.red)),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
+          tooltip: l10n.settings,
+          onSelected: _handleWarehouseMenuAction,
+          itemBuilder: (_) => _warehouseMobileMenuItems(l10n),
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: l10n.logout,
+          onPressed: _signOut,
         ),
       ];
     }
 
-    // Десктоп — все иконки как раньше
     return [
-      NotificationBell(
-        companyId: CompanyContext.of(context).effectiveCompanyId ?? '',
-      ),
-      IconButton(
-        icon: const Icon(Icons.fact_check),
-        tooltip: l10n.inventoryCount,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => InventoryCountScreen(userName: _userName),
-            ),
-          );
-        },
-      ),
-      IconButton(
-        icon: const Icon(Icons.library_books),
-        tooltip: l10n.manageBoxTypes,
-        onPressed: _showBoxTypesManager,
-      ),
-      IconButton(
-        icon: const Icon(Icons.add_circle_outline),
-        tooltip: l10n.addNewBoxTypeToCatalog,
-        onPressed: _showAddNewBoxTypeDialog,
-      ),
+      NotificationBell(companyId: companyId),
       IconButton(
         icon: Icon(
           _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
           color: _showLowStockOnly ? Colors.orange : null,
         ),
         tooltip: l10n.showLowStockOnly,
-        onPressed: () {
-          setState(() {
-            _showLowStockOnly = !_showLowStockOnly;
-          });
-        },
+        onPressed: () => setState(() => _showLowStockOnly = !_showLowStockOnly),
       ),
-      IconButton(
-        icon: const Icon(Icons.history),
-        tooltip: l10n.changeHistory,
-        onPressed: _showInventoryHistory,
+      _whGroupMenu(
+        icon: Icons.tune_outlined,
+        tooltip: l10n.appBarGroupOperations,
+        items: _warehouseOperationsItems(l10n),
       ),
-      if (kIsWeb)
-        IconButton(
-          icon: const Icon(Icons.download),
-          tooltip: l10n.exportReport,
-          onPressed: _exportReport,
-        ),
-      IconButton(
-        icon: const Icon(Icons.upload_file),
-        tooltip: l10n.importFromExcel,
-        onPressed: _importInventory,
+      _whGroupMenu(
+        icon: Icons.bar_chart,
+        tooltip: l10n.appBarGroupReports,
+        items: _warehouseReportItems(l10n),
+      ),
+      _whGroupMenu(
+        icon: Icons.import_export,
+        tooltip: l10n.appBarGroupImportExport,
+        items: _warehouseImportExportItems(l10n),
       ),
       IconButton(
         icon: const Icon(Icons.logout),
         tooltip: l10n.logout,
-        onPressed: () async {
-          final navigator = Navigator.of(context);
-          await _authService.signOut();
-          if (mounted) {
-            navigator.pushReplacementNamed('/login');
-          }
-        },
+        onPressed: _signOut,
       ),
     ];
   }

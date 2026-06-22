@@ -8,7 +8,11 @@ import '../../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../../utils/file_download_web.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../models/invoice.dart';
 import '../../../../models/company_settings.dart';
+import '../../../../models/inventory_item.dart';
+import '../../../../services/firestore_paths.dart';
+import '../../../../widgets/logi_route_tab_bar.dart';
 
 /// Lightweight data class for report aggregation (from invoices collection)
 class _ReportDoc {
@@ -44,13 +48,43 @@ class _ReportsSectionState extends State<ReportsSection>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// Активные вкладки отчётов в зависимости от модулей компании.
+  /// 'stock' — складские остатки (если включён модуль «Склад»); финансовые
+  /// вкладки (выручка/НДС/клиенты) показываем всегда (счета из бухгалтерии).
+  late final List<String> _tabKeys;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final m = widget.companySettings.modules;
+    _tabKeys = [
+      if (m.warehouse) 'stock',
+      'monthly',
+      'vat',
+      'client',
+    ];
+    _tabController = TabController(length: _tabKeys.length, vsync: this);
   }
 
-  /// Stream invoices from the actual collection where dispatcher creates them
+  LogiRouteTabItem _tabItem(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'stock':
+        return LogiRouteTabItem(
+            icon: Icons.inventory_2_outlined, label: l10n.reportStockTab);
+      case 'monthly':
+        return LogiRouteTabItem(
+            icon: Icons.calendar_month, label: l10n.monthlyReport);
+      case 'vat':
+        return LogiRouteTabItem(
+            icon: Icons.account_balance, label: l10n.vatReport);
+      case 'client':
+        return LogiRouteTabItem(icon: Icons.people, label: l10n.clientReport);
+      default:
+        return LogiRouteTabItem(icon: Icons.bar_chart, label: key);
+    }
+  }
+
+  /// Stream invoices — суммы через [Invoice] (per-line НДС, скидка, credit notes).
   Stream<List<_ReportDoc>> _watchInvoices() {
     return FirebaseFirestore.instance
         .collection('companies')
@@ -59,37 +93,22 @@ class _ReportsSectionState extends State<ReportsSection>
         .doc('_root')
         .collection('invoices')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final d = doc.data();
-              // Compute amounts from items
-              final items = d['items'] as List<dynamic>? ?? [];
-              double totalBefore = 0;
-              for (final item in items) {
-                final m = item as Map<String, dynamic>;
-                totalBefore += ((m['quantity'] ?? 0) as num).toDouble() *
-                    ((m['pricePerUnit'] ?? 0) as num).toDouble();
-              }
-              final discount = ((d['discount'] ?? 0) as num).toDouble();
-              final vatRate = ((d['vatRate'] ?? 0.17) as num).toDouble();
-              final net = totalBefore * (1 - discount / 100);
-              final vatAmt = net * vatRate;
-              final gross = net + vatAmt;
-
-              DateTime? date;
-              if (d['createdAt'] != null) {
-                date = (d['createdAt'] as Timestamp).toDate();
-              }
-
+        .map((snapshot) => snapshot.docs
+            .map((doc) {
+              final invoice = Invoice.fromMap(doc.data(), doc.id);
+              if (!invoice.isLive) return null;
               return _ReportDoc(
-                date: date,
-                net: net,
-                vat: vatAmt,
-                gross: gross,
-                customerName: d['clientName'] as String? ?? '',
-                customerTaxId: d['clientNumber'] as String?,
-                status: d['status'] as String? ?? '',
+                date: invoice.finalizedAt ?? invoice.createdAt,
+                net: invoice.subtotalBeforeVAT,
+                vat: invoice.vatAmount,
+                gross: invoice.totalWithVAT,
+                customerName: invoice.clientName,
+                customerTaxId: invoice.clientNumber,
+                status: invoice.status.name,
               );
-            }).toList());
+            })
+            .whereType<_ReportDoc>()
+            .toList());
   }
 
   @override
@@ -125,36 +144,48 @@ class _ReportsSectionState extends State<ReportsSection>
           ),
         ),
         const SizedBox(height: 16),
-        TabBar(
+        LogiRouteTabBar(
           controller: _tabController,
           isScrollable: narrow,
-          tabs: [
-            Tab(icon: const Icon(Icons.calendar_month), text: l10n.monthlyReport),
-            Tab(icon: const Icon(Icons.account_balance), text: l10n.vatReport),
-            Tab(icon: const Icon(Icons.people), text: l10n.clientReport),
-          ],
+          tabs: [for (final k in _tabKeys) _tabItem(k, l10n)],
         ),
         Expanded(
           child: StreamBuilder<List<_ReportDoc>>(
             stream: _watchInvoices(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+              // Складская вкладка не зависит от счетов: при ошибке/загрузке
+              // финансовых данных она всё равно работает (свой стрим).
+              final hasFinErr = snapshot.hasError;
+              final finLoading =
+                  snapshot.connectionState == ConnectionState.waiting;
+              final docs = snapshot.data ?? [];
+
+              Widget financial(Widget child) {
+                if (finLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (hasFinErr) {
+                  return Center(
+                      child: Text(l10n.errorLoadingData,
+                          style: TextStyle(color: theme.colorScheme.error)));
+                }
+                return child;
               }
-              if (snapshot.hasError) {
-                return Center(
-                    child: Text(l10n.errorLoadingData,
-                        style: TextStyle(color: theme.colorScheme.error)));
-              }
-              final allDocs = snapshot.data ?? [];
-              final docs = allDocs
-                  .where((d) => d.status != 'draft' && d.status != 'cancelled')
-                  .toList();
-              return TabBarView(controller: _tabController, children: [
-                _MonthlyReport(docs: docs),
-                _VatReport(docs: docs),
-                _ClientReport(docs: docs),
-              ]);
+
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  for (final k in _tabKeys)
+                    if (k == 'stock')
+                      _StockReport(companyId: widget.companyId)
+                    else if (k == 'monthly')
+                      financial(_MonthlyReport(docs: docs))
+                    else if (k == 'vat')
+                      financial(_VatReport(docs: docs))
+                    else
+                      financial(_ClientReport(docs: docs)),
+                ],
+              );
             },
           ),
         ),
@@ -390,7 +421,7 @@ class _VatReport extends StatelessWidget {
                 ],
                 rows: months.map((m) {
                   final d = vatData[m]!;
-                  final rate = d.base > 0 ? (d.vat / d.base * 100) : 0.0;
+                  final rate = d.base > 0 ? (d.vat / d.base * 100) : 18.0;
                   return DataRow(cells: [
                     DataCell(Text(m)),
                     DataCell(Text('\u20AA${d.base.toStringAsFixed(2)}')),
@@ -430,13 +461,20 @@ class _VatReport extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ClientData {
+  final String name;
   final String? taxId;
   final int count;
   final double net;
   final double vat;
   final double gross;
-  const _ClientData(
-      {this.taxId, this.count = 0, this.net = 0, this.vat = 0, this.gross = 0});
+  const _ClientData({
+    this.name = '',
+    this.taxId,
+    this.count = 0,
+    this.net = 0,
+    this.vat = 0,
+    this.gross = 0,
+  });
 }
 
 class _ClientReport extends StatelessWidget {
@@ -447,10 +485,15 @@ class _ClientReport extends StatelessWidget {
       List<_ReportDoc> docs, AppLocalizations l10n) {
     final map = <String, _ClientData>{};
     for (final doc in docs) {
-      final name =
-          doc.customerName.isNotEmpty ? doc.customerName : l10n.unknownCustomer;
-      final e = map[name] ?? _ClientData(taxId: doc.customerTaxId);
-      map[name] = _ClientData(
+      final name = doc.customerName.isNotEmpty
+          ? doc.customerName
+          : l10n.unknownCustomer;
+      final key = (doc.customerTaxId != null && doc.customerTaxId!.isNotEmpty)
+          ? doc.customerTaxId!
+          : name;
+      final e = map[key] ?? _ClientData(name: name, taxId: doc.customerTaxId);
+      map[key] = _ClientData(
+          name: e.name.isNotEmpty ? e.name : name,
           taxId: e.taxId ?? doc.customerTaxId,
           count: e.count + 1,
           net: e.net + doc.net,
@@ -505,10 +548,10 @@ class _ClientReport extends StatelessWidget {
                   DataColumn(label: Text(l10n.vatAmount), numeric: true),
                   DataColumn(label: Text(l10n.grossAmount), numeric: true),
                 ],
-                rows: clients.map((name) {
-                  final d = cData[name]!;
+                rows: clients.map((key) {
+                  final d = cData[key]!;
                   return DataRow(cells: [
-                    DataCell(Text(name)),
+                    DataCell(Text(d.name.isNotEmpty ? d.name : key)),
                     DataCell(Text(d.taxId ?? '\u2014')),
                     DataCell(Text(d.count.toString())),
                     DataCell(Text(d.net.toStringAsFixed(2))),
@@ -527,10 +570,11 @@ class _ClientReport extends StatelessWidget {
     const t = '\t';
     final b =
         StringBuffer('לקוח$tח.פ./ע.מ.$tמסמכים$tנטו$tמע"מ$tברוטו\n');
-    for (final c in clients) {
-      final d = data[c]!;
+    for (final key in clients) {
+      final d = data[key]!;
+      final label = d.name.isNotEmpty ? d.name : key;
       b.writeln(
-          '$c$t${d.taxId ?? ""}$t${d.count}$t${d.net.toStringAsFixed(2)}$t${d.vat.toStringAsFixed(2)}$t${d.gross.toStringAsFixed(2)}');
+          '$label$t${d.taxId ?? ""}$t${d.count}$t${d.net.toStringAsFixed(2)}$t${d.vat.toStringAsFixed(2)}$t${d.gross.toStringAsFixed(2)}');
     }
     if (kIsWeb) {
       downloadCsv(b.toString(),
@@ -542,5 +586,160 @@ class _ClientReport extends StatelessWidget {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
           content: Text(AppLocalizations.of(ctx)!.csvCopiedToClipboard)));
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stock Report (базовый складской отчёт — для владельца/админа любого плана
+// со складом, включая «только склад»). Остатки, миштахи, итоги, экспорт CSV.
+// ---------------------------------------------------------------------------
+
+class _StockReport extends StatelessWidget {
+  final String companyId;
+  const _StockReport({required this.companyId});
+
+  Stream<List<InventoryItem>> _watch() {
+    return FirestorePaths().inventory(companyId).snapshots().map((s) =>
+        s.docs.map((d) => InventoryItem.fromMap(d.data(), d.id)).toList());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    return StreamBuilder<List<InventoryItem>>(
+      stream: _watch(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(
+              child: Text(l10n.errorLoadingData,
+                  style: TextStyle(color: theme.colorScheme.error)));
+        }
+        final items = List<InventoryItem>.from(snap.data ?? [])
+          ..sort((a, b) => a.productCode.compareTo(b.productCode));
+        if (items.isEmpty) {
+          return Center(child: Text(l10n.noDataToDisplay));
+        }
+        final totalUnits = items.fold<int>(0, (s, i) => s + i.quantity);
+        final totalPallets =
+            items.fold<int>(0, (s, i) => s + i.numberOfPallets);
+        return Column(children: [
+          Padding(
+            padding: EdgeInsets.all(narrow ? 12 : 16),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _StatChip(
+                        label: l10n.reportStockTotalSkus,
+                        value: items.length.toString()),
+                    _StatChip(
+                        label: l10n.reportStockTotalUnits,
+                        value: totalUnits.toString()),
+                    _StatChip(
+                        label: l10n.reportStockTotalPallets,
+                        value: totalPallets.toString()),
+                  ],
+                ),
+                FilledButton.icon(
+                    onPressed: () => _csv(context, items),
+                    icon: const Icon(Icons.download, size: 18),
+                    label: Text(l10n.exportCsv)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: narrow ? 12 : 24),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(label: Text(l10n.reportStockSku)),
+                      DataColumn(label: Text(l10n.reportStockProduct)),
+                      DataColumn(
+                          label: Text(l10n.reportStockQty), numeric: true),
+                      DataColumn(
+                          label: Text(l10n.reportStockPallets), numeric: true),
+                    ],
+                    rows: items.map((i) {
+                      final desc = '${i.type} ${i.number}'.trim();
+                      return DataRow(cells: [
+                        DataCell(Text(i.productCode)),
+                        DataCell(Text(desc)),
+                        DataCell(Text(i.quantity.toString())),
+                        DataCell(Text(i.numberOfPallets.toString())),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  void _csv(BuildContext ctx, List<InventoryItem> items) {
+    final l10n = AppLocalizations.of(ctx)!;
+    const t = '\t';
+    final b = StringBuffer(
+        '${l10n.reportStockSku}$t${l10n.reportStockProduct}$t${l10n.reportStockQty}$t${l10n.reportStockPallets}\n');
+    for (final i in items) {
+      final desc = '${i.type} ${i.number}'.trim();
+      b.writeln('${i.productCode}$t$desc$t${i.quantity}$t${i.numberOfPallets}');
+    }
+    if (kIsWeb) {
+      downloadCsv(b.toString(),
+          'stock_report_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.csv');
+    } else {
+      Clipboard.setData(ClipboardData(text: b.toString()));
+    }
+    if (ctx.mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text(l10n.csvCopiedToClipboard)));
+    }
+  }
+}
+
+/// Небольшой чип со статистикой (значение + подпись).
+class _StatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatChip({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Text(label, style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
   }
 }

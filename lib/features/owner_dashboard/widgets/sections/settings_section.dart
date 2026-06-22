@@ -8,6 +8,7 @@ import '../../../../services/auth_service.dart';
 import '../../models/role_hierarchy.dart';
 import '../../services/permissions_service.dart';
 import '../../utils/company_profile_validator.dart';
+import '../../../../widgets/logi_route_tab_bar.dart';
 import 'integration_settings_dialog.dart';
 
 /// Секция «Настройки» Owner Dashboard.
@@ -162,14 +163,15 @@ class _SettingsSectionState extends State<SettingsSection>
     final isNarrow = MediaQuery.of(context).size.width < 600;
     return Column(
       children: [
-        TabBar(
+        LogiRouteTabBar(
           controller: _tabController,
           isScrollable: isNarrow,
           tabs: [
-            Tab(
-                text: l10n.settingsCompanyProfile,
-                icon: const Icon(Icons.business_outlined)),
-            Tab(text: l10n.settingsTab, icon: const Icon(Icons.tune_outlined)),
+            LogiRouteTabItem(
+                label: l10n.settingsCompanyProfile,
+                icon: Icons.business_outlined),
+            LogiRouteTabItem(
+                label: l10n.settingsTab, icon: Icons.tune_outlined),
           ],
         ),
         Expanded(

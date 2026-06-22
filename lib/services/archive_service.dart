@@ -10,6 +10,31 @@ class ArchiveService {
 
   ArchiveService({required this.companyId});
 
+  /// Firestore Timestamp/GeoPoint → JSON-safe значения.
+  static dynamic toJsonSafe(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate().toIso8601String();
+    if (value is DateTime) return value.toIso8601String();
+    if (value is GeoPoint) {
+      return {'lat': value.latitude, 'lng': value.longitude};
+    }
+    if (value is DocumentReference) return value.path;
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k.toString(), toJsonSafe(v)));
+    }
+    if (value is List) return value.map(toJsonSafe).toList();
+    return value;
+  }
+
+  Map<String, dynamic> _docToJsonRecord(
+    Map<String, dynamic> data,
+    String id,
+  ) {
+    final record = Map<String, dynamic>.from(toJsonSafe(data) as Map);
+    record['_id'] = id;
+    return record;
+  }
+
   /// Архивировать историю изменений инвентаря старше указанного количества месяцев
   Future<Map<String, dynamic>> archiveInventoryHistory({
     int monthsOld = 3,
@@ -39,11 +64,9 @@ class ArchiveService {
       }
 
       // Конвертируем в JSON
-      final records = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['_id'] = doc.id; // Сохраняем ID для возможности восстановления
-        return data;
-      }).toList();
+      final records = snapshot.docs
+          .map((doc) => _docToJsonRecord(doc.data(), doc.id))
+          .toList();
 
       // Создаем имя файла с датой
       final fileName =
@@ -125,11 +148,9 @@ class ArchiveService {
       }
 
       // Конвертируем в JSON
-      final records = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['_id'] = doc.id;
-        return data;
-      }).toList();
+      final records = snapshot.docs
+          .map((doc) => _docToJsonRecord(doc.data(), doc.id))
+          .toList();
 
       // Создаем имя файла с датой
       final fileName =

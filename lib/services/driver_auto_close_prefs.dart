@@ -39,4 +39,19 @@ class DriverAutoClosePrefs {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_photoRequiredKey) ?? false;
   }
+
+  // ── Политика компании: автозакрытие точек по GPS включено? ──
+  // Зеркалится из CompanySettings.autoCloseEnabled. Если false — точки
+  // закрывает только водитель вручную (и foreground, и фоновый сервис).
+  static const _autoCloseEnabledKey = 'company_auto_close_enabled';
+
+  static Future<void> setAutoCloseEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoCloseEnabledKey, value);
+  }
+
+  static Future<bool> isAutoCloseEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoCloseEnabledKey) ?? true;
+  }
 }

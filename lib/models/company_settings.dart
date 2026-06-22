@@ -129,6 +129,12 @@ class CompanySettings {
   /// (без фото) скрыта, автозакрытие отключено (закрытие только с фото).
   final bool requirePodPhoto;
 
+  /// Включено ли автозакрытие точек по GPS (стоянка у клиента).
+  /// Если false — точки закрывает только водитель вручную (для компаний,
+  /// которым авто-закрытие не нужно). Имеет смысл только при
+  /// [requirePodPhoto] == false (с обязательным фото закрытие и так ручное).
+  final bool autoCloseEnabled;
+
   /// Куда выгружать бухгалтерские документы:
   /// 'none' — никуда (встроенная бухгалтерия), 'export' — файловый экспорт
   /// (מבנה אחיד), 'greeninvoice' / 'icount' — интеграция с внешней системой.
@@ -211,6 +217,7 @@ class CompanySettings {
     this.serviceMinutes = 8,
     this.deliveryDayMode = 'next',
     this.requirePodPhoto = false,
+    this.autoCloseEnabled = true,
     this.accountingProvider = 'none',
     this.modules = const ModuleEntitlements(),
     this.limits = const PlanLimits(),
@@ -259,6 +266,7 @@ class CompanySettings {
           : 8,
       deliveryDayMode: (data['deliveryDayMode'] as String?) ?? 'next',
       requirePodPhoto: data['requirePodPhoto'] == true,
+      autoCloseEnabled: data['autoCloseEnabled'] != false,
       accountingProvider: (data['accountingProvider'] as String?) ?? 'none',
       modules: ModuleEntitlements.fromMap(data['modules'] != null
           ? Map<String, dynamic>.from(data['modules'] as Map)
@@ -311,6 +319,7 @@ class CompanySettings {
       'serviceMinutes': serviceMinutes,
       'deliveryDayMode': deliveryDayMode,
       'requirePodPhoto': requirePodPhoto,
+      'autoCloseEnabled': autoCloseEnabled,
       'accountingProvider': accountingProvider,
       'modules': modules.toMap(),
       'limits': limits.toMap(),
@@ -354,6 +363,7 @@ class CompanySettings {
     int? serviceMinutes,
     String? deliveryDayMode,
     bool? requirePodPhoto,
+    bool? autoCloseEnabled,
     String? accountingProvider,
     ModuleEntitlements? modules,
     PlanLimits? limits,
@@ -392,6 +402,7 @@ class CompanySettings {
       serviceMinutes: serviceMinutes ?? this.serviceMinutes,
       deliveryDayMode: deliveryDayMode ?? this.deliveryDayMode,
       requirePodPhoto: requirePodPhoto ?? this.requirePodPhoto,
+      autoCloseEnabled: autoCloseEnabled ?? this.autoCloseEnabled,
       accountingProvider: accountingProvider ?? this.accountingProvider,
       modules: modules ?? this.modules,
       limits: limits ?? this.limits,

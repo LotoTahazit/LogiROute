@@ -21,6 +21,7 @@ import 'edit_point_dialog.dart';
 import 'add_product_to_point_dialog.dart';
 import 'create_invoice_dialog.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logi_route_tab_bar.dart';
 import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
@@ -1345,10 +1346,8 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
             ),
           ],
         ),
-        body: DefaultTabController(
-              length: 3,
-              child: Column(
-                children: [
+        body: Column(
+              children: [
                   if (authService.userModel?.isAdmin == true &&
                       authService.viewAsRole == 'dispatcher')
                     Container(
@@ -1420,13 +1419,15 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                           routes: routes, drivers: _drivers);
                     },
                   ),
-                  TabBar(
+                  LogiRouteTabBar(
                     isScrollable: narrow,
-                    onTap: (index) => setState(() => _currentTabIndex = index),
+                    selectedIndex: _currentTabIndex,
+                    onChanged: (index) =>
+                        setState(() => _currentTabIndex = index),
                     tabs: [
-                      Tab(text: l10n.deliveryPoints),
-                      Tab(text: l10n.routes),
-                      Tab(text: l10n.map),
+                      LogiRouteTabItem(label: l10n.deliveryPoints),
+                      LogiRouteTabItem(label: l10n.routes),
+                      LogiRouteTabItem(label: l10n.map),
                     ],
                   ),
                   Expanded(
@@ -1634,7 +1635,6 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                   ),
                 ],
               ),
-            ),
         floatingActionButton: _currentTabIndex == 0
             ? FloatingActionButton(
                 tooltip: l10n.addPoint,

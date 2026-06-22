@@ -376,11 +376,13 @@ class BackgroundLocationService {
         final disabledAuto = await DriverAutoClosePrefs.loadDisabled();
         // Политика компании «POD-фото обязательно» — автозакрытие отключено.
         final photoRequired = await DriverAutoClosePrefs.isPhotoRequired();
+        // Политика компании: автозакрытие по GPS может быть выключено целиком.
+        final autoCloseEnabled = await DriverAutoClosePrefs.isAutoCloseEnabled();
 
         // Гейт по остановке: если водитель едет (проезд мимо / пробка) —
         // таймеры не идут. position.speed в м/с (0 при неизвестной).
         final moving = position.speed > 1.5; // ≈5 км/ч
-        if (photoRequired || moving) {
+        if (photoRequired || !autoCloseEnabled || moving) {
           if (arrivalTimes.isNotEmpty) arrivalTimes.clear();
         } else {
           // Только ОДНА ближайшая незавершённая (не отключённая) точка в
