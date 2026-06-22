@@ -147,6 +147,7 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   late DateTime _deliveryDate;
   String? _periodLockError;
+  String _paymentMethod = 'מזומן'; // אופן תשלום (для חשבונית מס/קבלה)
 
   bool get _taxInvoiceReceiptBlocked =>
       widget.docType == AccountingDocType.taxInvoiceReceipt &&
@@ -298,7 +299,7 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
         documentType: widget.docType.toInvoiceDocumentType,
         status: InvoiceStatus.draft,
         paymentMethod: widget.docType == AccountingDocType.taxInvoiceReceipt
-            ? 'cash'
+            ? _paymentMethod
             : null,
       );
 
@@ -411,6 +412,35 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                         _buildLinesSection(theme),
                         const SizedBox(height: 16),
                         _buildTotalsCard(theme, totals),
+                        // אופן תשלום — только для חשבונית מס/קבלה (это и квитанция).
+                        if (widget.docType ==
+                            AccountingDocType.taxInvoiceReceipt) ...[
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _paymentMethod,
+                            decoration: InputDecoration(
+                              labelText: l10n.paymentMethodLabel,
+                              border: const OutlineInputBorder(),
+                            ),
+                            items: [
+                              DropdownMenuItem(
+                                  value: 'מזומן', child: Text(l10n.cash)),
+                              DropdownMenuItem(
+                                  value: "צ'ק", child: Text(l10n.cheque)),
+                              DropdownMenuItem(
+                                  value: 'העברה בנקאית',
+                                  child: Text(l10n.bankTransfer)),
+                              DropdownMenuItem(
+                                  value: 'כרטיס אשראי',
+                                  child: Text(l10n.creditCard)),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _paymentMethod = val);
+                              }
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _notesCtrl,

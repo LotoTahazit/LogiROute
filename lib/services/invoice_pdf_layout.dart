@@ -131,6 +131,15 @@ pw.Widget buildHeader(
             fontLatin,
             fontSize: 7,
           ),
+          pw.SizedBox(height: 1),
+          // עוסק מורשה — обязательное обозначение статуса плательщика НДС.
+          smartText(
+            'עוסק מורשה ${settings.taxId}',
+            fontHebrewBold,
+            fontLatin,
+            fontSize: 7,
+            bold: true,
+          ),
         ],
       ),
     ],
@@ -154,7 +163,7 @@ pw.Widget buildInvoiceTitle(
       copyTypeText = 'עותק';
       break;
     case InvoiceCopyType.replacesOriginal:
-      copyTypeText = 'נעימן למקור';
+      copyTypeText = 'נאמן למקור';
       break;
   }
 
@@ -259,6 +268,18 @@ pw.Widget buildInvoiceTitle(
                     fontSize: 12, bold: true),
               ],
             ),
+            // מספר הקצאה (חשבוניות ישראל) — печатается на счёте при наличии.
+            if (invoice.assignmentNumber != null &&
+                invoice.assignmentNumber!.isNotEmpty)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 2),
+                child: smartText(
+                    'מספר הקצאה: ${invoice.assignmentNumber}',
+                    fontHebrewBold,
+                    fontLatin,
+                    fontSize: 8,
+                    bold: true),
+              ),
             if (isReprint)
               pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 2),
@@ -525,6 +546,15 @@ pw.Widget buildTotals(
   pw.Font fontHebrewBold,
   pw.Font fontLatin,
 ) {
+  // Скидка и ставка НДС — динамически из счёта (а не зашитые 0%/18%),
+  // чтобы корректно отражать per-line НДС (0% Эйлат/освобождённые) и скидку.
+  final discStr =
+      '${invoice.discount == invoice.discount.roundToDouble() ? invoice.discount.toStringAsFixed(0) : invoice.discount.toStringAsFixed(1)}%';
+  final vatPct = invoice.subtotalBeforeVAT > 0
+      ? (invoice.vatAmount / invoice.subtotalBeforeVAT) * 100
+      : Invoice.vatRate * 100;
+  final vatPctStr =
+      '${vatPct == vatPct.roundToDouble() ? vatPct.toStringAsFixed(0) : vatPct.toStringAsFixed(1)}%';
   return pw.Row(
     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -542,7 +572,7 @@ pw.Widget buildTotals(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  invoice.subtotalBeforeVAT.toStringAsFixed(2),
+                  invoice.totalBeforeDiscount.toStringAsFixed(2),
                   style: pw.TextStyle(font: fontLatin, fontSize: 8),
                 ),
                 smartText('סה״כ', fontHebrew, fontLatin, fontSize: 8),
@@ -553,13 +583,13 @@ pw.Widget buildTotals(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '0.00',
+                  invoice.discountAmount.toStringAsFixed(2),
                   style: pw.TextStyle(font: fontLatin, fontSize: 8),
                 ),
                 pw.Row(
                   children: [
                     pw.Text(
-                      '0.0%',
+                      discStr,
                       style: pw.TextStyle(font: fontLatin, fontSize: 8),
                     ),
                     pw.SizedBox(width: 2),
@@ -611,7 +641,7 @@ pw.Widget buildTotals(
                 pw.Row(
                   children: [
                     pw.Text(
-                      '18%',
+                      vatPctStr,
                       style: pw.TextStyle(font: fontLatin, fontSize: 8),
                     ),
                     pw.SizedBox(width: 2),

@@ -181,7 +181,14 @@ class InvoiceAssignmentService {
 
   /// קריאה בפועל ל-API של חשבוניות ישראל
   /// requestId = idempotency key — אותו requestId תמיד מחזיר אותה תוצאה
-  /// TODO: להחליף ב-URL וטוקן אמיתיים לאחר רישום מול רשות המסים
+  ///
+  /// ⚠️ БЕЗОПАСНОСТЬ (читать перед включением реального API):
+  /// Этот вызов идёт ИЗ КЛИЕНТА. Токен/секрет рשут המסים НЕЛЬЗЯ класть сюда —
+  /// он попадёт в web/APK-бандл (утечка, как было с SMTP). Перед боевым
+  /// запуском перенести вызов в Cloud Function (callable `requestAssignment`),
+  /// токен — в functions/.env; клиент только триггерит функцию.
+  /// TODO(B1): 1) регистрация в רשות המסים → client_id/secret;
+  ///           2) реальный endpoint + OAuth (SHAAM); 3) перенос в CF.
   Future<AssignmentResult> _callAssignmentApi(
       Invoice invoice, String requestId) async {
     // === PLACEHOLDER: API endpoint של רשות המסים ===

@@ -388,15 +388,18 @@ class _VatReport extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l10n.totalVatForPeriod,
-                              style: theme.textTheme.bodyMedium),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onPrimary)),
                           const SizedBox(height: 4),
                           Text('\u20AA${totalVat.toStringAsFixed(2)}',
-                              style: theme.textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onPrimary)),
                           const SizedBox(height: 4),
                           Text(
                               '${l10n.taxBase}: \u20AA${totalBase.toStringAsFixed(2)}',
-                              style: theme.textTheme.bodySmall),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onPrimary)),
                         ]))),
             FilledButton.icon(
                 onPressed: () => _csv(context, months, vatData),
@@ -735,9 +738,12 @@ class _StatChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(value,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          Text(label, style: theme.textTheme.bodySmall),
+              style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onPrimary)),
+          Text(label,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onPrimary)),
         ],
       ),
     );
