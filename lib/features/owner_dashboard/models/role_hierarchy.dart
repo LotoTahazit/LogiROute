@@ -77,7 +77,9 @@ enum AppRole {
       case 'viewer':
         return AppRole.viewer;
       default:
-        throw ArgumentError('Unknown role: $role');
+        // Неизвестная роль из Firestore (легаси/новые значения, напр. 'pending')
+        // НЕ должна ронять экран — least privilege (минимальные права).
+        return AppRole.viewer;
     }
   }
 }
