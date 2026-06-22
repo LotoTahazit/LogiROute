@@ -19,7 +19,8 @@ enum MembershipStatus {
       case 'suspended':
         return MembershipStatus.suspended;
       default:
-        throw ArgumentError('Unknown membership status: $status');
+        // Неизвестный статус не должен ронять список участников.
+        return MembershipStatus.suspended;
     }
   }
 }

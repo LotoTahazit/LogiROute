@@ -110,9 +110,20 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
               return Card(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(
-                    l10n.errorLoadingUsers,
-                    style: TextStyle(color: theme.colorScheme.error),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.errorLoadingUsers,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${snapshot.error}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.error),
+                      ),
+                    ],
                   ),
                 ),
               );

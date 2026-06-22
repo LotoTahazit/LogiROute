@@ -39,22 +39,27 @@ class MembersRepository {
       final members = <MemberWithUser>[];
 
       for (final doc in snapshot.docs) {
-        final uid = doc.id;
-        final membership = Membership.fromMap(doc.data());
+        try {
+          final uid = doc.id;
+          final membership = Membership.fromMap(doc.data());
 
-        final userDoc = await _usersCollection.doc(uid).get();
-        final rawUser = userDoc.data();
-        final userMap = rawUser != null
-            ? Map<String, dynamic>.from(rawUser as Map)
-            : <String, dynamic>{};
+          final userDoc = await _usersCollection.doc(uid).get();
+          final rawUser = userDoc.data();
+          final userMap = rawUser != null
+              ? Map<String, dynamic>.from(rawUser as Map)
+              : <String, dynamic>{};
 
-        members.add(
-          MemberWithUser.fromUserMapAndMembership(
-            uid: uid,
-            userMap: userMap,
-            membership: membership,
-          ),
-        );
+          members.add(
+            MemberWithUser.fromUserMapAndMembership(
+              uid: uid,
+              userMap: userMap,
+              membership: membership,
+            ),
+          );
+        } catch (_) {
+          // Битый member-док не должен ронять весь список — пропускаем его.
+          continue;
+        }
       }
 
       return members;
