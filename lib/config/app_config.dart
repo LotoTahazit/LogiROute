@@ -55,4 +55,10 @@ class AppConfig {
   // 🧾 Tax invoice/receipt UI gate.
   // Keep the document type in the domain model so Mas Hachnasa API can be added later.
   static const bool enableTaxInvoiceReceipt = true;
+
+  // 🧾 מספר הקצאה (חשבוניות ישראל). API рשут המסים ещё НЕ подключён.
+  // Пока false — иначе `requiresAssignment` блокирует печать מקור у счетов
+  // выше порога (нет номера הקצаה → исключение в invoice_print_service).
+  // Поставить true, когда будет реальная интеграция с API налоговой (B1).
+  static const bool enableAssignmentNumbers = false;
 }

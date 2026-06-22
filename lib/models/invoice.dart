@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import '../config/app_config.dart';
 
 enum InvoiceCopyType {
   original, // מקור
@@ -307,6 +308,9 @@ class Invoice {
 
   /// בדיקה אם נדרש מספר הקצאה — לפי סף וסוג מסמך
   bool get requiresAssignment {
+    // API рשут המסים ещё нет → не требуем номер הקצаה, иначе блокируется
+    // печать מקור больших счетов. Активируется флагом, когда B1 готов.
+    if (!AppConfig.enableAssignmentNumbers) return false;
     // רק חשבוניות מס דורשות מספר הקצאה
     if (documentType != InvoiceDocumentType.invoice &&
         documentType != InvoiceDocumentType.taxInvoiceReceipt) {
