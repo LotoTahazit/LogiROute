@@ -490,9 +490,14 @@ service cloud.firestore {
         allow create: if canWriteModule(companyId, 'accounting') && companyIdMatchesPath(companyId)
           && isNewDocUnlocked(companyId, request.resource.data.deliveryDate)
           && (
-            hasAnyRole(['admin', 'super_admin', 'accountant']) ||
+            hasAnyRole(['admin', 'super_admin', 'accountant', 'owner']) ||
             (isRole('dispatcher') && request.resource.data.documentType in ['delivery', 'invoice', 'taxInvoiceReceipt'])
-          );
+          )
+          // anti-forgery: מספר הקצאה выставляет ТОЛЬКО сервер (issueInvoice CF).
+          // Клиент не может создать счёт с готовым allocation/approved.
+          && !('assignmentNumber' in request.resource.data)
+          && (!('assignmentStatus' in request.resource.data)
+              || request.resource.data.assignmentStatus in ['notRequired', 'pending']);
         // update: only admin/super_admin, immutable fields, period lock on existing doc
         // Server-issued fields (sequentialNumber, finalizedAt, finalizedBy, immutableSnapshotHash)
         // are also immutable from client — only Cloud Function (Admin SDK) can set them.
@@ -515,9 +520,27 @@ service cloud.firestore {
             !('status' in request.resource.data) || request.resource.data.status != 'voided'
             || ('voidedBy' in request.resource.data && request.resource.data.voidedBy == request.auth.uid)
           )
+          // issued — неизменяемый по сути (חוק ניהול ספרים): контент заморожен,
+          // разрешены только переход в voided (+void-поля), creditNoteIds и печать/аудит.
+          && (
+            !('status' in resource.data) || resource.data.status != 'issued'
+            || (
+              (!('items' in resource.data) || unchanged('items'))
+              && (!('clientName' in resource.data) || unchanged('clientName'))
+              && (!('clientNumber' in resource.data) || unchanged('clientNumber'))
+              && (!('address' in resource.data) || unchanged('address'))
+              && (!('discount' in resource.data) || unchanged('discount'))
+              && (!('documentType' in resource.data) || unchanged('documentType'))
+            )
+          )
+          // allocation (מספר הקצаה) — server-only: клиент не добавляет/не меняет
+          && (!('assignmentNumber' in request.resource.data)
+              || (('assignmentNumber' in resource.data) && unchanged('assignmentNumber')))
+          && (!('assignmentStatus' in request.resource.data)
+              || (('assignmentStatus' in resource.data) && unchanged('assignmentStatus')))
           && (
             hasAnyRole(['admin', 'super_admin'])
-            || (hasAnyRole(['accountant']) && resource.data.status == 'draft'
+            || (hasAnyRole(['accountant', 'owner']) && resource.data.status == 'draft'
               && (!('status' in request.resource.data) || request.resource.data.status in ['draft', 'cancelled']))
           );
         allow delete: if false;

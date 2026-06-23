@@ -83,6 +83,12 @@ async function seedBaseData() {
       finalizedAt: new Date("2026-01-15"),
       finalizedBy: "server",
       immutableSnapshotHash: "abc123hash",
+      clientName: "Acme",
+      clientNumber: "123",
+      address: "Some St 1, Tel Aviv",
+      discount: 0,
+      documentType: "invoice",
+      items: [{ productCode: "P1", quantity: 2, pricePerUnit: 100 }],
     });
 
     // draft invoice — для тестов client cannot flip to issued
@@ -144,6 +150,7 @@ async function seedBaseData() {
     // === canUseModule RBAC tests ===
     // admin user for c1
     await db.doc(`${USERS_COL}/u_admin_c1`).set({ role: "admin", companyId: "c1" });
+    await db.doc(`${USERS_COL}/u_owner_c1`).set({ role: "owner", companyId: "c1" });
     // company with accounting disabled (for admin module-disabled test)
     await db.doc(`${COMPANIES_COL}/cNoAccAdmin`).set({
       billingStatus: "active",
@@ -1450,6 +1457,53 @@ test("Immutable: admin can update non-server fields on issued invoice", async ()
       finalizedBy: "server",
       immutableSnapshotHash: "abc123hash",
       notes: "admin note",
+    })
+  );
+});
+
+// ✅ Owner can create a draft invoice (owner-dashboard uses InvoiceService.createInvoice)
+test("Owner can create draft invoice", async () => {
+  const db = authed("u_owner_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/accounting/_root/invoices/inv_owner1`).set({
+      companyId: "c1",
+      documentType: "invoice",
+      status: "draft",
+      sequentialNumber: 0,
+      deliveryDate: new Date("2026-06-10"),
+      createdAt: Date.now(),
+      createdBy: "u_owner_c1",
+      assignmentStatus: "notRequired",
+      total: 100,
+    })
+  );
+});
+
+// ❌ Client cannot self-assign an allocation number (מספר הקצאה) on create
+test("Anti-forgery: client cannot set assignmentNumber/approved on create", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/accounting/_root/invoices/inv_forge`).set({
+      companyId: "c1",
+      documentType: "invoice",
+      status: "draft",
+      sequentialNumber: 0,
+      deliveryDate: new Date("2026-06-10"),
+      createdAt: Date.now(),
+      createdBy: "u_admin_c1",
+      assignmentNumber: "FAKE123",
+      assignmentStatus: "approved",
+    })
+  );
+});
+
+// ❌ Issued invoice content is immutable (חוק ניהול ספרים) — even admin cannot change items
+test("Immutable: admin cannot change items/amounts on issued invoice", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/accounting/_root/invoices/inv_issued`).update({
+      companyId: "c1",
+      items: [{ productCode: "P9", quantity: 99, pricePerUnit: 999 }],
     })
   );
 });
