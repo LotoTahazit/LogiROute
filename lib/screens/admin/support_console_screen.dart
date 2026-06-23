@@ -30,6 +30,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
 
   // Data for tabs
   List<Map<String, dynamic>> _auditEvents = [];
+  Map<String, String> _userNames = {}; // uid → имя (для аудита: имена, не коды)
   List<Map<String, dynamic>> _paymentEvents = [];
   List<Map<String, dynamic>> _notifications = [];
   List<Map<String, dynamic>> _pushLogs = [];
@@ -123,7 +124,15 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
           .map((d) => {...d.data() as Map<String, dynamic>, 'id': d.id})
           .toList();
       _unreadCount = (results[5] as QuerySnapshot).docs.length;
-      _userCount = (results[6] as QuerySnapshot).docs.length;
+      final usersSnap = results[6] as QuerySnapshot;
+      _userCount = usersSnap.docs.length;
+      _userNames = {
+        for (final d in usersSnap.docs)
+          d.id: (() {
+            final m = d.data() as Map<String, dynamic>;
+            return ((m['name'] ?? m['displayName'] ?? '') as String);
+          })(),
+      };
       _docsThisMonth = (results[7] as QuerySnapshot).docs.length;
     } catch (e) {
       if (mounted) {
@@ -604,6 +613,15 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
     );
   }
 
+  /// Имя актора по uid (для аудита: показываем имя, а не код).
+  /// 'system' и неизвестные uid — как есть.
+  String _actorName(dynamic actor) {
+    final id = (actor ?? '').toString();
+    if (id.isEmpty || id == 'system') return id;
+    final name = _userNames[id];
+    return (name != null && name.isNotEmpty) ? name : id;
+  }
+
   Widget _buildAuditTab() {
     final l10n = AppLocalizations.of(context)!;
     if (_auditEvents.isEmpty) {
@@ -628,7 +646,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
           subtitle: Text(
             '${from.isNotEmpty ? '$from → $to' : ''}'
             '${reason.isNotEmpty ? ' • $reason' : ''}'
-            '\n${_fmtTs(e['createdAt'])} • ${e['createdBy'] ?? ''}',
+            '\n${_fmtTs(e['createdAt'])} • ${_actorName(e['createdBy'])}',
             style: const TextStyle(fontSize: 11),
           ),
           isThreeLine: true,
@@ -703,7 +721,8 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
             ),
           ),
           subtitle: Text(
-            '${n['type'] ?? ''} • ${read ? l10n.readStatus : l10n.unreadStatus}\n${_fmtTs(n['createdAt'])}',
+            '${(n['body'] ?? '').toString().isNotEmpty ? '${n['body']}\n' : ''}'
+            '${n['type'] ?? ''} • ${read ? l10n.readStatus : l10n.unreadStatus} • ${_fmtTs(n['createdAt'])}',
             style: const TextStyle(fontSize: 11),
           ),
           isThreeLine: true,
