@@ -32,7 +32,6 @@ dependencies:
   
   # Background & Notifications
   flutter_local_notifications: ^18.0.1
-  android_alarm_manager_plus: ^4.0.3
   flutter_background_service: ^5.0.10
   flutter_background_service_android: ^6.2.4
   firebase_messaging: ^16.1.1

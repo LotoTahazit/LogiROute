@@ -39,12 +39,6 @@ class CompanySelectionService extends ChangeNotifier {
     }
   }
 
-  /// Устаревший метод - используйте getEffectiveCompanyId
-  @Deprecated('Use getEffectiveCompanyId instead')
-  String? getCompanyId(AuthService authService) {
-    return getEffectiveCompanyId(authService);
-  }
-
   /// Загрузить список доступных компаний
   Future<void> loadCompanies() async {
     _isLoading = true;

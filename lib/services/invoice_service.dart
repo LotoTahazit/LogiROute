@@ -162,15 +162,6 @@ class InvoiceService {
     }
   }
 
-  /// ⚠️ DEPRECATED - Use cancelInvoice instead
-  /// מחיקה אסורה לפי חוק ניהול ספרים!
-  @Deprecated('Use cancelInvoice instead. Deletion violates Israeli tax law.')
-  Future<void> deleteInvoice(String id) async {
-    throw UnsupportedError(
-      'Invoice deletion is not allowed per Israeli tax law. Use cancelInvoice instead.',
-    );
-  }
-
   /// Soft-void issued document.
   /// ביטול מסמך שהונפק — status=voided, לא מחיקה.
   /// Only issued documents can be voided. Voided docs are frozen in rules.
