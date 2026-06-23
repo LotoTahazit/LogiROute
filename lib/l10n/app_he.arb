@@ -61,6 +61,25 @@
   "clientName": "שם לקוח",
   "clientNumber": "מספר לקוח",
   "clientManagement": "ניהול לקוחות",
+  "regeocodeAllClientsMenu": "גיאוקוד מחדש לכל הלקוחות",
+  "regeocodeAllClientsConfirm": "לבצע גיאוקוד מחדש לכל הלקוחות עם כתובת? הקואורדינטות יתעדכנו לפי עיר מהכתובת. זה עלול לקחת כמה דקות.",
+  "regeocodeAllClientsProgress": "גיאוקוד {done} / {total}…",
+  "@regeocodeAllClientsProgress": {
+    "placeholders": {
+      "done": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "regeocodeAllClientsResult": "הושלם: עודכנו {updated}, ללא שינוי {unchanged}, שגיאות {failed}, ללא כתובת {skipped}. נקודות פעילות: {points}.",
+  "@regeocodeAllClientsResult": {
+    "placeholders": {
+      "updated": {"type": "int"},
+      "unchanged": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "points": {"type": "int"}
+    }
+  },
   "editClient": "ערוך לקוח",
   "createClient": "צור לקוח חדש",
   "clientCreated": "הלקוח נוצר בהצלחה",
@@ -1740,6 +1759,17 @@
   "accountingSyncStatusFailed": "נכשל",
   "accountingSyncStatusProcessing": "מעבד",
   "accountingSyncRetry": "נסה שוב",
+  "accountingSyncRetryAllFailed": "נסה שוב את כל השגויים",
+  "accountingSyncBackfillUnsynced": "סנכרן מסמכים שלא הועלו",
+  "accountingSyncBatchResult": "עובדו {processed}: הצליחו {succeeded}, נכשלו {failed}, דולגו {skipped}",
+  "@accountingSyncBatchResult": {
+    "placeholders": {
+      "processed": {"type": "int"},
+      "succeeded": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
   "accountingSyncNoEntries": "אין רשומות סנכרון — חשבוניות שהונפקו יופיעו כאן.",
   "accountingSyncRetried": "ניסיון סנכרון החל",
   "accountingSyncDistribution": "מספר הקצאה: {number}",

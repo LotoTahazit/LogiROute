@@ -138,6 +138,24 @@ class AppLocalizationsRu extends AppLocalizations {
   String get clientManagement => 'Управление клиентами';
 
   @override
+  String get regeocodeAllClientsMenu => 'Перегеокодировать всех клиентов';
+
+  @override
+  String get regeocodeAllClientsConfirm =>
+      'Перегеокодировать всех клиентов с адресом? Координаты обновятся по новым правилам (город из адреса). Это может занять несколько минут.';
+
+  @override
+  String regeocodeAllClientsProgress(int done, int total) {
+    return 'Геокодинг $done / $total…';
+  }
+
+  @override
+  String regeocodeAllClientsResult(
+      int updated, int unchanged, int failed, int skipped, int points) {
+    return 'Готово: обновлено $updated, без изменений $unchanged, ошибок $failed, без адреса $skipped. Активных точек обновлено: $points.';
+  }
+
+  @override
   String get editClient => 'Редактировать клиента';
 
   @override
@@ -4515,6 +4533,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get accountingSyncRetry => 'Повторить';
+
+  @override
+  String get accountingSyncRetryAllFailed => 'Повторить все ошибки';
+
+  @override
+  String get accountingSyncBackfillUnsynced => 'Синхронизировать невыгруженные';
+
+  @override
+  String accountingSyncBatchResult(
+      int processed, int succeeded, int failed, int skipped) {
+    return 'Обработано $processed: OK $succeeded, ошибок $failed, пропущено $skipped';
+  }
 
   @override
   String get accountingSyncNoEntries =>

@@ -50,6 +50,9 @@ exports.createCheckoutSession = createCheckoutSession;
 const { retryAccountingSync } = require('./retryAccountingSync');
 exports.retryAccountingSync = retryAccountingSync;
 
+const { batchAccountingSync } = require('./batchAccountingSync');
+exports.batchAccountingSync = batchAccountingSync;
+
 const { testAccountingCredentials } = require('./testAccountingCredentials');
 exports.testAccountingCredentials = testAccountingCredentials;
 

@@ -9,19 +9,25 @@ function _db() {
 
 const FieldValue = admin.firestore.FieldValue;
 
-async function _writeExternalFields(ref, provider, result) {
+async function _writeExternalFields(ref, provider, result, invoiceData) {
   if (!ref || !result?.ok) return;
-  await ref.set(
-    {
-      externalProvider: provider,
-      externalId: result.externalId || null,
-      externalDocNumber: result.externalNumber || null,
-      externalDistributionNumber: result.distributionNumber || null,
-      externalPdfUrl: result.pdfUrl || null,
-      externalSyncedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const patch = {
+    externalProvider: provider,
+    externalId: result.externalId || null,
+    externalDocNumber: result.externalNumber || null,
+    externalDistributionNumber: result.distributionNumber || null,
+    externalPdfUrl: result.pdfUrl || null,
+    externalSyncedAt: FieldValue.serverTimestamp(),
+  };
+  const dist = result.distributionNumber;
+  const inv = invoiceData || {};
+  const dt = String(inv.documentType || "");
+  const taxDoc = dt === "invoice" || dt === "taxInvoiceReceipt";
+  if (dist && taxDoc && !inv.assignmentNumber) {
+    patch.assignmentNumber = String(dist);
+    patch.assignmentStatus = "approved";
+  }
+  await ref.set(patch, { merge: true });
 }
 
 /**
@@ -135,7 +141,7 @@ async function enqueueExternalAccountingSync({
     );
 
     if (ok && loaded.ref) {
-      await _writeExternalFields(loaded.ref, provider, result);
+      await _writeExternalFields(loaded.ref, provider, result, loaded.data);
     }
 
     return { ok, provider, result };

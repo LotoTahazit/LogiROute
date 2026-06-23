@@ -18,7 +18,7 @@ flutter gen-l10n
 
 echo ""
 echo "[3/4] Сборка веб-версии (RELEASE)..."
-flutter build web --release
+flutter build web --release --pwa-strategy=none
 
 echo ""
 echo "[4/4] Деплой на Firebase Hosting..."

@@ -136,9 +136,18 @@ class AuthService extends ChangeNotifier {
   bool _isLoading = true;
   String? _virtualCompanyId; // ✅ Виртуальный companyId для super_admin
   late final StreamSubscription<User?> _authSubscription;
+  int _authGen = 0;
 
   AuthService() {
     _authSubscription = _auth.authStateChanges().listen(_onAuthStateChanged);
+    // Web: битый IndexedDB Auth иногда не шлёт первое событие — снимаем спиннер.
+    Future<void>.delayed(const Duration(seconds: 12), () {
+      if (_isLoading) {
+        debugPrint('⚠️ [AuthService] auth init timeout');
+        _isLoading = false;
+        notifyListeners();
+      }
+    });
   }
 
   @override
@@ -185,42 +194,47 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
+    final gen = ++_authGen;
     debugPrint('🔐 [AuthService] _onAuthStateChanged: user=${user?.email}');
 
-    // Дедупликация: если тот же пользователь уже загружен — не перезагружаем
     if (user != null && _currentUser?.uid == user.uid && _userModel != null) {
       debugPrint('🔐 [AuthService] Same user already loaded, skipping');
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
       return;
     }
 
     _currentUser = user;
-    if (user != null) {
-      debugPrint('🔐 [AuthService] Loading user model for uid: ${user.uid}');
-      await _loadUserModel(user.uid);
+    try {
+      if (user != null) {
+        debugPrint('🔐 [AuthService] Loading user model for uid: ${user.uid}');
+        await _loadUserModel(user.uid);
+        if (gen != _authGen) return;
+        debugPrint(
+            '✅ [AuthService] User model loaded: ${_userModel?.email}, role=${_userModel?.role}');
+        if (_userModel != null) {
+          await _ensureClaims(user);
+        }
+        if (gen != _authGen) return;
+        if (_userModel?.isAdmin == true) {
+          await _restoreViewAsFromPrefs();
+        }
+        saveLoginStatusToWeb(true);
+      } else {
+        debugPrint('🔐 [AuthService] User signed out');
+        _userModel = null;
+        _viewAsRole = null;
+        saveLoginStatusToWeb(false);
+      }
+    } finally {
+      if (gen != _authGen) return;
+      _isLoading = false;
       debugPrint(
-          '✅ [AuthService] User model loaded: ${_userModel?.email}, role=${_userModel?.role}');
-      // 🔑 Гарантируем custom claims (role/companyId) в токене — нужны правилам
-      // Storage/Firestore. Бэкофилл существующих + рефреш токена при изменении.
-      if (_userModel != null) {
-        await _ensureClaims(user);
-      }
-      // 🛡️ Восстанавливаем viewAsRole из SharedPreferences (только для админов)
-      if (_userModel?.isAdmin == true) {
-        await _restoreViewAsFromPrefs();
-      }
-      // Сохраняем статус логина для веба (для кнопки скачивания)
-      saveLoginStatusToWeb(true);
-    } else {
-      debugPrint('🔐 [AuthService] User signed out');
-      _userModel = null;
-      _viewAsRole = null;
-      // Сохраняем статус разлогина для веба
-      saveLoginStatusToWeb(false);
+          '✅ [AuthService] _onAuthStateChanged COMPLETE, notifying listeners');
+      notifyListeners();
     }
-    _isLoading = false;
-    debugPrint(
-        '✅ [AuthService] _onAuthStateChanged COMPLETE, notifying listeners');
-    notifyListeners();
   }
 
   /// Вызывает Cloud Function ensureMyClaims (ставит role/companyId в токен по
@@ -246,7 +260,11 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadUserModel(String uid) async {
     try {
       debugPrint('🔐 [AuthService] _loadUserModel START: uid=$uid');
-      final doc = await _firestore.collection('users').doc(uid).get();
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(const Duration(seconds: 15));
       debugPrint('🔐 [AuthService] Firestore doc.exists: ${doc.exists}');
 
       if (doc.exists) {

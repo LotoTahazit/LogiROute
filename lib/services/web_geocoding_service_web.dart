@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
+import '../utils/geocoding_city.dart';
 
 /// Результат геокодинга
 class GeocodingResult {
@@ -51,20 +52,28 @@ class WebGeocodingService {
     }
   }
 
-  /// Город из адреса = последний сегмент после запятой (без страны).
-  /// "יהודה הנשיא 15, בית שמש, ישראל" → "בית שמש". null, если города нет.
-  static String? _extractCity(String address) {
-    final parts = address
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    while (parts.isNotEmpty &&
-        (parts.last == 'ישראל' || parts.last.toLowerCase() == 'israel')) {
-      parts.removeLast();
+  static String? _extractCity(String address) =>
+      GeocodingCity.extractFromAddress(address);
+
+  static List<String> _componentNames(JSObject firstResult) {
+    final names = <String>[];
+    try {
+      final compsAny = firstResult['address_components'];
+      if (compsAny == null) return names;
+      final comps = compsAny as JSObject;
+      final lenAny = comps['length'];
+      final len = lenAny != null ? (lenAny as JSNumber).toDartInt : 0;
+      for (var i = 0; i < len; i++) {
+        final c = comps[i.toString()] as JSObject;
+        final long = c['long_name'];
+        final short = c['short_name'];
+        if (long != null) names.add((long as JSString).toDart);
+        if (short != null) names.add((short as JSString).toDart);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [WebGeocoding] address_components parse: $e');
     }
-    if (parts.length < 2) return null;
-    return parts.last;
+    return names;
   }
 
   static Future<GeocodingResult?> geocode(String address) async {
@@ -132,12 +141,13 @@ class WebGeocodingService {
             debugPrint('⚠️ [WebGeocoding] Error parsing formatted_address: $e');
           }
 
-          // Бэкстоп: результат должен быть в том же городе, что в адресе
-          // (для ЛЮБОГО города, не только списка). Иначе — отклоняем.
           final reqCity = _extractCity(address);
           if (reqCity != null &&
-              formattedAddress != null &&
-              !formattedAddress.contains(reqCity)) {
+              !GeocodingCity.matches(
+                reqCity: reqCity,
+                formattedAddress: formattedAddress,
+                componentNames: _componentNames(firstResult),
+              )) {
             debugPrint(
                 '⚠️ [WebGeocoding] city mismatch: ждали "$reqCity", получили "$formattedAddress" — отклонено');
             if (!completer.isCompleted) {

@@ -5,22 +5,19 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>LogiRoute</title>
 
-  <!-- 🧭 App Manifest -->
   <link rel="manifest" href="manifest.json">
-
-  <!-- 🖼️ Favicon -->
   <link rel="icon" type="image/png" href="icons/Icon-192.png">
 
-  <!-- ✅ Google Maps API для веба — ключ: GOOGLE_MAPS_WEB_KEY из .env.local (см. build_web.sh) -->
   <script
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBiYsqst8idu5sSFAdXdcGlGwGcY_p7dGc&libraries=places,geometry&language=he&region=IL&loading=async"
     async
     defer
   ></script>
 
-  <!-- 🧩 Flutter Styles -->
   <style>
     html, body {
       height: 100%;
@@ -28,70 +25,173 @@
       padding: 0;
       background: #f4f6f8;
       font-family: Arial, sans-serif;
-      direction: rtl; /* по умолчанию иврит */
     }
     #flutter_loader {
       position: absolute;
       width: 100%;
       height: 100%;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       background-color: white;
     }
-    .download-link {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #2196F3;
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      transition: all 0.3s ease;
-      z-index: 9999;
-    }
-    .download-link:hover {
-      background: #1976D2;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      transform: translateY(-2px);
-    }
-    .download-link::before {
-      content: '📱 ';
-    }
   </style>
 </head>
 <body>
-  <!-- 💫 Preloader (до загрузки Flutter) -->
   <div id="flutter_loader">
     <img src="icons/Icon-192.png" alt="LogiRoute" width="96" height="96">
   </div>
 
   <script>
-    // Flutter запускается через flutter_bootstrap.js.
-    // Здесь только управляем preloader.
-    window.addEventListener('flutter-first-frame', function () {
-      const loader = document.getElementById('flutter_loader');
-      if (loader) loader.remove();
-    });
+    (function () {
+      var STR = {
+        he: {
+          loadTooLong: 'הטעינה אורכת יותר מדי',
+          loadError: 'שגיאת טעינה',
+          resetDesc: 'מנקה מטמון, נתוני התחברות ומאפס את האתר — כמו «מחיקת נתונים» בדפדפן.',
+          resetBtn: 'איפוס וטעינה מחדש',
+          resetConfirm: 'לאפס נתוני אתר ולטעון מחדש? תידרש/י התחברות מחדש.'
+        },
+        en: {
+          loadTooLong: 'Loading is taking too long',
+          loadError: 'Loading error',
+          resetDesc: 'Clears cache, sign-in data and site storage — like “clear site data” in the browser.',
+          resetBtn: 'Reset and reload',
+          resetConfirm: 'Reset site data and reload? You will need to sign in again.'
+        },
+        ru: {
+          loadTooLong: 'Загрузка слишком долгая',
+          loadError: 'Ошибка загрузки',
+          resetDesc: 'Очищает кэш, данные входа и хранилище сайта — как «урна» в настройках браузера.',
+          resetBtn: 'Сбросить и загрузить',
+          resetConfirm: 'Сбросить данные сайта и перезагрузить? Потребуется войти снова.'
+        }
+      };
 
-    // Таймаут на случай зависания (30 секунд)
-    setTimeout(function () {
-      const loader = document.getElementById('flutter_loader');
-      if (!loader) return;
-      loader.innerHTML =
-        '<div style="text-align: center;">' +
-        '<h3 style="color: #e74c3c;">Loading timeout</h3>' +
-        '<p>The application is taking too long to load.</p>' +
-        '<button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px;">Refresh Page</button>' +
-        '</div>';
-    }, 30000);
+      function detectLang() {
+        try {
+          var loc = localStorage.getItem('app_locale');
+          if (loc === 'he' || loc === 'en' || loc === 'ru') return loc;
+        } catch (_) {}
+        var nav = (navigator.language || 'he').slice(0, 2).toLowerCase();
+        if (nav === 'iw') return 'he';
+        if (nav === 'he' || nav === 'en' || nav === 'ru') return nav;
+        return 'he';
+      }
+
+      var lang = detectLang();
+      window.__lrBootT = STR[lang] || STR.he;
+      document.documentElement.lang = lang;
+      document.body.style.direction = lang === 'he' ? 'rtl' : 'ltr';
+    })();
+
+    (async function bootLogiRoute() {
+      var loader = document.getElementById('flutter_loader');
+      var t = window.__lrBootT;
+
+      async function wipeAllSiteData() {
+        sessionStorage.clear();
+        if ('serviceWorker' in navigator) {
+          var regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }
+        if ('caches' in window) {
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+        if (indexedDB.databases) {
+          try {
+            var dbs = await indexedDB.databases();
+            await Promise.all(dbs.map(function (db) {
+              if (!db.name) return Promise.resolve();
+              return new Promise(function (resolve) {
+                var req = indexedDB.deleteDatabase(db.name);
+                req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
+              });
+            }));
+          } catch (e) { console.warn(e); }
+        }
+        localStorage.clear();
+      }
+
+      async function migrateStorageForNewBuild() {
+        try {
+          var res = await fetch('lr_epoch.txt?_=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) return false;
+          var epoch = (await res.text()).trim();
+          if (!epoch) return false;
+          if (localStorage.getItem('lr_epoch') === epoch) return false;
+          await wipeAllSiteData();
+          localStorage.setItem('lr_epoch', epoch);
+          location.reload();
+          return true;
+        } catch (e) {
+          console.warn('[LogiRoute] epoch', e);
+          return false;
+        }
+      }
+
+      async function purgeLegacyWorkers() {
+        if (!('serviceWorker' in navigator)) return false;
+        var had = !!navigator.serviceWorker.controller;
+        var regs = await navigator.serviceWorker.getRegistrations();
+        had = had || regs.length > 0;
+        await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        if ('caches' in window) {
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+        return had;
+      }
+
+      function showResetUi(title) {
+        if (!loader) return;
+        loader.innerHTML =
+          '<div style="text-align:center;max-width:400px;padding:16px;">' +
+          '<img src="icons/Icon-192.png" alt="LogiRoute" width="72" height="72"><br><br>' +
+          '<h3 style="color:#c0392b;margin:0 0 8px;">' + title + '</h3>' +
+          '<p style="color:#555;">' + t.resetDesc + '</p>' +
+          '<button id="lr_reset_btn" style="margin:8px;padding:12px 24px;font-size:16px;cursor:pointer;' +
+          'background:#e67e22;color:#fff;border:none;border-radius:6px;">' + t.resetBtn + '</button>' +
+          '</div>';
+        document.getElementById('lr_reset_btn').onclick = async function () {
+          if (!confirm(t.resetConfirm)) return;
+          await wipeAllSiteData();
+          location.reload();
+        };
+      }
+
+      try {
+        if (await migrateStorageForNewBuild()) return;
+
+        var reloads = parseInt(sessionStorage.getItem('lr_sw_reload') || '0', 10);
+        if (await purgeLegacyWorkers() && reloads < 2) {
+          sessionStorage.setItem('lr_sw_reload', String(reloads + 1));
+          location.reload();
+          return;
+        }
+        sessionStorage.removeItem('lr_sw_reload');
+
+        window.addEventListener('flutter-first-frame', function () {
+          if (loader) loader.remove();
+        });
+
+        var bust = Date.now();
+        var res = await fetch('flutter_bootstrap.js?_=' + bust, { cache: 'no-store' });
+        if (!res.ok) throw new Error('bootstrap HTTP ' + res.status);
+        var tag = document.createElement('script');
+        tag.text = await res.text();
+        document.head.appendChild(tag);
+
+        setTimeout(function () {
+          if (document.getElementById('flutter_loader')) showResetUi(t.loadTooLong);
+        }, 45000);
+      } catch (err) {
+        console.error('[LogiRoute boot]', err);
+        showResetUi(t.loadError);
+      }
+    })();
   </script>
-  
-  <!-- Загружаем Flutter bootstrap -->
-  <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>

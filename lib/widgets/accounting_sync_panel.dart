@@ -17,11 +17,41 @@ class AccountingSyncPanel extends StatefulWidget {
 class _AccountingSyncPanelState extends State<AccountingSyncPanel> {
   late final AccountingSyncService _service;
   final _retrying = <String>{};
+  bool _batchRunning = false;
 
   @override
   void initState() {
     super.initState();
     _service = AccountingSyncService(companyId: widget.companyId);
+  }
+
+  Future<void> _batch(String mode) async {
+    if (_batchRunning) return;
+    setState(() => _batchRunning = true);
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final r = await _service.batchSync(mode: mode);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.accountingSyncBatchResult(
+              r.processed,
+              r.succeeded,
+              r.failed,
+              r.skipped,
+            )),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _batchRunning = false);
+    }
   }
 
   Future<void> _retry(String invoiceId) async {
@@ -90,6 +120,29 @@ class _AccountingSyncPanelState extends State<AccountingSyncPanel> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _batchRunning ? null : () => _batch('failed'),
+                  icon: _batchRunning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(l10n.accountingSyncRetryAllFailed),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _batchRunning ? null : () => _batch('unsynced'),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: Text(l10n.accountingSyncBackfillUnsynced),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             StreamBuilder<List<AccountingSyncEntry>>(
               stream: _service.watchLedger(),
               builder: (context, snapshot) {

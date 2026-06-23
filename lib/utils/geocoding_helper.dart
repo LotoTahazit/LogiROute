@@ -1,98 +1,43 @@
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import '../models/delivery_point.dart';
+import '../services/address_geocoding_service.dart';
 import '../services/web_geocoding_service.dart';
 
 class GeocodingHelper {
-  static String applyStreetAbbreviations(String address) {
-    String result = address;
+  static String applyStreetAbbreviations(String address) =>
+      AddressGeocodingService.applyStreetAbbreviations(address);
 
-    final knownAbbreviations = {
-      'בעל שם טוב': 'בעלש"ט',
-      'הבעל שם טוב': 'הבעלש"ט',
-      'בן גוריון': 'בן גוריון',
-      'דוד המלך': 'דוד המלך',
-    };
-
-    for (final entry in knownAbbreviations.entries) {
-      result = result.replaceAll(entry.key, entry.value);
-    }
-
-    final patterns = [
-      RegExp(r'רבי\s+(\S)(\S+)'),
-      RegExp(r'משה\s+(\S)(\S+)'),
-      RegExp(r'אליהו\s+(\S)(\S+)'),
-      RegExp(r'דוד\s+(\S)(\S+)'),
-      RegExp(r'שלמה\s+(\S)(\S+)'),
-      RegExp(r'יהודה\s+(\S)(\S+)'),
-    ];
-
-    for (final pattern in patterns) {
-      result = result.replaceAllMapped(pattern, (match) {
-        final prefix = match.group(0)!.split(' ')[0];
-        final firstLetter = match.group(1)!;
-        return '$prefix $firstLetter';
-      });
-    }
-
-    return result;
-  }
-
-  static List<String> generateAddressVariants(String originalAddress) {
-    List<String> variants = [originalAddress];
-
-    String abbreviated = applyStreetAbbreviations(originalAddress);
-    if (abbreviated != originalAddress) variants.add(abbreviated);
-
-    variants.add('$originalAddress, ישראל');
-    if (abbreviated != originalAddress) variants.add('$abbreviated, ישראל');
-
-    String withoutPrefix = originalAddress
-        .replaceAll('רחוב ', '')
-        .replaceAll('רח\' ', '')
-        .replaceAll('שדרות ', '')
-        .replaceAll('שד\' ', '')
-        .trim();
-
-    if (withoutPrefix != originalAddress) {
-      variants.add(withoutPrefix);
-      variants.add('$withoutPrefix, ישראל');
-
-      String withoutPrefixAbbr = applyStreetAbbreviations(withoutPrefix);
-      if (withoutPrefixAbbr != withoutPrefix) {
-        variants.add(withoutPrefixAbbr);
-        variants.add('$withoutPrefixAbbr, ישראל');
-      }
-    }
-
-    return variants.toSet().toList();
-  }
+  static List<String> generateAddressVariants(String originalAddress) =>
+      AddressGeocodingService.generateAddressVariants(originalAddress);
 
   static Future<Map<String, double>?> geocodeAddress(String address) async {
     final variants = generateAddressVariants(address);
 
     if (kIsWeb) {
-      for (String variant in variants) {
+      for (final variant in variants) {
         final result = await WebGeocodingService.geocode(variant);
-        if (result != null) {
-          // 🛡️ GUARD: двойная проверка координат
-          if (!DeliveryPoint.isValidCoordinates(
-              result.latitude, result.longitude)) {
-            debugPrint('⚠️ [GeoHelper] REJECTED web — outside Israel: '
-                '(${result.latitude}, ${result.longitude}) for "$variant"');
-            continue;
-          }
+        if (result != null &&
+            DeliveryPoint.isValidCoordinates(
+                result.latitude, result.longitude)) {
           return {'latitude': result.latitude, 'longitude': result.longitude};
         }
       }
+      for (final variant in variants) {
+        final result = await AddressGeocodingService.geocodeViaGoogleAPI(variant);
+        if (result != null) return result;
+      }
     } else {
-      for (String variant in variants) {
+      for (final variant in variants) {
+        final result = await AddressGeocodingService.geocodeViaGoogleAPI(variant);
+        if (result != null) return result;
+      }
+      for (final variant in variants) {
         try {
           final locations = await geocoding.locationFromAddress(variant);
           if (locations.isNotEmpty) {
             final lat = locations.first.latitude;
             final lng = locations.first.longitude;
-            // 🛡️ GUARD: отклоняем координаты за пределами Израиля
             if (!DeliveryPoint.isValidCoordinates(lat, lng)) {
               debugPrint(
                   '⚠️ [GeoHelper] REJECTED — outside Israel: ($lat, $lng) for "$variant"');
@@ -100,7 +45,7 @@ class GeocodingHelper {
             }
             return {'latitude': lat, 'longitude': lng};
           }
-        } catch (e) {
+        } catch (_) {
           continue;
         }
       }

@@ -15,7 +15,6 @@ import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/box_type_selector.dart';
-import '../shared/dialogs/create_client_dialog.dart';
 import '../../services/firestore_paths.dart';
 
 class AddPointDialog extends StatefulWidget {
@@ -821,27 +820,6 @@ class _AddPointDialogState extends State<AddPointDialog> {
                       ),
                     ),
                   ],
-
-                  fieldGap,
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        final companyCtx = CompanyContext.of(context);
-                        final companyId = companyCtx.effectiveCompanyId ?? '';
-                        final created = await showDialog<ClientModel>(
-                          context: context,
-                          builder: (_) =>
-                              CreateClientDialog(companyId: companyId),
-                        );
-                        if (created != null && mounted) {
-                          _fillClientData(created);
-                        }
-                      },
-                      icon: const Icon(Icons.person_add_outlined, size: 18),
-                      label: Text(l10n.createClient),
-                    ),
-                  ),
 
                   fieldGap,
                   TextFormField(

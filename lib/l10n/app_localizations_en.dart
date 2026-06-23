@@ -138,6 +138,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clientManagement => 'Client Management';
 
   @override
+  String get regeocodeAllClientsMenu => 'Re-geocode all clients';
+
+  @override
+  String get regeocodeAllClientsConfirm =>
+      'Re-geocode all clients with an address? Coordinates will be updated using city-aware rules. This may take several minutes.';
+
+  @override
+  String regeocodeAllClientsProgress(int done, int total) {
+    return 'Geocoding $done / $total…';
+  }
+
+  @override
+  String regeocodeAllClientsResult(
+      int updated, int unchanged, int failed, int skipped, int points) {
+    return 'Done: updated $updated, unchanged $unchanged, failed $failed, no address $skipped. Active points updated: $points.';
+  }
+
+  @override
   String get editClient => 'Edit Client';
 
   @override
@@ -4515,6 +4533,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountingSyncRetry => 'Retry sync';
+
+  @override
+  String get accountingSyncRetryAllFailed => 'Retry all failed';
+
+  @override
+  String get accountingSyncBackfillUnsynced => 'Sync unsynced invoices';
+
+  @override
+  String accountingSyncBatchResult(
+      int processed, int succeeded, int failed, int skipped) {
+    return 'Processed $processed: OK $succeeded, failed $failed, skipped $skipped';
+  }
 
   @override
   String get accountingSyncNoEntries =>

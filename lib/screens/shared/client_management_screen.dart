@@ -4,6 +4,7 @@ import '../../models/client_model.dart';
 import '../../services/client_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../services/client_import_service.dart';
+import '../../services/client_regeocode_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/dialog_helper.dart';
@@ -297,9 +298,87 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
     }
   }
 
+  Future<void> _regeocodeAllClients() async {
+    final l10n = AppLocalizations.of(context)!;
+    final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+    if (companyId.isEmpty) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.regeocodeAllClientsMenu),
+        content: Text(l10n.regeocodeAllClientsConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final progress = ValueNotifier<(int, int)>((0, 1));
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.regeocodeAllClientsMenu),
+        content: ValueListenableBuilder<(int, int)>(
+          valueListenable: progress,
+          builder: (_, value, __) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LinearProgressIndicator(
+                value: value.$2 > 0 ? value.$1 / value.$2 : null,
+              ),
+              const SizedBox(height: 12),
+              Text(l10n.regeocodeAllClientsProgress(value.$1, value.$2)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    ClientRegeocodeReport? report;
+    try {
+      report = await ClientRegeocodeService(companyId: companyId).regeocodeAll(
+        onProgress: (d, t) => progress.value = (d, t),
+      );
+    } catch (e) {
+      progress.dispose();
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        SnackbarHelper.showError(context, '$e');
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    progress.dispose();
+    SnackbarHelper.showSuccess(
+      context,
+      l10n.regeocodeAllClientsResult(
+        report.updated,
+        report.unchanged,
+        report.failed,
+        report.skippedNoAddress,
+        report.pointsUpdated,
+      ),
+    );
+    _loadClients();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isAdmin = CompanyContext.of(context).currentUser?.isAdmin ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -310,6 +389,7 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
             onSelected: (value) {
               if (value == 'import') _importClients();
               if (value == 'export') _exportClients();
+              if (value == 'regeocode') _regeocodeAllClients();
             },
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -320,6 +400,15 @@ class _ClientManagementScreenState extends State<ClientManagementScreen> {
                   Text(l10n.importFromExcelMenu),
                 ]),
               ),
+              if (kIsWeb && isAdmin)
+                PopupMenuItem(
+                  value: 'regeocode',
+                  child: Row(children: [
+                    const Icon(Icons.my_location),
+                    const SizedBox(width: 8),
+                    Text(l10n.regeocodeAllClientsMenu),
+                  ]),
+                ),
               if (kIsWeb)
                 PopupMenuItem(
                   value: 'export',

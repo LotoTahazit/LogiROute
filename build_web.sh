@@ -12,4 +12,4 @@ if [[ -f "$ENV_FILE" ]]; then
   fi
 fi
 
-flutter build web --dart-define-from-file="$ENV_FILE"
+flutter build web --dart-define-from-file="$ENV_FILE" --release --pwa-strategy=none

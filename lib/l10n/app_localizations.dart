@@ -340,6 +340,31 @@ abstract class AppLocalizations {
   /// **'Client Management'**
   String get clientManagement;
 
+  /// No description provided for @regeocodeAllClientsMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-geocode all clients'**
+  String get regeocodeAllClientsMenu;
+
+  /// No description provided for @regeocodeAllClientsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-geocode all clients with an address? Coordinates will be updated using city-aware rules. This may take several minutes.'**
+  String get regeocodeAllClientsConfirm;
+
+  /// No description provided for @regeocodeAllClientsProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Geocoding {done} / {total}…'**
+  String regeocodeAllClientsProgress(int done, int total);
+
+  /// No description provided for @regeocodeAllClientsResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Done: updated {updated}, unchanged {unchanged}, failed {failed}, no address {skipped}. Active points updated: {points}.'**
+  String regeocodeAllClientsResult(
+      int updated, int unchanged, int failed, int skipped, int points);
+
   /// No description provided for @editClient.
   ///
   /// In en, this message translates to:
@@ -8350,6 +8375,25 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry sync'**
   String get accountingSyncRetry;
+
+  /// No description provided for @accountingSyncRetryAllFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry all failed'**
+  String get accountingSyncRetryAllFailed;
+
+  /// No description provided for @accountingSyncBackfillUnsynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync unsynced invoices'**
+  String get accountingSyncBackfillUnsynced;
+
+  /// No description provided for @accountingSyncBatchResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Processed {processed}: OK {succeeded}, failed {failed}, skipped {skipped}'**
+  String accountingSyncBatchResult(
+      int processed, int succeeded, int failed, int skipped);
 
   /// No description provided for @accountingSyncNoEntries.
   ///

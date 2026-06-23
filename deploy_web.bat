@@ -25,7 +25,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [3/4] Сборка веб-версии (RELEASE)...
-flutter build web --release
+flutter build web --release --pwa-strategy=none
 if %errorlevel% neq 0 (
     echo ОШИБКА при сборке!
     pause

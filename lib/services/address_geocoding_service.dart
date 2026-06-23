@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../utils/geocoding_city.dart';
 import 'api_config_service.dart';
 
 /// Address geocoding helpers: variant generation, abbreviations,
@@ -78,6 +79,7 @@ class AddressGeocodingService {
 
     // City variants
     final cities = {
+      'בית שמש': 'Beit Shemesh',
       'חולון': 'Holon',
       'ראשון לציון': 'Rishon',
       'תל אביב': 'Tel Aviv',
@@ -190,20 +192,8 @@ class AddressGeocodingService {
     return variants;
   }
 
-  /// Город из адреса = последний сегмент после запятой (без страны).
-  static String? _extractCity(String address) {
-    final parts = address
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    while (parts.isNotEmpty &&
-        (parts.last == 'ישראל' || parts.last.toLowerCase() == 'israel')) {
-      parts.removeLast();
-    }
-    if (parts.length < 2) return null;
-    return parts.last;
-  }
+  static String? _extractCity(String address) =>
+      GeocodingCity.extractFromAddress(address);
 
   /// Geocode via Google Geocoding API with city validation
   static Future<Map<String, double>?> geocodeViaGoogleAPI(
@@ -247,8 +237,15 @@ class AddressGeocodingService {
           debugPrint(
               '🗺️ [Google API] Coords: (${location['lat']}, ${location['lng']})');
 
-          // Бэкстоп: результат должен быть в городе из адреса (любой город).
-          if (reqCity != null && !formattedAddress.contains(reqCity)) {
+          final components =
+              (result['address_components'] as List<dynamic>?) ?? const [];
+          if (reqCity != null &&
+              !GeocodingCity.matches(
+                reqCity: reqCity,
+                formattedAddress: formattedAddress,
+                componentNames:
+                    GeocodingCity.namesFromJsonComponents(components),
+              )) {
             debugPrint(
                 '⚠️ [Google API] city mismatch: ждали "$reqCity", получили "$formattedAddress" — отклонено');
             return null;

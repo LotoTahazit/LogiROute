@@ -17,6 +17,7 @@ import '../../models/delivery_point.dart';
 import '../../models/user_model.dart';
 import '../../models/invoice.dart';
 import 'add_point_dialog.dart';
+import '../shared/dialogs/create_client_dialog.dart';
 import 'edit_point_dialog.dart';
 import 'add_product_to_point_dialog.dart';
 import 'create_invoice_dialog.dart';
@@ -1649,15 +1650,35 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                 ],
               ),
         floatingActionButton: _currentTabIndex == 0
-            ? FloatingActionButton(
-                tooltip: l10n.addPoint,
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const AddPointDialog(),
-                  );
-                },
-                child: Icon(Icons.add),
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'create_client',
+                    tooltip: l10n.createClient,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => CreateClientDialog(
+                          companyId: effectiveCompanyId,
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.person_add_outlined),
+                  ),
+                  const SizedBox(height: 12),
+                  FloatingActionButton(
+                    heroTag: 'add_point',
+                    tooltip: l10n.addPoint,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const AddPointDialog(),
+                      );
+                    },
+                    child: const Icon(Icons.add),
+                  ),
+                ],
               )
             : null,
       ),

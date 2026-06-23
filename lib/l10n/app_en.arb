@@ -61,6 +61,25 @@
   "clientName": "Client Name",
   "clientNumber": "Client Number",
   "clientManagement": "Client Management",
+  "regeocodeAllClientsMenu": "Re-geocode all clients",
+  "regeocodeAllClientsConfirm": "Re-geocode all clients with an address? Coordinates will be updated using city-aware rules. This may take several minutes.",
+  "regeocodeAllClientsProgress": "Geocoding {done} / {total}…",
+  "@regeocodeAllClientsProgress": {
+    "placeholders": {
+      "done": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "regeocodeAllClientsResult": "Done: updated {updated}, unchanged {unchanged}, failed {failed}, no address {skipped}. Active points updated: {points}.",
+  "@regeocodeAllClientsResult": {
+    "placeholders": {
+      "updated": {"type": "int"},
+      "unchanged": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "points": {"type": "int"}
+    }
+  },
   "editClient": "Edit Client",
   "createClient": "Create New Client",
   "clientCreated": "Client created successfully",
@@ -1778,6 +1797,17 @@
   "accountingSyncStatusFailed": "Failed",
   "accountingSyncStatusProcessing": "Processing",
   "accountingSyncRetry": "Retry sync",
+  "accountingSyncRetryAllFailed": "Retry all failed",
+  "accountingSyncBackfillUnsynced": "Sync unsynced invoices",
+  "accountingSyncBatchResult": "Processed {processed}: OK {succeeded}, failed {failed}, skipped {skipped}",
+  "@accountingSyncBatchResult": {
+    "placeholders": {
+      "processed": {"type": "int"},
+      "succeeded": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
   "accountingSyncNoEntries": "No sync records yet — issued invoices appear here.",
   "accountingSyncRetried": "Sync retry started",
   "accountingSyncDistribution": "Allocation #: {number}",

@@ -61,6 +61,25 @@
   "clientName": "Имя клиента",
   "clientNumber": "Номер клиента",
   "clientManagement": "Управление клиентами",
+  "regeocodeAllClientsMenu": "Перегеокодировать всех клиентов",
+  "regeocodeAllClientsConfirm": "Перегеокодировать всех клиентов с адресом? Координаты обновятся по новым правилам (город из адреса). Это может занять несколько минут.",
+  "regeocodeAllClientsProgress": "Геокодинг {done} / {total}…",
+  "@regeocodeAllClientsProgress": {
+    "placeholders": {
+      "done": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "regeocodeAllClientsResult": "Готово: обновлено {updated}, без изменений {unchanged}, ошибок {failed}, без адреса {skipped}. Активных точек обновлено: {points}.",
+  "@regeocodeAllClientsResult": {
+    "placeholders": {
+      "updated": {"type": "int"},
+      "unchanged": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "points": {"type": "int"}
+    }
+  },
   "editClient": "Редактировать клиента",
   "createClient": "Создать нового клиента",
   "clientCreated": "Клиент успешно создан",
@@ -1726,6 +1745,17 @@
   "accountingSyncStatusFailed": "Ошибка",
   "accountingSyncStatusProcessing": "Обработка",
   "accountingSyncRetry": "Повторить",
+  "accountingSyncRetryAllFailed": "Повторить все ошибки",
+  "accountingSyncBackfillUnsynced": "Синхронизировать невыгруженные",
+  "accountingSyncBatchResult": "Обработано {processed}: OK {succeeded}, ошибок {failed}, пропущено {skipped}",
+  "@accountingSyncBatchResult": {
+    "placeholders": {
+      "processed": {"type": "int"},
+      "succeeded": {"type": "int"},
+      "failed": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
   "accountingSyncNoEntries": "Записей синхронизации пока нет — здесь появятся выписанные счета.",
   "accountingSyncRetried": "Повтор синхронизации запущен",
   "accountingSyncDistribution": "Номер распределения: {number}",

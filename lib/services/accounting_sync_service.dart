@@ -42,6 +42,20 @@ class AccountingSyncEntry {
   }
 }
 
+class AccountingBatchSyncResult {
+  const AccountingBatchSyncResult({
+    required this.processed,
+    required this.succeeded,
+    required this.failed,
+    required this.skipped,
+  });
+
+  final int processed;
+  final int succeeded;
+  final int failed;
+  final int skipped;
+}
+
 class AccountingSyncService {
   AccountingSyncService({required this.companyId});
 
@@ -83,6 +97,26 @@ class AccountingSyncService {
       'companyId': companyId,
       'invoiceId': docId,
     });
+  }
+
+  Future<AccountingBatchSyncResult> batchSync({
+    required String mode,
+    int limit = 25,
+  }) async {
+    final callable =
+        FirebaseFunctions.instance.httpsCallable('batchAccountingSync');
+    final res = await callable.call<Map<String, dynamic>>({
+      'companyId': companyId,
+      'mode': mode,
+      'limit': limit,
+    });
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return AccountingBatchSyncResult(
+      processed: (data['processed'] as num?)?.toInt() ?? 0,
+      succeeded: (data['succeeded'] as num?)?.toInt() ?? 0,
+      failed: (data['failed'] as num?)?.toInt() ?? 0,
+      skipped: (data['skipped'] as num?)?.toInt() ?? 0,
+    );
   }
 
   /// Проверка API-ключей без создания документа.

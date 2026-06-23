@@ -1,6 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import '../config/app_config.dart';
 import 'invoice_payment_line.dart';
 
@@ -348,45 +346,6 @@ class Invoice {
     if (!requiresAssignment) return true;
     return assignmentStatus == AssignmentStatus.approved ||
         assignmentStatus == AssignmentStatus.notRequired;
-  }
-
-  /// חישוב SHA-256 hash משדות מוגנים + סכומים — "מנעול" שרת
-  /// כולל: כל שדות מוגנים + totalBeforeVAT + vatAmount + totalWithVAT
-  String computeSnapshotHash() {
-    final buffer = StringBuffer();
-    buffer.write(companyId);
-    buffer.write(sequentialNumber);
-    buffer.write(clientName);
-    buffer.write(clientNumber);
-    buffer.write(address);
-    buffer.write(driverName);
-    buffer.write(truckNumber);
-    buffer.write(departureTime.toIso8601String());
-    for (final item in items) {
-      buffer.write(item.productCode);
-      buffer.write(item.type);
-      buffer.write(item.number);
-      buffer.write(item.quantity);
-      buffer.write(item.pricePerUnit);
-      buffer.write(item.description ?? '');
-      buffer.write(item.vatRate ?? '');
-    }
-    buffer.write(discount);
-    buffer.write(deliveryDate.toIso8601String());
-    if (paymentDueDate != null) {
-      buffer.write(paymentDueDate!.toIso8601String());
-    }
-    buffer.write(createdAt.toIso8601String());
-    buffer.write(createdBy);
-    buffer.write(documentType.name);
-    if (linkedInvoiceId != null) {
-      buffer.write(linkedInvoiceId!);
-    }
-    // סכומים — קריטי למס
-    buffer.write(subtotalBeforeVAT.toStringAsFixed(2));
-    buffer.write(vatAmount.toStringAsFixed(2));
-    buffer.write(totalWithVAT.toStringAsFixed(2));
-    return sha256.convert(utf8.encode(buffer.toString())).toString();
   }
 
   Map<String, dynamic> toMap() {

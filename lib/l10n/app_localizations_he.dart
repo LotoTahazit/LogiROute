@@ -137,6 +137,24 @@ class AppLocalizationsHe extends AppLocalizations {
   String get clientManagement => 'ניהול לקוחות';
 
   @override
+  String get regeocodeAllClientsMenu => 'גיאוקוד מחדש לכל הלקוחות';
+
+  @override
+  String get regeocodeAllClientsConfirm =>
+      'לבצע גיאוקוד מחדש לכל הלקוחות עם כתובת? הקואורדינטות יתעדכנו לפי עיר מהכתובת. זה עלול לקחת כמה דקות.';
+
+  @override
+  String regeocodeAllClientsProgress(int done, int total) {
+    return 'גיאוקוד $done / $total…';
+  }
+
+  @override
+  String regeocodeAllClientsResult(
+      int updated, int unchanged, int failed, int skipped, int points) {
+    return 'הושלם: עודכנו $updated, ללא שינוי $unchanged, שגיאות $failed, ללא כתובת $skipped. נקודות פעילות: $points.';
+  }
+
+  @override
   String get editClient => 'ערוך לקוח';
 
   @override
@@ -4469,6 +4487,18 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get accountingSyncRetry => 'נסה שוב';
+
+  @override
+  String get accountingSyncRetryAllFailed => 'נסה שוב את כל השגויים';
+
+  @override
+  String get accountingSyncBackfillUnsynced => 'סנכרן מסמכים שלא הועלו';
+
+  @override
+  String accountingSyncBatchResult(
+      int processed, int succeeded, int failed, int skipped) {
+    return 'עובדו $processed: הצליחו $succeeded, נכשלו $failed, דולגו $skipped';
+  }
 
   @override
   String get accountingSyncNoEntries =>

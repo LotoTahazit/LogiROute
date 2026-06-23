@@ -45,7 +45,7 @@ goto end
 :web
 echo.
 echo Building Web (Production)...
-flutter build web --release
+flutter build web --release --pwa-strategy=none
 echo.
 echo Web build location: build\web
 pause
