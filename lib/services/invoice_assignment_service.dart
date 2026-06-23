@@ -191,10 +191,16 @@ class InvoiceAssignmentService {
   ///           2) реальный endpoint + OAuth (SHAAM); 3) перенос в CF.
   Future<AssignmentResult> _callAssignmentApi(
       Invoice invoice, String requestId) async {
-    // === PLACEHOLDER: API endpoint של רשות המסים ===
-    // בשלב זה — סימולציה. יש להחליף ב-endpoint אמיתי לאחר רישום.
-    // ה-API האמיתי דורש: מספר עוסק, מספר חשבונית, סכום לפני מע״מ, סכום מע״מ
-    const apiUrl = 'https://api.taxes.gov.il/shaam/tsandak/invoice/v1';
+    // === PLACEHOLDER (симуляция; реальный вызов — в Cloud Function, не тут) ===
+    // Реальные endpoints רשות המסים (חשבוניות ישראל, API v2):
+    //   sandbox: https://ita-api.taxes.gov.il/shaam/tsandbox/Invoices/v2/Approval
+    //   prod:    https://ita-api.taxes.gov.il/shaam/production/Invoices/v2/Approval
+    // Auth: OAuth2 Authorization Code — бизнес один раз авторизуется и получает
+    // токен, refresh ~раз в 3 мес (автоматизируется). Тело запроса/ответа — по
+    // офиц. спеке (gov.il vat_software-houses-180724-en.pdf); демо:
+    // github.com/dsaddan/Israel-Tax-Authority-OpenAPI-Taxes-Demo
+    const apiUrl =
+        'https://ita-api.taxes.gov.il/shaam/tsandbox/Invoices/v2/Approval';
 
     try {
       final body = jsonEncode({
