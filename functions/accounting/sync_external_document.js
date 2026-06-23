@@ -19,11 +19,17 @@ async function _writeExternalFields(ref, provider, result, invoiceData) {
     externalPdfUrl: result.pdfUrl || null,
     externalSyncedAt: FieldValue.serverTimestamp(),
   };
+  // distributionNumber провайдера = официальный מספר הקצaה ТОЛЬКО для
+  // провайдеров, интегрированных с חשבוניות ישראל (Greeninvoice/iCount сами
+  // получают allocation). Для прочих это лишь внутренний номер провайдера —
+  // он остаётся в externalDistributionNumber и НЕ считается ITA allocation.
   const dist = result.distributionNumber;
   const inv = invoiceData || {};
   const dt = String(inv.documentType || "");
   const taxDoc = dt === "invoice" || dt === "taxInvoiceReceipt";
-  if (dist && taxDoc && !inv.assignmentNumber) {
+  const allocatingProvider =
+    provider === "greeninvoice" || provider === "icount";
+  if (dist && taxDoc && allocatingProvider && !inv.assignmentNumber) {
     patch.assignmentNumber = String(dist);
     patch.assignmentStatus = "approved";
   }

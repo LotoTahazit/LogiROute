@@ -298,6 +298,12 @@ async function requestAllocationForInvoice(companyId, invoiceId) {
   }
   const inv = snap.data();
 
+  // מספר הקצаה запрашивается ТОЛЬКО для ВЫПИСАННОГО документа с присвоенным
+  // номером (для черновика номер ещё не выдан — запрос некорректен).
+  if (inv.status !== "issued" || !(Number(inv.sequentialNumber) > 0)) {
+    return { ok: false, reason: "not_issued" };
+  }
+
   if (inv.assignmentStatus === "approved" && inv.assignmentNumber) {
     return { ok: true, alreadyApproved: true, assignmentNumber: inv.assignmentNumber };
   }
