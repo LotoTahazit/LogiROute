@@ -248,7 +248,12 @@ service cloud.firestore {
       }
 
       match /settings/accounting_credentials {
-        allow read, create, update: if canAdminWrite(companyId) && billingAllowsWrite(companyId);
+        // СЕКРЕТЫ внешней бухгалтерии (Greeninvoice/iCount) — читает ТОЛЬКО
+        // сервер (CF, admin SDK). Клиент пишет (admin настраивает), но не читает
+        // обратно (write-only) — чтобы секреты не утекали в клиент.
+        // Несекретный статус «настроено» — в settings/accounting_provider_status.
+        allow read: if false;
+        allow create, update: if canAdminWrite(companyId) && billingAllowsWrite(companyId);
         allow delete: if false;
       }
 

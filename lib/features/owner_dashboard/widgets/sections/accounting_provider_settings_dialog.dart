@@ -40,6 +40,14 @@ class _AccountingProviderSettingsDialogState
           .collection('settings')
           .doc('accounting_credentials');
 
+  // Несекретный статус «настроено» — клиент может читать (секреты — нет).
+  DocumentReference<Map<String, dynamic>> get _statusRef =>
+      FirebaseFirestore.instance
+          .collection('companies')
+          .doc(widget.companyId)
+          .collection('settings')
+          .doc('accounting_provider_status');
+
   @override
   void initState() {
     super.initState();
@@ -47,21 +55,17 @@ class _AccountingProviderSettingsDialogState
   }
 
   Future<void> _load() async {
+    // Секреты write-only — клиент их НЕ читает. Берём только несекретный статус.
     try {
-      final snap = await _docRef.get();
+      final snap = await _statusRef.get();
       if (snap.exists) {
         final data = snap.data() ?? {};
-        _hasSaved = data['configured'] == true;
-        if (widget.provider == 'icount') {
-          _tokenCtrl.text = data['token'] ?? '';
-        } else {
-          _apiKeyCtrl.text = data['apiKey'] ?? '';
-          _secretCtrl.text = data['secretKey'] ?? '';
-          _sandbox = data['sandbox'] == true;
-        }
+        _hasSaved =
+            data['configured'] == true && data['provider'] == widget.provider;
+        _sandbox = data['sandbox'] == true;
       }
     } catch (e) {
-      debugPrint('⚠️ accounting credentials load: $e');
+      debugPrint('⚠️ accounting provider status load: $e');
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -118,6 +122,13 @@ class _AccountingProviderSettingsDialogState
         }
       }
       await _docRef.set(payload, SetOptions(merge: true));
+      // Несекретный статус для клиента (индикатор «настроено»).
+      await _statusRef.set({
+        'provider': widget.provider,
+        'configured': true,
+        if (widget.provider == 'greeninvoice') 'sandbox': _sandbox,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
