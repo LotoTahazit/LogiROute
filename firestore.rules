@@ -566,7 +566,9 @@ service cloud.firestore {
         }
       }
 
-      // receipts
+      // receipts — LEGACY: приложение хранит קבלות в `invoices`
+      // (documentType=receipt). Отдельная коллекция не используется; правило
+      // оставлено для совместимости/тестов, из приложения сюда никто не пишет.
       match /accounting/_root/receipts/{receiptId} {
         allow read: if canUseModule(companyId, 'accounting');
         allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin'])
@@ -579,7 +581,9 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // credit notes
+      // credit notes — LEGACY: זיכויים хранятся в `invoices`
+      // (documentType=creditNote, linkedInvoiceId). Отдельная коллекция не
+      // используется; правило оставлено для совместимости/тестов.
       match /accounting/_root/credit_notes/{creditId} {
         allow read: if canUseModule(companyId, 'accounting');
         // create: deliveryDate (creditNoteDate) must be after lockedUntil
@@ -611,13 +615,9 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
-      // assignment_requests (lives in accounting/_root/)
-      match /accounting/_root/assignment_requests/{reqId} {
-        allow read: if canUseModule(companyId, 'accounting');
-        allow create: if canWriteModule(companyId, 'accounting');
-        allow update: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']);
-        allow delete: if false;
-      }
+      // assignment_requests — server-only: его никто из клиента не пишет
+      // (allocation идёт через CF). Обрабатывается accounting catch-all ниже:
+      // read = canUseModule, write = false. (Раньше был client-create без схемы.)
 
       // accounting catch-all: everything else under accounting/_root — server-only
       match /accounting/_root/{secColl}/{docId} {
