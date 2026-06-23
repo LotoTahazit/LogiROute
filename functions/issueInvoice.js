@@ -100,6 +100,24 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
   }
   const invoice = invoiceSnap.data();
 
+  // counterKey ДОЛЖЕН соответствовать documentType (иначе номер из чужой
+  // цепочки). Канон совпадает с InvoiceDocumentType.canonicalCounterKey (Dart).
+  const CANONICAL_COUNTER = {
+    invoice: "tax_invoice",
+    receipt: "receipt",
+    delivery: "delivery_note",
+    creditNote: "credit_note",
+    taxInvoiceReceipt: "tax_invoice_receipt",
+  };
+  const expectedCounter = CANONICAL_COUNTER[invoice.documentType];
+  if (expectedCounter && counterKey !== expectedCounter) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `counterKey '${counterKey}' does not match documentType ` +
+        `'${invoice.documentType}' (expected '${expectedCounter}')`,
+    );
+  }
+
   // Idempotency: already issued → return existing
   if (invoice.status === "issued" && invoice.sequentialNumber > 0) {
     return {
