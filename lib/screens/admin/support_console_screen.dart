@@ -136,6 +136,57 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
     }
   }
 
+  Future<void> _migrateAccountingCounters({bool allCompanies = false}) async {
+    final l10n = AppLocalizations.of(context)!;
+    if (!allCompanies && _selectedCompanyId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Миграция counters'),
+        content: Text(allCompanies
+            ? 'Объединить legacy-ключи (invoice→tax_invoice) у ВСЕХ компаний?'
+            : 'Объединить legacy-ключи для $_selectedCompanyId?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel)),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Мигрировать')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      final payload = allCompanies
+          ? <String, dynamic>{}
+          : {'companyId': _selectedCompanyId};
+      final res = await FirebaseFunctions.instance
+          .httpsCallable('migrateAccountingCounters')
+          .call(payload);
+      final data = Map<String, dynamic>.from(res.data as Map);
+      final results = (data['results'] as List?) ?? [];
+      final merged = results.fold<int>(
+          0, (s, r) => s + ((r as Map)['merged'] as int? ?? 0));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'OK: ${data['companies']} компаний, $merged ключей объединено'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _runIntegrityCheck() async {
     if (_selectedCompanyId == null) return;
     final l10n = AppLocalizations.of(context)!;
@@ -242,8 +293,15 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.supportConsoleTitle),
+          iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             if (_selectedCompanyId != null) ...[
+              IconButton(
+                icon: const Icon(Icons.published_with_changes,
+                    color: Colors.white),
+                tooltip: 'Миграция accounting counters',
+                onPressed: () => _migrateAccountingCounters(),
+              ),
               IconButton(
                 icon: const Icon(Icons.verified_user),
                 tooltip: l10n.verifyIntegrity,
@@ -391,6 +449,42 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
                       _chip(l10n.chipUsers, '$_userCount', Colors.indigo),
                       _chip(l10n.chipDocsMonth, '$_docsThisMonth', Colors.teal),
                       _chip(l10n.chipUnread, '$_unreadCount', Colors.orange),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Инструменты',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Divider(),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.black54, width: 1.5),
+                        ),
+                        onPressed: () => _migrateAccountingCounters(),
+                        icon: const Icon(Icons.sync_alt),
+                        label: const Text('Миграция counters'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _runIntegrityCheck,
+                        icon: const Icon(Icons.verified_user),
+                        label: Text(l10n.verifyIntegrity),
+                      ),
                     ],
                   ),
                 ],
