@@ -670,9 +670,8 @@ class InvoiceService {
       // Создаём документ
       await docRef.set(creditNote.toMap());
 
-      await _invoicesCollection().doc(originalInvoice.id).update({
-        'creditNoteIds': FieldValue.arrayUnion([docRef.id]),
-      });
+      // creditNoteIds оригинала проставит СЕРВЕР при выписке зачёта
+      // (issueInvoice CF): оригинал issued и неизменяем для клиента.
 
       // יצירת קישור רשמי בין מסמכים
       await _documentLinkService.createLink(DocumentLink(

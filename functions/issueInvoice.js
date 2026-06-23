@@ -325,6 +325,18 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
     console.warn("⚠️ Audit write failed (non-blocking):", e.message);
   }
 
+  // --- 8b. Link credit note → original (server-side: оригинал issued и
+  // неизменяем для клиента, поэтому creditNoteIds проставляет CF, не клиент). ---
+  try {
+    if (invoice.documentType === "creditNote" && invoice.linkedInvoiceId) {
+      await db
+        .doc(`companies/${companyId}/accounting/_root/invoices/${invoice.linkedInvoiceId}`)
+        .update({ creditNoteIds: FieldValue.arrayUnion([invoiceId]) });
+    }
+  } catch (e) {
+    console.warn("⚠️ Credit-note link failed (non-blocking):", e.message);
+  }
+
   // --- 9. External accounting sync (non-blocking scaffold) ---
   try {
     const { enqueueExternalAccountingSync } = require("./accounting/sync_external_document");
