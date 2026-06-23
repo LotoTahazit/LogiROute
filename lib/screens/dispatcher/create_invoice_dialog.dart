@@ -17,6 +17,7 @@ import '../../services/company_cache.dart';
 import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/logi_route_tab_bar.dart';
+import '../../widgets/payment_details_form.dart';
 import '../../theme/app_theme.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
@@ -49,20 +50,29 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
   bool _isCreating = false;
   bool _paymentReceived =
       false; // תשלום התקבל — переключает тип на taxInvoiceReceipt
-  String _paymentMethod = 'מזומן'; // אופן תשלום
+  final _paymentDetails = PaymentDetailsController();
   DateTime? _accountingLockedUntil; // период закрытия бухгалтерии
   String? _periodLockError; // ошибка если дата в закрытом периоде
+  bool _dispatcherTaxInvoiceReceipt = false;
+
+  bool get _taxInvoiceReceiptEnabled =>
+      AppConfig.enableTaxInvoiceReceipt && _dispatcherTaxInvoiceReceipt;
+
+  bool get _isTaxInvoiceReceiptMode =>
+      _effectiveDocumentType == InvoiceDocumentType.taxInvoiceReceipt;
 
   bool get _taxInvoiceReceiptBlocked =>
-      !AppConfig.enableTaxInvoiceReceipt &&
-      (widget.documentType == InvoiceDocumentType.taxInvoiceReceipt ||
-          _effectiveDocumentType == InvoiceDocumentType.taxInvoiceReceipt);
+      !_taxInvoiceReceiptEnabled && _isTaxInvoiceReceiptMode;
 
   /// Эффективный тип документа: если оплата получена — taxInvoiceReceipt
   InvoiceDocumentType get _effectiveDocumentType {
-    if (AppConfig.enableTaxInvoiceReceipt &&
+    if (_taxInvoiceReceiptEnabled &&
         _paymentReceived &&
         widget.documentType == InvoiceDocumentType.invoice) {
+      return InvoiceDocumentType.taxInvoiceReceipt;
+    }
+    if (widget.documentType == InvoiceDocumentType.taxInvoiceReceipt &&
+        _taxInvoiceReceiptEnabled) {
       return InvoiceDocumentType.taxInvoiceReceipt;
     }
     return widget.documentType;
@@ -89,6 +99,7 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     for (final controller in _priceControllers.values) {
       controller.dispose();
     }
+    _paymentDetails.dispose();
     super.dispose();
   }
 
@@ -122,6 +133,11 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           _deliveryDate =
               _accountingLockedUntil!.add(const Duration(days: 1));
         }
+        _dispatcherTaxInvoiceReceipt =
+            cs?.dispatcherTaxInvoiceReceipt ?? false;
+        if (widget.documentType == InvoiceDocumentType.taxInvoiceReceipt) {
+          _paymentReceived = _taxInvoiceReceiptEnabled;
+        }
       }
 
       // Автозаполнение paymentMethod из клиента
@@ -135,7 +151,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           if (client.isNotEmpty &&
               client.first.paymentMethod != null &&
               client.first.paymentMethod!.isNotEmpty) {
-            _paymentMethod = client.first.paymentMethod!;
+            _paymentDetails.methodKey =
+                normalizePaymentMethodKey(client.first.paymentMethod);
           }
         }
       } catch (_) {}
@@ -255,11 +272,20 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
     if (_taxInvoiceReceiptBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.hashbonitUnderConstruction),
+          content: Text(l10n.dispatcherTaxInvoiceReceiptHint),
           backgroundColor: Colors.orange,
         ),
       );
       return;
+    }
+    if (_paymentReceived || _isTaxInvoiceReceiptMode) {
+      final payErr = _paymentDetails.validate(l10n);
+      if (payErr != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(payErr), backgroundColor: Colors.red),
+        );
+        return;
+      }
     }
     setState(() => _isCreating = true);
     try {
@@ -304,7 +330,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         createdBy: userName,
         documentType: _effectiveDocumentType,
         deliveryPointId: widget.point.id,
-        paymentMethod: _paymentMethod,
+        paymentMethod: _isTaxInvoiceReceiptMode
+            ? _paymentDetails.methodKey
+            : null,
+        paymentLines: _isTaxInvoiceReceiptMode
+            ? _paymentDetails.buildLines(
+                total: _totalWithVAT,
+                defaultDue: DateTime.now(),
+              )
+            : const [],
         status: InvoiceStatus.draft,
       );
 
@@ -385,9 +419,13 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         horizontal: narrow ? 16 : 40,
         vertical: 24,
       ),
-      title: Text(widget.documentType == InvoiceDocumentType.delivery
-          ? l10n.createDeliveryNoteTitle
-          : l10n.createInvoiceTitle),
+      title: Text(
+        widget.documentType == InvoiceDocumentType.delivery
+            ? l10n.createDeliveryNoteTitle
+            : widget.documentType == InvoiceDocumentType.taxInvoiceReceipt
+                ? l10n.createTaxInvoiceReceiptTitle
+                : l10n.createInvoiceTitle,
+      ),
       content: SizedBox(
         width: narrow ? MediaQuery.sizeOf(context).width * 0.9 : 600,
         child: _isLoading
@@ -410,8 +448,10 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                     // Срок оплаты (не для תעודת משלוח)
                     if (widget.documentType !=
                         InvoiceDocumentType.delivery) ...[
-                      _buildPaymentTermSelector(),
-                      const SizedBox(height: 16),
+                      if (widget.documentType != InvoiceDocumentType.taxInvoiceReceipt)
+                        _buildPaymentTermSelector(),
+                      if (widget.documentType != InvoiceDocumentType.taxInvoiceReceipt)
+                        const SizedBox(height: 16),
                     ],
 
                     // Таблица товаров
@@ -428,6 +468,22 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
                       if (widget.documentType ==
                           InvoiceDocumentType.invoice) ...[
                         _buildPaymentReceivedSection(),
+                        const SizedBox(height: 16),
+                      ],
+                      if (widget.documentType ==
+                          InvoiceDocumentType.taxInvoiceReceipt) ...[
+                        if (!_taxInvoiceReceiptEnabled)
+                          Text(
+                            l10n.dispatcherTaxInvoiceReceiptHint,
+                            style: TextStyle(color: Colors.orange.shade800),
+                          )
+                        else
+                          PaymentDetailsForm(
+                            controller: _paymentDetails,
+                            totalAmount: _totalWithVAT,
+                            defaultDueDate: DateTime.now(),
+                            onChanged: () => setState(() {}),
+                          ),
                         const SizedBox(height: 16),
                       ],
 
@@ -785,52 +841,39 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
   Widget _buildPaymentReceivedSection() {
     final l10n = AppLocalizations.of(context)!;
-    final taxInvoiceReceiptEnabled = AppConfig.enableTaxInvoiceReceipt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${l10n.paymentMethodLabel}:',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _paymentMethod,
-          isExpanded: true,
-          items: [
-            DropdownMenuItem(value: 'מזומן', child: Text(l10n.cash)),
-            DropdownMenuItem(value: "צ'ק", child: Text(l10n.cheque)),
-            DropdownMenuItem(
-                value: 'העברה בנקאית', child: Text(l10n.bankTransfer)),
-            DropdownMenuItem(
-                value: 'כרטיס אשראי', child: Text(l10n.creditCard)),
-          ],
-          onChanged: (val) {
-            if (val != null) setState(() => _paymentMethod = val);
-          },
-        ),
-        const SizedBox(height: 8),
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
             l10n.paymentReceivedCheckbox,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: taxInvoiceReceiptEnabled ? null : Colors.grey,
+              color: _taxInvoiceReceiptEnabled ? null : Colors.grey,
             ),
           ),
           subtitle: Text(
-            taxInvoiceReceiptEnabled
+            _taxInvoiceReceiptEnabled
                 ? l10n.paymentReceivedHint
-                : '${l10n.paymentReceivedHint}\nUnder construction',
+                : l10n.dispatcherTaxInvoiceReceiptHint,
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
-          value: taxInvoiceReceiptEnabled ? _paymentReceived : false,
-          onChanged: taxInvoiceReceiptEnabled
+          value: _taxInvoiceReceiptEnabled ? _paymentReceived : false,
+          onChanged: _taxInvoiceReceiptEnabled
               ? (val) => setState(() => _paymentReceived = val ?? false)
               : null,
           controlAffinity: ListTileControlAffinity.leading,
         ),
+        if (_paymentReceived && _taxInvoiceReceiptEnabled) ...[
+          const SizedBox(height: 8),
+          PaymentDetailsForm(
+            controller: _paymentDetails,
+            totalAmount: _totalWithVAT,
+            defaultDueDate: DateTime.now(),
+            onChanged: () => setState(() {}),
+          ),
+        ],
       ],
     );
   }

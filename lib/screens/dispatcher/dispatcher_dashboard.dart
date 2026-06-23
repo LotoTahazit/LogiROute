@@ -801,6 +801,13 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     );
   }
 
+  Future<void> _createTaxInvoiceReceiptForPoint(DeliveryPoint point) async {
+    await _createInvoiceForPoint(
+      point,
+      documentType: InvoiceDocumentType.taxInvoiceReceipt,
+    );
+  }
+
   Future<void> _deletePoint(
     String companyId,
     String pointId,
@@ -1533,6 +1540,12 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                   onCreateInvoice: _createInvoiceForPoint,
                                   onCreateDeliveryNote:
                                       _createDeliveryNoteForPoint,
+                                  dispatcherTaxInvoiceReceipt:
+                                      cs?.dispatcherTaxInvoiceReceipt ?? false,
+                                  onCreateTaxInvoiceReceipt:
+                                      (cs?.dispatcherTaxInvoiceReceipt ?? false)
+                                          ? _createTaxInvoiceReceiptForPoint
+                                          : null,
                                   onPrintAllInvoices: _printAllRouteInvoices,
                                   onEditPoint: (point) =>
                                       _editPoint(effectiveCompanyId, point),

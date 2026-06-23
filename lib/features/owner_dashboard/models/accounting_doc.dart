@@ -244,6 +244,8 @@ class AccountingDoc {
   final String? externalDocNumber;
   final String? externalDistributionNumber;
   final String? externalPdfUrl;
+  final String? assignmentNumber;
+  final AssignmentStatus? assignmentStatus;
 
   /// Откуда документ попал в единый реестр (по умолчанию — owner).
   final AccountingDocSource source;
@@ -278,6 +280,8 @@ class AccountingDoc {
     this.externalDocNumber,
     this.externalDistributionNumber,
     this.externalPdfUrl,
+    this.assignmentNumber,
+    this.assignmentStatus,
     this.source = AccountingDocSource.invoices,
     this.deliveryPointId,
   });
@@ -331,6 +335,13 @@ class AccountingDoc {
       externalDocNumber: map['externalDocNumber'] as String?,
       externalDistributionNumber: map['externalDistributionNumber'] as String?,
       externalPdfUrl: map['externalPdfUrl'] as String?,
+      assignmentNumber: map['assignmentNumber'] as String?,
+      assignmentStatus: map['assignmentStatus'] != null
+          ? AssignmentStatus.values.firstWhere(
+              (e) => e.name == map['assignmentStatus'],
+              orElse: () => AssignmentStatus.notRequired,
+            )
+          : null,
     );
   }
 
@@ -381,6 +392,9 @@ class AccountingDoc {
       companyId: invoice.companyId,
       immutableSnapshotHash: invoice.immutableSnapshotHash,
       deliveryPointId: invoice.deliveryPointId,
+      assignmentNumber: invoice.assignmentNumber,
+      assignmentStatus: invoice.assignmentStatus,
+      notes: invoice.notes,
     );
   }
 

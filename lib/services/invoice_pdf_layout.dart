@@ -91,13 +91,14 @@ pw.Widget buildHeader(
             fontLatin,
             fontSize: 7,
           ),
-          smartText(
-            'ח.פ  ${settings.taxId}',
-            fontHebrew,
-            fontLatin,
-            fontSize: 7,
-            bold: true,
-          ),
+          if (!settings.isVatExempt || settings.taxId.isNotEmpty)
+            smartText(
+              settings.vatRegimePdfLabelEn,
+              fontHebrew,
+              fontLatin,
+              fontSize: 7,
+              bold: settings.isVatExempt,
+            ),
         ],
       ),
       pw.SizedBox(width: 60),
@@ -132,9 +133,9 @@ pw.Widget buildHeader(
             fontSize: 7,
           ),
           pw.SizedBox(height: 1),
-          // עוסק מורשה — обязательное обозначение статуса плательщика НДС.
+          // סוג עוסק — מורשה / פטור / חברה
           smartText(
-            'עוסק מורשה ${settings.taxId}',
+            settings.vatRegimePdfLabel,
             fontHebrewBold,
             fontLatin,
             fontSize: 7,
@@ -767,6 +768,22 @@ pw.Widget buildFooter(
         ],
       ),
       pw.SizedBox(height: 7),
+      if (invoice.notes != null && invoice.notes!.trim().isNotEmpty) ...[
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+          ),
+          child: smartText(
+            'הערות: ${invoice.notes!.trim()}',
+            fontHebrew,
+            fontLatin,
+            fontSize: 8,
+          ),
+        ),
+        pw.SizedBox(height: 7),
+      ],
       pw.Container(
         width: double.infinity,
         padding: const pw.EdgeInsets.all(10),

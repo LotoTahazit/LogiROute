@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../services/accounting_sync_service.dart';
 
 /// API-креды внешней бухгалтерии (Greeninvoice / iCount).
 /// Хранение: companies/{companyId}/settings/accounting_credentials
@@ -28,6 +29,7 @@ class _AccountingProviderSettingsDialogState
   final _tokenCtrl = TextEditingController();
   bool _loading = true;
   bool _saving = false;
+  bool _testing = false;
   bool _hasSaved = false;
   bool _sandbox = false;
 
@@ -62,6 +64,39 @@ class _AccountingProviderSettingsDialogState
       debugPrint('⚠️ accounting credentials load: $e');
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _test() async {
+    setState(() => _testing = true);
+    try {
+      final result = await AccountingSyncService(companyId: widget.companyId)
+          .testCredentials(provider: widget.provider);
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.ok
+                ? l10n.accountingProviderTestOk
+                : l10n.accountingProviderTestFailed(
+                    result.message ?? 'error'),
+          ),
+          backgroundColor: result.ok ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.accountingProviderTestFailed(e.toString())),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
   }
 
   Future<void> _save() async {
@@ -202,6 +237,16 @@ class _AccountingProviderSettingsDialogState
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.cancel),
+        ),
+        OutlinedButton(
+          onPressed: _testing || _loading ? null : _test,
+          child: _testing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.accountingProviderTest),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,

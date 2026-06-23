@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 
 const db = admin.firestore();
 
@@ -42,6 +43,66 @@ function cfg(name) {
     );
   }
   return v;
+}
+
+function isPlatformConfigured() {
+  return !!(
+    process.env.ISRAEL_INVOICE_CLIENT_ID &&
+    process.env.ISRAEL_INVOICE_CLIENT_SECRET &&
+    process.env.ISRAEL_INVOICE_AUTH_URL &&
+    process.env.ISRAEL_INVOICE_TOKEN_URL &&
+    process.env.ISRAEL_INVOICE_REDIRECT_URI
+  );
+}
+
+function oauthStateSecret() {
+  const secret = process.env.ISRAEL_INVOICE_CLIENT_SECRET;
+  if (!secret) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "ISRAEL_INVOICE_CLIENT_SECRET required for signed OAuth state",
+    );
+  }
+  return secret;
+}
+
+function signState(companyId) {
+  const sig = crypto
+    .createHmac("sha256", oauthStateSecret())
+    .update(String(companyId))
+    .digest("hex")
+    .slice(0, 16);
+  return `${companyId}.${sig}`;
+}
+
+function parseState(state) {
+  const s = String(state || "");
+  const dot = s.lastIndexOf(".");
+  if (dot < 1) return null;
+  const companyId = s.slice(0, dot);
+  const sig = s.slice(dot + 1);
+  let secret;
+  try {
+    secret = oauthStateSecret();
+  } catch {
+    return null;
+  }
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(companyId)
+    .digest("hex")
+    .slice(0, 16);
+  return sig === expected ? companyId : null;
+}
+
+async function getCompanyTaxId(companyId) {
+  const settingsSnap = await db
+    .doc(`companies/${companyId}/settings/settings`)
+    .get();
+  const fromSettings = settingsSnap.exists ? settingsSnap.data().taxId : "";
+  if (fromSettings) return String(fromSettings);
+  const legacy = await db.doc(`companies/${companyId}`).get();
+  return legacy.exists && legacy.data().taxId ? String(legacy.data().taxId) : "";
 }
 
 /** Док с токеном тенанта — читает только admin-SDK (правила: клиенту запрещено). */
@@ -120,19 +181,17 @@ exports.israelInvoiceAuthUrl = functions.https.onCall(async (data, context) => {
   url.searchParams.set("client_id", cfg("ISRAEL_INVOICE_CLIENT_ID"));
   url.searchParams.set("redirect_uri", cfg("ISRAEL_INVOICE_REDIRECT_URI"));
   url.searchParams.set("scope", process.env.ISRAEL_INVOICE_SCOPE || "scope");
-  // state = companyId (callback узнаёт, чьей компании токен). Для prod —
-  // подписать/проверять, чтобы не было подмены.
-  url.searchParams.set("state", companyId);
-  return { url: url.toString() };
+  url.searchParams.set("state", signState(companyId));
+  return { url: url.toString(), platformConfigured: isPlatformConfigured() };
 });
 
 // ──────────────────────── OAuth: callback (code→token) ───────────────────
 
 exports.israelInvoiceOAuthCallback = functions.https.onRequest(async (req, res) => {
   const code = req.query.code;
-  const companyId = req.query.state;
+  const companyId = parseState(req.query.state);
   if (!code || !companyId) {
-    res.status(400).send("Missing code/state");
+    res.status(400).send("Missing or invalid code/state");
     return;
   }
   try {
@@ -231,28 +290,18 @@ function buildApprovalPayload(inv, amounts, sellerVatId) {
 
 // ─────────────────── requestAllocationNumber (callable) ──────────────────
 
-exports.requestAllocationNumber = functions.https.onCall(async (data, context) => {
-  const companyId = data && data.companyId;
-  const invoiceId = data && data.invoiceId;
-  if (!companyId || !invoiceId) {
-    throw new functions.https.HttpsError("invalid-argument",
-      "companyId and invoiceId required");
-  }
-  assertCompanyAdmin(context, companyId);
-
+async function requestAllocationForInvoice(companyId, invoiceId) {
   const ref = invoiceRef(companyId, invoiceId);
   const snap = await ref.get();
   if (!snap.exists) {
-    throw new functions.https.HttpsError("not-found", "Invoice not found");
+    return { ok: false, reason: "not_found" };
   }
   const inv = snap.data();
 
-  // Дедупликация.
   if (inv.assignmentStatus === "approved" && inv.assignmentNumber) {
     return { ok: true, alreadyApproved: true, assignmentNumber: inv.assignmentNumber };
   }
 
-  // Порог (до НДС).
   const amounts = computeAmounts(inv);
   const reqDate = inv.deliveryDate && inv.deliveryDate.toDate
     ? inv.deliveryDate.toDate() : new Date();
@@ -261,10 +310,11 @@ exports.requestAllocationNumber = functions.https.onCall(async (data, context) =
     return { ok: true, notRequired: true };
   }
 
-  // Продавец (עוסק) — из настроек компании.
-  const settings = await db.doc(`companies/${companyId}`).get();
-  const sellerVatId = (settings.exists && settings.data().taxId) ||
-    process.env.ISRAEL_INVOICE_SELLER_VAT || "";
+  const sellerVatId = await getCompanyTaxId(companyId);
+  if (!sellerVatId) {
+    await ref.update({ assignmentStatus: "error", assignmentResponseRaw: "missing company taxId in settings/settings" });
+    return { ok: false, error: "missing_tax_id" };
+  }
 
   await ref.update({
     assignmentStatus: "pending",
@@ -294,7 +344,6 @@ exports.requestAllocationNumber = functions.https.onCall(async (data, context) =
       });
       return { ok: true, assignmentNumber: num };
     }
-    // Отказ/ошибка.
     const rejection = r.status === 400 || r.status === 403;
     await ref.update({
       assignmentStatus: rejection ? "rejected" : "error",
@@ -303,7 +352,53 @@ exports.requestAllocationNumber = functions.https.onCall(async (data, context) =
     return { ok: false, status: r.status, rejection, message: raw.slice(0, 500) };
   } catch (e) {
     await ref.update({ assignmentStatus: "error", assignmentResponseRaw: String(e).slice(0, 1000) });
-    if (e instanceof functions.https.HttpsError) throw e;
-    throw new functions.https.HttpsError("internal", String(e));
+    return { ok: false, error: String(e) };
   }
+}
+
+exports.requestAllocationForInvoice = requestAllocationForInvoice;
+
+exports.requestAllocationNumber = functions.https.onCall(async (data, context) => {
+  const companyId = data && data.companyId;
+  const invoiceId = data && data.invoiceId;
+  if (!companyId || !invoiceId) {
+    throw new functions.https.HttpsError("invalid-argument",
+      "companyId and invoiceId required");
+  }
+  assertCompanyAdmin(context, companyId);
+
+  return requestAllocationForInvoice(companyId, invoiceId);
+});
+
+exports.israelInvoiceStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Auth required");
+  }
+  const companyId = data && data.companyId;
+  if (!companyId) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId required");
+  }
+
+  const uid = context.auth.uid;
+  const userSnap = await db.doc(`users/${uid}`).get();
+  const role = userSnap.data()?.role;
+  const userCompany = userSnap.data()?.companyId;
+  const allowed =
+    role === "super_admin" ||
+    (userCompany === companyId &&
+      ["admin", "accountant", "owner"].includes(role));
+  if (!allowed) {
+    throw new functions.https.HttpsError("permission-denied", "Not allowed");
+  }
+
+  const platformConfigured = isPlatformConfigured();
+  const tokenSnap = await tokenRef(companyId).get();
+  const companyConnected =
+    tokenSnap.exists && !!tokenSnap.data()?.refreshToken;
+
+  return {
+    platformConfigured,
+    companyConnected,
+    assignmentReady: platformConfigured && companyConnected,
+  };
 });

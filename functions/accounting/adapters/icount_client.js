@@ -106,4 +106,34 @@ async function createDocument({ payload, credentials }) {
   };
 }
 
-module.exports = { createDocument, mapDocType, buildFormBody };
+async function testCredentials({ credentials }) {
+  const token = credentials?.token;
+  if (!token) {
+    return { ok: false, message: "missing_credentials" };
+  }
+  const res = await fetch(`${ICOUNT_BASE}/company/info`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "",
+  });
+  const data = await _parseJson(res);
+  const failed =
+    !res.ok ||
+    data.status === false ||
+    data.status === "false" ||
+    data.error === true;
+  if (failed) {
+    const msg =
+      data.error_description ||
+      data.reason ||
+      data.message ||
+      res.statusText;
+    return { ok: false, message: `iCount: ${msg}` };
+  }
+  return { ok: true, message: "icount_ok" };
+}
+
+module.exports = { createDocument, mapDocType, buildFormBody, testCredentials };

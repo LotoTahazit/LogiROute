@@ -2,11 +2,6 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../models/invoice.dart';
 
 /// שירות מספר הקצאה — חשבוניות ישראל (Israel Tax Authority allocation number).
-///
-/// ВСЁ обращение к API налоговой выполняется НА СЕРВЕРЕ (Cloud Functions):
-/// `requestAllocationNumber` делает OAuth-refresh, вызывает /Invoices/v2/Approval
-/// и пишет статус в счёт. Токен/секрет рשут המסים никогда не попадают в клиент.
-/// Здесь — тонкий вызов CF + клиентский гейтинг UI.
 class InvoiceAssignmentService {
   final String companyId;
   final FirebaseFunctions _functions;
@@ -20,14 +15,8 @@ class InvoiceAssignmentService {
     }
   }
 
-  /// Нужен ли счёту מספר הקצаה (клиентский гейтинг UI; реальная проверка — на
-  /// сервере). Учитывает флаг `AppConfig.enableAssignmentNumbers` через
-  /// [Invoice.requiresAssignment].
   bool isAssignmentRequired(Invoice invoice) => invoice.requiresAssignment;
 
-  /// OAuth-ссылка для РАЗОВОГО подключения компании к מערכת חשבוניות ישראל.
-  /// Открыть во внешнем браузере; после авторизации refresh-токен сохраняется
-  /// на сервере. Доступно владельцу/админу/бухгалтеру (проверяется в CF).
   Future<String> getConnectUrl() async {
     final res = await _functions
         .httpsCallable(
@@ -38,9 +27,18 @@ class InvoiceAssignmentService {
     return (res.data['url'] ?? '') as String;
   }
 
-  /// Запросить מספר הקצаה для счёта. Всю работу (OAuth-refresh, вызов
-  /// /Approval, запись `assignmentNumber`/статуса в счёт) делает Cloud Function
-  /// `requestAllocationNumber`.
+  Future<IsraelInvoiceStatus> getStatus() async {
+    final res = await _functions
+        .httpsCallable('israelInvoiceStatus')
+        .call<Map<String, dynamic>>({'companyId': companyId});
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return IsraelInvoiceStatus(
+      platformConfigured: data['platformConfigured'] == true,
+      companyConnected: data['companyConnected'] == true,
+      assignmentReady: data['assignmentReady'] == true,
+    );
+  }
+
   Future<AssignmentResult> requestAssignmentNumber(String invoiceId) async {
     try {
       final res = await _functions
@@ -73,7 +71,18 @@ class InvoiceAssignmentService {
   }
 }
 
-/// תוצאת בקשת מספר הקצאה
+class IsraelInvoiceStatus {
+  final bool platformConfigured;
+  final bool companyConnected;
+  final bool assignmentReady;
+
+  const IsraelInvoiceStatus({
+    required this.platformConfigured,
+    required this.companyConnected,
+    required this.assignmentReady,
+  });
+}
+
 class AssignmentResult {
   final bool success;
   final String? assignmentNumber;

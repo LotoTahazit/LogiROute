@@ -20,10 +20,15 @@ const {
   israelInvoiceAuthUrl,
   israelInvoiceOAuthCallback,
   requestAllocationNumber,
+  israelInvoiceStatus,
 } = require('./israelInvoice');
 exports.israelInvoiceAuthUrl = israelInvoiceAuthUrl;
 exports.israelInvoiceOAuthCallback = israelInvoiceOAuthCallback;
 exports.requestAllocationNumber = requestAllocationNumber;
+exports.israelInvoiceStatus = israelInvoiceStatus;
+
+const { migrateAccountingCounters } = require('./migrateAccountingCounters');
+exports.migrateAccountingCounters = migrateAccountingCounters;
 
 const { verifyIntegrityChain } = require('./verifyIntegrityChain');
 exports.verifyIntegrityChain = verifyIntegrityChain;
@@ -44,6 +49,9 @@ exports.createCheckoutSession = createCheckoutSession;
 
 const { retryAccountingSync } = require('./retryAccountingSync');
 exports.retryAccountingSync = retryAccountingSync;
+
+const { testAccountingCredentials } = require('./testAccountingCredentials');
+exports.testAccountingCredentials = testAccountingCredentials;
 
 const { seedBillingPricing } = require('./seedBillingPricing');
 exports.seedBillingPricing = seedBillingPricing;

@@ -112,6 +112,54 @@ abstract class AppLocalizations {
   /// **'No completed routes yet'**
   String get routeHistoryEmpty;
 
+  /// No description provided for @vatRegimeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Taxpayer type (print)'**
+  String get vatRegimeLabel;
+
+  /// No description provided for @vatRegimeAuthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorized dealer'**
+  String get vatRegimeAuthorized;
+
+  /// No description provided for @vatRegimeExempt.
+  ///
+  /// In en, this message translates to:
+  /// **'VAT exempt'**
+  String get vatRegimeExempt;
+
+  /// No description provided for @vatRegimeCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Ltd. company'**
+  String get vatRegimeCompany;
+
+  /// No description provided for @israelInvoiceStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Israel Invoices system'**
+  String get israelInvoiceStatusTitle;
+
+  /// No description provided for @israelInvoicePlatformNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform not configured — set ISRAEL_INVOICE_* in functions/.env'**
+  String get israelInvoicePlatformNotConfigured;
+
+  /// No description provided for @israelInvoiceCompanyConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to Tax Authority'**
+  String get israelInvoiceCompanyConnected;
+
+  /// No description provided for @israelInvoiceCompanyNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected — use OAuth'**
+  String get israelInvoiceCompanyNotConnected;
+
   /// No description provided for @israelInvoiceConnect.
   ///
   /// In en, this message translates to:
@@ -8255,6 +8303,24 @@ abstract class AppLocalizations {
   /// **'Use Greeninvoice test API (sandbox.d.greeninvoice.co.il)'**
   String get accountingProviderSandboxHint;
 
+  /// No description provided for @accountingProviderTest.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get accountingProviderTest;
+
+  /// No description provided for @accountingProviderTestOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider connection successful'**
+  String get accountingProviderTestOk;
+
+  /// No description provided for @accountingProviderTestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection test failed: {detail}'**
+  String accountingProviderTestFailed(String detail);
+
   /// No description provided for @accountingSyncTitle.
   ///
   /// In en, this message translates to:
@@ -9601,6 +9667,168 @@ abstract class AppLocalizations {
   /// **'Credit card'**
   String get creditCard;
 
+  /// No description provided for @paymentBankNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank no.'**
+  String get paymentBankNumber;
+
+  /// No description provided for @paymentBranchNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch no.'**
+  String get paymentBranchNumber;
+
+  /// No description provided for @paymentAccountNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Account no.'**
+  String get paymentAccountNumber;
+
+  /// No description provided for @paymentChequeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheque no.'**
+  String get paymentChequeNumber;
+
+  /// No description provided for @paymentDueDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment due date'**
+  String get paymentDueDateLabel;
+
+  /// No description provided for @paymentClearingHouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing company'**
+  String get paymentClearingHouse;
+
+  /// No description provided for @paymentClearingIsracard.
+  ///
+  /// In en, this message translates to:
+  /// **'Isracard'**
+  String get paymentClearingIsracard;
+
+  /// No description provided for @paymentClearingCal.
+  ///
+  /// In en, this message translates to:
+  /// **'Cal'**
+  String get paymentClearingCal;
+
+  /// No description provided for @paymentClearingDiners.
+  ///
+  /// In en, this message translates to:
+  /// **'Diners'**
+  String get paymentClearingDiners;
+
+  /// No description provided for @paymentClearingAmex.
+  ///
+  /// In en, this message translates to:
+  /// **'American Express'**
+  String get paymentClearingAmex;
+
+  /// No description provided for @paymentClearingLeumi.
+  ///
+  /// In en, this message translates to:
+  /// **'Leumi Card'**
+  String get paymentClearingLeumi;
+
+  /// No description provided for @paymentCardName.
+  ///
+  /// In en, this message translates to:
+  /// **'Card name'**
+  String get paymentCardName;
+
+  /// No description provided for @paymentDealType.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction type'**
+  String get paymentDealType;
+
+  /// No description provided for @paymentDealRegular.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get paymentDealRegular;
+
+  /// No description provided for @paymentDealInstallments.
+  ///
+  /// In en, this message translates to:
+  /// **'Installments'**
+  String get paymentDealInstallments;
+
+  /// No description provided for @paymentDealCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit'**
+  String get paymentDealCredit;
+
+  /// No description provided for @paymentInstallmentCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Installments'**
+  String get paymentInstallmentCount;
+
+  /// No description provided for @paymentBankRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank number required'**
+  String get paymentBankRequired;
+
+  /// No description provided for @paymentBranchRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch number required'**
+  String get paymentBranchRequired;
+
+  /// No description provided for @paymentAccountRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Account number required'**
+  String get paymentAccountRequired;
+
+  /// No description provided for @paymentChequeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheque number required'**
+  String get paymentChequeRequired;
+
+  /// No description provided for @paymentDueDateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date required'**
+  String get paymentDueDateRequired;
+
+  /// No description provided for @paymentInstallmentRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Installments: 2–36'**
+  String get paymentInstallmentRange;
+
+  /// No description provided for @dispatcherTaxInvoiceReceiptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax invoice/receipt for dispatcher'**
+  String get dispatcherTaxInvoiceReceiptTitle;
+
+  /// No description provided for @dispatcherTaxInvoiceReceiptHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow dispatchers to issue חשבונית מס/קבלה when payment is received at delivery'**
+  String get dispatcherTaxInvoiceReceiptHint;
+
+  /// No description provided for @createTaxInvoiceReceiptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create tax invoice/receipt'**
+  String get createTaxInvoiceReceiptTitle;
+
+  /// No description provided for @createTaxInvoiceReceiptTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax invoice/receipt (paid)'**
+  String get createTaxInvoiceReceiptTooltip;
+
   /// No description provided for @notSelected.
   ///
   /// In en, this message translates to:
@@ -10716,6 +10944,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export to accounting'**
   String get accountingExportTitle;
+
+  /// No description provided for @downloadBkmv.
+  ///
+  /// In en, this message translates to:
+  /// **'Download BKMV'**
+  String get downloadBkmv;
+
+  /// No description provided for @bkmvExportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'OPENFRMT ZIP (INI.TXT + BKMVDATA.TXT) for Tax Authority'**
+  String get bkmvExportSubtitle;
+
+  /// No description provided for @bkmvTaxIdRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Company tax ID (ח.פ) is required for BKMV export'**
+  String get bkmvTaxIdRequired;
+
+  /// No description provided for @bkmvExportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No issued documents in the selected period'**
+  String get bkmvExportEmpty;
+
+  /// No description provided for @bkmvSimulatorFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'OPENFRMT check failed'**
+  String get bkmvSimulatorFailedTitle;
+
+  /// No description provided for @bkmvSimulatorFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The file was not downloaded. Fix the issues below and try again.'**
+  String get bkmvSimulatorFailedBody;
+
+  /// No description provided for @bkmvSimulatorPassed.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Tax Authority format check passed'**
+  String get bkmvSimulatorPassed;
+
+  /// No description provided for @bkmvSimulatorWarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Warnings'**
+  String get bkmvSimulatorWarnings;
+
+  /// No description provided for @bkmvSoftwareRegistrationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Software registration no. (BKMV)'**
+  String get bkmvSoftwareRegistrationLabel;
+
+  /// No description provided for @bkmvSoftwareRegistrationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'8 digits from Tax Authority — A100 field'**
+  String get bkmvSoftwareRegistrationHint;
 
   /// No description provided for @targetSoftwareLabel.
   ///

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
 import '../../../../services/auth_service.dart';
+import '../../../../services/company_settings_service.dart';
 import '../../models/role_hierarchy.dart';
 import '../../services/permissions_service.dart';
 import '../../utils/company_profile_validator.dart';
@@ -66,6 +67,7 @@ class _SettingsSectionState extends State<SettingsSection>
   Map<String, String> _settingsErrors = {};
   bool _profileSaving = false;
   bool _settingsSaving = false;
+  bool _dispatcherTaxInvoiceReceipt = false;
 
   @override
   void initState() {
@@ -93,6 +95,7 @@ class _SettingsSectionState extends State<SettingsSection>
     _invoiceFooterCtrl = TextEditingController(text: cs.invoiceFooterText);
     _paymentTermsCtrl = TextEditingController(text: cs.paymentTerms);
     _bankDetailsCtrl = TextEditingController(text: cs.bankDetails);
+    _dispatcherTaxInvoiceReceipt = cs.dispatcherTaxInvoiceReceipt;
   }
 
   void _initPermissions() {
@@ -136,6 +139,7 @@ class _SettingsSectionState extends State<SettingsSection>
     _invoiceFooterCtrl.text = cs.invoiceFooterText;
     _paymentTermsCtrl.text = cs.paymentTerms;
     _bankDetailsCtrl.text = cs.bankDetails;
+    _dispatcherTaxInvoiceReceipt = cs.dispatcherTaxInvoiceReceipt;
   }
 
   @override
@@ -572,6 +576,16 @@ class _SettingsSectionState extends State<SettingsSection>
               maxLines: 2,
               errorText: _settingsErrors['bankDetails'],
             ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _dispatcherTaxInvoiceReceipt,
+              onChanged: canEdit
+                  ? (v) => setState(() => _dispatcherTaxInvoiceReceipt = v)
+                  : null,
+              title: Text(l10n.dispatcherTaxInvoiceReceiptTitle),
+              subtitle: Text(l10n.dispatcherTaxInvoiceReceiptHint),
+            ),
           ],
         ),
       ),
@@ -820,35 +834,86 @@ class _SettingsSectionState extends State<SettingsSection>
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: FutureBuilder<IsraelInvoiceStatus>(
+          future:
+              InvoiceAssignmentService(companyId: widget.companyId).getStatus(),
+          builder: (context, snap) {
+            final st = snap.data;
+            final platformOk = st?.platformConfigured == true;
+            final connected = st?.companyConnected == true;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.verified_outlined,
-                    size: 20, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('חשבוניות ישראל — מספר הקצאה',
-                      style: theme.textTheme.titleMedium),
+                Row(
+                  children: [
+                    Icon(Icons.verified_outlined,
+                        size: 20, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l10n.israelInvoiceStatusTitle,
+                          style: theme.textTheme.titleMedium),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                if (snap.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator()
+                else ...[
+                  _israelStatusRow(
+                    l10n.israelInvoicePlatformNotConfigured,
+                    platformOk,
+                    invert: true,
+                  ),
+                  const SizedBox(height: 4),
+                  _israelStatusRow(
+                    connected
+                        ? l10n.israelInvoiceCompanyConnected
+                        : l10n.israelInvoiceCompanyNotConnected,
+                    connected,
+                  ),
+                  if (platformOk) ...[
+                    const SizedBox(height: 4),
+                    _israelStatusRow(
+                      st?.assignmentReady == true
+                          ? 'מספר הקצאה — מוכן'
+                          : 'מספר הקצאה — חסר חיבור OAuth',
+                      st?.assignmentReady == true,
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  l10n.israelInvoiceConnectHint,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed:
+                      canManage && platformOk ? _connectIsraelInvoice : null,
+                  icon: const Icon(Icons.link),
+                  label: Text(l10n.israelInvoiceConnect),
                 ),
               ],
-            ),
-            const Divider(),
-            Text(
-              l10n.israelInvoiceConnectHint,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: canManage ? _connectIsraelInvoice : null,
-              icon: const Icon(Icons.link),
-              label: Text(l10n.israelInvoiceConnect),
-            ),
-          ],
+            );
+          },
         ),
       ),
+    );
+  }
+
+  Widget _israelStatusRow(String label, bool ok, {bool invert = false}) {
+    final good = invert ? !ok : ok;
+    return Row(
+      children: [
+        Icon(
+          good ? Icons.check_circle : Icons.warning_amber,
+          size: 16,
+          color: good ? Colors.green : Colors.orange,
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+      ],
     );
   }
 
@@ -986,13 +1051,25 @@ class _SettingsSectionState extends State<SettingsSection>
         updates['invoiceFooterText'] = _invoiceFooterCtrl.text.trim();
         updates['paymentTerms'] = _paymentTermsCtrl.text.trim();
         updates['bankDetails'] = _bankDetailsCtrl.text.trim();
+        updates['dispatcherTaxInvoiceReceipt'] = _dispatcherTaxInvoiceReceipt;
       }
       if (updates.isEmpty) return;
 
       await FirebaseFirestore.instance
           .collection('companies')
           .doc(widget.companyId)
-          .update(updates);
+          .set(updates, SetOptions(merge: true));
+
+      if (canEditInvoice) {
+        await CompanySettingsService(companyId: widget.companyId).saveSettings(
+          widget.companySettings.copyWith(
+            invoiceFooterText: _invoiceFooterCtrl.text.trim(),
+            paymentTerms: _paymentTermsCtrl.text.trim(),
+            bankDetails: _bankDetailsCtrl.text.trim(),
+            dispatcherTaxInvoiceReceipt: _dispatcherTaxInvoiceReceipt,
+          ),
+        );
+      }
 
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;

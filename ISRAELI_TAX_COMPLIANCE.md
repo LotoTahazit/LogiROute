@@ -1,71 +1,43 @@
 # Israeli Tax Law Compliance Guide
 # מדריך תאימות לחוק המס הישראלי
 
-**Last Updated:** February 2026 | **Status:** Implemented — pending software registration
+**Last Updated:** June 2026 | **Status:** Implemented — software registration pending
 
 ---
 
 ## ✅ Implemented Features
 
 ### 1. Sequential Numbering / מספור רץ
-**IMPLEMENTED** — מספור רץ אטומי לכל סוג מסמך
+**IMPLEMENTED** — אטומי לכל סוג מסמך
 
-- אוסף: `companies/{companyId}/accountingDocs/{docId}`
-- מוני מספור: `companies/{companyId}/accounting/_root/counters/{docType}`
-- הקצאה אטומית ב-`issueDoc()` transaction: `lastNumber + 1`
-- Firestore Rules אוכפים: `lastNumber == resource.data.lastNumber + 1`
-- סדרות נפרדות: `tax_invoice`, `receipt`, `tax_invoice_receipt`, `credit_note`
+- אוסף: `companies/{companyId}/accounting/_root/invoices/{invoiceId}`
+- מונים: `companies/{companyId}/accounting/_root/counters/{docType}`
+- הקצאה ב-`issueInvoice` Cloud Function (transaction)
+- סדרות: `tax_invoice`, `receipt`, `tax_invoice_receipt`, `credit_note`
 
 ### 2. Immutability / אי-שינוי
-**IMPLEMENTED** — מסמך שהונפק לא ניתן לשינוי
+**IMPLEMENTED**
 
-- מעבר `draft → issued` מתבצע ב-`issueDoc()` transaction
+- `draft → issued` ב-transaction
 - לאחר הנפקה: `docNumber`, `issuedAt`, `immutableSnapshotHash` — immutable ב-Firestore Rules
-- `deleteDoc()` תמיד זורק `UnsupportedError`
-- Firestore Rules: `allow delete: if false`
+- מחיקה אסורה
 
 ### 3. Snapshot Hash / חתימת שלמות
-**IMPLEMENTED** — SHA-256 על 5 שדות ליבה
+**IMPLEMENTED** — SHA-256 על שדות ליבה
 
-- מחלקה: `SnapshotHash.compute(doc)` ב-`lib/features/owner_dashboard/utils/snapshot_hash.dart`
-- שדות: `docNumber`, `issuedAt`, `customerId`, `lines`, `totals`
-- שיטה: JSON canonical serialization → UTF-8 → SHA-256
-- נשמר ב-`immutableSnapshotHash` בעת הנפקה
-
-### 4. Document State Machine / מחזור חיי מסמך
-**IMPLEMENTED** — state machine מלא
-
+### 4. Document State Machine
 ```
 draft → issued → locked → credited
       ↘ voided_before_delivery
 ```
 
-| סטטוס | ערך | תיאור |
-|--------|------|--------|
-| טיוטה | `draft` | ניתן לעריכה |
-| הונפק | `issued` | קיבל מספר + hash, immutable |
-| נעול | `locked` | נעול לתקופת חשבונאות |
-| זוכה | `credited` | בוטל על ידי תעודת זיכוי |
-| בוטל לפני מסירה | `voided_before_delivery` | בוטל לפני מסירה |
-
 ### 5. Credit Notes / תעודות זיכוי
-**IMPLEMENTED** — `createCreditNote()` ב-`AccountingDocsRepository`
+**IMPLEMENTED** — `InvoiceService.createCreditNote()`
 
-- רק ממסמך בסטטוס `issued` או `locked`
-- יוצר מסמך `credit_note` חדש עם קישור למקור
-- מעדכן מקור: `status → credited`
-- נרשם ביומן ביקורת
+### 6. Audit Trail
+**IMPLEMENTED** — `companies/{companyId}/audit`
 
-### 6. Audit Trail / יומן ביקורת
-**IMPLEMENTED** — append-only cross-module audit
-
-- אוסף: `companies/{companyId}/audit/{eventId}`
-- כל פעולה חשבונאית נרשמת
-- Firestore Rules: `allow update, delete: if false`
-
-### 7. Document Types / סוגי מסמכים
-**IMPLEMENTED** — 4 סוגים
-
+### 7. Document Types
 | סוג | קוד |
 |------|------|
 | חשבונית מס | `tax_invoice` |
@@ -73,38 +45,42 @@ draft → issued → locked → credited
 | חשבונית מס קבלה | `tax_invoice_receipt` |
 | תעודת זיכוי | `credit_note` |
 
-### 8. RBAC / הרשאות
-**IMPLEMENTED** — 7 תפקידים
+### 8. RBAC
+Owner — קריאה; Admin/Accountant — מלאה; Dispatcher — מוגבל.
 
-| תפקיד | גישה לחשבונאות |
-|--------|----------------|
-| `super_admin` | מלאה |
-| `owner` | קריאה בלבד |
-| `admin` | מלאה |
-| `accountant` | יצירה/עדכון draft, קריאת דוחות |
-| `dispatcher` | קריאה בלבד |
-| `driver` | ❌ |
-| `warehouse_keeper` | ❌ |
+### 9. OPENFRMT / BKMV Export
+**IMPLEMENTED** — horaot 1.31
 
-### 9. Backup & Retention / גיבוי ושמירה
-**IMPLEMENTED** — 3 שכבות גיבוי
+- `lib/services/bkmv/` — codec, records, exporter, simulator
+- `UniformExportService` — ZIP (INI.TXT + BKMVDATA.TXT, ISO-8859-8)
+- D120 תשלומים (מזומן/צ'ק/העברה/אשראי/תשלומים)
+- בדיקה מקומית לפני הורדה (`BkmvSimulator`)
+- UI: Owner `bkmv_export_dialog`, Admin `accounting_export_screen`
 
-| שכבה | תדירות | שמירה | RPO |
-|------|---------|--------|-----|
-| PITR | רציף | 7 ימים | ≤ 1 שעה |
-| יומי | יומי | 14 ימים | ≤ 24 שעות |
-| רבעוני | רבעוני | 7 שנים | תאימות |
+### 10. External Accounting (Greeninvoice / iCount)
+**IMPLEMENTED**
 
-### 10. Uniform File Export / קובץ במבנה אחיד
-**IMPLEMENTED** — CSV export לרשות המסים
+- ספק: `companySettings.accountingProvider` — `greeninvoice` | `icount` | `export` | `none`
+- אישורים: `settings/accounting_credentials`
+- סנכרון אוטומטי אחרי הנפקה (`enqueueExternalAccountingSync`)
+- יומן: `accounting/_root/sync_ledger`
+- Callable: `retryAccountingSync`, `testAccountingCredentials`
+- תשלומים מרובים → Greeninvoice API
 
-### 11. Israel Invoice / חשבוניות ישראל
-**IMPLEMENTED** — מספר הקצאה
+### 11. Israel Invoice / מספר הקצאה
+**IMPLEMENTED** (דורש OAuth רשות המסים)
 
-- ספי חובה: 20K₪ (2025), 10K₪ (01.01.2026), 5K₪ (01.06.2026)
-- בקשה אוטומטית לאחר הנפקה
-- retry + exponential backoff (3 ניסיונות)
+- ספי: 20K₪ (2025), 10K₪ (2026), 5K₪ (06/2026)
+- `requestAllocationNumber` + אוטומטי אחרי `issueInvoice`
+- `AppConfig.enableAssignmentNumbers = true`
 - חסימת הדפסת מקור ללא הקצאה
+
+### 12. PDF Printing
+**IMPLEMENTED**
+
+- מקור / עותק / נאמן למקור
+- עוסק מורשה, מע״מ, מספר הקצאה
+- Owner: הדפסה מרשימת מסמכים
 
 ---
 
@@ -112,9 +88,8 @@ draft → issued → locked → credited
 
 | פריט | סטטוס | הערה |
 |------|--------|------|
-| רישום תוכנה ברשות המסים | ⏳ בתהליך | תיק הגשה מוכן ב-`docs/registration/` |
-| Israel Invoice API endpoint | ⏳ placeholder | יוחלף ב-endpoint אמיתי לאחר רישום |
-| Cloud Functions לנפקה | מתוכנן | העברת `issueDoc()` ל-trusted backend |
+| רישום תוכנה ברשות המסים | ⏳ | שדה `bkmvSoftwareRegistrationNumber` בניהול חברה |
+| Israel Invoice OAuth | ⏳ | `functions/.env` אחרי רישום בית תוכנה |
 | External audit | מתוכנן | לפני השקה |
 
 ---
@@ -123,5 +98,4 @@ draft → issued → locked → credited
 
 - רשות המסים: https://taxes.gov.il/
 - חשבוניות ישראל: https://israelinvoice.taxes.gov.il/
-- ניהול ספרים: https://taxes.gov.il/incomeTax/Pages/NihulPinkasum.aspx
 - תיק הגשה: `docs/registration/00_תיק_הגשה_לרישום_תוכנה.md`

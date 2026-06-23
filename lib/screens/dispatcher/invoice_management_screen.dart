@@ -12,6 +12,7 @@ import '../../services/auth_service.dart';
 import '../../services/access_log_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/issuance_service.dart';
+import '../../widgets/payment_details_form.dart';
 import 'audit_log_screen.dart';
 import 'credit_note_dialog.dart';
 
@@ -131,12 +132,12 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     } catch (_) {}
 
     if (!mounted) return;
-    final paymentMethod = await showDialog<String>(
+    final paymentResult = await showDialog<PaymentDialogResult>(
       context: context,
       builder: (context) => _ReceiptPaymentDialog(invoice: invoice),
     );
 
-    if (paymentMethod == null || !mounted) return;
+    if (paymentResult == null || !mounted) return;
 
     try {
       final user = authService.userModel;
@@ -161,7 +162,8 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
         createdBy: user?.name ?? 'Unknown',
         documentType: InvoiceDocumentType.receipt,
         linkedInvoiceId: invoice.id,
-        paymentMethod: paymentMethod,
+        paymentMethod: paymentResult.methodKey,
+        paymentLines: paymentResult.paymentLines,
       );
 
       final invoiceService = InvoiceService(companyId: companyId);
@@ -796,70 +798,47 @@ class _ReceiptPaymentDialog extends StatefulWidget {
 }
 
 class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
-  static const _paymentKeys = [
-    'cash',
-    'credit_card',
-    'bank_transfer',
-    'cheque',
-  ];
-  String _paymentMethod = _paymentKeys.first;
+  final _paymentDetails = PaymentDetailsController();
 
-  String _paymentLabel(AppLocalizations l10n, String key) {
-    switch (key) {
-      case 'cash':
-        return l10n.cash;
-      case 'credit_card':
-        return l10n.creditCard;
-      case 'bank_transfer':
-        return l10n.bankTransfer;
-      case 'cheque':
-        return l10n.cheque;
-      default:
-        return key;
-    }
+  @override
+  void dispose() {
+    _paymentDetails.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final total = widget.invoice.totalWithVAT;
     return AlertDialog(
       title: Text(l10n.createReceiptTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.receiptForInvoice(widget.invoice.sequentialNumber),
-            style: const TextStyle(fontWeight: FontWeight.bold),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.receiptForInvoice(widget.invoice.sequentialNumber),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(l10n.clientWithName(widget.invoice.clientName)),
+              Text(
+                l10n.amountWithValue(total.toStringAsFixed(2)),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.green),
+              ),
+              const SizedBox(height: 16),
+              PaymentDetailsForm(
+                controller: _paymentDetails,
+                totalAmount: total,
+                defaultDueDate: DateTime.now(),
+                onChanged: () => setState(() {}),
+              ),
+            ],
           ),
-          Text(l10n.clientWithName(widget.invoice.clientName)),
-          Text(
-            l10n.amountWithValue(
-                widget.invoice.totalWithVAT.toStringAsFixed(2)),
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.green),
-          ),
-          const SizedBox(height: 16),
-          Text(l10n.paymentMethodLabel,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _paymentMethod,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: _paymentKeys
-                .map((key) => DropdownMenuItem(
-                      value: key,
-                      child: Text(_paymentLabel(l10n, key)),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _paymentMethod = val);
-            },
-          ),
-        ],
+        ),
       ),
       actions: [
         TextButton(
@@ -867,8 +846,25 @@ class _ReceiptPaymentDialogState extends State<_ReceiptPaymentDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton.icon(
-          onPressed: () =>
-              Navigator.pop(context, _paymentLabel(l10n, _paymentMethod)),
+          onPressed: () {
+            final err = _paymentDetails.validate(l10n);
+            if (err != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(err), backgroundColor: Colors.red),
+              );
+              return;
+            }
+            Navigator.pop(
+              context,
+              PaymentDialogResult(
+                methodKey: _paymentDetails.methodKey,
+                paymentLines: _paymentDetails.buildLines(
+                  total: total,
+                  defaultDue: DateTime.now(),
+                ),
+              ),
+            );
+          },
           icon: const Icon(Icons.payments),
           label: Text(l10n.createReceiptButton),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),

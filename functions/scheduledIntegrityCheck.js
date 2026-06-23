@@ -14,7 +14,13 @@ function buildChainHashV1({ companyId, counterKey, docType, docNumber, docId, is
   return sha256hex(`v1|${companyId}|${counterKey}|${docType}|${docNumber}|${docId}|${issuedAtMillis}|${prev}`);
 }
 
-const COUNTER_KEYS = ["invoice", "receipt", "creditNote", "delivery", "taxInvoiceReceipt"];
+const COUNTER_KEYS = [
+  "tax_invoice",
+  "receipt",
+  "credit_note",
+  "delivery_note",
+  "tax_invoice_receipt",
+];
 const MAX_CHECK = 2000;
 
 /**

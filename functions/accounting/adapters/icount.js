@@ -15,4 +15,8 @@ module.exports = {
       return { ok: false, reason: "api_error", message: e.message };
     }
   },
+
+  async testCredentials({ credentials }) {
+    return client.testCredentials({ credentials });
+  },
 };

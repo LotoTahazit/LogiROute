@@ -10,6 +10,8 @@ import '../../../../services/client_service.dart';
 import '../../../../models/invoice.dart';
 import '../../../../services/invoice_service.dart';
 import '../../../../utils/accounting_period_lock.dart';
+import '../../../../models/invoice_payment_line.dart';
+import '../../../../widgets/payment_details_form.dart';
 import '../../models/accounting_doc.dart';
 import 'accounting_helpers.dart';
 
@@ -120,6 +122,8 @@ class CreateDocFormDialog extends StatefulWidget {
   final String companyId;
   final InvoiceService invoiceService;
   final DateTime? accountingLockedUntil;
+  /// Редактирование существующего черновика (id обязателен).
+  final AccountingDoc? editDoc;
 
   const CreateDocFormDialog({
     super.key,
@@ -127,6 +131,7 @@ class CreateDocFormDialog extends StatefulWidget {
     required this.companyId,
     required this.invoiceService,
     this.accountingLockedUntil,
+    this.editDoc,
   });
 
   @override
@@ -147,7 +152,11 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
 
   late DateTime _deliveryDate;
   String? _periodLockError;
-  String _paymentMethod = 'מזומן'; // אופן תשלום (для חשבונית מס/קבלה)
+  final _paymentDetails = PaymentDetailsController();
+
+  bool get _needsPaymentDetails =>
+      widget.docType == AccountingDocType.taxInvoiceReceipt ||
+      widget.docType == AccountingDocType.receipt;
 
   bool get _taxInvoiceReceiptBlocked =>
       widget.docType == AccountingDocType.taxInvoiceReceipt &&
@@ -156,10 +165,35 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
   @override
   void initState() {
     super.initState();
-    _deliveryDate = AccountingPeriodLock.resolveOpenDate(
-      DateTime.now(),
-      widget.accountingLockedUntil,
-    );
+    final doc = widget.editDoc;
+    if (doc != null) {
+      _customerNameCtrl.text = doc.customerName;
+      _customerTaxIdCtrl.text = doc.customerTaxId ?? '';
+      _deliveryDate = doc.deliveryDate ??
+          doc.createdAt ??
+          AccountingPeriodLock.resolveOpenDate(
+            DateTime.now(),
+            widget.accountingLockedUntil,
+          );
+      _lines.clear();
+      for (final line in doc.lines) {
+        final row = _LineItemData();
+        row.descriptionCtrl.text = line.description;
+        row.quantityCtrl.text = line.quantity.toString();
+        row.unitPriceCtrl.text = line.unitPrice.toString();
+        row.vatRateCtrl.text = line.vatRate.toString();
+        _lines.add(row);
+      }
+      if (_lines.isEmpty) _lines.add(_LineItemData());
+      if (doc.notes != null && doc.notes!.isNotEmpty) {
+        _notesCtrl.text = doc.notes!;
+      }
+    } else {
+      _deliveryDate = AccountingPeriodLock.resolveOpenDate(
+        DateTime.now(),
+        widget.accountingLockedUntil,
+      );
+    }
   }
 
   void _validatePeriodLock() {
@@ -223,6 +257,7 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     for (final line in _lines) {
       line.dispose();
     }
+    _paymentDetails.dispose();
     super.dispose();
   }
 
@@ -273,37 +308,74 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
       );
       return;
     }
+    if (_needsPaymentDetails) {
+      final payErr = _paymentDetails.validate(AppLocalizations.of(context)!);
+      if (payErr != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(payErr), backgroundColor: Colors.red),
+        );
+        return;
+      }
+    }
 
     setState(() => _saving = true);
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       final now = DateTime.now();
       final items = _buildLines.map(accountingLineToInvoiceItem).toList();
-      final invoice = Invoice(
-        id: '',
-        companyId: widget.companyId,
-        sequentialNumber: 0,
-        clientName: _customerNameCtrl.text.trim(),
-        clientNumber: _selectedClient?.clientNumber ??
-            (_customerTaxIdCtrl.text.trim().isNotEmpty
-                ? _customerTaxIdCtrl.text.trim()
-                : _customerNameCtrl.text.trim()),
-        address: _selectedClient?.address ?? '',
-        driverName: '',
-        truckNumber: '',
-        deliveryDate: _deliveryDate,
-        departureTime: now,
-        items: items,
-        createdAt: now,
-        createdBy: uid,
-        documentType: widget.docType.toInvoiceDocumentType,
-        status: InvoiceStatus.draft,
-        paymentMethod: widget.docType == AccountingDocType.taxInvoiceReceipt
-            ? _paymentMethod
-            : null,
-      );
+      final totals = _computedTotals;
+      final paymentLines = _needsPaymentDetails
+          ? _paymentDetails.buildLines(
+              total: totals.gross,
+              defaultDue: _deliveryDate,
+            )
+          : <InvoicePaymentLine>[];
+      final clientName = _customerNameCtrl.text.trim();
+      final clientNumber = _selectedClient?.clientNumber ??
+          (_customerTaxIdCtrl.text.trim().isNotEmpty
+              ? _customerTaxIdCtrl.text.trim()
+              : clientName);
+      final address = _selectedClient?.address ?? '';
+      final notes = _notesCtrl.text.trim();
 
-      await widget.invoiceService.createInvoice(invoice, uid);
+      final editId = widget.editDoc?.id;
+      if (editId != null) {
+        await widget.invoiceService.updateDraftInvoice(
+          id: editId,
+          updatedByUid: uid,
+          clientName: clientName,
+          clientNumber: clientNumber,
+          address: address,
+          items: items,
+          deliveryDate: _deliveryDate,
+          paymentMethod: _needsPaymentDetails ? _paymentDetails.methodKey : null,
+          paymentLines: paymentLines,
+          notes: notes.isEmpty ? null : notes,
+        );
+      } else {
+        final invoice = Invoice(
+          id: '',
+          companyId: widget.companyId,
+          sequentialNumber: 0,
+          clientName: clientName,
+          clientNumber: clientNumber,
+          address: address,
+          driverName: '',
+          truckNumber: '',
+          deliveryDate: _deliveryDate,
+          departureTime: now,
+          items: items,
+          createdAt: now,
+          createdBy: uid,
+          documentType: widget.docType.toInvoiceDocumentType,
+          status: InvoiceStatus.draft,
+          paymentMethod:
+              _needsPaymentDetails ? _paymentDetails.methodKey : null,
+          paymentLines: paymentLines,
+          notes: notes.isEmpty ? null : notes,
+        );
+        await widget.invoiceService.createInvoice(invoice, uid);
+      }
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -412,33 +484,13 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
                         _buildLinesSection(theme),
                         const SizedBox(height: 16),
                         _buildTotalsCard(theme, totals),
-                        // אופן תשלום — только для חשבונית מס/קבלה (это и квитанция).
-                        if (widget.docType ==
-                            AccountingDocType.taxInvoiceReceipt) ...[
+                        if (_needsPaymentDetails) ...[
                           const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            initialValue: _paymentMethod,
-                            decoration: InputDecoration(
-                              labelText: l10n.paymentMethodLabel,
-                              border: const OutlineInputBorder(),
-                            ),
-                            items: [
-                              DropdownMenuItem(
-                                  value: 'מזומן', child: Text(l10n.cash)),
-                              DropdownMenuItem(
-                                  value: "צ'ק", child: Text(l10n.cheque)),
-                              DropdownMenuItem(
-                                  value: 'העברה בנקאית',
-                                  child: Text(l10n.bankTransfer)),
-                              DropdownMenuItem(
-                                  value: 'כרטיס אשראי',
-                                  child: Text(l10n.creditCard)),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _paymentMethod = val);
-                              }
-                            },
+                          PaymentDetailsForm(
+                            controller: _paymentDetails,
+                            totalAmount: totals.gross,
+                            defaultDueDate: _deliveryDate,
+                            onChanged: () => setState(() {}),
                           ),
                         ],
                         const SizedBox(height: 16),

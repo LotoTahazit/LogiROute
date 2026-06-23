@@ -6,14 +6,6 @@ import 'firestore_paths.dart';
 
 /// Создание и первичная инициализация компании (super_admin).
 class CompanyProvisionService {
-  static final _counterKeys = [
-    'invoice',
-    'receipt',
-    'creditNote',
-    'delivery',
-    'taxInvoiceReceipt',
-  ];
-
   static final RegExp _idPattern = RegExp(r'^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$');
 
   static bool isValidCompanyId(String id) => _idPattern.hasMatch(id);
@@ -87,14 +79,7 @@ class CompanyProvisionService {
     );
     await CompanySettingsService(companyId: companyId).saveSettings(settings);
 
-    final counters = FirestorePaths(firestore: _firestore).counters(companyId);
-    final batch = _firestore.batch();
-    for (final key in _counterKeys) {
-      batch.set(counters.doc(key), {'lastNumber': 0});
-    }
-    await batch.commit();
-
-    debugPrint('✅ [CompanyProvision] Created company $companyId');
+    debugPrint('✅ [CompanyProvision] Created company $companyId (counters via onCompanyCreated CF)');
     return true;
   }
 

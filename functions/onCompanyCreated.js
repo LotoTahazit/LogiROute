@@ -3,6 +3,24 @@ const admin = require("firebase-admin");
 
 const db = admin.firestore();
 
+const COUNTER_KEYS = [
+  "tax_invoice",
+  "receipt",
+  "credit_note",
+  "delivery_note",
+  "tax_invoice_receipt",
+];
+
+async function initAccountingCounters(companyId) {
+  const batch = db.batch();
+  const base = db.collection("companies").doc(companyId)
+    .collection("accounting").doc("_root").collection("counters");
+  for (const key of COUNTER_KEYS) {
+    batch.set(base.doc(key), { lastNumber: 0 }, { merge: true });
+  }
+  await batch.commit();
+}
+
 /**
  * Trigger: при создании нового документа компании.
  * Создаёт welcome-уведомление (server-side, обходит правила безопасности).
@@ -17,6 +35,13 @@ exports.onCompanyCreated = functions.firestore
     const data = snap.data();
 
     console.log(`🏢 Новая компания создана: ${companyId}`);
+
+    try {
+      await initAccountingCounters(companyId);
+      console.log(`✅ Accounting counters initialized for ${companyId}`);
+    } catch (err) {
+      console.error(`❌ Counters init failed for ${companyId}: ${err.message}`);
+    }
 
     try {
       await db

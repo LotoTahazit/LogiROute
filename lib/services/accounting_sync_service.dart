@@ -84,4 +84,34 @@ class AccountingSyncService {
       'invoiceId': docId,
     });
   }
+
+  /// Проверка API-ключей без создания документа.
+  Future<AccountingCredentialsTestResult> testCredentials({
+    String? provider,
+  }) async {
+    final callable =
+        FirebaseFunctions.instance.httpsCallable('testAccountingCredentials');
+    final res = await callable.call<Map<String, dynamic>>({
+      'companyId': companyId,
+      if (provider != null) 'provider': provider,
+    });
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return AccountingCredentialsTestResult(
+      ok: data['ok'] == true,
+      provider: data['provider'] as String? ?? provider ?? '',
+      message: data['message'] as String?,
+    );
+  }
+}
+
+class AccountingCredentialsTestResult {
+  const AccountingCredentialsTestResult({
+    required this.ok,
+    required this.provider,
+    this.message,
+  });
+
+  final bool ok;
+  final String provider;
+  final String? message;
 }

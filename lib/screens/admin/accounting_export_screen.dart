@@ -13,7 +13,10 @@ import '../../l10n/app_localizations.dart';
 import '../../utils/document_type_labels.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/accounting_sync_panel.dart';
+import '../../widgets/bkmv_export_dialog.dart';
 import '../../widgets/logi_route_tab_bar.dart';
+import '../../services/company_settings_service.dart';
+import '../../services/invoice_pdf_helpers.dart';
 
 /// Accounting export screen — Hashavshevet, Priority, universal CSV.
 class AccountingExportScreen extends StatefulWidget {
@@ -228,6 +231,19 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  Future<void> _openBkmvExport() async {
+    final companyId = CompanyContext.of(context).effectiveCompanyId;
+    if (companyId == null || companyId.isEmpty || !mounted) return;
+    final settings =
+        await CompanySettingsService(companyId: companyId).getSettings();
+    if (!mounted) return;
+    await showBkmvExportDialog(
+      context: context,
+      companyId: companyId,
+      settings: settings ?? defaultCompanySettings(companyId),
+    );
   }
 
   @override
@@ -479,6 +495,22 @@ class _AccountingExportScreenState extends State<AccountingExportScreen> {
                 label: Text(_isExporting ? l10n.exporting : l10n.exportAction),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: companyId.isEmpty ? null : _openBkmvExport,
+                icon: const Icon(Icons.folder_zip_outlined),
+                label: Text(l10n.downloadBkmv),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  l10n.bkmvExportSubtitle,
+                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
                 ),
               ),
               if (_lastResult != null) ...[

@@ -20,7 +20,7 @@ const { sha256hex, buildChainHashV1 } = require("./accounting/chain_hash");
 /**
  * Предусловия (до транзакции):
  * 1. auth != null
- * 2. user role: admin | dispatcher | super_admin
+ * 2. user role: admin | dispatcher | owner | accountant | super_admin
  * 3. company membership + billing allows write
  * 4. accounting module enabled
  * 5. invoice exists, status == draft, no docNumber
@@ -56,7 +56,7 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
   const role = userData.role;
   const isSuperAdmin = role === "super_admin";
 
-  if (!isSuperAdmin && !["admin", "dispatcher"].includes(role)) {
+  if (!isSuperAdmin && !["admin", "dispatcher", "owner", "accountant"].includes(role)) {
     throw new functions.https.HttpsError("permission-denied", "Role not allowed");
   }
 
@@ -325,6 +325,14 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
     });
   } catch (e) {
     console.warn("⚠️ External accounting sync failed (non-blocking):", e.message);
+  }
+
+  // --- 10. מספר הקצאה (non-blocking, если OAuth настроен) ---
+  try {
+    const { requestAllocationForInvoice } = require("./israelInvoice");
+    await requestAllocationForInvoice(companyId, invoiceId);
+  } catch (e) {
+    console.warn("⚠️ Assignment number request failed (non-blocking):", e.message);
   }
 
   return {

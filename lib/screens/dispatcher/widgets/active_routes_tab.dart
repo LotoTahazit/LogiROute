@@ -22,6 +22,8 @@ class ActiveRoutesTab extends StatelessWidget {
       onReorderPoints;
   final Function(DeliveryPoint point) onCreateInvoice;
   final Function(DeliveryPoint point) onCreateDeliveryNote;
+  final Function(DeliveryPoint point)? onCreateTaxInvoiceReceipt;
+  final bool dispatcherTaxInvoiceReceipt;
   final Function(List<DeliveryPoint> routePoints) onPrintAllInvoices;
   final Function(DeliveryPoint point) onEditPoint;
   final Function(DeliveryPoint point) onRemovePoint;
@@ -52,6 +54,8 @@ class ActiveRoutesTab extends StatelessWidget {
     required this.onReorderPoints,
     required this.onCreateInvoice,
     required this.onCreateDeliveryNote,
+    this.onCreateTaxInvoiceReceipt,
+    this.dispatcherTaxInvoiceReceipt = false,
     required this.onPrintAllInvoices,
     required this.onEditPoint,
     required this.onRemovePoint,
@@ -556,6 +560,13 @@ class ActiveRoutesTab extends StatelessWidget {
                         tooltip: l10n.createInvoiceTooltip,
                         onPressed: () => onCreateInvoice(r),
                       ),
+                      if (dispatcherTaxInvoiceReceipt &&
+                          onCreateTaxInvoiceReceipt != null)
+                        IconButton(
+                          icon: Icon(Icons.receipt_long, color: Colors.teal),
+                          tooltip: l10n.createTaxInvoiceReceiptTooltip,
+                          onPressed: () => onCreateTaxInvoiceReceipt!(r),
+                        ),
                       IconButton(
                         icon: Icon(Icons.local_shipping,
                             color: Colors.blue),

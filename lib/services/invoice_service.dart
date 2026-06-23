@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/invoice.dart';
+import '../models/invoice_payment_line.dart';
 import '../models/audit_event.dart';
 import '../models/document_link.dart';
 import '../features/owner_dashboard/models/accounting_doc.dart';
@@ -391,6 +392,66 @@ class InvoiceService {
       'cancelledBy': voidedByUid,
       'cancellationReason': reason,
     });
+  }
+
+  /// Обновление черновика owner (только draft, без deliveryPointId диспетчера).
+  Future<void> updateDraftInvoice({
+    required String id,
+    required String updatedByUid,
+    required String clientName,
+    required String clientNumber,
+    required String address,
+    required List<InvoiceItem> items,
+    required DateTime deliveryDate,
+    String? paymentMethod,
+    List<InvoicePaymentLine>? paymentLines,
+    String? notes,
+  }) async {
+    final invoice = await getInvoice(id);
+    if (invoice == null) throw Exception('Invoice not found');
+    if (invoice.status != InvoiceStatus.draft) {
+      throw Exception(
+          'Only draft documents can be edited (status: ${invoice.status.name})');
+    }
+    if (invoice.sequentialNumber > 0) {
+      throw Exception('Cannot edit issued document');
+    }
+
+    await _auditLogService.logEvent(
+      entityId: id,
+      entityType: invoice.documentType.name,
+      eventType: AuditEventType.technicalUpdate,
+      actorUid: updatedByUid,
+      metadata: {'action': 'draft_updated'},
+    );
+
+    final update = <String, dynamic>{
+      'clientName': clientName,
+      'clientNumber': clientNumber,
+      'address': address,
+      'items': items.map((e) => e.toMap()).toList(),
+      'deliveryDate': Timestamp.fromDate(deliveryDate),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': updatedByUid,
+    };
+    if (paymentMethod != null) {
+      update['paymentMethod'] = paymentMethod;
+    } else {
+      update['paymentMethod'] = FieldValue.delete();
+    }
+    if (paymentLines != null && paymentLines.isNotEmpty) {
+      update['paymentLines'] = paymentLines.map((p) => p.toMap()).toList();
+    } else {
+      update['paymentLines'] = FieldValue.delete();
+    }
+    final trimmedNotes = notes?.trim();
+    if (trimmedNotes != null && trimmedNotes.isNotEmpty) {
+      update['notes'] = trimmedNotes;
+    } else {
+      update['notes'] = FieldValue.delete();
+    }
+
+    await _invoicesCollection().doc(id).update(update);
   }
 
   /// Get recent invoices (today, this week, this month)

@@ -42,6 +42,50 @@ InvoiceItem accountingLineToInvoiceItem(AccountingDocLine line) {
   );
 }
 
+/// Бухгалтерский документ → [Invoice] для PDF (מקור/עתק, מע״מ, הקצאה).
+extension AccountingDocPrint on AccountingDoc {
+  Invoice toInvoice() {
+    InvoiceStatus invStatus;
+    switch (status) {
+      case AccountingDocStatus.draft:
+        invStatus = InvoiceStatus.draft;
+      case AccountingDocStatus.issued:
+      case AccountingDocStatus.locked:
+        invStatus = InvoiceStatus.issued;
+      case AccountingDocStatus.credited:
+        invStatus = InvoiceStatus.issued;
+      case AccountingDocStatus.voidedBeforeDelivery:
+        invStatus = InvoiceStatus.voided;
+    }
+
+    final delivery = deliveryDate ?? createdAt ?? DateTime.now();
+    return Invoice(
+      id: id ?? '',
+      companyId: companyId,
+      sequentialNumber: docNumber ?? 0,
+      clientName: customerName,
+      clientNumber: customerTaxId ?? customerId,
+      address: '',
+      driverName: '',
+      truckNumber: '',
+      deliveryDate: delivery,
+      departureTime: delivery,
+      items: lines.map(accountingLineToInvoiceItem).toList(),
+      createdAt: createdAt ?? delivery,
+      createdBy: createdBy,
+      status: invStatus,
+      documentType: type.toInvoiceDocumentType,
+      linkedInvoiceId: references?.originalDocId,
+      finalizedAt: issuedAt,
+      immutableSnapshotHash: immutableSnapshotHash,
+      assignmentNumber: assignmentNumber ?? externalDistributionNumber,
+      assignmentStatus: assignmentStatus ?? AssignmentStatus.notRequired,
+      deliveryPointId: deliveryPointId,
+      notes: notes,
+    );
+  }
+}
+
 String docTypeLabel(BuildContext context, AccountingDocType type) {
   final l10n = AppLocalizations.of(context)!;
   switch (type) {

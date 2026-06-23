@@ -15,6 +15,31 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeHistoryEmpty => 'אין עדיין מסלולים שהושלמו';
 
   @override
+  String get vatRegimeLabel => 'סוג עוסק (הדפסה)';
+
+  @override
+  String get vatRegimeAuthorized => 'עוסק מורשה';
+
+  @override
+  String get vatRegimeExempt => 'עוסק פטור';
+
+  @override
+  String get vatRegimeCompany => 'חברה בע״מ';
+
+  @override
+  String get israelInvoiceStatusTitle => 'מערכת חשבוניות ישראל';
+
+  @override
+  String get israelInvoicePlatformNotConfigured =>
+      'הפלטפורמה לא מוגדרת — נדרש ISRAEL_INVOICE_* ב-functions/.env';
+
+  @override
+  String get israelInvoiceCompanyConnected => 'מחובר לרשות המסים';
+
+  @override
+  String get israelInvoiceCompanyNotConnected => 'לא מחובר — לחץ לחיבור OAuth';
+
+  @override
   String get israelInvoiceConnect => 'חבר למערכת חשבוניות ישראל';
 
   @override
@@ -4420,6 +4445,17 @@ class AppLocalizationsHe extends AppLocalizations {
       'שימוש ב-API בדיקות של Greeninvoice (sandbox.d.greeninvoice.co.il)';
 
   @override
+  String get accountingProviderTest => 'בדיקת חיבור';
+
+  @override
+  String get accountingProviderTestOk => 'החיבור לספק הצליח';
+
+  @override
+  String accountingProviderTestFailed(String detail) {
+    return 'בדיקת החיבור נכשלה: $detail';
+  }
+
+  @override
   String get accountingSyncTitle => 'סנכרון חשבונאות חיצוני';
 
   @override
@@ -5173,6 +5209,88 @@ class AppLocalizationsHe extends AppLocalizations {
   String get creditCard => 'כרטיס אשראי';
 
   @override
+  String get paymentBankNumber => 'מספר בנק';
+
+  @override
+  String get paymentBranchNumber => 'מספר סניף';
+
+  @override
+  String get paymentAccountNumber => 'מספר חשבון';
+
+  @override
+  String get paymentChequeNumber => 'מספר המחאה';
+
+  @override
+  String get paymentDueDateLabel => 'תאריך פירעון';
+
+  @override
+  String get paymentClearingHouse => 'חברת סליקה';
+
+  @override
+  String get paymentClearingIsracard => 'ישראכרט';
+
+  @override
+  String get paymentClearingCal => 'כאל';
+
+  @override
+  String get paymentClearingDiners => 'דיינרס';
+
+  @override
+  String get paymentClearingAmex => 'אמריקן אקספרס';
+
+  @override
+  String get paymentClearingLeumi => 'לאומי כארד';
+
+  @override
+  String get paymentCardName => 'שם כרטיס';
+
+  @override
+  String get paymentDealType => 'סוג עסקה';
+
+  @override
+  String get paymentDealRegular => 'רגיל';
+
+  @override
+  String get paymentDealInstallments => 'תשלומים';
+
+  @override
+  String get paymentDealCredit => 'קרדיט';
+
+  @override
+  String get paymentInstallmentCount => 'מספר תשלומים';
+
+  @override
+  String get paymentBankRequired => 'נדרש מספר בנק';
+
+  @override
+  String get paymentBranchRequired => 'נדרש מספר סניף';
+
+  @override
+  String get paymentAccountRequired => 'נדרש מספר חשבון';
+
+  @override
+  String get paymentChequeRequired => 'נדרש מספר המחאה';
+
+  @override
+  String get paymentDueDateRequired => 'נדרש תאריך פירעון';
+
+  @override
+  String get paymentInstallmentRange => 'תשלומים: 2–36';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptTitle => 'חשבונית מס/קבלה למפיץ';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptHint =>
+      'לאפשר למפיץ להוציא חשבונית מס/קבלה כשהתשלום מתקבל במסירה';
+
+  @override
+  String get createTaxInvoiceReceiptTitle => 'יצירת חשבונית מס/קבלה';
+
+  @override
+  String get createTaxInvoiceReceiptTooltip => 'חשבונית מס/קבלה (שולם)';
+
+  @override
   String get notSelected => 'לא נבחר';
 
   @override
@@ -5783,6 +5901,38 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get accountingExportTitle => 'ייצוא להנהלת חשבונות';
+
+  @override
+  String get downloadBkmv => 'הורד BKMV';
+
+  @override
+  String get bkmvExportSubtitle =>
+      'קובץ ZIP OPENFRMT (INI.TXT + BKMVDATA.TXT) לרשות המסים';
+
+  @override
+  String get bkmvTaxIdRequired => 'נדרש מספר עוסק (ח.פ) לייצוא BKMV';
+
+  @override
+  String get bkmvExportEmpty => 'אין מסמכים בתקופה שנבחרה';
+
+  @override
+  String get bkmvSimulatorFailedTitle => 'בדיקת OPENFRMT נכשלה';
+
+  @override
+  String get bkmvSimulatorFailedBody =>
+      'הקובץ לא הורד. תקן את השגיאות ונסה שוב.';
+
+  @override
+  String get bkmvSimulatorPassed => 'עבר בדיקה מקומית לרשות המסים';
+
+  @override
+  String get bkmvSimulatorWarnings => 'אזהרות';
+
+  @override
+  String get bkmvSoftwareRegistrationLabel => 'מספר רישום תוכנה (BKMV)';
+
+  @override
+  String get bkmvSoftwareRegistrationHint => '8 ספרות מרשות המסים — שדה A100';
 
   @override
   String get targetSoftwareLabel => 'תוכנת יעד';

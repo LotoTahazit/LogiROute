@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../config/app_config.dart';
+import 'invoice_payment_line.dart';
 
 enum InvoiceCopyType {
   original, // מקור
@@ -203,12 +204,16 @@ class Invoice {
   final String?
       deliveryPointId; // ID точки доставки — для предотвращения дублей
   final String? paymentMethod; // אופן תשלום (для taxInvoiceReceipt)
+  /// Строки תשלום для D120 (BKMV). Пусто → fallback из [paymentMethod].
+  final List<InvoicePaymentLine> paymentLines;
   // === Void fields (soft-void for issued docs) ===
   final DateTime? voidedAt; // מתי בוטל (server time)
   final String? voidedBy; // מי ביטל (uid)
   final String? voidReason; // סיבת ביטול
   /// ID связанных credit notes (оригинал помечается при создании зичуя).
   final List<String> creditNoteIds;
+  /// Заметки owner (печать в PDF, экспорт).
+  final String? notes;
 
   Invoice({
     required this.id,
@@ -247,10 +252,12 @@ class Invoice {
     this.assignmentResponseRaw,
     this.deliveryPointId,
     this.paymentMethod,
+    this.paymentLines = const [],
     this.voidedAt,
     this.voidedBy,
     this.voidReason,
     this.creditNoteIds = const [],
+    this.notes,
   });
 
   // Константа НДС в Израиле
@@ -316,7 +323,7 @@ class Invoice {
         documentType != InvoiceDocumentType.taxInvoiceReceipt) {
       return false;
     }
-    final threshold = _getAssignmentThreshold(DateTime.now());
+    final threshold = _getAssignmentThreshold(deliveryDate);
     return subtotalBeforeVAT >= threshold;
   }
 
@@ -424,10 +431,13 @@ class Invoice {
         'assignmentResponseRaw': assignmentResponseRaw,
       if (deliveryPointId != null) 'deliveryPointId': deliveryPointId,
       if (paymentMethod != null) 'paymentMethod': paymentMethod,
+      if (paymentLines.isNotEmpty)
+        'paymentLines': paymentLines.map((p) => p.toMap()).toList(),
       if (voidedAt != null) 'voidedAt': Timestamp.fromDate(voidedAt!),
       if (voidedBy != null) 'voidedBy': voidedBy,
       if (voidReason != null) 'voidReason': voidReason,
       if (creditNoteIds.isNotEmpty) 'creditNoteIds': creditNoteIds,
+      if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
     };
   }
 
@@ -504,6 +514,11 @@ class Invoice {
       assignmentResponseRaw: map['assignmentResponseRaw'],
       deliveryPointId: map['deliveryPointId'],
       paymentMethod: map['paymentMethod'],
+      paymentLines: (map['paymentLines'] as List<dynamic>?)
+              ?.map((e) =>
+                  InvoicePaymentLine.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       voidedAt: map['voidedAt'] != null
           ? (map['voidedAt'] as Timestamp).toDate()
           : null,
@@ -513,6 +528,7 @@ class Invoice {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      notes: map['notes'] as String?,
     );
   }
 
@@ -556,10 +572,12 @@ class Invoice {
     String? assignmentResponseRaw,
     String? deliveryPointId,
     String? paymentMethod,
+    List<InvoicePaymentLine>? paymentLines,
     DateTime? voidedAt,
     String? voidedBy,
     String? voidReason,
     List<String>? creditNoteIds,
+    String? notes,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -601,10 +619,12 @@ class Invoice {
           assignmentResponseRaw ?? this.assignmentResponseRaw,
       deliveryPointId: deliveryPointId ?? this.deliveryPointId,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentLines: paymentLines ?? this.paymentLines,
       voidedAt: voidedAt ?? this.voidedAt,
       voidedBy: voidedBy ?? this.voidedBy,
       voidReason: voidReason ?? this.voidReason,
       creditNoteIds: creditNoteIds ?? this.creditNoteIds,
+      notes: notes ?? this.notes,
     );
   }
 }

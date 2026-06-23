@@ -14,7 +14,7 @@ class IntegrityCheckScreen extends StatefulWidget {
 }
 
 class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
-  String _counterKey = 'invoice';
+  String _counterKey = 'tax_invoice';
   int _rangeSize = 500;
   bool _isChecking = false;
   IntegrityVerifyResult? _result;
@@ -25,19 +25,19 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   bool _loadingCounters = true;
 
   static const _counterKeyIds = [
-    'invoice',
+    'tax_invoice',
     'receipt',
-    'creditNote',
-    'delivery',
-    'taxInvoiceReceipt',
+    'credit_note',
+    'delivery_note',
+    'tax_invoice_receipt',
   ];
 
   List<(String, String)> _getCounterKeys(AppLocalizations l10n) => [
-        ('invoice', l10n.counterInvoices),
+        ('tax_invoice', l10n.counterInvoices),
         ('receipt', l10n.counterReceipts),
-        ('creditNote', l10n.counterCreditNotes),
-        ('delivery', l10n.counterDeliveryNotes),
-        ('taxInvoiceReceipt', l10n.counterTaxInvoiceReceipts),
+        ('credit_note', l10n.counterCreditNotes),
+        ('delivery_note', l10n.counterDeliveryNotes),
+        ('tax_invoice_receipt', l10n.counterTaxInvoiceReceipts),
       ];
 
   @override

@@ -41,7 +41,8 @@ exports.retryAccountingSync = functions.https.onCall(async (data, context) => {
   if (inv == null) {
     throw new functions.https.HttpsError("not-found", "Document not found");
   }
-  const isIssued = inv.status === "issued" || inv.docNumber != null;
+  const seq = Number(inv.sequentialNumber);
+  const isIssued = Number.isFinite(seq) && seq > 0;
   if (!isIssued) {
     throw new functions.https.HttpsError(
       "failed-precondition",

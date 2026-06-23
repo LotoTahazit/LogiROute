@@ -15,6 +15,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeHistoryEmpty => 'No completed routes yet';
 
   @override
+  String get vatRegimeLabel => 'Taxpayer type (print)';
+
+  @override
+  String get vatRegimeAuthorized => 'Authorized dealer';
+
+  @override
+  String get vatRegimeExempt => 'VAT exempt';
+
+  @override
+  String get vatRegimeCompany => 'Ltd. company';
+
+  @override
+  String get israelInvoiceStatusTitle => 'Israel Invoices system';
+
+  @override
+  String get israelInvoicePlatformNotConfigured =>
+      'Platform not configured — set ISRAEL_INVOICE_* in functions/.env';
+
+  @override
+  String get israelInvoiceCompanyConnected => 'Connected to Tax Authority';
+
+  @override
+  String get israelInvoiceCompanyNotConnected => 'Not connected — use OAuth';
+
+  @override
   String get israelInvoiceConnect => 'Connect Israel Invoices';
 
   @override
@@ -4466,6 +4491,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use Greeninvoice test API (sandbox.d.greeninvoice.co.il)';
 
   @override
+  String get accountingProviderTest => 'Test connection';
+
+  @override
+  String get accountingProviderTestOk => 'Provider connection successful';
+
+  @override
+  String accountingProviderTestFailed(String detail) {
+    return 'Connection test failed: $detail';
+  }
+
+  @override
   String get accountingSyncTitle => 'External accounting sync';
 
   @override
@@ -5221,6 +5257,89 @@ class AppLocalizationsEn extends AppLocalizations {
   String get creditCard => 'Credit card';
 
   @override
+  String get paymentBankNumber => 'Bank no.';
+
+  @override
+  String get paymentBranchNumber => 'Branch no.';
+
+  @override
+  String get paymentAccountNumber => 'Account no.';
+
+  @override
+  String get paymentChequeNumber => 'Cheque no.';
+
+  @override
+  String get paymentDueDateLabel => 'Payment due date';
+
+  @override
+  String get paymentClearingHouse => 'Clearing company';
+
+  @override
+  String get paymentClearingIsracard => 'Isracard';
+
+  @override
+  String get paymentClearingCal => 'Cal';
+
+  @override
+  String get paymentClearingDiners => 'Diners';
+
+  @override
+  String get paymentClearingAmex => 'American Express';
+
+  @override
+  String get paymentClearingLeumi => 'Leumi Card';
+
+  @override
+  String get paymentCardName => 'Card name';
+
+  @override
+  String get paymentDealType => 'Transaction type';
+
+  @override
+  String get paymentDealRegular => 'Regular';
+
+  @override
+  String get paymentDealInstallments => 'Installments';
+
+  @override
+  String get paymentDealCredit => 'Credit';
+
+  @override
+  String get paymentInstallmentCount => 'Installments';
+
+  @override
+  String get paymentBankRequired => 'Bank number required';
+
+  @override
+  String get paymentBranchRequired => 'Branch number required';
+
+  @override
+  String get paymentAccountRequired => 'Account number required';
+
+  @override
+  String get paymentChequeRequired => 'Cheque number required';
+
+  @override
+  String get paymentDueDateRequired => 'Due date required';
+
+  @override
+  String get paymentInstallmentRange => 'Installments: 2–36';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptTitle =>
+      'Tax invoice/receipt for dispatcher';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptHint =>
+      'Allow dispatchers to issue חשבונית מס/קבלה when payment is received at delivery';
+
+  @override
+  String get createTaxInvoiceReceiptTitle => 'Create tax invoice/receipt';
+
+  @override
+  String get createTaxInvoiceReceiptTooltip => 'Tax invoice/receipt (paid)';
+
+  @override
   String get notSelected => 'Not selected';
 
   @override
@@ -5836,6 +5955,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountingExportTitle => 'Export to accounting';
+
+  @override
+  String get downloadBkmv => 'Download BKMV';
+
+  @override
+  String get bkmvExportSubtitle =>
+      'OPENFRMT ZIP (INI.TXT + BKMVDATA.TXT) for Tax Authority';
+
+  @override
+  String get bkmvTaxIdRequired =>
+      'Company tax ID (ח.פ) is required for BKMV export';
+
+  @override
+  String get bkmvExportEmpty => 'No issued documents in the selected period';
+
+  @override
+  String get bkmvSimulatorFailedTitle => 'OPENFRMT check failed';
+
+  @override
+  String get bkmvSimulatorFailedBody =>
+      'The file was not downloaded. Fix the issues below and try again.';
+
+  @override
+  String get bkmvSimulatorPassed => 'Local Tax Authority format check passed';
+
+  @override
+  String get bkmvSimulatorWarnings => 'Warnings';
+
+  @override
+  String get bkmvSoftwareRegistrationLabel =>
+      'Software registration no. (BKMV)';
+
+  @override
+  String get bkmvSoftwareRegistrationHint =>
+      '8 digits from Tax Authority — A100 field';
 
   @override
   String get targetSoftwareLabel => 'Target software';

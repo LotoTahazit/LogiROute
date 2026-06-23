@@ -140,6 +140,15 @@ class CompanySettings {
   /// (מבנה אחיד), 'greeninvoice' / 'icount' — интеграция с внешней системой.
   final String accountingProvider;
 
+  /// Разрешить диспетчеру выписывать חשבונית מס/קבלה (оплата при выдаче).
+  final bool dispatcherTaxInvoiceReceipt;
+
+  /// מספר רישום תוכנה ל-BKMV (רשות המסים), 8 ספרות.
+  final String bkmvSoftwareRegistrationNumber;
+
+  /// סוג עוסק לתצוגה ב-PDF: authorized | exempt | company
+  final String vatRegime;
+
   /// Плановое время выезда в минутах от полуночи (парсинг [departureTime]).
   int get departureMinutes => parseTimeToMinutes(departureTime, fallback: 7 * 60);
 
@@ -219,6 +228,9 @@ class CompanySettings {
     this.requirePodPhoto = false,
     this.autoCloseEnabled = true,
     this.accountingProvider = 'none',
+    this.dispatcherTaxInvoiceReceipt = false,
+    this.bkmvSoftwareRegistrationNumber = '00000000',
+    this.vatRegime = 'authorized',
     this.modules = const ModuleEntitlements(),
     this.limits = const PlanLimits(),
     this.plan = 'full',
@@ -268,6 +280,11 @@ class CompanySettings {
       requirePodPhoto: data['requirePodPhoto'] == true,
       autoCloseEnabled: data['autoCloseEnabled'] != false,
       accountingProvider: (data['accountingProvider'] as String?) ?? 'none',
+      dispatcherTaxInvoiceReceipt:
+          data['dispatcherTaxInvoiceReceipt'] == true,
+      bkmvSoftwareRegistrationNumber:
+          (data['bkmvSoftwareRegistrationNumber'] as String?) ?? '00000000',
+      vatRegime: (data['vatRegime'] as String?) ?? 'authorized',
       modules: ModuleEntitlements.fromMap(data['modules'] != null
           ? Map<String, dynamic>.from(data['modules'] as Map)
           : null),
@@ -321,6 +338,9 @@ class CompanySettings {
       'requirePodPhoto': requirePodPhoto,
       'autoCloseEnabled': autoCloseEnabled,
       'accountingProvider': accountingProvider,
+      'dispatcherTaxInvoiceReceipt': dispatcherTaxInvoiceReceipt,
+      'bkmvSoftwareRegistrationNumber': bkmvSoftwareRegistrationNumber,
+      'vatRegime': vatRegime,
       'modules': modules.toMap(),
       'limits': limits.toMap(),
       'plan': plan,
@@ -365,6 +385,9 @@ class CompanySettings {
     bool? requirePodPhoto,
     bool? autoCloseEnabled,
     String? accountingProvider,
+    bool? dispatcherTaxInvoiceReceipt,
+    String? bkmvSoftwareRegistrationNumber,
+    String? vatRegime,
     ModuleEntitlements? modules,
     PlanLimits? limits,
     String? plan,
@@ -404,6 +427,11 @@ class CompanySettings {
       requirePodPhoto: requirePodPhoto ?? this.requirePodPhoto,
       autoCloseEnabled: autoCloseEnabled ?? this.autoCloseEnabled,
       accountingProvider: accountingProvider ?? this.accountingProvider,
+      dispatcherTaxInvoiceReceipt:
+          dispatcherTaxInvoiceReceipt ?? this.dispatcherTaxInvoiceReceipt,
+      bkmvSoftwareRegistrationNumber: bkmvSoftwareRegistrationNumber ??
+          this.bkmvSoftwareRegistrationNumber,
+      vatRegime: vatRegime ?? this.vatRegime,
       modules: modules ?? this.modules,
       limits: limits ?? this.limits,
       plan: plan ?? this.plan,
@@ -417,5 +445,33 @@ class CompanySettings {
       paymentCustomerId: paymentCustomerId ?? this.paymentCustomerId,
       gracePeriodDays: gracePeriodDays ?? this.gracePeriodDays,
     );
+  }
+}
+
+/// Текст סוג עוסק для печати на PDF.
+extension CompanySettingsVatRegime on CompanySettings {
+  bool get isVatExempt => vatRegime == 'exempt';
+
+  /// Левая колонка (латиница) — ID по типу עוסק.
+  String get vatRegimePdfLabelEn {
+    if (isVatExempt) {
+      return taxId.isNotEmpty ? 'ID $taxId' : 'VAT exempt';
+    }
+    if (vatRegime == 'company') {
+      return taxId.isNotEmpty ? 'Co. # $taxId' : 'Ltd.';
+    }
+    return taxId.isNotEmpty ? 'VAT # $taxId' : '';
+  }
+
+  String get vatRegimePdfLabel {
+    switch (vatRegime) {
+      case 'exempt':
+        return 'עוסק פטור';
+      case 'company':
+        return taxId.isNotEmpty ? 'ח.פ $taxId' : 'חברה בע״מ';
+      case 'authorized':
+      default:
+        return taxId.isNotEmpty ? 'עוסק מורשה $taxId' : 'עוסק מורשה';
+    }
   }
 }

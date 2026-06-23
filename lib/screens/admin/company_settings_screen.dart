@@ -39,6 +39,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   final _invoiceFooterTextController = TextEditingController();
   final _paymentTermsController = TextEditingController();
   final _bankDetailsController = TextEditingController();
+  final _bkmvRegController = TextEditingController();
 
   /// Загруженные настройки — чтобы при сохранении не затирать поля, которых
   /// нет на этой форме (departureTime, driver*, параметры маршрутизации).
@@ -50,13 +51,21 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   /// Политика «автозакрытие точек по GPS включено» (по умолчанию да).
   bool _autoCloseEnabled = true;
 
+  /// Разрешить диспетчеру חשבונית מס/קבלה.
+  bool _dispatcherTaxInvoiceReceipt = false;
+
   /// Куда выгружать бухгалтерию: none | export | greeninvoice | icount
   String _accountingProvider = 'none';
+  String _vatRegime = 'authorized';
 
   static const _accountingProviders = [
     'none',
+    'export',
     'greeninvoice',
+    'icount',
   ];
+
+  static const _vatRegimes = ['authorized', 'exempt', 'company'];
 
   @override
   void initState() {
@@ -151,7 +160,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           _loaded = settings; // сохраняем для безопасного copyWith при записи
           _requirePodPhoto = settings.requirePodPhoto;
           _autoCloseEnabled = settings.autoCloseEnabled;
+          _dispatcherTaxInvoiceReceipt = settings.dispatcherTaxInvoiceReceipt;
           _accountingProvider = settings.accountingProvider;
+          _bkmvRegController.text = settings.bkmvSoftwareRegistrationNumber;
+          _vatRegime = settings.vatRegime;
           debugPrint('✅ [CompanySettings] Settings loaded and applied');
         } else {
           debugPrint(
@@ -237,7 +249,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         bankDetails: _bankDetailsController.text,
         requirePodPhoto: _requirePodPhoto,
         autoCloseEnabled: _autoCloseEnabled,
+        dispatcherTaxInvoiceReceipt: _dispatcherTaxInvoiceReceipt,
         accountingProvider: _accountingProvider,
+        bkmvSoftwareRegistrationNumber: _bkmvRegController.text.trim().isEmpty
+            ? '00000000'
+            : _bkmvRegController.text.trim().padLeft(8, '0').substring(0, 8),
+        vatRegime: _vatRegime,
       );
 
       await service.saveSettings(settings);
@@ -277,6 +294,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     _invoiceFooterTextController.dispose();
     _paymentTermsController.dispose();
     _bankDetailsController.dispose();
+    _bkmvRegController.dispose();
     super.dispose();
   }
 
@@ -336,6 +354,26 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           controller: _taxIdController,
                           label: l10n.taxId,
                           icon: Icons.numbers,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: _vatRegime,
+                          decoration: InputDecoration(
+                            labelText: l10n.vatRegimeLabel,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.account_balance_outlined),
+                          ),
+                          items: _vatRegimes
+                              .map(
+                                (r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text(_vatRegimeLabel(r, l10n)),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) setState(() => _vatRegime = v);
+                          },
                         ),
                       ],
                     ),
@@ -461,6 +499,14 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           maxLines: 3,
                           required: false,
                         ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _dispatcherTaxInvoiceReceipt,
+                          onChanged: (v) =>
+                              setState(() => _dispatcherTaxInvoiceReceipt = v),
+                          title: Text(l10n.dispatcherTaxInvoiceReceiptTitle),
+                          subtitle: Text(l10n.dispatcherTaxInvoiceReceiptHint),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -531,6 +577,18 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     );
   }
 
+  String _vatRegimeLabel(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'exempt':
+        return l10n.vatRegimeExempt;
+      case 'company':
+        return l10n.vatRegimeCompany;
+      case 'authorized':
+      default:
+        return l10n.vatRegimeAuthorized;
+    }
+  }
+
   String _accountingProviderLabel(String key, AppLocalizations l10n) {
     switch (key) {
       case 'export':
@@ -547,7 +605,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
 
   Widget _buildAccountingProviderSection(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final needsCreds = _accountingProvider == 'greeninvoice';
+    final needsCreds =
+        _accountingProvider == 'greeninvoice' || _accountingProvider == 'icount';
 
     return _buildSection(
       l10n.accountingProviderSection,
@@ -590,6 +649,17 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
             label: Text(l10n.accountingProviderConfigure),
           ),
         ],
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _bkmvRegController,
+          decoration: InputDecoration(
+            labelText: l10n.bkmvSoftwareRegistrationLabel,
+            helperText: l10n.bkmvSoftwareRegistrationHint,
+            border: const OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          maxLength: 8,
+        ),
       ],
     );
   }

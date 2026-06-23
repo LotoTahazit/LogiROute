@@ -15,4 +15,19 @@ module.exports = {
       return { ok: false, reason: "api_error", message: e.message };
     }
   },
+
+  async testCredentials({ credentials }) {
+    if (!credentials?.apiKey || !credentials?.secretKey) {
+      return { ok: false, message: "missing_credentials" };
+    }
+    await client.getToken({
+      apiKey: credentials.apiKey,
+      secretKey: credentials.secretKey,
+      sandbox: credentials.sandbox,
+    });
+    return {
+      ok: true,
+      message: credentials.sandbox ? "sandbox_ok" : "production_ok",
+    };
+  },
 };

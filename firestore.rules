@@ -136,7 +136,7 @@ service cloud.firestore {
         isCompanyMember(companyId) && billingAllowsWrite(companyId) && hasModule(companyId, moduleKey) && (
           (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher', 'owner'])) ||
           (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
-          (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant'])) ||
+          (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant', 'owner'])) ||
           (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
         )
       );
@@ -567,31 +567,20 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // counters: строго +1, create lastNumber=1, delete forbidden
-      // accountant can update (increment), but only admin/super_admin can create
+      // counters + integrity — только Cloud Functions (Admin SDK)
       match /accounting/_root/counters/{counterId} {
         allow read: if canUseModule(companyId, 'accounting');
-        allow create: if canWriteModule(companyId, 'accounting')
-          && hasAnyRole(['admin', 'super_admin'])
-          && request.resource.data.keys().hasOnly(['lastNumber'])
-          && request.resource.data.lastNumber == 1;
-        allow update: if canWriteModule(companyId, 'accounting')
-          && request.resource.data.lastNumber == resource.data.lastNumber + 1;
-        allow delete: if false;
+        allow create, update, delete: if false;
       }
 
-      // integrity_chain (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_chain/{chainId} {
         allow read: if canUseModule(companyId, 'accounting');
-        allow create: if canWriteModule(companyId, 'accounting');
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
 
-      // integrity_anchors (append-only, lives in accounting/_root/)
       match /accounting/_root/integrity_anchors/{anchorId} {
         allow read: if canUseModule(companyId, 'accounting');
-        allow create: if canWriteModule(companyId, 'accounting') && hasAnyRole(['admin', 'super_admin']);
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
 
       // assignment_requests (lives in accounting/_root/)
@@ -688,6 +677,11 @@ service cloud.firestore {
       match /uniform_export_runs/{runId} {
         allow read: if canAdminWrite(companyId);
         allow create: if canDispatcherWrite(companyId);
+        allow update, delete: if false;
+      }
+      match /accounting_export_runs/{runId} {
+        allow read: if canAdminWrite(companyId);
+        allow create: if canWriteModule(companyId, 'accounting');
         allow update, delete: if false;
       }
       match /access_log/{logId} {

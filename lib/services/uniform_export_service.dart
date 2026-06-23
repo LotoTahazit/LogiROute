@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/invoice.dart';
-import '../models/audit_event.dart';
-import 'audit_log_service.dart';
 
-/// שירות ייצוא קובץ במבנה אחיד — תואם לדרישות רשות המסים
-/// מייצר קובץ CSV/טקסט עם כל הרשומות לתקופה נתונה
-/// כולל: מטא-נתונים (מי הפיק, תקופה, תאריך הפקה, מספור עמודים)
+import '../models/audit_event.dart';
+import '../models/invoice.dart';
+import 'audit_log_service.dart';
+import 'bkmv/bkmv_exporter.dart';
+import 'bkmv/bkmv_records.dart';
+
+/// ייצוא OPENFRMT (INI.TXT + BKMVDATA.TXT) — horaot 1.31.
 class UniformExportService {
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -32,172 +32,102 @@ class UniformExportService {
         .collection('uniform_export_runs');
   }
 
-  /// ייצוא כל המסמכים לתקופה נתונה בפורמט אחיד (CSV)
-  /// log-before-action: רישום לפני ייצוא
-  Future<String> exportPeriod({
+  Future<List<Invoice>> _loadInvoices({
     required DateTime fromDate,
     required DateTime toDate,
-    required String exportedBy,
     InvoiceDocumentType? filterDocType,
   }) async {
-    // log-before-action
-    await _auditLogService.logEvent(
-      entityId:
-          'export_${fromDate.toIso8601String()}_${toDate.toIso8601String()}',
-      entityType: 'export',
-      eventType: AuditEventType.exported,
-      actorUid: exportedBy,
-      metadata: {
-        'format': 'csv_uniform',
-        'fromDate': fromDate.toIso8601String(),
-        'toDate': toDate.toIso8601String(),
-        if (filterDocType != null) 'docType': filterDocType.name,
-      },
-    );
-
-    // שליפת מסמכים
-    Query query = _invoicesCollection()
-        .where('createdAt',
+    final end = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+    final snapshot = await _invoicesCollection()
+        .where('deliveryDate',
             isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
-        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(toDate))
-        .orderBy('createdAt');
+        .where('deliveryDate', isLessThanOrEqualTo: Timestamp.fromDate(end))
+        .orderBy('deliveryDate')
+        .get();
 
-    final snapshot = await query.get();
     var invoices = snapshot.docs
         .map((doc) =>
-            Invoice.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            Invoice.fromMap(doc.data(), doc.id))
         .toList();
 
     if (filterDocType != null) {
       invoices =
           invoices.where((i) => i.documentType == filterDocType).toList();
     }
+    return invoices;
+  }
 
-    // בניית קובץ
-    final buffer = StringBuffer();
+  /// ZIP עם INI.TXT + BKMVDATA.TXT (ISO-8859-8).
+  Future<BkmvExportResult> exportOpenFormat({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required String exportedBy,
+    required BkmvCompanyContext company,
+    InvoiceDocumentType? filterDocType,
+    BkmvSoftwareInfo software = const BkmvSoftwareInfo(),
+  }) async {
+    await _auditLogService.logEvent(
+      entityId:
+          'bkmv_${fromDate.toIso8601String()}_${toDate.toIso8601String()}',
+      entityType: 'export',
+      eventType: AuditEventType.exported,
+      actorUid: exportedBy,
+      metadata: {
+        'format': 'openfrmt_131',
+        'fromDate': fromDate.toIso8601String(),
+        'toDate': toDate.toIso8601String(),
+        if (filterDocType != null) 'docType': filterDocType.name,
+      },
+    );
 
-    // כותרת מטא-נתונים
-    final now = DateTime.now();
-    buffer.writeln('# קובץ במבנה אחיד — ייצוא רשומות');
-    buffer.writeln('# חברה: $companyId');
-    buffer
-        .writeln('# תקופה: ${_formatDate(fromDate)} - ${_formatDate(toDate)}');
-    buffer.writeln('# תאריך הפקה: ${_formatDate(now)} ${_formatTime(now)}');
-    buffer.writeln('# מפיק: $exportedBy');
-    buffer.writeln('# סה"כ רשומות: ${invoices.length}');
-    buffer.writeln('');
+    final invoices = await _loadInvoices(
+      fromDate: fromDate,
+      toDate: toDate,
+      filterDocType: filterDocType,
+    );
 
-    // כותרות עמודות
-    buffer.writeln([
-      'מס_שורה',
-      'סוג_מסמך',
-      'מספר_רץ',
-      'תאריך_יצירה',
-      'שם_לקוח',
-      'מספר_לקוח',
-      'כתובת',
-      'נהג',
-      'מספר_רכב',
-      'תאריך_אספקה',
-      'תשלום_עד',
-      'סכום_לפני_מעמ',
-      'מעמ',
-      'סכום_כולל',
-      'הנחה_אחוז',
-      'סטטוס',
-      'מקור_הודפס',
-      'עותקים',
-      'מזהה_מסמך',
-      'מסמך_מקושר',
-    ].join(','));
+    final result = BkmvExporter(company: company, software: software).build(
+      invoices: invoices,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
 
-    // שורות נתונים
-    for (int i = 0; i < invoices.length; i++) {
-      final inv = invoices[i];
-      buffer.writeln([
-        i + 1,
-        _docTypeName(inv.documentType),
-        inv.sequentialNumber,
-        _formatDate(inv.createdAt),
-        _csvEscape(inv.clientName),
-        _csvEscape(inv.clientNumber),
-        _csvEscape(inv.address),
-        _csvEscape(inv.driverName),
-        _csvEscape(inv.truckNumber),
-        _formatDate(inv.deliveryDate),
-        inv.paymentDueDate != null ? _formatDate(inv.paymentDueDate!) : '',
-        inv.subtotalBeforeVAT.toStringAsFixed(2),
-        inv.vatAmount.toStringAsFixed(2),
-        inv.totalWithVAT.toStringAsFixed(2),
-        inv.discount.toStringAsFixed(2),
-        inv.status.name,
-        inv.originalPrinted ? 'כן' : 'לא',
-        inv.copiesPrinted,
-        inv.id,
-        inv.linkedInvoiceId ?? '',
-      ].join(','));
-    }
-
-    // סיום קובץ
-    buffer.writeln('');
-    buffer.writeln('# --- סוף קובץ ---');
-
-    // רישום ריצת ייצוא
     await _exportRunsCollection().add({
       'fromDate': Timestamp.fromDate(fromDate),
       'toDate': Timestamp.fromDate(toDate),
       'exportedBy': exportedBy,
       'exportedAt': FieldValue.serverTimestamp(),
-      'recordCount': invoices.length,
-      'format': 'csv_uniform',
+      'recordCount': result.documentCount,
+      'format': 'openfrmt_131',
+      'primaryId': result.primaryId,
+      'recordCounts': result.recordCounts,
       if (filterDocType != null) 'docTypeFilter': filterDocType.name,
     });
 
-    return buffer.toString();
+    return result;
   }
 
-  /// ייצוא כ-bytes (UTF-8 with BOM for Excel compatibility)
+  /// Bytes של ZIP OPENFRMT (להורדה).
   Future<List<int>> exportPeriodAsBytes({
     required DateTime fromDate,
     required DateTime toDate,
     required String exportedBy,
+    required BkmvCompanyContext company,
     InvoiceDocumentType? filterDocType,
   }) async {
-    final csvContent = await exportPeriod(
+    final result = await exportOpenFormat(
       fromDate: fromDate,
       toDate: toDate,
       exportedBy: exportedBy,
+      company: company,
       filterDocType: filterDocType,
     );
-    // UTF-8 BOM + content
-    return [0xEF, 0xBB, 0xBF, ...utf8.encode(csvContent)];
+    return result.zipBytes;
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-
-  String _formatTime(DateTime dt) =>
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-
-  String _csvEscape(String value) {
-    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-      return '"${value.replaceAll('"', '""')}"';
-    }
-    return value;
-  }
-
-  String _docTypeName(InvoiceDocumentType type) {
-    switch (type) {
-      case InvoiceDocumentType.invoice:
-        return 'חשבונית_מס';
-      case InvoiceDocumentType.taxInvoiceReceipt:
-        return 'חשבונית_מס_קבלה';
-      case InvoiceDocumentType.receipt:
-        return 'קבלה';
-      case InvoiceDocumentType.delivery:
-        return 'תעודת_משלוח';
-      case InvoiceDocumentType.creditNote:
-        return 'זיכוי';
-    }
+  /// שם קובץ ZIP לפי מוסכמת OPENFRMT: BKMV_{עוסק}_{שנה}.zip
+  static String zipFileName(String vatId, DateTime periodEnd) {
+    final vat = vatId.replaceAll(RegExp(r'\D'), '').padLeft(9, '0');
+    return 'BKMV_${vat}_${periodEnd.year}.zip';
   }
 }

@@ -15,6 +15,31 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeHistoryEmpty => 'Завершённых маршрутов пока нет';
 
   @override
+  String get vatRegimeLabel => 'Тип плательщика (печать)';
+
+  @override
+  String get vatRegimeAuthorized => 'עוסק מורשה';
+
+  @override
+  String get vatRegimeExempt => 'עוסק פטור';
+
+  @override
+  String get vatRegimeCompany => 'חברה בע״מ';
+
+  @override
+  String get israelInvoiceStatusTitle => 'מערכת חשבוניות ישראל';
+
+  @override
+  String get israelInvoicePlatformNotConfigured =>
+      'Платформа не настроена — нужны ISRAEL_INVOICE_* в functions/.env';
+
+  @override
+  String get israelInvoiceCompanyConnected => 'Подключено к רשות המסים';
+
+  @override
+  String get israelInvoiceCompanyNotConnected => 'Не подключено — OAuth';
+
+  @override
   String get israelInvoiceConnect => 'Подключить «Хешбониёт Исраэль»';
 
   @override
@@ -4466,6 +4491,17 @@ class AppLocalizationsRu extends AppLocalizations {
       'API Greeninvoice sandbox (sandbox.d.greeninvoice.co.il)';
 
   @override
+  String get accountingProviderTest => 'Проверить подключение';
+
+  @override
+  String get accountingProviderTestOk => 'Подключение к провайдеру успешно';
+
+  @override
+  String accountingProviderTestFailed(String detail) {
+    return 'Проверка не удалась: $detail';
+  }
+
+  @override
   String get accountingSyncTitle => 'Синхронизация с внешней бухгалтерией';
 
   @override
@@ -5225,6 +5261,89 @@ class AppLocalizationsRu extends AppLocalizations {
   String get creditCard => 'Кредитная карта';
 
   @override
+  String get paymentBankNumber => '№ банка';
+
+  @override
+  String get paymentBranchNumber => '№ филиала';
+
+  @override
+  String get paymentAccountNumber => '№ счёта';
+
+  @override
+  String get paymentChequeNumber => '№ чека';
+
+  @override
+  String get paymentDueDateLabel => 'Дата погашения';
+
+  @override
+  String get paymentClearingHouse => 'Солик';
+
+  @override
+  String get paymentClearingIsracard => 'Isracard';
+
+  @override
+  String get paymentClearingCal => 'Cal';
+
+  @override
+  String get paymentClearingDiners => 'Diners';
+
+  @override
+  String get paymentClearingAmex => 'American Express';
+
+  @override
+  String get paymentClearingLeumi => 'Leumi Card';
+
+  @override
+  String get paymentCardName => 'Название карты';
+
+  @override
+  String get paymentDealType => 'Тип операции';
+
+  @override
+  String get paymentDealRegular => 'Обычная';
+
+  @override
+  String get paymentDealInstallments => 'Рассрочка';
+
+  @override
+  String get paymentDealCredit => 'Кредит';
+
+  @override
+  String get paymentInstallmentCount => 'Платежей';
+
+  @override
+  String get paymentBankRequired => 'Укажите номер банка';
+
+  @override
+  String get paymentBranchRequired => 'Укажите номер филиала';
+
+  @override
+  String get paymentAccountRequired => 'Укажите номер счёта';
+
+  @override
+  String get paymentChequeRequired => 'Укажите номер чека';
+
+  @override
+  String get paymentDueDateRequired => 'Укажите дату погашения';
+
+  @override
+  String get paymentInstallmentRange => 'Рассрочка: от 2 до 36';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptTitle =>
+      'חשבונית מס/קבלה для диспетчера';
+
+  @override
+  String get dispatcherTaxInvoiceReceiptHint =>
+      'Разрешить диспетчеру выписывать חשבונית מס/קבלה при оплате при доставке';
+
+  @override
+  String get createTaxInvoiceReceiptTitle => 'Создать счёт-фактуру/квитанцию';
+
+  @override
+  String get createTaxInvoiceReceiptTooltip => 'חשבונית מס/קבלה (оплачено)';
+
+  @override
   String get notSelected => 'Не выбрано';
 
   @override
@@ -5842,6 +5961,39 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get accountingExportTitle => 'Экспорт в бухгалтерию';
+
+  @override
+  String get downloadBkmv => 'Скачать BKMV';
+
+  @override
+  String get bkmvExportSubtitle =>
+      'ZIP OPENFRMT (INI.TXT + BKMVDATA.TXT) для רשות המסים';
+
+  @override
+  String get bkmvTaxIdRequired => 'Для BKMV нужен ח.פ компании';
+
+  @override
+  String get bkmvExportEmpty => 'Нет документов за выбранный период';
+
+  @override
+  String get bkmvSimulatorFailedTitle => 'Проверка OPENFRMT не пройдена';
+
+  @override
+  String get bkmvSimulatorFailedBody =>
+      'Файл не скачан. Исправьте ошибки и повторите.';
+
+  @override
+  String get bkmvSimulatorPassed =>
+      'Локальная проверка формата רשות המסים пройдена';
+
+  @override
+  String get bkmvSimulatorWarnings => 'Предупреждения';
+
+  @override
+  String get bkmvSoftwareRegistrationLabel => 'Рег. номер ПО (BKMV)';
+
+  @override
+  String get bkmvSoftwareRegistrationHint => '8 цифр от רשות המסים — поле A100';
 
   @override
   String get targetSoftwareLabel => 'Целевое ПО';

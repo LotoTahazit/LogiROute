@@ -76,6 +76,41 @@ function mapDocType(docType) {
   return 305;
 }
 
+function mapPaymentType(method) {
+  const m = String(method || "cash").toLowerCase();
+  if (m.includes("credit") || m.includes("card")) return 3;
+  if (m.includes("cheque") || m.includes("check")) return 2;
+  if (m.includes("bank") || m.includes("transfer")) return 4;
+  return 1;
+}
+
+function buildPayments(payload, type) {
+  const lines = payload.paymentLines;
+  if (Array.isArray(lines) && lines.length > 0) {
+    return lines.map((p) => ({
+      type: mapPaymentType(p.method),
+      price: Math.round((Number(p.amount) || 0) * 100) / 100,
+      date: p.dueDate
+        ? String(p.dueDate).slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+    }));
+  }
+  if (type !== 320 && type !== 400) return null;
+  const amount =
+    Number(payload.gross) ||
+    (payload.lines || []).reduce(
+      (s, l) => s + (Number(l.quantity) || 1) * (Number(l.unitPrice) || 0) * 1.17,
+      0
+    );
+  return [
+    {
+      type: 1,
+      price: Math.round(amount * 100) / 100,
+      date: new Date().toISOString().slice(0, 10),
+    },
+  ];
+}
+
 function buildDocumentBody(payload) {
   const type = mapDocType(payload.docType);
   const income = (payload.lines || []).map((line) => ({
@@ -107,17 +142,8 @@ function buildDocumentBody(payload) {
   };
 
   if (type === 320 || type === 400) {
-    const amount = Number(payload.gross) || income.reduce(
-      (s, l) => s + l.quantity * l.price * 1.17,
-      0
-    );
-    body.payment = [
-      {
-        type: 1,
-        price: Math.round(amount * 100) / 100,
-        date: new Date().toISOString().slice(0, 10),
-      },
-    ];
+    const payment = buildPayments(payload, type);
+    if (payment) body.payment = payment;
   }
 
   if (type === 330) {

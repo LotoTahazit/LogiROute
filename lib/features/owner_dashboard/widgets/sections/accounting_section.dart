@@ -8,14 +8,19 @@ import '../../../../models/company_settings.dart';
 import '../../../../services/accounting_sync_service.dart';
 import '../../../../services/invoice_service.dart';
 import '../../../../services/issuance_service.dart';
+import '../../../../services/invoice_print_service.dart';
+import '../../../../services/invoice_assignment_service.dart';
+import '../../../../models/invoice.dart';
 import '../../../../utils/accounting_period_lock.dart';
 import '../../../../widgets/accounting_sync_panel.dart';
+import '../../../../widgets/bkmv_export_dialog.dart';
 import '../../../../widgets/logi_route_tab_bar.dart';
 import '../../models/accounting_doc.dart';
 import '../credit_note_form.dart';
 import 'accounting_helpers.dart';
 import 'create_doc_form_dialog.dart';
 import 'document_chain_dialog.dart';
+import 'accounting_provider_settings_dialog.dart';
 
 /// Секция «Бухгалтерия» Owner Dashboard.
 ///
@@ -63,6 +68,11 @@ class _AccountingSectionState extends State<AccountingSection> {
   bool get _hasExternalAccounting {
     final p = widget.companySettings.accountingProvider;
     return p == 'greeninvoice' || p == 'icount' || p == 'export';
+  }
+
+  bool get _isExternalApiProvider {
+    final p = widget.companySettings.accountingProvider;
+    return p == 'greeninvoice' || p == 'icount';
   }
 
   DateTime? get _accountingLockedUntil =>
@@ -282,10 +292,25 @@ class _AccountingSectionState extends State<AccountingSection> {
             ],
           ),
           const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: () => _showCreateDocDialog(context),
-            icon: const Icon(Icons.add, size: 20),
-            label: Text(l10n.createDocument),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _showCreateDocDialog(context),
+                icon: const Icon(Icons.add, size: 20),
+                label: Text(l10n.createDocument),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => showBkmvExportDialog(
+                  context: context,
+                  companyId: widget.companyId,
+                  settings: widget.companySettings,
+                ),
+                icon: const Icon(Icons.folder_zip_outlined, size: 20),
+                label: Text(l10n.downloadBkmv),
+              ),
+            ],
           ),
         ],
       );
@@ -303,8 +328,32 @@ class _AccountingSectionState extends State<AccountingSection> {
                 style: const TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
           ),
+          if (_isExternalApiProvider) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: l10n.accountingProviderConfigure,
+              icon: const Icon(Icons.vpn_key_outlined, size: 20),
+              onPressed: () => showDialog<bool>(
+                context: context,
+                builder: (_) => AccountingProviderSettingsDialog(
+                  companyId: widget.companyId,
+                  provider: widget.companySettings.accountingProvider,
+                ),
+              ),
+            ),
+          ],
         ],
         const Spacer(),
+        OutlinedButton.icon(
+          onPressed: () => showBkmvExportDialog(
+            context: context,
+            companyId: widget.companyId,
+            settings: widget.companySettings,
+          ),
+          icon: const Icon(Icons.folder_zip_outlined),
+          label: Text(l10n.downloadBkmv),
+        ),
+        const SizedBox(width: 8),
         FilledButton.icon(
           onPressed: () => _showCreateDocDialog(context),
           icon: const Icon(Icons.add),
@@ -765,7 +814,7 @@ class _AccountingSectionState extends State<AccountingSection> {
               tooltip: l10n.editTooltip,
               onPressed: periodLocked
                   ? null
-                  : () => _showDocForm(context, doc.type),
+                  : () => _showDocForm(context, doc.type, editDoc: doc),
             ),
             IconButton(
               icon: const Icon(Icons.publish_outlined, size: 20),
@@ -794,6 +843,20 @@ class _AccountingSectionState extends State<AccountingSection> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: const Icon(Icons.print_outlined, size: 20),
+              tooltip: l10n.makorPrintButton,
+              onPressed: doc.id != null ? () => _printDoc(context, doc) : null,
+            ),
+            if (_needsAssignmentAction(doc))
+              IconButton(
+                icon: const Icon(Icons.verified_outlined, size: 20),
+                tooltip: l10n.assignmentNumberLabel,
+                color: Colors.orange.shade800,
+                onPressed: doc.id != null
+                    ? () => _requestAssignment(context, doc)
+                    : null,
+              ),
             TextButton.icon(
               icon: const Icon(Icons.note_add_outlined, size: 18),
               label: Text(l10n.createCreditNote,
@@ -813,6 +876,88 @@ class _AccountingSectionState extends State<AccountingSection> {
   // ---------------------------------------------------------------------------
   // Confirmation dialogs for Issue and Void actions
   // ---------------------------------------------------------------------------
+
+  bool _needsAssignmentAction(AccountingDoc doc) {
+    if (doc.type != AccountingDocType.taxInvoice &&
+        doc.type != AccountingDocType.taxInvoiceReceipt) {
+      return false;
+    }
+    final inv = doc.toInvoice();
+    if (!inv.requiresAssignment) return false;
+    return inv.assignmentStatus != AssignmentStatus.approved;
+  }
+
+  Future<void> _requestAssignment(
+      BuildContext context, AccountingDoc doc) async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final result = await InvoiceAssignmentService(
+        companyId: widget.companyId,
+      ).requestAssignmentNumber(doc.id!);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.success
+                ? l10n.assignmentNumberReceived(
+                    result.assignmentNumber ?? '')
+                : (result.error ?? 'error'),
+          ),
+          backgroundColor: result.success ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _printDoc(BuildContext context, AccountingDoc doc) async {
+    final l10n = AppLocalizations.of(context)!;
+    final copyType = await showDialog<InvoiceCopyType>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.makorChoosePrintType),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('מקור'),
+              onTap: () => Navigator.pop(ctx, InvoiceCopyType.original),
+            ),
+            ListTile(
+              title: Text(l10n.copyTypeLabel),
+              onTap: () => Navigator.pop(ctx, InvoiceCopyType.copy),
+            ),
+            ListTile(
+              title: Text(l10n.trueToOriginalLabel),
+              onTap: () =>
+                  Navigator.pop(ctx, InvoiceCopyType.replacesOriginal),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (copyType == null || !context.mounted) return;
+
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      await InvoicePrintService.printInvoice(
+        doc.toInvoice(),
+        copyType: copyType,
+        actorUid: uid,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   Future<void> _confirmIssueDoc(BuildContext context, AccountingDoc doc) async {
     if (_isDocPeriodLocked(doc)) {
@@ -986,7 +1131,8 @@ class _AccountingSectionState extends State<AccountingSection> {
     );
   }
 
-  void _showDocForm(BuildContext context, AccountingDocType type) {
+  void _showDocForm(BuildContext context, AccountingDocType type,
+      {AccountingDoc? editDoc}) {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -995,6 +1141,7 @@ class _AccountingSectionState extends State<AccountingSection> {
         companyId: widget.companyId,
         invoiceService: _invoiceService,
         accountingLockedUntil: _accountingLockedUntil,
+        editDoc: editDoc,
       ),
     );
   }
