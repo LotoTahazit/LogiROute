@@ -51,6 +51,22 @@ class WebGeocodingService {
     }
   }
 
+  /// Город из адреса = последний сегмент после запятой (без страны).
+  /// "יהודה הנשיא 15, בית שמש, ישראל" → "בית שמש". null, если города нет.
+  static String? _extractCity(String address) {
+    final parts = address
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    while (parts.isNotEmpty &&
+        (parts.last == 'ישראל' || parts.last.toLowerCase() == 'israel')) {
+      parts.removeLast();
+    }
+    if (parts.length < 2) return null;
+    return parts.last;
+  }
+
   static Future<GeocodingResult?> geocode(String address) async {
     _ensureInitialized();
 
@@ -64,6 +80,15 @@ class WebGeocodingService {
     try {
       final request = JSObject();
       request['address'] = address.toJS;
+      // Привязка к Израилю и к ГОРОДУ из адреса. Имена улиц повторяются в
+      // разных городах: без locality «יהודה הנשיא 15, בית שמש» мог попасть на
+      // одноимённую улицу в Тель-Авиве. С componentRestrictions Google вернёт
+      // результат именно в этом городе либо ZERO_RESULTS.
+      final comp = JSObject();
+      comp['country'] = 'IL'.toJS;
+      final reqCity = _extractCity(address);
+      if (reqCity != null) comp['locality'] = reqCity.toJS;
+      request['componentRestrictions'] = comp;
 
       void onGeocode(JSAny? results, JSAny? status) {
         try {
@@ -107,27 +132,18 @@ class WebGeocodingService {
             debugPrint('⚠️ [WebGeocoding] Error parsing formatted_address: $e');
           }
 
-          final cityChecks = {
-            'חולון': ['חולון', 'Holon'],
-            'Holon': ['חולון', 'Holon'],
-            'ראשון לציון': ['ראשון לציון', 'Rishon'],
-            'Rishon': ['ראשון לציון', 'Rishon'],
-            'תל אביב': ['תל אביב', 'Tel Aviv'],
-            'Tel Aviv': ['תל אביב', 'Tel Aviv'],
-          };
-
-          for (final entry in cityChecks.entries) {
-            if (address.contains(entry.key)) {
-              final cityFound = entry.value.any(
-                (city) => formattedAddress?.contains(city) ?? false,
-              );
-              if (!cityFound) {
-                if (!completer.isCompleted) {
-                  completer.complete(null);
-                }
-                return;
-              }
+          // Бэкстоп: результат должен быть в том же городе, что в адресе
+          // (для ЛЮБОГО города, не только списка). Иначе — отклоняем.
+          final reqCity = _extractCity(address);
+          if (reqCity != null &&
+              formattedAddress != null &&
+              !formattedAddress.contains(reqCity)) {
+            debugPrint(
+                '⚠️ [WebGeocoding] city mismatch: ждали "$reqCity", получили "$formattedAddress" — отклонено');
+            if (!completer.isCompleted) {
+              completer.complete(null);
             }
+            return;
           }
 
           // 🛡️ GUARD: отклоняем координаты за пределами Израиля

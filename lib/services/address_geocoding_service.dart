@@ -190,12 +190,35 @@ class AddressGeocodingService {
     return variants;
   }
 
+  /// Город из адреса = последний сегмент после запятой (без страны).
+  static String? _extractCity(String address) {
+    final parts = address
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    while (parts.isNotEmpty &&
+        (parts.last == 'ישראל' || parts.last.toLowerCase() == 'israel')) {
+      parts.removeLast();
+    }
+    if (parts.length < 2) return null;
+    return parts.last;
+  }
+
   /// Geocode via Google Geocoding API with city validation
   static Future<Map<String, double>?> geocodeViaGoogleAPI(
       String address) async {
     final String encodedAddress = Uri.encodeComponent(address);
+    // Привязка к Израилю и к городу из адреса (улицы повторяются в городах —
+    // без locality «יהודה הנשיא 15, בית שמש» уходил в Тель-Авив).
+    final reqCity = _extractCity(address);
+    final components = reqCity != null
+        ? 'country:IL|locality:${Uri.encodeComponent(reqCity)}'
+        : 'country:IL';
     final String url =
-        '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress&key=${ApiConfigService.googleMapsApiKey}';
+        '${ApiConfigService.googleGeocodingApiUrl}?address=$encodedAddress'
+        '&components=$components&region=il'
+        '&key=${ApiConfigService.googleMapsApiKey}';
 
     try {
       final response = await http.get(Uri.parse(url)).timeout(
@@ -224,28 +247,11 @@ class AddressGeocodingService {
           debugPrint(
               '🗺️ [Google API] Coords: (${location['lat']}, ${location['lng']})');
 
-          // Validate city if specified in request
-          final cityChecks = {
-            'חולון': ['חולון', 'Holon'],
-            'Holon': ['חולון', 'Holon'],
-            'ראשון לציון': ['ראשון לציון', 'Rishon'],
-            'Rishon': ['ראשון לציון', 'Rishon'],
-            'תל אביב': ['תל אביב', 'Tel Aviv'],
-            'Tel Aviv': ['תל אביב', 'Tel Aviv'],
-            'פתח תקווה': ['פתח תקווה', 'Petah Tikva'],
-            'Petah Tikva': ['פתח תקווה', 'Petah Tikva'],
-          };
-
-          for (final entry in cityChecks.entries) {
-            if (address.contains(entry.key)) {
-              final cityFound =
-                  entry.value.any((city) => formattedAddress.contains(city));
-              if (!cityFound) {
-                debugPrint(
-                    '⚠️ [Google API] WARNING: Requested ${entry.key} but got: $formattedAddress');
-                return null;
-              }
-            }
+          // Бэкстоп: результат должен быть в городе из адреса (любой город).
+          if (reqCity != null && !formattedAddress.contains(reqCity)) {
+            debugPrint(
+                '⚠️ [Google API] city mismatch: ждали "$reqCity", получили "$formattedAddress" — отклонено');
+            return null;
           }
 
           // 🛡️ GUARD: отклоняем координаты за пределами Израиля
