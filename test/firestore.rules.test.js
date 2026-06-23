@@ -386,33 +386,25 @@ test("Driver status-only: driver can update ONLY status(+allowed fields)", async
   await assertFails(ref.update({ title: "Hacked" }));
 });
 
-test("Counters +1 only: can increment by exactly 1", async () => {
+test("Counters: client cannot write (server-only via Cloud Functions)", async () => {
   const db = authed("u_disp_c1");
   const ref = db.doc(`${COMPANIES_COL}/c1/accounting/_root/counters/routes`);
 
-  // read current
+  // read ok
   const snap = await ref.get();
   assert.equal(snap.exists, true);
-  const v = snap.data().lastNumber;
 
-  // ✅ +1
-  await assertSucceeds(ref.update({ lastNumber: v + 1 }));
-
-  // ❌ +2
-  await assertFails(ref.update({ lastNumber: v + 4 }));
+  // ❌ любая клиентская запись запрещена — нумерацию пишет issueInvoice (CF)
+  await assertFails(ref.update({ lastNumber: 999 }));
 });
 
-test("Audit (integrity_chain) append-only: create ok, update/delete forbidden", async () => {
+test("Audit (integrity_chain): client cannot write — server-only (immutable)", async () => {
   const db = authed("u_disp_c1");
   const ref = db.doc(`${COMPANIES_COL}/c1/accounting/_root/integrity_chain/a_new`);
 
-  // ✅ create
-  await assertSucceeds(ref.set({ action: "created", createdAt: Date.now() }));
-
-  // ❌ update
+  // ❌ create/update/delete — цепочку пишет только issueInvoice (CF), неизменяемый аудит
+  await assertFails(ref.set({ action: "created", createdAt: Date.now() }));
   await assertFails(ref.update({ action: "changed" }));
-
-  // ❌ delete
   await assertFails(ref.delete());
 });
 
@@ -686,10 +678,10 @@ test("L6 write: driver cannot create accounting integrity_chain", async () => {
   );
 });
 
-// --- positive: admin can write to accounting ---
-test("L6 write: admin can create integrity_chain in accounting", async () => {
+// --- integrity_chain is server-only even for admin (immutable audit) ---
+test("L6 write: integrity_chain server-only (admin cannot create from client)", async () => {
   const db = authed("u_admin_c1");
-  await assertSucceeds(
+  await assertFails(
     db.doc(`companies/c1/accounting/_root/integrity_chain/adm1`).set({
       action: "admin_created", createdAt: Date.now(),
     })
@@ -740,7 +732,7 @@ test("L6 write: printEvents create denied if printedBy != uid", async () => {
   );
 });
 
-test("L6 write: super_admin can write anywhere", async () => {
+test("L6 write: super_admin writes app data (but not the immutable accounting chain)", async () => {
   const db = authed("u_super");
   // warehouse
   await assertSucceeds(
@@ -754,8 +746,9 @@ test("L6 write: super_admin can write anywhere", async () => {
       companyId: "c1", name: "Super Client",
     })
   );
-  // accounting (even disabled)
-  await assertSucceeds(
+  // accounting integrity_chain — неизменяемый аудит-слой, server-only:
+  // запрещён даже super_admin с клиента (пишет только Cloud Function).
+  await assertFails(
     db.doc(`companies/cNoAccAdmin/accounting/_root/integrity_chain/su_ch`).set({
       action: "super_bypass", createdAt: Date.now(),
     })
@@ -1020,10 +1013,10 @@ test("Accounting: write to unknown subcollection denied", async () => {
 // Accounting module — remaining coverage (anchors, auditLog, invoices fine-grained)
 // =========================================================
 
-// --- integrity_anchors: append-only, admin-only ---
-test("Accounting: admin can create integrity_anchor", async () => {
+// --- integrity_anchors: server-only (written by Cloud Functions) ---
+test("Accounting: integrity_anchor server-only (admin cannot create from client)", async () => {
   const db = authed("u_admin_c1");
-  await assertSucceeds(
+  await assertFails(
     db.doc(`companies/c1/accounting/_root/integrity_anchors/anc1`).set({
       hash: "abc123", createdAt: Date.now(),
     })
