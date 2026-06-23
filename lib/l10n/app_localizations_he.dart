@@ -15,6 +15,13 @@ class AppLocalizationsHe extends AppLocalizations {
   String get routeHistoryEmpty => 'אין עדיין מסלולים שהושלמו';
 
   @override
+  String get israelInvoiceConnect => 'חבר למערכת חשבוניות ישראל';
+
+  @override
+  String get israelInvoiceConnectHint =>
+      'התחברות חד-פעמית של העסק לרשות המסים לקבלת מספרי הקצאה. ייפתח דף ההתחברות.';
+
+  @override
   String get autoDistributePallets => 'פצל אוטומטית משטחים';
 
   @override

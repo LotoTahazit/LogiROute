@@ -1,269 +1,75 @@
-import 'dart:async';
-import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
+import 'package:cloud_functions/cloud_functions.dart';
 import '../models/invoice.dart';
 
-/// שירות מספר הקצאה — חשבוניות ישראל API
-/// פורטל חשבוניות ישראל של רשות המסים
+/// שירות מספר הקצאה — חשבוניות ישראל (Israel Tax Authority allocation number).
+///
+/// ВСЁ обращение к API налоговой выполняется НА СЕРВЕРЕ (Cloud Functions):
+/// `requestAllocationNumber` делает OAuth-refresh, вызывает /Invoices/v2/Approval
+/// и пишет статус в счёт. Токен/секрет рשут המסים никогда не попадают в клиент.
+/// Здесь — тонкий вызов CF + клиентский гейтинг UI.
 class InvoiceAssignmentService {
   final String companyId;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions;
 
-  InvoiceAssignmentService({required this.companyId}) {
+  InvoiceAssignmentService({
+    required this.companyId,
+    FirebaseFunctions? functions,
+  }) : _functions = functions ?? FirebaseFunctions.instance {
     if (companyId.isEmpty) {
       throw Exception('companyId cannot be empty');
     }
   }
 
-  CollectionReference<Map<String, dynamic>> _invoicesCollection() {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('accounting')
-        .doc('_root')
-        .collection('invoices');
+  /// Нужен ли счёту מספר הקצаה (клиентский гейтинг UI; реальная проверка — на
+  /// сервере). Учитывает флаг `AppConfig.enableAssignmentNumbers` через
+  /// [Invoice.requiresAssignment].
+  bool isAssignmentRequired(Invoice invoice) => invoice.requiresAssignment;
+
+  /// OAuth-ссылка для РАЗОВОГО подключения компании к מערכת חשבוניות ישראל.
+  /// Открыть во внешнем браузере; после авторизации refresh-токен сохраняется
+  /// на сервере. Доступно владельцу/админу/бухгалтеру (проверяется в CF).
+  Future<String> getConnectUrl() async {
+    final res = await _functions
+        .httpsCallable(
+          'israelInvoiceAuthUrl',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        )
+        .call<Map<String, dynamic>>({'companyId': companyId});
+    return (res.data['url'] ?? '') as String;
   }
 
-  CollectionReference<Map<String, dynamic>> _assignmentRequestsCollection() {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('accounting')
-        .doc('_root')
-        .collection('assignment_requests');
-  }
-
-  /// בדיקה אם נדרש מספר הקצאה לפי סף ותאריך
-  bool isAssignmentRequired(Invoice invoice) {
-    if (invoice.documentType != InvoiceDocumentType.invoice &&
-        invoice.documentType != InvoiceDocumentType.taxInvoiceReceipt) {
-      return false;
-    }
-    final threshold = _getThreshold(DateTime.now());
-    return invoice.subtotalBeforeVAT >= threshold;
-  }
-
-  /// סף לפי תאריך (סכום לפני מע״מ)
-  double _getThreshold(DateTime date) {
-    if (date.isAfter(DateTime(2026, 6, 1)) ||
-        date.isAtSameMomentAs(DateTime(2026, 6, 1))) {
-      return 5000.0;
-    }
-    if (date.isAfter(DateTime(2026, 1, 1)) ||
-        date.isAtSameMomentAs(DateTime(2026, 1, 1))) {
-      return 10000.0;
-    }
-    return 20000.0;
-  }
-
-  /// בקשת מספר הקצאה מרשות המסים
-  /// כולל: דדופליקציה, ריטריי עם exponential backoff, רישום ביומן
+  /// Запросить מספר הקצаה для счёта. Всю работу (OAuth-refresh, вызов
+  /// /Approval, запись `assignmentNumber`/статуса в счёт) делает Cloud Function
+  /// `requestAllocationNumber`.
   Future<AssignmentResult> requestAssignmentNumber(String invoiceId) async {
     try {
-      // טעינת החשבונית
-      final doc = await _invoicesCollection().doc(invoiceId).get();
-      if (!doc.exists) {
-        return AssignmentResult(
-          success: false,
-          error: 'חשבונית לא נמצאה',
-        );
-      }
-      final invoice = Invoice.fromMap(doc.data()!, doc.id);
-
-      // דדופליקציה — אם כבר אושר או ממתין, לא שולחים שוב
-      if (invoice.assignmentStatus == AssignmentStatus.approved) {
-        return AssignmentResult(
-          success: true,
-          assignmentNumber: invoice.assignmentNumber,
-          message: 'מספר הקצאה כבר התקבל',
-        );
-      }
-      if (invoice.assignmentStatus == AssignmentStatus.pending) {
-        return AssignmentResult(
-          success: false,
-          error: 'בקשה כבר נשלחה — ממתין לתשובה',
-        );
-      }
-
-      // בדיקת סף
-      if (!isAssignmentRequired(invoice)) {
-        await _invoicesCollection().doc(invoiceId).update({
-          'assignmentStatus': AssignmentStatus.notRequired.name,
-        });
-        return AssignmentResult(
-          success: true,
-          message: 'לא נדרש מספר הקצאה — מתחת לסף',
-        );
-      }
-
-      // סימון כממתין
-      await _invoicesCollection().doc(invoiceId).update({
-        'assignmentStatus': AssignmentStatus.pending.name,
-        'assignmentRequestedAt': FieldValue.serverTimestamp(),
-      });
-
-      // רישום בקשה בתת-אוסף
-      final requestDoc = await _assignmentRequestsCollection().add({
+      final res = await _functions
+          .httpsCallable(
+            'requestAllocationNumber',
+            options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+          )
+          .call<Map<String, dynamic>>({
+        'companyId': companyId,
         'invoiceId': invoiceId,
-        'sequentialNumber': invoice.sequentialNumber,
-        'clientNumber': invoice.clientNumber,
-        'amountBeforeVAT': invoice.subtotalBeforeVAT,
-        'vatAmount': invoice.vatAmount,
-        'totalAmount': invoice.totalWithVAT,
-        'requestedAt': FieldValue.serverTimestamp(),
-        'status': 'pending',
       });
-
-      // שליחת בקשה ל-API עם ריטריי
-      final result = await _sendWithRetry(invoice, requestDoc.id);
-
-      // עדכון החשבונית לפי תוצאה
-      if (result.success) {
-        await _invoicesCollection().doc(invoiceId).update({
-          'assignmentNumber': result.assignmentNumber,
-          'assignmentStatus': AssignmentStatus.approved.name,
-          'assignmentResponseRaw': result.rawResponse,
-        });
-        await _assignmentRequestsCollection().doc(requestDoc.id).update({
-          'status': 'approved',
-          'assignmentNumber': result.assignmentNumber,
-          'respondedAt': FieldValue.serverTimestamp(),
-        });
-        // audit с actorUid пользователя — 'system' запрещён правилами
-        // логируем только в assignment_requests, не в auditLog
-      } else {
-        final newStatus = result.isRejection
-            ? AssignmentStatus.rejected
-            : AssignmentStatus.error;
-        await _invoicesCollection().doc(invoiceId).update({
-          'assignmentStatus': newStatus.name,
-          'assignmentResponseRaw': result.rawResponse ?? result.error,
-        });
-        await _assignmentRequestsCollection().doc(requestDoc.id).update({
-          'status': newStatus.name,
-          'error': result.error,
-          'respondedAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      return result;
+      final data = Map<String, dynamic>.from(res.data as Map);
+      final ok = data['ok'] == true;
+      return AssignmentResult(
+        success: ok,
+        assignmentNumber: data['assignmentNumber']?.toString(),
+        message: data['notRequired'] == true
+            ? 'לא נדרש מספר הקצאה — מתחת לסף'
+            : (data['alreadyApproved'] == true
+                ? 'מספר הקצאה כבר התקבל'
+                : null),
+        error: ok ? null : (data['message']?.toString() ?? 'שגיאה'),
+        isRejection: data['rejection'] == true,
+      );
+    } on FirebaseFunctionsException catch (e) {
+      return AssignmentResult(success: false, error: e.message ?? e.code);
     } catch (e) {
-      print('❌ [Assignment] Error requesting assignment number: $e');
-      // עדכון סטטוס שגיאה
-      try {
-        await _invoicesCollection().doc(invoiceId).update({
-          'assignmentStatus': AssignmentStatus.error.name,
-          'assignmentResponseRaw': e.toString(),
-        });
-      } catch (updateError) {
-        print('⚠️ [Assignment] Error updating error status: $updateError');
-      }
       return AssignmentResult(success: false, error: e.toString());
     }
-  }
-
-  /// שליחה ל-API עם exponential backoff (עד 3 ניסיונות)
-  /// requestId משמש כ-idempotency key — מונע כפל הקצאה
-  Future<AssignmentResult> _sendWithRetry(
-      Invoice invoice, String requestId) async {
-    // TODO: когда API будет реальным — вернуть retry с backoff
-    // Пока API placeholder — одна попытка без retry
-    try {
-      return await _callAssignmentApi(invoice, requestId);
-    } catch (e) {
-      return AssignmentResult(
-        success: false,
-        error: 'API недоступен: $e',
-      );
-    }
-  }
-
-  /// קריאה בפועל ל-API של חשבוניות ישראל
-  /// requestId = idempotency key — אותו requestId תמיד מחזיר אותה תוצאה
-  ///
-  /// ⚠️ БЕЗОПАСНОСТЬ (читать перед включением реального API):
-  /// Этот вызов идёт ИЗ КЛИЕНТА. Токен/секрет рשут המסים НЕЛЬЗЯ класть сюда —
-  /// он попадёт в web/APK-бандл (утечка, как было с SMTP). Перед боевым
-  /// запуском перенести вызов в Cloud Function (callable `requestAssignment`),
-  /// токен — в functions/.env; клиент только триггерит функцию.
-  /// TODO(B1): 1) регистрация в רשות המסים → client_id/secret;
-  ///           2) реальный endpoint + OAuth (SHAAM); 3) перенос в CF.
-  Future<AssignmentResult> _callAssignmentApi(
-      Invoice invoice, String requestId) async {
-    // === PLACEHOLDER (симуляция; реальный вызов — в Cloud Function, не тут) ===
-    // Реальные endpoints רשות המסים (חשבוניות ישראל, API v2):
-    //   sandbox: https://ita-api.taxes.gov.il/shaam/tsandbox/Invoices/v2/Approval
-    //   prod:    https://ita-api.taxes.gov.il/shaam/production/Invoices/v2/Approval
-    // Auth: OAuth2 Authorization Code — бизнес один раз авторизуется и получает
-    // токен, refresh ~раз в 3 мес (автоматизируется). Тело запроса/ответа — по
-    // офиц. спеке (gov.il vat_software-houses-180724-en.pdf); демо:
-    // github.com/dsaddan/Israel-Tax-Authority-OpenAPI-Taxes-Demo
-    const apiUrl =
-        'https://ita-api.taxes.gov.il/shaam/tsandbox/Invoices/v2/Approval';
-
-    try {
-      final body = jsonEncode({
-        'invoiceNumber': invoice.sequentialNumber,
-        'customerVatId': invoice.clientNumber,
-        'amountBeforeVAT': invoice.subtotalBeforeVAT,
-        'vatAmount': invoice.vatAmount,
-        'totalAmount': invoice.totalWithVAT,
-        'requestId': requestId, // idempotency key — מונע כפל הקצאה ב-retry
-      });
-
-      final response = await http
-          .post(
-            Uri.parse(apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Idempotency-Key': requestId,
-              // TODO: הוספת Authorization header עם טוקן אמיתי
-            },
-            body: body,
-          )
-          .timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return AssignmentResult(
-          success: true,
-          assignmentNumber: data['assignmentNumber']?.toString(),
-          rawResponse: response.body,
-        );
-      } else if (response.statusCode == 400 || response.statusCode == 403) {
-        // סירוב מרשות המסים
-        return AssignmentResult(
-          success: false,
-          error: 'סירוב מרשות המסים: ${response.body}',
-          rawResponse: response.body,
-          isRejection: true,
-        );
-      } else {
-        return AssignmentResult(
-          success: false,
-          error: 'שגיאת שרת: ${response.statusCode}',
-          rawResponse: response.body,
-        );
-      }
-    } on TimeoutException {
-      return AssignmentResult(
-        success: false,
-        error: 'תם הזמן המוקצב לבקשה (5 שניות)',
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// קבלת היסטוריית בקשות הקצאה
-  Future<List<Map<String, dynamic>>> getAssignmentRequests(
-      String invoiceId) async {
-    final snapshot = await _assignmentRequestsCollection()
-        .where('invoiceId', isEqualTo: invoiceId)
-        .orderBy('requestedAt', descending: true)
-        .get();
-    return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 }
 

@@ -15,6 +15,16 @@ const { syncUserClaims, ensureMyClaims } = require('./userClaims');
 exports.syncUserClaims = syncUserClaims;
 exports.ensureMyClaims = ensureMyClaims;
 
+// === חשבוניות ישראל — מספר הקצאה (нативно, всё на сервере) ===
+const {
+  israelInvoiceAuthUrl,
+  israelInvoiceOAuthCallback,
+  requestAllocationNumber,
+} = require('./israelInvoice');
+exports.israelInvoiceAuthUrl = israelInvoiceAuthUrl;
+exports.israelInvoiceOAuthCallback = israelInvoiceOAuthCallback;
+exports.requestAllocationNumber = requestAllocationNumber;
+
 const { verifyIntegrityChain } = require('./verifyIntegrityChain');
 exports.verifyIntegrityChain = verifyIntegrityChain;
 

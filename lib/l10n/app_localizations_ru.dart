@@ -15,6 +15,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routeHistoryEmpty => 'Завершённых маршрутов пока нет';
 
   @override
+  String get israelInvoiceConnect => 'Подключить «Хешбониёт Исраэль»';
+
+  @override
+  String get israelInvoiceConnectHint =>
+      'Разовая авторизация компании в налоговой для номеров הקצאה. Откроется страница входа רשות המסים.';
+
+  @override
   String get autoDistributePallets => 'Авто-распределить паллеты';
 
   @override

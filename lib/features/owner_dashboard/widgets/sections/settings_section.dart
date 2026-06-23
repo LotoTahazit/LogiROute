@@ -9,7 +9,9 @@ import '../../models/role_hierarchy.dart';
 import '../../services/permissions_service.dart';
 import '../../utils/company_profile_validator.dart';
 import '../../../../widgets/logi_route_tab_bar.dart';
+import '../../../../services/invoice_assignment_service.dart';
 import 'integration_settings_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Секция «Настройки» Owner Dashboard.
 ///
@@ -448,6 +450,10 @@ class _SettingsSectionState extends State<SettingsSection>
 
             // Integrations (Req 7.4)
             _buildIntegrationsCard(context, canManageIntegrations),
+            const SizedBox(height: 16),
+
+            // חשבוניות ישראל — מספר הקצאה (нативная интеграция, OAuth-подключение)
+            _buildIsraelInvoiceCard(context, canManageIntegrations),
             const SizedBox(height: 24),
 
             // Save button — shown if user can edit any settings
@@ -801,6 +807,65 @@ class _SettingsSectionState extends State<SettingsSection>
         integrationLabel: label,
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // חשבוניות ישראל — разовое OAuth-подключение компании к рשут המסים.
+  // Реальный обмен code→токен и запрос מספר הקצаה — на сервере (Cloud Functions).
+  // ---------------------------------------------------------------------------
+
+  Widget _buildIsraelInvoiceCard(BuildContext context, bool canManage) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.verified_outlined,
+                    size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('חשבוניות ישראל — מספר הקצאה',
+                      style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const Divider(),
+            Text(
+              l10n.israelInvoiceConnectHint,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.outline),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: canManage ? _connectIsraelInvoice : null,
+              icon: const Icon(Icons.link),
+              label: Text(l10n.israelInvoiceConnect),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _connectIsraelInvoice() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final url = await InvoiceAssignmentService(companyId: widget.companyId)
+          .getConnectUrl();
+      if (url.isEmpty) throw Exception('empty url');
+      final ok =
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok) throw Exception('cannot launch url');
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

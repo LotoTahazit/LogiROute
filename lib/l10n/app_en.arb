@@ -1,6 +1,8 @@
 {
   "routeHistoryTitle": "Route history",
   "routeHistoryEmpty": "No completed routes yet",
+  "israelInvoiceConnect": "Connect Israel Invoices",
+  "israelInvoiceConnectHint": "One-time business authorization with the Tax Authority for allocation numbers. A login page will open.",
   "autoDistributePallets": "Auto-distribute pallets",
   "autoDistributeSuccess": "Pallets have been automatically assigned to drivers!",
   "autoDistributeError": "Auto-distribution error",

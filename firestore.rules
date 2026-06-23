@@ -289,6 +289,15 @@ service cloud.firestore {
       }
 
       // =========================================================
+      // SERVER-ONLY secrets (Israel Invoice OAuth token и т.п.)
+      // Доступ только из Cloud Functions (admin-SDK обходит правила).
+      // Клиенту — полный запрет.
+      // =========================================================
+      match /private/{document=**} {
+        allow read, write: if false;
+      }
+
+      // =========================================================
       // OWNER DASHBOARD: Invites
       // =========================================================
       match /invites/{inviteId} {

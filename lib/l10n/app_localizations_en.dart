@@ -15,6 +15,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeHistoryEmpty => 'No completed routes yet';
 
   @override
+  String get israelInvoiceConnect => 'Connect Israel Invoices';
+
+  @override
+  String get israelInvoiceConnectHint =>
+      'One-time business authorization with the Tax Authority for allocation numbers. A login page will open.';
+
+  @override
   String get autoDistributePallets => 'Auto-distribute pallets';
 
   @override

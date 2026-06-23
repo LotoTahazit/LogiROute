@@ -112,6 +112,18 @@ abstract class AppLocalizations {
   /// **'No completed routes yet'**
   String get routeHistoryEmpty;
 
+  /// No description provided for @israelInvoiceConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect Israel Invoices'**
+  String get israelInvoiceConnect;
+
+  /// No description provided for @israelInvoiceConnectHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time business authorization with the Tax Authority for allocation numbers. A login page will open.'**
+  String get israelInvoiceConnectHint;
+
   /// No description provided for @autoDistributePallets.
   ///
   /// In en, this message translates to:

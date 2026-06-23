@@ -1,6 +1,8 @@
 {
   "routeHistoryTitle": "История маршрутов",
   "routeHistoryEmpty": "Завершённых маршрутов пока нет",
+  "israelInvoiceConnect": "Подключить «Хешбониёт Исраэль»",
+  "israelInvoiceConnectHint": "Разовая авторизация компании в налоговой для номеров הקצאה. Откроется страница входа רשות המסים.",
   "autoDistributePallets": "Авто-распределить паллеты",
   "autoDistributeSuccess": "Паллеты автоматически распределены по водителям!",
   "autoDistributeError": "Ошибка автосплита",
