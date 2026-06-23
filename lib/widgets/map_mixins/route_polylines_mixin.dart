@@ -108,6 +108,16 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
     final driverPos = _driverCurrentPositions[driverId];
     if (driverPos == null || activePoints.isEmpty) return r;
     final firstPoint = activePoints.first;
+    // GPS-санити: не рисуем коннектор от ЗАВЕДОМО битого фикса — вне Израиля
+    // или неправдоподобно далеко от первой точки (битый фикс «в море» давал
+    // прямую синюю линию на десятки км в воду).
+    if (!DeliveryPoint.isValidCoordinates(
+            driverPos.latitude, driverPos.longitude) ||
+        _gpsDistanceKm(driverPos.latitude, driverPos.longitude,
+                firstPoint.latitude, firstPoint.longitude) >
+            40) {
+      return r;
+    }
     const epsilon = 0.00005; // ~5 м (шум GPS)
     if ((driverPos.latitude - firstPoint.latitude).abs() < epsilon &&
         (driverPos.longitude - firstPoint.longitude).abs() < epsilon) {
@@ -572,6 +582,8 @@ mixin _RoutePolylinesMixin on _DeliveryMapWidgetStateBase {
           final trackTime = timestamp is Timestamp ? timestamp.toDate() : null;
           if (lat == null || lng == null) continue;
           if (lat == 0 && lng == 0) continue;
+          // Вне границ Израиля — битый GPS-фикс (сбой), не добавляем в трек.
+          if (!DeliveryPoint.isValidCoordinates(lat, lng)) continue;
           if (trackTime == null || trackTime.isBefore(cutoff.toDate()))
             continue;
           // Отбрасываем точки с плохой точностью (> 200м)
