@@ -98,10 +98,11 @@ function buildPayments(payload, type) {
   if (type !== 320 && type !== 400) return null;
   const amount =
     Number(payload.gross) ||
-    (payload.lines || []).reduce(
-      (s, l) => s + (Number(l.quantity) || 1) * (Number(l.unitPrice) || 0) * 1.17,
-      0
-    );
+    (payload.lines || []).reduce((s, l) => {
+      // НДС: per-line vatRate (доля, напр. 0.18), дефолт 18% — НЕ хардкод 1.17.
+      const rate = l.vatRate != null ? Number(l.vatRate) : 0.18;
+      return s + (Number(l.quantity) || 1) * (Number(l.unitPrice) || 0) * (1 + rate);
+    }, 0);
   return [
     {
       type: 1,
