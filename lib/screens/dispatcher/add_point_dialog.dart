@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/client_model.dart';
 import '../../models/delivery_point.dart';
 import '../../models/box_type.dart';
 import '../../services/client_service.dart';
 import '../../services/route_service.dart';
-import '../../services/web_geocoding_service.dart';
-import '../../services/address_geocoding_service.dart';
+import '../../utils/geocoding_helper.dart';
 import '../../services/inventory_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
@@ -132,18 +129,6 @@ class _AddPointDialogState extends State<AddPointDialog> {
         });
       }
     }
-  }
-
-  /// Address geocoding helpers moved to AddressGeocodingService
-
-  /// Генерирует множественные варианты адреса для геокодирования (подход как в Waze)
-  List<String> _generateAddressVariants(String originalAddress) {
-    return AddressGeocodingService.generateAddressVariants(originalAddress);
-  }
-
-  /// Геокодирование через Google Geocoding API напрямую (поддерживает иврит лучше)
-  Future<Map<String, double>?> _geocodeViaGoogleAPI(String address) async {
-    return AddressGeocodingService.geocodeViaGoogleAPI(address);
   }
 
   void _scrollToBottom() {
@@ -305,99 +290,15 @@ class _AddPointDialogState extends State<AddPointDialog> {
           debugPrint('🗺️ [Geocoding] Original address: "$addressToGeocode"');
 
           // Профессиональный подход как в Waze - множественные варианты без привязки к языку
-          addressVariants = _generateAddressVariants(addressToGeocode);
-
-          bool geocodingSuccess = false;
-
-          // На Web используем Google Maps JavaScript API (обходит CORS)
-          if (kIsWeb) {
-            debugPrint(
-              '🌐 [Web] Using Google Maps JavaScript API (kIsWeb=true)...',
-            );
-            for (String variant in addressVariants) {
-              debugPrint('🌐 [WebJS] Trying variant: "$variant"');
-              try {
-                final result = await WebGeocodingService.geocode(variant);
-
-                if (result != null) {
-                  latitude = result.latitude;
-                  longitude = result.longitude;
-                  debugPrint(
-                    '✅ [WebJS] Success with "$variant": ($latitude, $longitude)',
-                  );
-                  geocodingSuccess = true;
-                  break;
-                } else {
-                  debugPrint('❌ [WebJS] No result for "$variant"');
-                }
-              } catch (e) {
-                debugPrint('❌ [WebJS] Exception for "$variant": $e');
-              }
-            }
-
-            // На web НЕ используем fallback на native/REST API
-            if (!geocodingSuccess) {
-              debugPrint('❌ [Web] All WebJS geocoding attempts failed');
-            }
-          } else {
-            // На мобильных платформах пробуем Google Geocoding API
-            for (String variant in addressVariants) {
-              debugPrint('🌐 [Google API] Trying variant: "$variant"');
-              final result = await _geocodeViaGoogleAPI(variant);
-
-              if (result != null) {
-                latitude = result['latitude']!;
-                longitude = result['longitude']!;
-                debugPrint(
-                  '✅ [Google API] Success with "$variant": ($latitude, $longitude)',
-                );
-                geocodingSuccess = true;
-                break;
-              }
-            }
-          }
-
-          // Если Google API не помог, пробуем нативный geocoding (только для мобильных платформ)
-          if (!geocodingSuccess && !kIsWeb) {
-            debugPrint(
-              '⚠️ [Geocoding] Google API failed, trying native geocoding...',
-            );
-            for (String variant in addressVariants) {
-              try {
-                debugPrint('📱 [Native] Trying variant: "$variant"');
-                final locations = await geocoding.locationFromAddress(variant);
-
-                if (locations.isNotEmpty) {
-                  final nLat = locations.first.latitude;
-                  final nLng = locations.first.longitude;
-                  // 🛡️ GUARD: отклоняем координаты за пределами Израиля
-                  if (nLat < 29.0 ||
-                      nLat > 34.0 ||
-                      nLng < 34.0 ||
-                      nLng > 36.5) {
-                    debugPrint(
-                      '⚠️ [Native] REJECTED — outside Israel: ($nLat, $nLng) for "$variant"',
-                    );
-                    continue;
-                  }
-                  latitude = nLat;
-                  longitude = nLng;
-                  debugPrint(
-                    '✅ [Native] Success with "$variant": ($latitude, $longitude)',
-                  );
-                  geocodingSuccess = true;
-                  break;
-                }
-              } catch (e) {
-                debugPrint('❌ [Native] Failed variant "$variant": $e');
-                continue;
-              }
-            }
-          }
-
-          if (!geocodingSuccess) {
+          // Единый геокодер: варианты + web(JS)/Google-API/native + границы
+          // Израиля + привязка к городу. (Раньше тут было ~90 строк inline.)
+          final geo = await GeocodingHelper.geocodeAddress(addressToGeocode);
+          if (geo == null) {
             throw Exception('All geocoding variants failed');
           }
+          latitude = geo['latitude']!;
+          longitude = geo['longitude']!;
+          debugPrint('✅ [Geocoding] ($latitude, $longitude)');
         } catch (e) {
           // Логируем ошибку геокодирования
           debugPrint(
