@@ -22,12 +22,14 @@ class BkmvExporter {
   }) {
     final primaryId = BkmvCodec.newPrimaryId();
     final vatId = company.vatId;
+    // Включаем ВСЕ выписанные (seq>0) документы, КРОМЕ черновиков. Отменённые
+    // (cancelled/voided) обязаны оставаться в файле с флагом ביטול в C100 —
+    // ניהול ספרים запрещает удаление, а пропуск создал бы дыру в רצף המספרים,
+    // которую бракует валидатор налоговой. Черновики (ещё без номера) — не
+    // бухгалтерские документы, их не выгружаем.
     final issued = invoices
         .where((i) =>
-            i.sequentialNumber > 0 &&
-            i.status != InvoiceStatus.draft &&
-            i.status != InvoiceStatus.cancelled &&
-            i.status != InvoiceStatus.voided)
+            i.sequentialNumber > 0 && i.status != InvoiceStatus.draft)
         .toList();
 
     final dataLines = <String>[];

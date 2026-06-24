@@ -59,6 +59,25 @@ void main() {
     expect(result.iniText, contains('A000'));
   });
 
+  test('exporter keeps cancelled issued docs (no gap) but drops drafts', () {
+    final cancelled = _inv(4).copyWith(status: InvoiceStatus.cancelled);
+    final draft = _inv(5).copyWith(status: InvoiceStatus.draft);
+    final result = BkmvExporter(
+      company: const BkmvCompanyContext(
+        vatId: '514123456',
+        businessName: 'Test Co',
+      ),
+    ).build(
+      invoices: [_inv(1), cancelled, draft],
+      fromDate: DateTime(2025, 1, 1),
+      toDate: DateTime(2025, 12, 31),
+    );
+
+    // Выписанный + отменённый остаются (полный רצף), черновик исключён.
+    expect(result.documentCount, 2);
+    expect(result.recordCounts['C100'], 2);
+  });
+
   test('exporter includes D120 for tax invoice receipt', () {
     final receipt = _inv(3).copyWith(
       documentType: InvoiceDocumentType.taxInvoiceReceipt,
