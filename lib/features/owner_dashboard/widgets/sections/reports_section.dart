@@ -98,7 +98,10 @@ class _ReportsSectionState extends State<ReportsSection>
               final invoice = Invoice.fromMap(doc.data(), doc.id);
               if (!invoice.isLive) return null;
               return _ReportDoc(
-                date: invoice.finalizedAt ?? invoice.createdAt,
+                // Период מע"מ/выручки — по ДАТЕ ДОКУМЕНТА (deliveryDate), как и
+                // period-lock в issueInvoice. finalizedAt (момент выписки на
+                // сервере) мог бы увести документ в соседний месяц на стыке.
+                date: invoice.deliveryDate,
                 net: invoice.subtotalBeforeVAT,
                 vat: invoice.vatAmount,
                 gross: invoice.totalWithVAT,

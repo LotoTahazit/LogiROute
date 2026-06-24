@@ -264,8 +264,11 @@ class _InvoiceReport extends StatelessWidget {
         .collection('accounting')
         .doc('_root')
         .collection('invoices')
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
-        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(to))
+        // Период по ДАТЕ ДОКУМЕНТА (deliveryDate) — единый базис с owner-отчётом
+        // и period-lock. createdAt (момент черновика) увёл бы числа на стыке
+        // месяцев и расходился бы со сводкой owner.
+        .where('deliveryDate', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
+        .where('deliveryDate', isLessThanOrEqualTo: Timestamp.fromDate(to))
         .get();
 
     final invoices =
