@@ -70,10 +70,12 @@ class BkmvCodec {
     return '${neg ? '-' : '+'}$body';
   }
 
-  /// שיעור מע"מ 99v99 ב־4 ספרות (18% → 1800).
+  /// שיעור מע"מ 99v99 ב־4 ספרות. Вход — ДОЛЯ (0.18), как `Invoice.vatRate`:
+  /// 0.18 → "1800", 0.17 → "1700", 0 → "0000".
+  /// (×100 — доля→процент, ×100 — два знака после запятой формата 99V99.)
   static String vatRate4(double rate) {
-    final pct = (rate * 100).round();
-    return numericInt(pct, 4);
+    final scaled = (rate * 10000).round();
+    return numericInt(scaled, 4);
   }
 
   static String vatId9(String? raw) => numeric(raw, 9);

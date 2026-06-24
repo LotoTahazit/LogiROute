@@ -42,6 +42,26 @@ void main() {
     expect(BkmvCodec.amount15(-10), '-00000000001000');
   });
 
+  test('vatRate4 encodes fraction as 99V99 (0.18 -> 1800, not 0018)', () {
+    expect(BkmvCodec.vatRate4(0.18), '1800');
+    expect(BkmvCodec.vatRate4(0.17), '1700');
+    expect(BkmvCodec.vatRate4(0), '0000');
+  });
+
+  test('D110 carries 18% line VAT as 1800', () {
+    final inv = _sampleInvoice();
+    final d110 = BkmvRecords.encodeD110(
+      recordNumber: 3,
+      vatId: '514123456',
+      invoice: inv,
+      item: inv.items.first,
+      lineIndex: 1,
+      linkId: 1,
+    );
+    expect(d110.contains('1800'), isTrue,
+        reason: 'D110 must encode 18% as 1800 (99V99), not 0018');
+  });
+
   test('record lengths match horaot 1.31', () {
     const vat = '514123456';
     const primary = '123456789012345';
