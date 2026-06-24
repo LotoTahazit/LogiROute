@@ -320,6 +320,11 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
       entity: { collection: "invoices", docId: invoiceId },
       createdBy: uid,
       createdAt: FieldValue.serverTimestamp(),
+      docNumber: result.docNumber,
+      docNumberFormatted: String(result.docNumber),
+      clientName: invoice.clientName || "",
+      clientNumber: invoice.clientNumber || "",
+      documentType: invoice.documentType || counterKey,
     });
   } catch (e) {
     console.warn("⚠️ Audit write failed (non-blocking):", e.message);
@@ -331,7 +336,7 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
     if (invoice.documentType === "creditNote" && invoice.linkedInvoiceId) {
       await db
         .doc(`companies/${companyId}/accounting/_root/invoices/${invoice.linkedInvoiceId}`)
-        .update({ creditNoteIds: FieldValue.arrayUnion([invoiceId]) });
+        .update({ creditNoteIds: FieldValue.arrayUnion(invoiceId) });
     }
   } catch (e) {
     console.warn("⚠️ Credit-note link failed (non-blocking):", e.message);
