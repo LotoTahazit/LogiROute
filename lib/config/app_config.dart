@@ -23,7 +23,13 @@ class AppConfig {
   static const Duration autoCompleteDuration =
       Duration(minutes: 3); // Время ожидания до автозакрытия
   static const Duration autoCloseUndoWindow =
-      Duration(seconds: 90); // Окно отмены после автозакрытия
+      Duration(seconds: 90); // Макс. возраст completedAt для фонового undo
+  static const Duration closeUndoUiDuration =
+      Duration(seconds: 15); // Показ кнопки «Отменить» в UI
+
+  // 📱 Device session lock (водитель = одно активное устройство)
+  static const Duration driverSessionStaleThreshold = Duration(minutes: 5);
+  static const Duration driverSessionHeartbeatInterval = Duration(seconds: 45);
 
   // ⏱️ Таймауты
   static const Duration geocodingTimeout = Duration(seconds: 5);
@@ -50,6 +56,16 @@ class AppConfig {
   static const String gpsWebSocketUrl = String.fromEnvironment(
     'GPS_WS_URL',
     defaultValue: '', // Empty = disabled. Must be set via --dart-define
+  );
+
+  /// Контакты поддержки для billing/blocked screens (--dart-define).
+  static const String supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: 'support@logiroute.co.il',
+  );
+  static const String supportPhone = String.fromEnvironment(
+    'SUPPORT_PHONE',
+    defaultValue: '',
   );
 
   // 🧾 Tax invoice/receipt UI gate.
