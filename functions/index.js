@@ -1,8 +1,13 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
-admin.initializeApp();
-
+const firebaseConfig = process.env.FIREBASE_CONFIG
+  ? JSON.parse(process.env.FIREBASE_CONFIG)
+  : {};
+admin.initializeApp({
+  storageBucket:
+    firebaseConfig.storageBucket || 'logiroute-app.firebasestorage.app',
+});
 const db = admin.firestore();
 const storage = admin.storage();
 
@@ -36,6 +41,14 @@ exports.verifyIntegrityChain = verifyIntegrityChain;
 const { scheduledIntegrityCheck } = require('./scheduledIntegrityCheck');
 exports.scheduledIntegrityCheck = scheduledIntegrityCheck;
 
+// === Data Integrity Checker (cross-entity consistency) ===
+const {
+  generateIntegrityCheck,
+  scheduledDataIntegrityCheck,
+} = require('./generateIntegrityCheck');
+exports.generateIntegrityCheck = generateIntegrityCheck;
+exports.scheduledDataIntegrityCheck = scheduledDataIntegrityCheck;
+
 // === Billing & Payment ===
 const { billingEnforcer } = require('./billingEnforcer');
 exports.billingEnforcer = billingEnforcer;
@@ -58,6 +71,11 @@ exports.testAccountingCredentials = testAccountingCredentials;
 
 const { seedBillingPricing } = require('./seedBillingPricing');
 exports.seedBillingPricing = seedBillingPricing;
+
+const { createDemoCompany, resetDemoCompany, previewResetDemoCompany } = require('./demoSeed');
+exports.createDemoCompany = createDemoCompany;
+exports.resetDemoCompany = resetDemoCompany;
+exports.previewResetDemoCompany = previewResetDemoCompany;
 
 // === Push Notifications ===
 const { sendPushNotification } = require('./sendPushNotification');
@@ -86,6 +104,16 @@ exports.apiKeyAction = apiKeyAction;
 // === Company Lifecycle ===
 const { onCompanyCreated } = require('./onCompanyCreated');
 exports.onCompanyCreated = onCompanyCreated;
+
+const { registerOwnerCompany } = require('./registerOwnerCompany');
+exports.registerOwnerCompany = registerOwnerCompany;
+
+const {
+  recalculateDailyMetrics,
+  scheduledDailyMetrics,
+} = require('./recalculateDailyMetrics');
+exports.recalculateDailyMetrics = recalculateDailyMetrics;
+exports.scheduledDailyMetrics = scheduledDailyMetrics;
 
 // === User Registration Notifications ===
 const { onUserRegistered } = require('./onUserRegistered');
@@ -415,3 +443,13 @@ exports.cleanupArchivedRecords = functions.pubsub
       throw error;
     }
   });
+
+// === Platform Error Center ===
+const { reportPlatformError } = require('./reportPlatformError');
+exports.reportPlatformError = reportPlatformError;
+
+const { cleanupSystemErrors } = require('./cleanupSystemErrors');
+exports.cleanupSystemErrors = cleanupSystemErrors;
+
+const { instrumentCloudExports } = require('./lib/cfErrorWrapper');
+instrumentCloudExports(exports);

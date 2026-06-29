@@ -32,27 +32,55 @@ service cloud.firestore {
     function isDispatcherOrAbove() {
       return hasAnyRole(['dispatcher', 'admin', 'super_admin']);
     }
+    // Demo tenant isolation — demo users only access demo-foods-israel
+    function isDemoUser() {
+      return signedIn()
+        && ('isDemo' in userDoc())
+        && userDoc().isDemo == true;
+    }
+    function demoTenantAllowed(companyId) {
+      return !isDemoUser() || companyId == 'demo-foods-israel';
+    }
+    function demoUserCompanyIdLocked() {
+      return !isDemoUser() || userDoc().companyId == 'demo-foods-israel';
+    }
 
     // membership: user.companyId == companyId (или super_admin)
     // + billing guard: компания должна быть active
     function companyData(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data;
     }
-    // Billing state machine: trial | active | grace | suspended | cancelled
-    // trial: full access while request.time < trialUntil
-    // active/grace: full access
-    // suspended/cancelled: blocked (super_admin bypass elsewhere)
+    // Billing state machine (C3): active | trial | grace | suspended | cancelled
+    // Expired trial → grace window until trialUntil + gracePeriodDays (default 7).
+    // `blocked` — legacy alias for suspended (deny). trial_expired/past_due — not stored.
+    function gracePeriodDays(data) {
+      return ('gracePeriodDays' in data && data.gracePeriodDays is int && data.gracePeriodDays > 0)
+        ? data.gracePeriodDays : 7;
+    }
+    function graceUntilTs(data, anchor) {
+      return anchor + duration.value(gracePeriodDays(data), 'd');
+    }
+    function billingAllowsAccess(data) {
+      let status = ('billingStatus' in data) ? data.billingStatus : 'active';
+      return status == 'active'
+        || (status == 'grace' && 'paidUntil' in data
+            && request.time < graceUntilTs(data, data.paidUntil))
+        || (status == 'grace' && !('paidUntil' in data) && 'trialUntil' in data
+            && request.time < graceUntilTs(data, data.trialUntil))
+        || (status == 'trial' && 'trialUntil' in data && request.time < data.trialUntil)
+        || (status == 'trial' && 'trialUntil' in data
+            && request.time >= data.trialUntil
+            && request.time < graceUntilTs(data, data.trialUntil));
+    }
     function billingAllowsRead(companyId) {
       let data = companyData(companyId);
       let status = ('billingStatus' in data) ? data.billingStatus : 'active';
-      return status in ['active', 'grace']
-        || (status == 'trial' && 'trialUntil' in data && request.time < data.trialUntil);
+      return !(status in ['suspended', 'cancelled', 'blocked']) && billingAllowsAccess(data);
     }
     function billingAllowsWrite(companyId) {
       let data = companyData(companyId);
       let status = ('billingStatus' in data) ? data.billingStatus : 'active';
-      return status in ['active', 'grace']
-        || (status == 'trial' && 'trialUntil' in data && request.time < data.trialUntil);
+      return !(status in ['suspended', 'cancelled', 'blocked']) && billingAllowsAccess(data);
     }
     // Layer 2: module guard — проверяет modules.{key} == true
     // super_admin обходит проверку модулей
@@ -60,18 +88,20 @@ service cloud.firestore {
       return isSuperAdmin() || companyData(companyId).modules[moduleKey] == true;
     }
     function isCompanyMember(companyId) {
-      return signedIn() && (
+      return signedIn() && demoTenantAllowed(companyId) && (
         isSuperAdmin() ||
-        (userDoc().companyId == companyId && billingAllowsRead(companyId))
+        (userDoc().companyId == companyId
+          && billingAllowsRead(companyId)
+          && role() != 'viewer')
       );
     }
     // Как isCompanyMember, но БЕЗ billing-гейта. Только для ЧТЕНИЯ статуса и
     // биллинга, чтобы компания в suspended/cancelled видела своё состояние и
     // могла оплатить (само-реактивация). Записи остаются заблокированы.
     function isCompanyMemberAnyBilling(companyId) {
-      return signedIn() && (
+      return signedIn() && demoTenantAllowed(companyId) && (
         isSuperAdmin() ||
-        userDoc().companyId == companyId
+        (userDoc().companyId == companyId && role() != 'viewer')
       );
     }
     // Layer 3: data integrity — companyId в документе == companyId из пути
@@ -102,11 +132,77 @@ service cloud.firestore {
         || existingDocDate > companyData(companyId).accountingLockedUntil;
     }
 
+    function canDispatcherWrite(companyId) {
+      return isCompanyMember(companyId) && hasAnyRole(['dispatcher', 'admin', 'super_admin']);
+    }
+
+    function deliveryPointDoc(companyId, pointId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)/logistics/_root/delivery_points/$(pointId));
+    }
+
+    // Водитель назначен на точку (проверка через parent doc).
+    function isAssignedDriverOfPoint(companyId, pointId) {
+      return isRole('driver')
+        && deliveryPointDoc(companyId, pointId).data.driverId == request.auth.uid;
+    }
+
+    // visit_logs: lat/lng + (timestamp | driverId+createdAt).
+    function validVisitLogCreate() {
+      let d = request.resource.data;
+      return d.lat is number && d.lng is number && (
+        (d.keys().hasOnly(['lat', 'lng', 'timestamp']) && d.timestamp is timestamp)
+        || (d.keys().hasOnly(['lat', 'lng', 'driverId', 'createdAt'])
+            && d.driverId == request.auth.uid
+            && d.createdAt is timestamp)
+      );
+    }
+
+    // delivery_history: GPS + timestamp, опционально serviceTimeSec.
+    function validDeliveryHistoryCreate() {
+      let d = request.resource.data;
+      return d.deliveryLat is number
+        && d.deliveryLng is number
+        && d.timestamp is timestamp
+        && (!('serviceTimeSec' in d) || d.serviceTimeSec is int)
+        && (d.keys().hasOnly(['deliveryLat', 'deliveryLng', 'timestamp'])
+            || d.keys().hasOnly(['deliveryLat', 'deliveryLng', 'serviceTimeSec', 'timestamp']));
+    }
+
     function canAdminWrite(companyId) {
       return isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
     }
-    function canDispatcherWrite(companyId) {
-      return isCompanyMember(companyId) && hasAnyRole(['dispatcher', 'admin', 'super_admin']);
+    function isAccountantMember(companyId) {
+      return isCompanyMember(companyId) && isRole('accountant');
+    }
+    function accountantCompanyFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['nameHebrew', 'nameEnglish', 'taxId', 'addressHebrew', 'addressEnglish',
+                  'phone', 'city', 'zipCode', 'poBox', 'fax', 'email', 'website', 'logoUrl',
+                  'invoiceFooterText', 'paymentTerms', 'bankDetails', 'dispatcherTaxInvoiceReceipt',
+                  'accountingLockedUntil', 'vatRegime', 'accountingProvider',
+                  'bkmvSoftwareRegistrationNumber']);
+    }
+    function ownerCompanyFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['nameHebrew', 'nameEnglish', 'taxId', 'addressHebrew', 'addressEnglish',
+                  'phone', 'city', 'zipCode', 'poBox', 'fax', 'email', 'website', 'logoUrl',
+                  'invoiceFooterText', 'paymentTerms', 'bankDetails', 'dispatcherTaxInvoiceReceipt',
+                  'vatRegime', 'accountingProvider', 'bkmvSoftwareRegistrationNumber',
+                  'computerizedWarehouseEnabled', 'terminology']);
+    }
+    function ownerSettingsSubdocOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['nameHebrew', 'nameEnglish', 'taxId', 'addressHebrew', 'addressEnglish',
+                  'phone', 'city', 'zipCode', 'poBox', 'fax', 'email', 'website',
+                  'invoiceFooterText', 'paymentTerms', 'bankDetails', 'dispatcherTaxInvoiceReceipt',
+                  'vatRegime', 'accountingProvider', 'bkmvSoftwareRegistrationNumber',
+                  'departureTime', 'driverName', 'driverPhone', 'requirePodPhoto', 'autoCloseEnabled',
+                  'computerizedWarehouseEnabled']);
+    }
+    function ownerSetupWizardOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['wizardCompleted', 'currentStepIndex', 'steps', 'completedAt',
+                  'updatedAt', 'updatedBy', 'isDemo']);
     }
 
     // Layer 5: RBAC × Module matrix — canUseModule (read)
@@ -120,7 +216,7 @@ service cloud.firestore {
         isCompanyMember(companyId) && hasModule(companyId, moduleKey) && (
           isRole('owner') ||
           (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher', 'driver', 'accountant'])) ||
-          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper', 'owner'])) ||
           (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant'])) ||
           (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
         )
@@ -135,7 +231,7 @@ service cloud.firestore {
       return isSuperAdmin() || (
         isCompanyMember(companyId) && billingAllowsWrite(companyId) && hasModule(companyId, moduleKey) && (
           (moduleKey == 'logistics' && hasAnyRole(['admin', 'dispatcher', 'owner'])) ||
-          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper'])) ||
+          (moduleKey == 'warehouse' && hasAnyRole(['admin', 'warehouse_keeper', 'owner'])) ||
           (moduleKey == 'accounting' && hasAnyRole(['admin', 'dispatcher', 'accountant', 'owner'])) ||
           (moduleKey == 'dispatcher' && hasAnyRole(['admin', 'dispatcher', 'driver']))
         )
@@ -155,24 +251,31 @@ service cloud.firestore {
     // =========================================================
     match /users/{userId} {
       // Read: same company members or super_admin
-      allow read: if signedIn() && (
+      allow read: if signedIn() && demoUserCompanyIdLocked() && (
         isSuperAdmin() ||
         request.auth.uid == userId ||
         (resource.data.companyId == userDoc().companyId)
       );
       // Create: admin/owner in same company, super_admin anywhere, self-onboarding
-      allow create: if signedIn() && (
+      allow create: if signedIn() && demoUserCompanyIdLocked() && (
         isSuperAdmin() ||
         (hasAnyRole(['admin', 'owner']) && request.resource.data.companyId == userDoc().companyId) ||
         request.auth.uid == userId
+      ) && (
+        !isDemoUser() || request.resource.data.companyId == 'demo-foods-israel'
       );
       // Update: self (no role/company change), admin/owner in same company, super_admin
-      allow update: if signedIn() && (
+      allow update: if signedIn() && demoUserCompanyIdLocked() && (
         (request.auth.uid == userId
           && request.resource.data.role == resource.data.role
           && request.resource.data.companyId == resource.data.companyId) ||
         (hasAnyRole(['admin', 'owner']) && resource.data.companyId == userDoc().companyId) ||
         isSuperAdmin()
+      ) && (
+        !isDemoUser() || (
+          request.resource.data.companyId == 'demo-foods-israel'
+          && resource.data.companyId == 'demo-foods-israel'
+        )
       );
       // Delete: admin/owner in same company (not self), super_admin
       allow delete: if signedIn() && (
@@ -222,10 +325,8 @@ service cloud.firestore {
       allow update: if isCompanyMember(companyId) && (
         canAdminWrite(companyId) ||
         (isRole('owner') && userDoc().companyId == companyId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['nameHebrew', 'nameEnglish', 'taxId', 'addressHebrew', 'addressEnglish',
-                      'phone', 'city', 'zipCode', 'poBox', 'fax', 'email', 'website', 'logoUrl',
-                      'invoiceFooterText', 'paymentTerms', 'bankDetails']))
+          && ownerCompanyFieldsOnly()) ||
+        (isAccountantMember(companyId) && billingAllowsWrite(companyId) && accountantCompanyFieldsOnly())
       );
       allow delete: if false;
 
@@ -240,8 +341,28 @@ service cloud.firestore {
         allow create, update: if isCompanyMember(companyId) && billingAllowsWrite(companyId) && (
           canAdminWrite(companyId) ||
           (
+            docId == 'remote_config' &&
+            hasAnyRole(['owner', 'admin', 'super_admin'])
+          ) ||
+          (
             docId in ['shifts', 'config'] &&
             hasAnyRole(['owner', 'dispatcher'])
+          ) ||
+          (
+            isRole('owner') &&
+            userDoc().companyId == companyId &&
+            docId == 'settings' &&
+            ownerSettingsSubdocOnly()
+          ) ||
+          (
+            isRole('owner') &&
+            userDoc().companyId == companyId &&
+            docId == 'setup_wizard' &&
+            ownerSetupWizardOnly()
+          ) ||
+          (
+            isRole('accountant') &&
+            docId in ['integrations', 'settings', 'accounting_provider_status']
           )
         ) && docId != 'accounting_credentials';
         allow delete: if false;
@@ -253,7 +374,10 @@ service cloud.firestore {
         // обратно (write-only) — чтобы секреты не утекали в клиент.
         // Несекретный статус «настроено» — в settings/accounting_provider_status.
         allow read: if false;
-        allow create, update: if canAdminWrite(companyId) && billingAllowsWrite(companyId);
+        allow create, update: if billingAllowsWrite(companyId) && (
+          canAdminWrite(companyId) ||
+          isAccountantMember(companyId)
+        );
         allow delete: if false;
       }
 
@@ -275,6 +399,26 @@ service cloud.firestore {
           );
           allow update: if false;
         }
+      }
+
+      // =========================================================
+      // DRIVER SESSIONS — one active device per driver
+      // companies/{companyId}/driver_sessions/{driverId}
+      // =========================================================
+      match /driver_sessions/{driverId} {
+        allow read: if isCompanyMember(companyId) && (
+          canAdminWrite(companyId) ||
+          isRole('owner') ||
+          (signedIn() && request.auth.uid == driverId)
+        );
+        allow create, update: if signedIn()
+          && request.auth.uid == driverId
+          && isCompanyMember(companyId)
+          && billingAllowsWrite(companyId)
+          && isRole('driver')
+          && request.resource.data.driverId == driverId
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isSuperAdmin();
       }
 
       // =========================================================
@@ -372,7 +516,7 @@ service cloud.firestore {
       // product_types: справочник типов товаров
       match /warehouse/_root/product_types/{productTypeId} {
         allow read: if canUseModule(companyId, 'warehouse')
-          || (isCompanyMember(companyId) && hasAnyRole(['dispatcher']));
+          || (isCompanyMember(companyId) && hasAnyRole(['dispatcher', 'owner']));
         allow create: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
         allow update: if canWriteModule(companyId, 'warehouse') && companyIdMatchesPath(companyId);
         allow delete: if canWriteModule(companyId, 'warehouse') && hasAnyRole(['admin', 'super_admin']);
@@ -415,13 +559,25 @@ service cloud.firestore {
       // clients: /companies/{c}/logistics/_root/clients/{clientId}
       match /logistics/_root/clients/{clientId} {
         allow read: if canUseModule(companyId, 'logistics');
-        allow create, update: if canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId);
+        allow create, update: if canWriteModule(companyId, 'logistics') && companyIdMatchesPath(companyId)
+          || (isAccountantMember(companyId) && billingAllowsWrite(companyId)
+              && hasModule(companyId, 'accounting') && companyIdMatchesPath(companyId));
         // Водитель (член компании) физически на точке — может исправить ТОЛЬКО
         // координаты клиента (его GPS = правда). Прочие поля менять нельзя.
         allow update: if isRole('driver') && isCompanyMember(companyId)
           && request.resource.data.diff(resource.data).changedKeys()
               .hasOnly(['latitude', 'longitude']);
         allow delete: if canWriteModule(companyId, 'logistics');
+
+        // delivery_history — история GPS/времени обслуживания для обучения клиента.
+        match /delivery_history/{entryId} {
+          allow read: if canUseModule(companyId, 'logistics');
+          allow create: if isCompanyMember(companyId) && (
+            (isRole('driver') && validDeliveryHistoryCreate())
+            || canWriteModule(companyId, 'logistics')
+          );
+          allow update, delete: if false;
+        }
       }
 
       // delivery_points: /companies/{c}/logistics/_root/delivery_points/{pointId}
@@ -442,6 +598,16 @@ service cloud.firestore {
           )
         );
         allow delete: if canWriteModule(companyId, 'logistics');
+
+        // visit_logs — GPS-посещения при закрытии точки (client learning).
+        match /visit_logs/{logId} {
+          allow read: if canUseModule(companyId, 'logistics');
+          allow create: if isCompanyMember(companyId) && (
+            (isAssignedDriverOfPoint(companyId, pointId) && validVisitLogCreate())
+            || canWriteModule(companyId, 'logistics')
+          );
+          allow update, delete: if false;
+        }
       }
 
       // routes: /companies/{c}/logistics/_root/routes/{routeId}
@@ -645,18 +811,55 @@ service cloud.firestore {
                'document_voided_before_delivery',
                'inventory_adjusted', 'inventory_count_completed', 'inventory_count_approved',
                'route_published', 'delivery_point_status_changed', 'manual_assignment',
+               'delivery_address_changed',
+               'company_created', 'initial_owner_created', 'onboarding_mode_selected',
+               'remote_config_changed',
+               'integrity_check_started', 'integrity_check_completed',
+               'integrity_issue_ignored', 'integrity_issue_resolved',
                'billing_status_changed', 'trial_until_changed', 'accounting_locked_until_changed',
-               'payment_received', 'module_changed', 'plan_changed', 'backup_recorded', 'retention_checked'
+               'payment_received', 'module_changed', 'plan_changed', 'backup_recorded', 'retention_checked',
+               'data_imported', 'data_exported'
              ]
           && request.resource.data.entity.collection in [
                'invoices', 'receipts', 'credit_notes',
                'inventory', 'inventory_counts',
                'routes', 'delivery_points', 'assignments',
                'users', 'billing',
-               'payment_events', 'checkout_sessions', 'export_presets', 'backups', 'retention_checks'
+               'payment_events', 'checkout_sessions', 'export_presets', 'backups', 'retention_checks',
+               'clients', 'companies', 'settings', 'integrity_issues'
              ]
           && request.resource.data.entity.docId is string
           && request.resource.data.entity.docId.size() > 0;
+        allow update, delete: if false;
+      }
+
+      // =========================================================
+      // PRODUCT USAGE ANALYTICS (pilot) — append-only
+      // companies/{companyId}/usage_events/{eventId}
+      // =========================================================
+      match /usage_events/{eventId} {
+        allow read: if isCompanyMember(companyId) && isOwnerOrAbove();
+        allow create: if isCompanyMember(companyId)
+          && request.resource.data.companyId == companyId
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.timestamp == request.time
+          && request.resource.data.eventName in [
+               'onboarding_step_opened', 'onboarding_step_completed',
+               'import_started', 'import_completed',
+               'route_created', 'driver_assigned', 'delivery_completed',
+               'invoice_created', 'checkout_started', 'support_opened',
+               'report_opened', 'export_started'
+             ]
+          && request.resource.data.role is string
+          && request.resource.data.role.size() > 0
+          && (!('correlationId' in request.resource.data)
+              || request.resource.data.correlationId is string)
+          && (!('entityType' in request.resource.data)
+              || request.resource.data.entityType is string)
+          && (!('entityId' in request.resource.data)
+              || request.resource.data.entityId is string)
+          && (!('metadata' in request.resource.data)
+              || request.resource.data.metadata is map);
         allow update, delete: if false;
       }
 
@@ -672,6 +875,59 @@ service cloud.firestore {
       match /daily_summaries/{summaryId} {
         allow read: if isCompanyMember(companyId);
         allow write: if isCompanyMember(companyId) && (isDispatcherOrAbove() || isRole('warehouse_keeper'));
+      }
+
+      // Saved import column mappings
+      match /import_mappings/{mappingId} {
+        allow read: if isCompanyMember(companyId)
+          && hasAnyRole(['owner', 'admin', 'super_admin', 'dispatcher']);
+        allow create, update: if isCompanyMember(companyId)
+          && companyIdMatchesPath(companyId)
+          && (
+            (request.resource.data.importType in ['clients', 'delivery_points']
+              && hasAnyRole(['dispatcher', 'admin', 'owner', 'super_admin']))
+            || (request.resource.data.importType == 'products'
+              && hasAnyRole(['warehouse_keeper', 'admin', 'owner', 'super_admin']))
+          );
+        allow delete: if isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
+      }
+
+      // Learned import header → field corrections (per company)
+      match /import_learned_mappings/{docId} {
+        allow read: if isCompanyMember(companyId)
+          && hasAnyRole(['owner', 'admin', 'super_admin', 'dispatcher', 'warehouse_keeper']);
+        allow create, update: if isCompanyMember(companyId)
+          && companyIdMatchesPath(companyId)
+          && request.resource.data.keys().hasAll(['importType', 'headerNormalized', 'fieldKey'])
+          && (
+            (request.resource.data.importType in ['clients', 'delivery_points']
+              && hasAnyRole(['dispatcher', 'admin', 'owner', 'super_admin']))
+            || (request.resource.data.importType == 'products'
+              && hasAnyRole(['warehouse_keeper', 'admin', 'owner', 'super_admin']))
+          );
+        allow delete: if isCompanyMember(companyId) && hasAnyRole(['admin', 'super_admin']);
+      }
+
+      // =========================================================
+      // DATA INTEGRITY CHECKER
+      // companies/{c}/integrity_checks/{checkId} — прогоны (CF пишет admin SDK)
+      // companies/{c}/integrity_issues/{issueId} — проблемы (CF создаёт; owner+ меняет статус)
+      // =========================================================
+      match /integrity_checks/{checkId} {
+        allow read: if isCompanyMember(companyId)
+          && hasAnyRole(['owner', 'admin', 'super_admin']);
+        allow write: if false; // только Cloud Function (admin SDK)
+      }
+
+      match /integrity_issues/{issueId} {
+        allow read: if isCompanyMember(companyId)
+          && hasAnyRole(['owner', 'admin', 'super_admin']);
+        allow create, delete: if false; // только Cloud Function (admin SDK)
+        allow update: if isCompanyMember(companyId)
+          && hasAnyRole(['owner', 'admin', 'super_admin'])
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'ignoredAt', 'ignoredBy', 'resolvedAt', 'resolvedBy'])
+          && request.resource.data.status in ['open', 'ignored', 'resolved'];
       }
 
       // =========================================================
@@ -787,6 +1043,22 @@ service cloud.firestore {
       }
 
     } // end /companies/{companyId}
+
+    // =========================================================
+    // Platform Error Center — platform/system/errors
+    // =========================================================
+    match /platform/system/errors/{errorId} {
+      allow read: if signedIn() && (
+        isSuperAdmin() ||
+        (isOwnerOrAbove() && resource.data.companyId == userDoc().companyId)
+      );
+      allow update: if signedIn() && isSuperAdmin();
+      allow create, delete: if false;
+    }
+    match /platform/system/error_private/{errorId} {
+      allow read: if signedIn() && isSuperAdmin();
+      allow write: if false;
+    }
 
     // =========================================================
     // Global collections (legacy, backward compat)

@@ -49,8 +49,28 @@ async function seedBaseData() {
     await db.doc(`${USERS_COL}/u_super`).set({ role: "super_admin", companyId: "c1" });
     await db.doc(`${USERS_COL}/u_disp_c1`).set({ role: "dispatcher", companyId: "c1" });
     await db.doc(`${USERS_COL}/u_driver_c1`).set({ role: "driver", companyId: "c1" });
+    await db.doc(`${USERS_COL}/u_viewer_c1`).set({ role: "viewer", companyId: "c1" });
     await db.doc(`${USERS_COL}/u_disp_c2`).set({ role: "dispatcher", companyId: "c2" });
     await db.doc(`${USERS_COL}/u_warehouse_c1`).set({ role: "warehouse_keeper", companyId: "c1" });
+
+    // Demo tenant (isDemo isolation)
+    await db.doc(`${COMPANIES_COL}/demo-foods-israel`).set({
+      billingStatus: "active",
+      demoCompany: true,
+      modules: { logistics: true, warehouse: true, dispatcher: true, accounting: true },
+      name: "Demo Foods Israel",
+    });
+    await db.doc(`${USERS_COL}/u_demo_driver`).set({
+      role: "driver",
+      companyId: "demo-foods-israel",
+      isDemo: true,
+    });
+    await db.doc(`${COMPANIES_COL}/demo-foods-israel/logistics/_root/delivery_points/p_demo`).set({
+      status: "new",
+      title: "Demo point",
+      address: "Demo St",
+      driverId: "u_demo_driver",
+    });
 
     // sample docs in company subtree (с _root namespace)
     await db.doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1`).set({
@@ -60,6 +80,12 @@ async function seedBaseData() {
       address: "Test",
       driverId: "u_driver_c1",
       driverName: "Driver 1",
+    });
+    await db.doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p_unassigned`).set({
+      status: "assigned",
+      address: "Other",
+      driverId: "u_disp_c1",
+      driverName: "Dispatcher",
     });
 
     await db.doc(`${COMPANIES_COL}/c1/accounting/_root/counters/routes`).set({ lastNumber: 10 });
@@ -105,6 +131,26 @@ async function seedBaseData() {
     await db.doc(`${COMPANIES_COL}/c1/accounting/_root/integrity_chain/a1`).set({
       action: "seed",
       createdAt: 1,
+    });
+
+    // Data Integrity Checker — прогон и проблема (CF пишет admin SDK)
+    await db.doc(`${COMPANIES_COL}/c1/integrity_checks/chk1`).set({
+      status: "completed",
+      trigger: "manual",
+      startedBy: "server",
+      startedAt: 1,
+      foundIssues: 1,
+      bySeverity: { critical: 1, high: 0, medium: 0, low: 0 },
+    });
+    await db.doc(`${COMPANIES_COL}/c1/integrity_issues/iss1`).set({
+      companyId: "c1",
+      severity: "critical",
+      status: "open",
+      entityType: "invoice",
+      entityId: "inv1",
+      issueCode: "invoice_negative_total",
+      title: "Negative total",
+      description: "test",
     });
 
     // clients, prices, warehouse docs for companyIdMatchesPath tests
@@ -229,10 +275,11 @@ async function seedBaseData() {
       companyId: "cTrial", name: "Trial Client",
     });
 
-    // trial expired company (trialUntil in the past)
+    // trial expired but still within grace window (C3)
     await db.doc(`${COMPANIES_COL}/cTrialExp`).set({
       billingStatus: "trial",
       trialUntil: new Date(Date.now() - 24 * 60 * 60 * 1000), // -1 day
+      gracePeriodDays: 7,
       modules: { logistics: true, warehouse: true, dispatcher: true, accounting: true },
       name: "Trial Expired Co",
     });
@@ -241,9 +288,24 @@ async function seedBaseData() {
       companyId: "cTrialExp", name: "Expired Client",
     });
 
-    // grace company
+    // trial + grace fully expired
+    await db.doc(`${COMPANIES_COL}/cTrialGraceExp`).set({
+      billingStatus: "trial",
+      trialUntil: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      gracePeriodDays: 7,
+      modules: { logistics: true, warehouse: true, dispatcher: true, accounting: true },
+      name: "Trial Grace Expired Co",
+    });
+    await db.doc(`${USERS_COL}/u_disp_trialGraceExp`).set({ role: "dispatcher", companyId: "cTrialGraceExp" });
+    await db.doc(`${COMPANIES_COL}/cTrialGraceExp/logistics/_root/clients/cl1`).set({
+      companyId: "cTrialGraceExp", name: "Blocked Client",
+    });
+
+    // grace company (paidUntil anchor + grace window)
     await db.doc(`${COMPANIES_COL}/cGrace`).set({
       billingStatus: "grace",
+      paidUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      gracePeriodDays: 7,
       modules: { logistics: true, warehouse: true, dispatcher: true, accounting: true },
       name: "Grace Co",
     });
@@ -820,6 +882,268 @@ test("Dispatcher: super_admin bypasses disabled dispatcher module", async () => 
 });
 
 // =========================================================
+// Driver sessions — one device per driver
+// =========================================================
+
+test("Driver session: driver can create own session", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/driver_sessions/u_driver_c1`).set({
+      driverId: "u_driver_c1",
+      userId: "u_driver_c1",
+      deviceId: "dev-a",
+      deviceLabel: "Android",
+      active: true,
+      lastSeenAt: serverTimestamp(),
+      startedAt: serverTimestamp(),
+    })
+  );
+});
+
+test("Driver session: driver cannot write another driver session", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.doc(`companies/c1/driver_sessions/other_driver`).set({
+      driverId: "other_driver",
+      userId: "u_driver_c1",
+      deviceId: "dev-a",
+      active: true,
+    })
+  );
+});
+
+test("Driver session: dispatcher cannot write driver session", async () => {
+  const db = authed("u_disp_c1");
+  await assertFails(
+    db.doc(`companies/c1/driver_sessions/u_driver_c1`).set({
+      driverId: "u_driver_c1",
+      userId: "u_disp_c1",
+      deviceId: "dev-x",
+      active: true,
+    })
+  );
+});
+
+test("Driver session: admin can read driver session", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc(`companies/c1/driver_sessions/u_driver_c1`).set({
+      driverId: "u_driver_c1",
+      userId: "u_driver_c1",
+      deviceId: "dev-a",
+      active: true,
+    });
+  });
+  const db = authed("u_admin_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/driver_sessions/u_driver_c1`).get()
+  );
+});
+
+test("Driver session: only super_admin can delete", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc(`companies/c1/driver_sessions/u_driver_c1`).set({
+      driverId: "u_driver_c1",
+      userId: "u_driver_c1",
+      deviceId: "dev-a",
+      active: true,
+    });
+  });
+  const driverDb = authed("u_driver_c1");
+  await assertFails(
+    driverDb.doc(`companies/c1/driver_sessions/u_driver_c1`).delete()
+  );
+  const superDb = authed("u_super");
+  await assertSucceeds(
+    superDb.doc(`companies/c1/driver_sessions/u_driver_c1`).delete()
+  );
+});
+
+// =========================================================
+// Import mappings — saved column templates
+// =========================================================
+
+const importMappingClients = {
+  companyId: "c1",
+  importType: "clients",
+  name: "Priority clients",
+  sourceHeaders: ["CustName", "ADDR"],
+  mapping: { name: 0, address: 1 },
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+  createdBy: "u_disp_c1",
+};
+
+test("Import mappings: dispatcher can create clients mapping", async () => {
+  const db = authed("u_disp_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/import_mappings/map1`).set(importMappingClients)
+  );
+});
+
+test("Import mappings: warehouse_keeper cannot create clients mapping", async () => {
+  const db = authed("u_warehouse_c1");
+  await assertFails(
+    db.doc(`companies/c1/import_mappings/map_wh`).set(importMappingClients)
+  );
+});
+
+test("Import mappings: warehouse_keeper can create products mapping", async () => {
+  const db = authed("u_warehouse_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/import_mappings/map_prod`).set({
+      ...importMappingClients,
+      importType: "products",
+      name: "SKU template",
+    })
+  );
+});
+
+test("Import mappings: driver cannot read", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc(`companies/c1/import_mappings/map1`).set(importMappingClients);
+  });
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.doc(`companies/c1/import_mappings/map1`).get()
+  );
+});
+
+test("Import mappings: only admin can delete", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc(`companies/c1/import_mappings/map_del`).set(importMappingClients);
+  });
+  const dispDb = authed("u_disp_c1");
+  await assertFails(
+    dispDb.doc(`companies/c1/import_mappings/map_del`).delete()
+  );
+  const adminDb = authed("u_admin_c1");
+  await assertSucceeds(
+    adminDb.doc(`companies/c1/import_mappings/map_del`).delete()
+  );
+});
+
+// =========================================================
+// Company remote config (settings/remote_config)
+// =========================================================
+
+const remoteConfigPayload = {
+  autoCloseRadiusMeters: 100,
+  autoCloseResetRadiusMeters: 120,
+  autoCloseWaitSeconds: 180,
+  closeUndoSeconds: 15,
+  gpsStaleMinutes: 2880,
+  driverSessionHeartbeatSeconds: 45,
+  driverSessionStaleMinutes: 5,
+  backgroundAutoCloseEnabled: true,
+  driverDeviceSessionLockEnabled: true,
+  navigationPreferWaze: true,
+  importPreviewRows: 20,
+};
+
+test("Remote config: company member (driver) can read", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/settings/remote_config`).get()
+  );
+});
+
+test("Remote config: admin can write", async () => {
+  const db = authed("u_admin_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/settings/remote_config`).set(remoteConfigPayload)
+  );
+});
+
+test("Remote config: owner can write", async () => {
+  const db = authed("u_owner_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/settings/remote_config`).set(remoteConfigPayload)
+  );
+});
+
+test("Remote config: driver cannot write", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.doc(`companies/c1/settings/remote_config`).set(remoteConfigPayload)
+  );
+});
+
+// =========================================================
+// Data Integrity Checker (integrity_checks / integrity_issues)
+// =========================================================
+
+test("Integrity: owner can read checks", async () => {
+  const db = authed("u_owner_c1");
+  await assertSucceeds(db.doc(`companies/c1/integrity_checks/chk1`).get());
+});
+
+test("Integrity: driver cannot read checks", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(db.doc(`companies/c1/integrity_checks/chk1`).get());
+});
+
+test("Integrity: admin cannot write checks from client (CF only)", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/integrity_checks/chkX`).set({ status: "completed" })
+  );
+});
+
+test("Integrity: admin can read issues", async () => {
+  const db = authed("u_admin_c1");
+  await assertSucceeds(db.doc(`companies/c1/integrity_issues/iss1`).get());
+});
+
+test("Integrity: driver cannot read issues", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(db.doc(`companies/c1/integrity_issues/iss1`).get());
+});
+
+test("Integrity: admin cannot create issues from client (CF only)", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/integrity_issues/issX`).set({
+      companyId: "c1", severity: "low", status: "open",
+      entityType: "invoice", entityId: "x", issueCode: "c",
+    })
+  );
+});
+
+test("Integrity: owner can mark issue ignored (status lifecycle)", async () => {
+  const db = authed("u_owner_c1");
+  await assertSucceeds(
+    db.doc(`companies/c1/integrity_issues/iss1`).update({
+      status: "ignored", ignoredAt: serverTimestamp(), ignoredBy: "u_owner_c1",
+    })
+  );
+});
+
+test("Integrity: cannot change non-lifecycle fields", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/integrity_issues/iss1`).update({ title: "hacked" })
+  );
+});
+
+test("Integrity: cannot set invalid status", async () => {
+  const db = authed("u_admin_c1");
+  await assertFails(
+    db.doc(`companies/c1/integrity_issues/iss1`).update({ status: "deleted" })
+  );
+});
+
+test("Integrity: driver cannot update issue", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.doc(`companies/c1/integrity_issues/iss1`).update({ status: "resolved" })
+  );
+});
+
+// =========================================================
 // Logistics module — prices delete contract
 // =========================================================
 
@@ -1187,15 +1511,28 @@ test("Billing: trial (active) allows read and write", async () => {
   );
 });
 
-// ❌ trial expired: read and write blocked
-test("Billing: trial expired blocks read and write", async () => {
+// ✅ trial expired but grace valid: read + write allowed (C3)
+test("Billing: trial expired within grace allows read and write", async () => {
   const db = authed("u_disp_trialExp");
-  await assertFails(
+  await assertSucceeds(
     db.doc(`companies/cTrialExp/logistics/_root/clients/cl1`).get()
   );
-  await assertFails(
+  await assertSucceeds(
     db.doc(`companies/cTrialExp/logistics/_root/clients/cl_new`).set({
-      companyId: "cTrialExp", name: "X",
+      companyId: "cTrialExp", name: "Grace Window Client",
+    })
+  );
+});
+
+// ❌ trial + grace expired: read and write blocked
+test("Billing: trial grace expired blocks read and write", async () => {
+  const db = authed("u_disp_trialGraceExp");
+  await assertFails(
+    db.doc(`companies/cTrialGraceExp/logistics/_root/clients/cl1`).get()
+  );
+  await assertFails(
+    db.doc(`companies/cTrialGraceExp/logistics/_root/clients/cl_new`).set({
+      companyId: "cTrialGraceExp", name: "X",
     })
   );
 });
@@ -2028,4 +2365,194 @@ test("email_delivery_logs: client cannot create", async () => {
       errorCode: "test", timestamp: new Date(),
     })
   );
+});
+
+// =========================================================
+// visit_logs + delivery_history (client learning)
+// =========================================================
+
+test("visit_logs: assigned driver can create with timestamp shape", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs`).add({
+      lat: 32.08,
+      lng: 34.78,
+      timestamp: serverTimestamp(),
+    })
+  );
+});
+
+test("visit_logs: assigned driver can create with createdAt shape", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs`).add({
+      lat: 32.08,
+      lng: 34.78,
+      driverId: "u_driver_c1",
+      createdAt: serverTimestamp(),
+    })
+  );
+});
+
+test("visit_logs: driver denied on point assigned to another user", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p_unassigned/visit_logs`).add({
+      lat: 32.08,
+      lng: 34.78,
+      timestamp: serverTimestamp(),
+    })
+  );
+});
+
+test("visit_logs: dispatcher can read company visit_logs", async () => {
+  const db = authed("u_disp_c1");
+  await assertSucceeds(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs`).get()
+  );
+});
+
+test("visit_logs: cross-tenant driver cannot read", async () => {
+  const db = authed("u_disp_c2");
+  await assertFails(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs`).get()
+  );
+});
+
+test("visit_logs: viewer cannot read", async () => {
+  const db = authed("u_viewer_c1");
+  await assertFails(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs`).get()
+  );
+});
+
+test("visit_logs: delete forbidden", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore()
+      .doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs/vl1`)
+      .set({ lat: 32.0, lng: 34.0, timestamp: new Date() });
+  });
+  const db = authed("u_disp_c1");
+  await assertFails(
+    db.doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1/visit_logs/vl1`).delete()
+  );
+});
+
+test("delivery_history: driver can create for company client", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/clients/cl1/delivery_history`).add({
+      deliveryLat: 32.08,
+      deliveryLng: 34.78,
+      serviceTimeSec: 300,
+      timestamp: serverTimestamp(),
+    })
+  );
+});
+
+test("delivery_history: cross-tenant driver cannot create", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc(`${USERS_COL}/u_driver_c2`).set({
+      role: "driver",
+      companyId: "c2",
+    });
+  });
+  const db = authed("u_driver_c2");
+  await assertFails(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/clients/cl1/delivery_history`).add({
+      deliveryLat: 32.08,
+      deliveryLng: 34.78,
+      timestamp: serverTimestamp(),
+    })
+  );
+});
+
+test("delivery_history: viewer cannot read", async () => {
+  const db = authed("u_viewer_c1");
+  await assertFails(
+    db.collection(`${COMPANIES_COL}/c1/logistics/_root/clients/cl1/delivery_history`).get()
+  );
+});
+
+// ====== Demo tenant isolation (isDemo) ======
+
+test("isDemo: demo user can read own demo company", async () => {
+  const db = authed("u_demo_driver");
+  await assertSucceeds(
+    db.doc(`${COMPANIES_COL}/demo-foods-israel/logistics/_root/delivery_points/p_demo`).get()
+  );
+});
+
+test("isDemo: demo user cannot read real company c1", async () => {
+  const db = authed("u_demo_driver");
+  await assertFails(
+    db.doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1`).get()
+  );
+});
+
+test("isDemo: real member without isDemo flag can read own company", async () => {
+  const db = authed("u_driver_c1");
+  await assertSucceeds(
+    db.doc(`${COMPANIES_COL}/c1/logistics/_root/delivery_points/p1`).get()
+  );
+});
+
+test("isDemo: real member cannot read demo company", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(
+    db.doc(`${COMPANIES_COL}/demo-foods-israel/logistics/_root/delivery_points/p_demo`).get()
+  );
+});
+
+test("isDemo: demo user cannot create user doc for real company", async () => {
+  const db = authed("u_demo_driver");
+  await assertFails(
+    db.doc(`${USERS_COL}/u_hacked`).set({
+      role: "driver",
+      companyId: "c1",
+      isDemo: true,
+    })
+  );
+});
+
+test("isDemo: demo user cannot reassign own companyId away from demo", async () => {
+  const db = authed("u_demo_driver");
+  await assertFails(
+    db.doc(`${USERS_COL}/u_demo_driver`).update({ companyId: "c1" })
+  );
+});
+
+// ===== Platform Error Center =====
+test("platform errors: super_admin can read", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc("platform/system/errors/err1").set({
+      companyId: "c1",
+      severity: "high",
+      errorMessage: "test",
+      resolved: false,
+    });
+  });
+  const db = authed("u_super");
+  await assertSucceeds(db.doc("platform/system/errors/err1").get());
+});
+
+test("platform errors: driver cannot read", async () => {
+  const db = authed("u_driver_c1");
+  await assertFails(db.doc("platform/system/errors/err1").get());
+});
+
+test("platform errors: owner can read own company error", async () => {
+  const db = authed("u_owner_c1");
+  await assertSucceeds(db.doc("platform/system/errors/err1").get());
+});
+
+test("platform error_private: only super_admin", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc("platform/system/error_private/err1").set({
+      stackTrace: "secret",
+    });
+  });
+  await assertSucceeds(authed("u_super").doc("platform/system/error_private/err1").get());
+  await assertFails(authed("u_owner_c1").doc("platform/system/error_private/err1").get());
 });
