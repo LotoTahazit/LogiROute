@@ -59,6 +59,9 @@ class DeliveryPoint {
   /// Валидны ли координаты этой точки
   bool get hasValidCoordinates => isValidCoordinates(latitude, longitude);
 
+  bool get hasDeliveryAddressOverride =>
+      deliveryAddressOverride?.trim().isNotEmpty == true;
+
   final String id;
   final String companyId; // ID компании для изоляции данных
   final String address;
@@ -78,7 +81,10 @@ class DeliveryPoint {
   final String? driverId;
   final String? driverName;
   final int? driverCapacity;
-  final String? temporaryAddress; // Временный адрес для этой доставки
+  final String? temporaryAddress; // legacy → deliveryAddressOverride
+  final String? deliveryAddressOverride;
+  final double? deliveryAddressOverrideLat;
+  final double? deliveryAddressOverrideLng;
   final String? taskNote; // Задание без товара: забрать чек, возврат, и т.д.
   final bool autoCompleted; // Завершено автоматически
   final List<BoxType>? boxTypes; // Типы коробок в заказе
@@ -121,6 +127,9 @@ class DeliveryPoint {
     this.driverName,
     this.driverCapacity,
     this.temporaryAddress,
+    this.deliveryAddressOverride,
+    this.deliveryAddressOverrideLat,
+    this.deliveryAddressOverrideLng,
     this.taskNote,
     this.autoCompleted = false,
     this.boxTypes,
@@ -191,7 +200,10 @@ class DeliveryPoint {
         driverCapacity: (map['driverCapacity'] is num)
             ? (map['driverCapacity'] as num).toInt()
             : null,
-        temporaryAddress: map['temporaryAddress']?.toString(),
+        temporaryAddress: _readDeliveryAddressOverride(map),
+        deliveryAddressOverride: _readDeliveryAddressOverride(map),
+        deliveryAddressOverrideLat: _readDouble(map['deliveryAddressOverrideLat']),
+        deliveryAddressOverrideLng: _readDouble(map['deliveryAddressOverrideLng']),
         taskNote: map['taskNote']?.toString(),
         autoCompleted: map['autoCompleted'] ?? false,
         boxTypes: map['boxTypes'] != null && map['boxTypes'] is List
@@ -249,6 +261,17 @@ class DeliveryPoint {
     }
   }
 
+  static String? _readDeliveryAddressOverride(Map<String, dynamic> map) {
+    final v = map['deliveryAddressOverride'] ?? map['temporaryAddress'];
+    final s = v?.toString().trim();
+    return s != null && s.isNotEmpty ? s : null;
+  }
+
+  static double? _readDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse('$v');
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'companyId': companyId,
@@ -269,7 +292,12 @@ class DeliveryPoint {
       if (driverId != null) 'driverId': driverId,
       if (driverName != null) 'driverName': driverName,
       if (driverCapacity != null) 'driverCapacity': driverCapacity,
-      if (temporaryAddress != null) 'temporaryAddress': temporaryAddress,
+      if (deliveryAddressOverride != null)
+        'deliveryAddressOverride': deliveryAddressOverride,
+      if (deliveryAddressOverrideLat != null)
+        'deliveryAddressOverrideLat': deliveryAddressOverrideLat,
+      if (deliveryAddressOverrideLng != null)
+        'deliveryAddressOverrideLng': deliveryAddressOverrideLng,
       if (taskNote != null) 'taskNote': taskNote,
       'autoCompleted': autoCompleted,
       if (boxTypes != null)
@@ -306,6 +334,7 @@ class DeliveryPoint {
     DateTime? updatedAt,
     bool? archived,
     DateTime? archivedAt,
+    bool? autoCompleted,
   }) {
     return DeliveryPoint(
       id: id,
@@ -327,9 +356,12 @@ class DeliveryPoint {
       driverId: driverId,
       driverName: driverName,
       driverCapacity: driverCapacity,
-      temporaryAddress: temporaryAddress,
+      temporaryAddress: deliveryAddressOverride ?? temporaryAddress,
+      deliveryAddressOverride: deliveryAddressOverride ?? temporaryAddress,
+      deliveryAddressOverrideLat: deliveryAddressOverrideLat,
+      deliveryAddressOverrideLng: deliveryAddressOverrideLng,
       taskNote: taskNote,
-      autoCompleted: autoCompleted,
+      autoCompleted: autoCompleted ?? this.autoCompleted,
       boxTypes: boxTypes,
       eta: eta ?? this.eta,
       distanceKm: distanceKm ?? this.distanceKm,

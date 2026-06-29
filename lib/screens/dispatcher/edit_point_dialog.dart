@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/delivery_point.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/delivery_point_address_resolver.dart';
+import '../../utils/geocoding_helper.dart';
 
 class EditPointDialog extends StatefulWidget {
   final DeliveryPoint point;
@@ -15,25 +17,32 @@ class EditPointDialog extends StatefulWidget {
 class _EditPointDialogState extends State<EditPointDialog> {
   late String _urgency;
   late int _orderInRoute;
-  late String _address;
-  DateTime? _openingTime; // окно «с»
-  DateTime? _closingTime; // окно «по»
+  late bool _deliveryAddressDiffers;
+  DateTime? _openingTime;
+  DateTime? _closingTime;
+  double? _overrideLat;
+  double? _overrideLng;
   final _orderController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _overrideAddressController = TextEditingController();
+  bool _geocoding = false;
 
   @override
   void initState() {
     super.initState();
-    _urgency = widget.point.urgency;
-    _orderInRoute = widget.point.orderInRoute;
-    _address = widget.point.address;
-    _openingTime = widget.point.openingTime;
-    _closingTime = widget.point.closingTime;
+    final p = widget.point;
+    _urgency = p.urgency;
+    _orderInRoute = p.orderInRoute;
+    _openingTime = p.openingTime;
+    _closingTime = p.closingTime;
     _orderController.text = (_orderInRoute + 1).toString();
-    _addressController.text = _address;
+    _deliveryAddressDiffers = p.hasDeliveryAddressOverride;
+    if (_deliveryAddressDiffers) {
+      _overrideAddressController.text = p.deliveryAddressOverride ?? '';
+      _overrideLat = p.deliveryAddressOverrideLat;
+      _overrideLng = p.deliveryAddressOverrideLng;
+    }
   }
 
-  /// Открывает выбор времени и сохраняет как DateTime (сегодняшняя дата + время).
   Future<void> _pickTime({required bool opening}) async {
     final current = opening ? _openingTime : _closingTime;
     final initial = current != null
@@ -58,25 +67,48 @@ class _EditPointDialogState extends State<EditPointDialog> {
     return TimeOfDay(hour: dt.hour, minute: dt.minute).format(context);
   }
 
+  Future<void> _geocodeOverride() async {
+    final l10n = AppLocalizations.of(context)!;
+    final addr = _overrideAddressController.text.trim();
+    if (addr.isEmpty) return;
+    setState(() => _geocoding = true);
+    try {
+      final geo = await GeocodingHelper.geocodeAddress(addr);
+      if (!mounted) return;
+      if (geo == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.addressNotFound)),
+        );
+        return;
+      }
+      setState(() {
+        _overrideLat = geo['latitude'];
+        _overrideLng = geo['longitude'];
+      });
+    } finally {
+      if (mounted) setState(() => _geocoding = false);
+    }
+  }
+
   @override
   void dispose() {
     _orderController.dispose();
-    _addressController.dispose();
+    _overrideAddressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final resolved = resolveDeliveryPointAddress(widget.point);
 
     return AlertDialog(
-      title: Text('Edit Point: ${widget.point.clientName}'),
+      title: Text('Edit: ${widget.point.clientName}'),
       content: SizedBox(
-        width: 300,
+        width: 360,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Приоритет
             DropdownButtonFormField<String>(
               initialValue: _urgency,
               decoration: const InputDecoration(labelText: 'Priority / עדיפות'),
@@ -85,21 +117,15 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 DropdownMenuItem(value: 'urgent', child: Text('Urgent / דחוף')),
               ],
               onChanged: (value) {
-                if (value != null) {
-                  setState(() => _urgency = value);
-                }
+                if (value != null) setState(() => _urgency = value);
               },
             ),
-
             const SizedBox(height: 16),
-
-            // Окно доставки: «с» — «по»
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: Text(
                 l10n.deliveryWindowTitle,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 6),
@@ -108,7 +134,8 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.schedule, size: 16),
-                    label: Text('${l10n.deliveryWindowFrom}: ${_fmt(_openingTime, l10n)}'),
+                    label: Text(
+                        '${l10n.deliveryWindowFrom}: ${_fmt(_openingTime, l10n)}'),
                     onPressed: () => _pickTime(opening: true),
                   ),
                 ),
@@ -116,62 +143,64 @@ class _EditPointDialogState extends State<EditPointDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.event_available, size: 16),
-                    label: Text('${l10n.deliveryWindowTo}: ${_fmt(_closingTime, l10n)}'),
+                    label: Text(
+                        '${l10n.deliveryWindowTo}: ${_fmt(_closingTime, l10n)}'),
                     onPressed: () => _pickTime(opening: false),
                   ),
                 ),
-                if (_openingTime != null || _closingTime != null)
-                  IconButton(
-                    tooltip: l10n.deliveryWindowClear,
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () => setState(() {
-                      _openingTime = null;
-                      _closingTime = null;
-                    }),
-                  ),
               ],
             ),
-
             const SizedBox(height: 16),
-
-            // Временный адрес для этой доставки
-            TextFormField(
-              controller: _addressController,
-              decoration: InputDecoration(
-                labelText: l10n.temporaryAddress,
-                hintText: l10n.temporaryAddressHint,
-                helperText: l10n.temporaryAddressHelper,
-                suffixIcon: Tooltip(
-                  message: l10n.temporaryAddressTooltip,
-                  child: const Icon(Icons.info_outline, color: Colors.blue),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                '${l10n.clientAddressLabel}: ${resolved.clientAddress}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                l10n.deliveryAddressOverrideToggle,
+                style: const TextStyle(fontSize: 13),
+              ),
+              value: _deliveryAddressDiffers,
+              onChanged: (v) => setState(() => _deliveryAddressDiffers = v),
+            ),
+            if (_deliveryAddressDiffers) ...[
+              TextFormField(
+                controller: _overrideAddressController,
+                decoration: InputDecoration(
+                  labelText: l10n.deliveryAddressOverrideLabel,
+                  hintText: l10n.deliveryAddressOverrideHint,
+                ),
+                minLines: 1,
+                maxLines: 2,
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: _geocoding ? null : _geocodeOverride,
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  label: Text(l10n.findCoordinates),
                 ),
               ),
-              onChanged: (value) {
-                _address = value;
-              },
-            ),
-
+            ],
             const SizedBox(height: 16),
-
-            // Порядок в маршруте
             TextFormField(
               controller: _orderController,
               decoration: const InputDecoration(
                 labelText: 'Order in Route / סדר במסלול',
-                hintText: '1, 2, 3...',
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) {
                 final order = int.tryParse(value);
                 if (order != null && order > 0) {
-                  _orderInRoute = order - 1; // Сохраняем как 0-based индекс
+                  _orderInRoute = order - 1;
                 }
               },
             ),
-
             const SizedBox(height: 16),
-
-            // Информация о точке
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -181,8 +210,7 @@ class _EditPointDialogState extends State<EditPointDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Address: ${widget.point.address}'),
-                  Text('Pallets: ${widget.point.pallets}'),
+                  Text('${l10n.pallets}: ${widget.point.pallets}'),
                   Text('Status: ${widget.point.status}'),
                   if (widget.point.driverName != null)
                     Text('Driver: ${widget.point.driverName}'),
@@ -197,21 +225,29 @@ class _EditPointDialogState extends State<EditPointDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.cancel),
         ),
-        // Кнопка отмены точки
         ElevatedButton(
           onPressed: () => Navigator.pop(context, {'cancelPoint': true}),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           child: Text(l10n.cancelPoint),
         ),
         ElevatedButton(
-          onPressed: () => Navigator.pop(context, {
-            'urgency': _urgency,
-            'orderInRoute': _orderInRoute,
-            'address': _address,
-            'updateWindow': true,
-            'openingTime': _openingTime,
-            'closingTime': _closingTime,
-          }),
+          onPressed: () {
+            final override = _deliveryAddressDiffers
+                ? _overrideAddressController.text.trim()
+                : null;
+            Navigator.pop(context, {
+              'urgency': _urgency,
+              'orderInRoute': _orderInRoute,
+              'updateWindow': true,
+              'openingTime': _openingTime,
+              'closingTime': _closingTime,
+              'clearDeliveryAddressOverride': !_deliveryAddressDiffers,
+              if (override != null && override.isNotEmpty)
+                'deliveryAddressOverride': override,
+              if (_overrideLat != null) 'deliveryAddressOverrideLat': _overrideLat,
+              if (_overrideLng != null) 'deliveryAddressOverrideLng': _overrideLng,
+            });
+          },
           child: Text(l10n.save),
         ),
       ],

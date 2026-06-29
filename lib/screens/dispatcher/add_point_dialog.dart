@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/client_model.dart';
 import '../../models/delivery_point.dart';
 import '../../models/box_type.dart';
+import '../../models/inventory_item.dart';
 import '../../services/client_service.dart';
 import '../../services/route_service.dart';
 import '../../utils/geocoding_helper.dart';
@@ -34,7 +35,11 @@ class _AddPointDialogState extends State<AddPointDialog> {
   final TextEditingController _taskNoteController = TextEditingController();
 
   ClientModel? _selectedClient;
+  bool _deliveryAddressDiffers = false;
   bool _isLoading = false;
+  double? _overrideLat;
+  double? _overrideLng;
+  final TextEditingController _overrideAddressController = TextEditingController();
   List<ClientModel> _searchResults = [];
   String _urgency = 'normal';
   List<BoxType> _selectedBoxTypes = []; // Выбранные типы коробок
@@ -59,23 +64,29 @@ class _AddPointDialogState extends State<AddPointDialog> {
       final companyCtx = CompanyContext.of(context);
       final companyId = companyCtx.effectiveCompanyId ?? '';
       final inventoryService = InventoryService(companyId: companyId);
-      final inventory = await inventoryService.getInventory();
+      final stockMap =
+          await inventoryService.getItemsForBoxTypes(_selectedBoxTypes);
 
-      int fullPallets = 0; // Полные миштахи
-      int remainderBoxes = 0; // Остатки коробок (не заполнившие целый миштах)
+      int fullPallets = 0;
+      int remainderBoxes = 0;
       int totalBoxes = 0;
 
       for (final boxType in _selectedBoxTypes) {
-        // Находим товар в инвентаре (fallback: 20 шт на миштах)
-        final inventoryMatch = inventory.where(
-          (item) => item.type == boxType.type && item.number == boxType.number,
-        );
+        InventoryItem? inv = boxType.productCode.isNotEmpty
+            ? stockMap[boxType.productCode]
+            : null;
+        if (inv == null) {
+          for (final v in stockMap.values) {
+            if (v.type == boxType.type && v.number == boxType.number) {
+              inv = v;
+              break;
+            }
+          }
+        }
 
         final quantity = boxType.quantity;
-        final perPallet = inventoryMatch.isNotEmpty
-            ? inventoryMatch.first.quantityPerPallet
-            : 20; // default: 20 boxes per pallet
-        if (inventoryMatch.isEmpty) {
+        final perPallet = inv?.quantityPerPallet ?? 20;
+        if (inv == null) {
           debugPrint(
             '⚠️ [Calc] Item not in inventory: ${boxType.type} ${boxType.number}, using default perPallet=20',
           );
@@ -214,7 +225,7 @@ class _AddPointDialogState extends State<AddPointDialog> {
     _contactController.dispose();
     _palletsController.dispose();
     _boxesController.dispose();
-    _taskNoteController.dispose();
+    _overrideAddressController.dispose();
     super.dispose();
   }
 
@@ -240,7 +251,34 @@ class _AddPointDialogState extends State<AddPointDialog> {
       _addressController.text = client.address;
       _phoneController.text = client.phone ?? '';
       _contactController.text = client.contactPerson ?? '';
+      _deliveryAddressDiffers = false;
+      _overrideAddressController.clear();
+      _overrideLat = null;
+      _overrideLng = null;
     });
+  }
+
+  Future<void> _geocodeOverrideAddress() async {
+    final l10n = AppLocalizations.of(context)!;
+    final addr = _overrideAddressController.text.trim();
+    if (addr.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      final geo = await GeocodingHelper.geocodeAddress(addr);
+      if (!mounted) return;
+      if (geo == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.addressNotFound)),
+        );
+        return;
+      }
+      setState(() {
+        _overrideLat = geo['latitude'];
+        _overrideLng = geo['longitude'];
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _savePoint() async {
@@ -553,17 +591,54 @@ class _AddPointDialogState extends State<AddPointDialog> {
       }
 
       final deliveryAddress = _addressController.text.trim();
-      final isTemporaryAddress = _selectedClient != null &&
-          deliveryAddress != (_selectedClient!.address.trim());
+      final clientAddress =
+          _selectedClient?.address.trim() ?? deliveryAddress;
+      String? override;
+      double? overrideLat;
+      double? overrideLng;
+      double pointLat = latitude;
+      double pointLng = longitude;
+
+      if (_deliveryAddressDiffers && _selectedClient != null) {
+        override = _overrideAddressController.text.trim();
+        if (override.isEmpty) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(l10n.deliveryAddressOverrideLabel)),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+        if (_overrideLat != null &&
+            _overrideLng != null &&
+            DeliveryPoint.isValidCoordinates(_overrideLat!, _overrideLng!)) {
+          overrideLat = _overrideLat;
+          overrideLng = _overrideLng;
+        } else {
+          final geo = await GeocodingHelper.geocodeAddress(override);
+          if (geo == null) {
+            setState(() => _isLoading = false);
+            return;
+          }
+          overrideLat = geo['latitude'];
+          overrideLng = geo['longitude'];
+        }
+        if (_selectedClient!.latitude != 0 && _selectedClient!.longitude != 0) {
+          pointLat = _selectedClient!.latitude;
+          pointLng = _selectedClient!.longitude;
+        } else {
+          pointLat = overrideLat!;
+          pointLng = overrideLng!;
+        }
+      }
 
       final point = DeliveryPoint(
         id: '',
         companyId: companyId,
         clientName: client.name,
         clientNumber: client.clientNumber,
-        address: deliveryAddress,
-        latitude: latitude,
-        longitude: longitude,
+        address: clientAddress,
+        latitude: pointLat,
+        longitude: pointLng,
         pallets: int.tryParse(_palletsController.text) ?? 0,
         boxes: int.tryParse(_boxesController.text) ?? 0,
         zone: client.zones.isNotEmpty ? client.zones.join(',') : null,
@@ -572,7 +647,9 @@ class _AddPointDialogState extends State<AddPointDialog> {
         driverId: null,
         driverName: null,
         driverCapacity: null,
-        temporaryAddress: isTemporaryAddress ? deliveryAddress : null,
+        deliveryAddressOverride: override,
+        deliveryAddressOverrideLat: overrideLat,
+        deliveryAddressOverrideLng: overrideLng,
         taskNote: _taskNoteController.text.trim().isNotEmpty
             ? _taskNoteController.text.trim()
             : null,
@@ -581,7 +658,13 @@ class _AddPointDialogState extends State<AddPointDialog> {
       );
 
       final routeService = RouteService(companyId: companyId);
-      await routeService.addDeliveryPoint(point);
+      final user = authService.userModel;
+      await routeService.addDeliveryPoint(
+        point,
+        createdByUid: authService.currentUser?.uid,
+        createdByRole: authService.viewAsRole ?? authService.userRole,
+        createdByName: user?.name,
+      );
 
       // Списываем товар со склада
       if (_selectedBoxTypes.isNotEmpty) {
@@ -777,6 +860,52 @@ class _AddPointDialogState extends State<AddPointDialog> {
                         ),
                       ],
                     ),
+
+                  fieldGap,
+                  if (_selectedClient != null)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        l10n.deliveryAddressOverrideToggle,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      value: _deliveryAddressDiffers,
+                      onChanged: (v) => setState(() {
+                        _deliveryAddressDiffers = v;
+                        if (v && _overrideAddressController.text.isEmpty) {
+                          _overrideAddressController.text =
+                              _addressController.text.trim();
+                        }
+                      }),
+                    ),
+                  if (_deliveryAddressDiffers && _selectedClient != null) ...[
+                    TextFormField(
+                      controller: _overrideAddressController,
+                      decoration: fieldDec(l10n.deliveryAddressOverrideLabel)
+                          .copyWith(hintText: l10n.deliveryAddressOverrideHint),
+                      minLines: 1,
+                      maxLines: 2,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? l10n.required : null,
+                    ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: _isLoading ? null : _geocodeOverrideAddress,
+                        icon: const Icon(Icons.place_outlined, size: 18),
+                        label: Text(l10n.findCoordinates),
+                      ),
+                    ),
+                    if (_overrideLat != null && _overrideLng != null)
+                      Text(
+                        'GPS: ${_overrideLat!.toStringAsFixed(5)}, ${_overrideLng!.toStringAsFixed(5)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    fieldGap,
+                  ],
 
                   fieldGap,
                   DropdownButtonFormField<String>(
