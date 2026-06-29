@@ -1,5 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { correlationLog, correlationErrorDetails } = require("./lib/correlation");
+const { applyPlanToCompany, normalizePlan } = require("./lib/companyModules");
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -22,16 +24,25 @@ const Timestamp = admin.firestore.Timestamp;
  * Источник правды — ВСЕГДА webhook. Этот endpoint только генерирует ссылку.
  */
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
+  const correlationId = correlationLog("stripe_checkout", data, context);
   // --- Auth ---
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Auth required",
+      correlationErrorDetails(data, context, { operation: "stripe_checkout" })
+    );
   }
   const uid = context.auth.uid;
 
   // --- Input ---
-  const { companyId, months } = data;
+  const { companyId, months, planId } = data;
   if (!companyId || typeof companyId !== "string") {
-    throw new functions.https.HttpsError("invalid-argument", "companyId required");
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "companyId required",
+      correlationErrorDetails(data, context, { operation: "stripe_checkout" })
+    );
   }
   const billingMonths = months && Number.isInteger(months) && months > 0 ? months : 1;
 
@@ -58,7 +69,14 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
   }
   const company = companySnap.data();
   const provider = company.paymentProvider || _getDefaultProvider();
-  const plan = company.plan || "full";
+  let plan = normalizePlan(company.plan || "full");
+
+  if (planId && typeof planId === "string") {
+    plan = normalizePlan(planId);
+    await applyPlanToCompany(db, companyId, plan, {
+      fieldValue: FieldValue,
+    });
+  }
 
   // --- Price lookup (from config/billing_pricing, fallback to defaults) ---
   const priceConfig = await _getPriceConfig(plan, billingMonths);
@@ -93,6 +111,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     createdBy: uid,
     createdAt: FieldValue.serverTimestamp(),
     status: "pending", // pending → completed (via webhook) or expired
+    correlationId,
   });
 
   // Audit

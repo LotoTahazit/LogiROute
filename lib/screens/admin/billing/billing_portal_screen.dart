@@ -1,15 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/company_context.dart';
+import '../../../services/billing_state.dart';
 import '../../../services/plan_limits_service.dart';
 import '../../../services/checkout_service.dart';
+import '../../../widgets/checkout_ui_helper.dart';
 import '../../../services/firestore_paths.dart';
 import '../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../utils/file_download_web.dart';
+import '../../../models/plan_limit_policy.dart';
 import 'billing_helpers.dart';
 import 'receipt_exporter.dart';
 import '../../../theme/app_theme.dart';
@@ -31,7 +35,10 @@ String _localizedPlanName(String planKey, AppLocalizations l10n) {
 
 /// פורטל חיוב — מסך ניהול עצמי לצפייה בתוכנית, סטטוס, שימוש, היסטוריה
 class BillingPortalScreen extends StatefulWidget {
-  const BillingPortalScreen({super.key});
+  const BillingPortalScreen({super.key, this.companyId});
+
+  /// Явный tenant из Support Console / Customer Health (H2).
+  final String? companyId;
 
   @override
   State<BillingPortalScreen> createState() => _BillingPortalScreenState();
@@ -46,7 +53,7 @@ class _BillingPortalScreenState extends State<BillingPortalScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final companyCtx = CompanyContext.of(context);
-    final id = companyCtx.effectiveCompanyId ?? '';
+    final id = widget.companyId ?? companyCtx.effectiveCompanyId ?? '';
     if (id != _companyId) {
       _companyId = id;
       if (_companyId.isNotEmpty) {
@@ -70,8 +77,19 @@ class _BillingPortalScreenState extends State<BillingPortalScreen> {
 
     return Scaffold(
       appBar: AppBar(
-          title: Text(
-              AppLocalizations.of(context)?.billingPortal ?? 'Billing Portal')),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(AppLocalizations.of(context)?.billingPortal ??
+                'Billing Portal'),
+            Text(
+              _companyId,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: StreamBuilder<DocumentSnapshot>(
@@ -148,6 +166,12 @@ class _PlanStatusSection extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final plan = companyData['plan'] as String? ?? 'full';
     final status = companyData['billingStatus'] as String? ?? 'active';
+    final billingEval = BillingState.evaluateFromMap(companyData);
+    final showGraceBanner =
+        billingEval.displayPhase == BillingDisplayPhase.grace;
+    final showPayCta = !billingEval.allowsAccess ||
+        billingEval.displayPhase == BillingDisplayPhase.grace ||
+        status == 'trial';
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final paidUntilTs = companyData['paidUntil'];
     final provider = companyData['paymentProvider'] as String?;
@@ -245,8 +269,8 @@ class _PlanStatusSection extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Grace banner
-            if (status == 'grace')
+            // Grace banner (incl. expired trial within grace window — C3)
+            if (showGraceBanner)
               MaterialBanner(
                 backgroundColor: Colors.orange.shade50,
                 content: Text(
@@ -261,8 +285,8 @@ class _PlanStatusSection extends StatelessWidget {
                 ],
               ),
 
-            // Pay now button for suspended / trial
-            if (status == 'suspended' || status == 'trial')
+            // Pay now for blocked / trial / grace
+            if (showPayCta && !showGraceBanner)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: FilledButton.icon(
@@ -287,25 +311,20 @@ class _PlanStatusSection extends StatelessWidget {
   }
 
   Future<void> _pay(BuildContext context) async {
-    try {
-      await CheckoutService().createAndOpen(companyId: companyId);
-      if (context.mounted) {
+    await CheckoutUiHelper.run(
+      context: context,
+      checkout: () => CheckoutService().createAndOpen(
+        companyId: companyId,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      ),
+      onOpened: () {
+        if (!context.mounted) return;
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.paymentPageOpened)),
         );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.cannotOpenPayment),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+      },
+    );
   }
 
   void _showChangePlanDialog(BuildContext context) {
@@ -485,25 +504,20 @@ class _PlanChangeDialog extends StatelessWidget {
 
   Future<void> _confirmPlan(BuildContext context, String planKey) async {
     Navigator.pop(context);
-    try {
-      await CheckoutService().createAndOpen(companyId: companyId);
-      if (context.mounted) {
+    await CheckoutUiHelper.run(
+      context: context,
+      checkout: () => CheckoutService().createAndOpen(
+        companyId: companyId,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      ),
+      onOpened: () {
+        if (!context.mounted) return;
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.paymentPageOpened)),
         );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.cannotOpenPayment),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+      },
+    );
   }
 }
 
@@ -553,19 +567,32 @@ class _UsageLimitsSection extends StatelessWidget {
                         label: l10n.usersUsage,
                         current: report.currentUsers,
                         max: limits.maxUsers,
+                        limitKey: PlanLimitKey.maxUsers,
                       ),
                       const SizedBox(height: 12),
                       _UsageBar(
                         label: l10n.docsPerMonth,
                         current: report.currentDocsThisMonth,
                         max: limits.maxDocsPerMonth,
+                        limitKey: PlanLimitKey.maxDocsPerMonth,
                       ),
                       const SizedBox(height: 12),
                       _UsageBar(
                         label: l10n.routesPerDay,
                         current: 0,
                         max: limits.maxRoutesPerDay,
+                        limitKey: PlanLimitKey.maxRoutesPerDay,
                       ),
+                      if (report.hasWarnings) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.limitSoftExceededNote,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade800,
+                          ),
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -581,15 +608,31 @@ class _UsageBar extends StatelessWidget {
   final String label;
   final int current;
   final int max;
+  final PlanLimitKey limitKey;
 
   const _UsageBar({
     required this.label,
     required this.current,
     required this.max,
+    required this.limitKey,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final enforcement = PlanLimitPolicy.enforcement(limitKey);
+    if (enforcement == LimitEnforcement.notEnforced) {
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text(label, style: const TextStyle(fontSize: 14)),
+        subtitle: Text(limitEnforcementLabel(enforcement, l10n)),
+        trailing: Text(
+          l10n.billingLimit(max),
+          style: const TextStyle(fontSize: 13),
+        ),
+      );
+    }
     final level = usageWarningLevel(current, max);
     final color = switch (level) {
       UsageWarningLevel.normal => Colors.green,
@@ -614,6 +657,10 @@ class _UsageBar extends StatelessWidget {
               style: const TextStyle(fontSize: 13),
             ),
           ],
+        ),
+        Text(
+          limitEnforcementLabel(enforcement, l10n),
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 4),
         LinearProgressIndicator(

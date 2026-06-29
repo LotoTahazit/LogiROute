@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/plan_limit_policy.dart';
 
 // Plan display info: plan key → (name, promoPrice, price, setupFee, modules)
 
@@ -312,6 +313,17 @@ String formatUsage(int current, int max) {
 
   return '$current / $max';
 
+}
+
+String limitEnforcementLabel(LimitEnforcement e, AppLocalizations l10n) {
+  switch (e) {
+    case LimitEnforcement.soft:
+      return l10n.limitEnforcementSoft;
+    case LimitEnforcement.hard:
+      return l10n.limitEnforcementHard;
+    case LimitEnforcement.notEnforced:
+      return l10n.limitEnforcementNotEnforced;
+  }
 }
 
 

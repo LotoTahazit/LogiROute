@@ -5,6 +5,8 @@ import '../../l10n/app_localizations.dart';
 import '../../services/company_context.dart';
 import '../../services/auth_service.dart';
 import '../../services/checkout_service.dart';
+import '../../widgets/checkout_ui_helper.dart';
+import '../../services/company_modules_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../theme/app_theme.dart';
@@ -12,7 +14,10 @@ import 'billing/billing_helpers.dart';
 
 /// Subscription management screen
 class SubscriptionScreen extends StatefulWidget {
-  const SubscriptionScreen({super.key});
+  const SubscriptionScreen({super.key, this.companyId});
+
+  /// Явный tenant из Support Console (H2).
+  final String? companyId;
 
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
@@ -20,6 +25,13 @@ class SubscriptionScreen extends StatefulWidget {
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final _firestore = FirebaseFirestore.instance;
+
+  String get _companyId {
+    if (widget.companyId != null && widget.companyId!.isNotEmpty) {
+      return widget.companyId!;
+    }
+    return CompanyContext.of(context).effectiveCompanyId ?? '';
+  }
 
   _PlanInfo _getPlanInfo(String key, AppLocalizations l10n) {
     switch (key) {
@@ -46,8 +58,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final ctx = CompanyContext.of(context);
-    final companyId = ctx.effectiveCompanyId ?? '';
+    final companyId = _companyId;
     if (companyId.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(l10n.subscriptionTitle)),
@@ -56,7 +67,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.subscriptionManagementTitle)),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.subscriptionManagementTitle),
+            Text(
+              companyId,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: StreamBuilder<DocumentSnapshot>(
@@ -201,19 +224,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const SizedBox(height: 12),
             if (status == 'grace' || status == 'suspended' || status == 'trial')
               FilledButton.icon(
-                onPressed: () async {
-                  try {
-                    await CheckoutService().createAndOpen(companyId: companyId);
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(l10n.errorPrefix(e.toString())),
-                            backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                },
+                onPressed: () => CheckoutUiHelper.run(
+                  context: context,
+                  checkout: () => CheckoutService().createAndOpen(
+                    companyId: companyId,
+                  ),
+                  onOpened: () {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.paymentPageOpened)),
+                    );
+                  },
+                ),
                 icon: const Icon(Icons.payment),
                 label: Text(l10n.payNowButton),
                 style: FilledButton.styleFrom(backgroundColor: Colors.green),
@@ -320,13 +342,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final auth = Provider.of<AuthService>(context, listen: false);
       final uid = auth.currentUser?.uid ?? 'unknown';
 
-      await FirestorePaths(firestore: _firestore)
-          .companyDoc(companyId)
-          .update({'plan': newPlan});
-      await FirestorePaths(firestore: _firestore)
-          .companySettings(companyId)
-          .doc('settings')
-          .update({'plan': newPlan});
+      await CompanyModulesService(companyId: companyId).applyPlan(newPlan);
 
       await FirestorePaths(firestore: _firestore).audit(companyId).add({
         'moduleKey': 'billing',

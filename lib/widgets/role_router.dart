@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../services/admin_billing_route_policy.dart';
 import '../services/auth_service.dart';
 import '../services/company_selection_service.dart';
 import '../services/fcm_service.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/admin/admin_dashboard.dart';
+import '../screens/auth/owner_signup_screen.dart';
 import '../screens/dispatcher/dispatcher_dashboard.dart';
 import '../screens/driver/driver_dashboard.dart';
 import '../screens/warehouse/warehouse_dashboard.dart';
@@ -17,12 +19,15 @@ import '../features/owner_dashboard/widgets/owner_dashboard_shell.dart';
 /// Заменяет switch в AuthWrapper — одна точка входа для всех ролей.
 ///
 /// Логика:
-/// - super_admin / admin → AdminDashboard (без billing guard)
+/// - super_admin (platform) → AdminDashboard без BillingGuard
+/// - admin → BillingGuard + AdminDashboard (H9 — согласовано с Firestore billing gate)
+/// - super_admin view-as admin → BillingGuard (не bypass)
 /// - owner → BillingGuard + OwnerDashboardShell
 /// - dispatcher → BillingGuard + ModuleGuard(logistics) + DispatcherDashboard
 /// - driver → BillingGuard + ModuleGuard(logistics) + DriverDashboard
 /// - warehouse_keeper → BillingGuard + ModuleGuard(warehouse) + WarehouseDashboard
-/// - unknown → LoginScreen
+/// - viewer → экран «нет рабочего экрана» (роль отключена до read-only UI)
+/// - unknown → тот же экран (не LoginScreen)
 class RoleRouter extends StatefulWidget {
   const RoleRouter({super.key});
 
@@ -54,7 +59,11 @@ class _RoleRouterState extends State<RoleRouter> {
       return const LoginScreen();
     }
 
-    // Auth user exists but no Firestore profile — account not provisioned
+    if (authService.needsCompanyRegistration) {
+      return const OwnerSignupScreen(resumeMode: true);
+    }
+
+    // Auth user exists but no Firestore profile — не self-service owner
     if (authService.userModel == null) {
       return Scaffold(
         body: Center(
@@ -123,7 +132,14 @@ class _RoleRouterState extends State<RoleRouter> {
 
       case 'admin':
       case 'super_admin':
-        return const AdminDashboard();
+        if (AdminBillingRoutePolicy.bypassesBillingGuard(viewAs ?? '')) {
+          return const AdminDashboard();
+        }
+        return BillingGuard(
+          companyId: companyId,
+          isSuperAdmin: false,
+          child: const AdminDashboard(),
+        );
 
       case 'dispatcher':
         return BillingGuard(
@@ -161,9 +177,62 @@ class _RoleRouterState extends State<RoleRouter> {
       case 'pending':
         return const _PendingApprovalScreen();
 
+      case 'viewer':
+        return const _NoWorkspaceScreen();
+
       default:
-        return const LoginScreen();
+        return const _NoWorkspaceScreen();
     }
+  }
+}
+
+/// Экран для viewer и прочих ролей без dashboard.
+class _NoWorkspaceScreen extends StatelessWidget {
+  const _NoWorkspaceScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+    final l10n = AppLocalizations.of(context)!;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_person_outlined,
+                    size: 72, color: Colors.blueGrey[400]),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.noWorkspaceTitle,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.noWorkspaceBody,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                OutlinedButton.icon(
+                  onPressed: () => authService.signOut(),
+                  icon: const Icon(Icons.logout),
+                  label: Text(l10n.logout),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
