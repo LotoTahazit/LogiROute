@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../models/delivery_point.dart';
 import '../config/app_config.dart';
+import '../models/delivery_point.dart';
+import '../models/driver_gps_status.dart';
+import 'driver_auto_close_logic.dart';
+import 'driver_session_service.dart';
 import 'firestore_paths.dart';
 
 const bool _enforceDriverRoleFilter = false;
@@ -107,6 +110,8 @@ class OptimizedLocationService {
   Position? _lastSavedPosition;
   DateTime? _lastSaveTime;
   Timer? _batchTimer;
+  void Function(DriverGpsStatus status)? _onStatusChanged;
+  void Function(Object error)? _onFirestoreWriteError;
 
   // Configuration
   static const Duration batchInterval = Duration(seconds: 30);
@@ -120,36 +125,45 @@ class OptimizedLocationService {
   CollectionReference<Map<String, dynamic>> get _driverLocationsRef =>
       FirestorePaths.driverLocationsOf(companyId);
 
-  Future<void> startTracking(
+  Future<DriverGpsStatus> startTracking(
     String driverId,
     String driverName,
     Function(double, double) onLocationUpdate, {
     String? userRole,
+    void Function(DriverGpsStatus status)? onStatusChanged,
+    void Function(Object error)? onFirestoreWriteError,
   }) async {
     debugPrint(
         '🚀 [GPS] OptimizedLocationService STARTED for driver=$driverId');
     _currentDriverId = driverId;
+    _onStatusChanged = onStatusChanged;
+    _onFirestoreWriteError = onFirestoreWriteError;
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    void emit(DriverGpsStatus status) => _onStatusChanged?.call(status);
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return;
+      debugPrint('❌ [GPS] Location services disabled');
+      emit(DriverGpsStatus.disabled);
+      return DriverGpsStatus.disabled;
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return;
+        debugPrint('❌ [GPS] Location permission denied');
+        emit(DriverGpsStatus.permissionRequired);
+        return DriverGpsStatus.permissionRequired;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return;
+      debugPrint('❌ [GPS] Location permission denied forever');
+      emit(DriverGpsStatus.permissionRequired);
+      return DriverGpsStatus.permissionRequired;
     }
 
-    // Для фонового трекинга нужен доступ «Всегда». Если выдан только «при
-    // использовании» — пробуем поднять до always (на Android это вызывает
-    // запрос фонового разрешения; на части версий уводит в настройки).
     if (permission == LocationPermission.whileInUse) {
       try {
         final escalated = await Geolocator.requestPermission();
@@ -157,12 +171,12 @@ class OptimizedLocationService {
             escalated == LocationPermission.whileInUse) {
           permission = escalated;
         }
-      } catch (e) {
+      } catch (e, st) {
         debugPrint('[Location] background permission escalation: $e');
+        debugPrint('$st');
       }
     }
 
-    // ✅ Сохраняем имя водителя и роль при старте трекинга
     try {
       await _driverLocationsRef.doc(driverId).set({
         'driverName': driverName,
@@ -174,35 +188,43 @@ class OptimizedLocationService {
       }, SetOptions(merge: true));
       debugPrint(
           '✅ [Location] Driver name and role saved: $driverName ($userRole)');
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('❌ [Location] Error saving driver name: $e');
+      debugPrint('$st');
+      _onFirestoreWriteError?.call(e);
     }
 
-    // Start GPS stream
+    await _positionStream?.cancel();
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: AppConfig.locationDistanceFilter,
       ),
-    ).listen((Position position) {
-      debugPrint(
-          '📍 [GPS] Position received: lat=${position.latitude} lng=${position.longitude}');
-      _lastPosition = position;
+    ).listen(
+      (Position position) {
+        debugPrint(
+            '📍 [GPS] Position received: lat=${position.latitude} lng=${position.longitude}');
+        _lastPosition = position;
+        onLocationUpdate(position.latitude, position.longitude);
+        _considerSavingLocation(position);
+        emit(DriverGpsStatus.active);
+      },
+      onError: (Object e, StackTrace st) {
+        debugPrint('❌ [GPS] Position stream error: $e');
+        debugPrint('$st');
+        emit(DriverGpsStatus.error);
+      },
+    );
 
-      // Always update UI immediately (local only, no Firestore write)
-      onLocationUpdate(position.latitude, position.longitude);
-
-      // ⚡ OPTIMIZATION: Check if we should save to Firestore
-      _considerSavingLocation(position);
-    });
-
-    // ⚡ OPTIMIZATION: Start batch timer
+    _batchTimer?.cancel();
     _batchTimer = Timer.periodic(batchInterval, (_) {
       _saveBatchedLocation();
     });
 
     debugPrint(
         '✅ [Location] Tracking started with batching (${batchInterval.inSeconds}s)');
+    emit(DriverGpsStatus.waiting);
+    return DriverGpsStatus.waiting;
   }
 
   /// Check if location should be saved based on distance and time
@@ -257,6 +279,16 @@ class OptimizedLocationService {
   Future<void> _saveLocationToFirestore(Position position) async {
     if (_currentDriverId == null) return;
 
+    final ownsSession = await DriverSessionService.verifyOwnership(
+      companyId: companyId,
+      driverId: _currentDriverId!,
+    );
+    if (!ownsSession) {
+      await DriverSessionService.markSessionLostFlag();
+      stopTracking();
+      return;
+    }
+
     try {
       final geoBucket = _buildGeoBucket(position.latitude, position.longitude);
       // Не отбрасывать запись по той же ячейке: иначе при стоянке (>60 с / батч)
@@ -299,11 +331,15 @@ class OptimizedLocationService {
           'timestamp': FieldValue.serverTimestamp(),
           'accuracy': position.accuracy,
         });
-      } catch (e) {
+      } catch (e, st) {
         debugPrint('[Location] Error saving to history: $e');
+        debugPrint('$st');
+        _onFirestoreWriteError?.call(e);
       }
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('[Location] Error saving: $e');
+      debugPrint('$st');
+      _onFirestoreWriteError?.call(e);
     }
   }
 
@@ -339,6 +375,8 @@ class OptimizedLocationService {
     _lastPosition = null;
     _lastSavedPosition = null;
     _lastSaveTime = null;
+    _onStatusChanged = null;
+    _onFirestoreWriteError = null;
   }
 
   String _buildGeoBucket(double lat, double lng) {
@@ -351,46 +389,68 @@ class OptimizedLocationService {
     DeliveryPoint point,
     double currentLat,
     double currentLon,
-    Function(DeliveryPoint) onComplete,
-  ) {
-    if (point.status == DeliveryPoint.statusCompleted ||
-        point.status == DeliveryPoint.statusCancelled) {
+    Function(DeliveryPoint) onComplete, {
+    String? driverId,
+    Set<String> disabledPointIds = const {},
+    double enterRadiusM = AppConfig.autoCompleteRadius,
+    double resetRadiusM = AppConfig.autoCompleteResetRadius,
+    Duration waitDuration = AppConfig.autoCompleteDuration,
+  }) {
+    if (driverId != null &&
+        !isDriverAutoCloseEligible(
+          point,
+          driverId: driverId,
+          disabledPointIds: disabledPointIds,
+        )) {
+      _trackingData.remove(point.id);
       return;
+    } else if (driverId == null) {
+      final status = DeliveryPoint.normalizeStatus(point.status);
+      if (status == DeliveryPoint.statusCompleted ||
+          status == DeliveryPoint.statusCancelled) {
+        return;
+      }
     }
 
-    final distance = Geolocator.distanceBetween(
+    final distance = driverAutoCloseDistanceMeters(
       currentLat,
       currentLon,
       point.latitude,
       point.longitude,
     );
 
-    if (distance <= AppConfig.autoCompleteRadius) {
+    if (distance <= enterRadiusM) {
       final trackingData = _trackingData.putIfAbsent(
         point.id,
         () => _PointTrackingData(arrivedAt: DateTime.now()),
       );
 
-      final duration = DateTime.now().difference(trackingData.arrivedAt);
-
-      if (duration >= AppConfig.autoCompleteDuration &&
+      if (driverAutoCloseWaitComplete(
+            trackingData.arrivedAt,
+            DateTime.now(),
+            waitDuration: waitDuration,
+          ) &&
           !trackingData.completed) {
         trackingData.completed = true;
         onComplete(point);
       }
-    } else {
-      if (_trackingData.containsKey(point.id)) {
-        _trackingData.remove(point.id);
-      }
+    } else if (shouldResetDriverAutoCloseTimer(
+      distanceMeters: distance,
+      resetRadiusM: resetRadiusM,
+    )) {
+      _trackingData.remove(point.id);
     }
   }
 
-  Map<String, dynamic>? getAutoCompleteProgress(String pointId) {
+  Map<String, dynamic>? getAutoCompleteProgress(
+    String pointId, {
+    Duration waitDuration = AppConfig.autoCompleteDuration,
+  }) {
     final trackingData = _trackingData[pointId];
     if (trackingData == null) return null;
 
     final duration = DateTime.now().difference(trackingData.arrivedAt);
-    final totalSeconds = AppConfig.autoCompleteDuration.inSeconds;
+    final totalSeconds = waitDuration.inSeconds;
     final remainingSeconds = totalSeconds - duration.inSeconds;
     final progress = (duration.inSeconds / totalSeconds).clamp(0.0, 1.0);
 

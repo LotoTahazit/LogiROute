@@ -8,12 +8,18 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
+import '../core/correlation/correlation_context.dart';
+import '../models/company_remote_config.dart';
 import '../models/delivery_point.dart';
 import '../models/shift_schedule_config.dart';
-import 'firestore_paths.dart';
+import 'company_remote_config_service.dart';
+import 'driver_auto_close_logic.dart';
 import 'driver_auto_close_prefs.dart';
+import 'driver_auto_close_state.dart';
+import 'driver_session_service.dart';
+import 'firestore_paths.dart';
 
 /// Фоновый foreground-сервис: GPS трекинг + автозакрытие точек.
 /// Работает даже когда приложение свёрнуто или экран выключен.
@@ -22,10 +28,6 @@ class BackgroundLocationService {
   static const String notificationChannelId = 'location_tracking_channel';
   static const String notificationChannelName = 'Location Tracking';
   static const int notificationId = 888;
-
-  static const double _autoCompleteRadius = AppConfig.autoCompleteRadius;
-  static const Duration _autoCompleteDuration =
-      AppConfig.autoCompleteDuration;
 
   // SharedPreferences keys
   static const String _prefDriverId = 'bg_driver_id';
@@ -203,6 +205,12 @@ class BackgroundLocationService {
     }
 
     final Map<String, DateTime> arrivalTimes = {};
+    final restoredPending = await DriverAutoCloseState.loadPending();
+    if (restoredPending != null) {
+      arrivalTimes[restoredPending.pointId] = restoredPending.startedAt;
+      debugPrint(
+          '📍 [BGService] Restored auto-close timer for ${restoredPending.pointId}');
+    }
 
     /// Последняя записанная ячейка (~11 м) — для history и детекции движения.
     String? lastGeoBucket;
@@ -294,11 +302,19 @@ class BackgroundLocationService {
         return;
       }
 
-      if (service is AndroidServiceInstance) {
-        if (!await service.isForegroundService()) return;
-      }
-
       try {
+        final ownsSession = await DriverSessionService.verifyOwnership(
+          companyId: companyId!,
+          driverId: driverId!,
+        );
+        if (!ownsSession) {
+          await DriverSessionService.markSessionLostFlag();
+          debugPrint('🛑 [BGService] Session lost — stopping GPS');
+          await _clearDriverData();
+          service.stopSelf();
+          return;
+        }
+
         // Сначала пробуем getCurrentPosition с коротким timeout
         Position? position;
         try {
@@ -319,6 +335,11 @@ class BackgroundLocationService {
           debugPrint('⚠️ [BGService] No position available, skipping');
           return;
         }
+
+        await DriverAutoCloseState.saveLastLocation(
+          position.latitude,
+          position.longitude,
+        );
 
         final now = DateTime.now();
 
@@ -376,65 +397,97 @@ class BackgroundLocationService {
         final disabledAuto = await DriverAutoClosePrefs.loadDisabled();
         // Политика компании «POD-фото обязательно» — автозакрытие отключено.
         final photoRequired = await DriverAutoClosePrefs.isPhotoRequired();
-        // Политика компании: автозакрытие по GPS может быть выключено целиком.
-        final autoCloseEnabled = await DriverAutoClosePrefs.isAutoCloseEnabled();
+        final rc = companyId != null && companyId!.isNotEmpty
+            ? await CompanyRemoteConfigService.fromPrefs(companyId!)
+            : CompanyRemoteConfig.defaults;
+        final autoCloseEnabled = rc.backgroundAutoCloseEnabled &&
+            await DriverAutoClosePrefs.isAutoCloseEnabled();
 
-        // Гейт по остановке: если водитель едет (проезд мимо / пробка) —
-        // таймеры не идут. position.speed в м/с (0 при неизвестной).
-        final moving = position.speed > 1.5; // ≈5 км/ч
-        if (photoRequired || !autoCloseEnabled || moving) {
-          if (arrivalTimes.isNotEmpty) arrivalTimes.clear();
-        } else {
-          // Только ОДНА ближайшая незавершённая (не отключённая) точка в
-          // радиусе — за остановку закрываем её, а не всех соседей в кластере.
-          QueryDocumentSnapshot<Map<String, dynamic>>? targetDoc;
-          double bestDist = double.infinity;
-          for (final doc in pointsSnap.docs) {
-            if (disabledAuto.contains(doc.id)) continue;
-            final data = Map<String, dynamic>.from(doc.data() as Map);
-            final pLat = (data['latitude'] as num).toDouble();
-            final pLng = (data['longitude'] as num).toDouble();
-            final d =
-                _distance(position.latitude, position.longitude, pLat, pLng);
-            if (d <= _autoCompleteRadius && d < bestDist) {
-              bestDist = d;
-              targetDoc = doc;
-            }
+        if (photoRequired || !autoCloseEnabled) {
+          if (arrivalTimes.isNotEmpty) {
+            arrivalTimes.clear();
+            await DriverAutoCloseState.clearPending();
           }
+        } else {
+          final points = pointsSnap.docs
+              .map((doc) =>
+                  DeliveryPoint.fromMap(doc.data(), doc.id))
+              .toList();
 
-          // Таймеры всех, кроме ближайшей, сбрасываем.
-          final targetId = targetDoc?.id;
-          arrivalTimes.removeWhere((id, _) => id != targetId);
+          final target = selectNearestDriverAutoCloseTarget(
+            driverLat: position.latitude,
+            driverLng: position.longitude,
+            points: points,
+            driverId: driverId!,
+            disabledPointIds: disabledAuto,
+            enterRadiusM: rc.autoCloseRadiusMeters,
+          );
 
-          if (targetDoc != null) {
-            final data = Map<String, dynamic>.from(targetDoc.data() as Map);
-            final pointId = targetDoc.id;
-            final clientName = data['clientName'] as String? ?? '';
-            final pointStatus = data['status'] as String? ?? '';
+          if (target == null ||
+              shouldResetDriverAutoCloseTimer(
+                distanceMeters: target.distanceMeters,
+                resetRadiusM: rc.autoCloseResetRadiusMeters,
+              )) {
+            if (arrivalTimes.isNotEmpty) {
+              arrivalTimes.clear();
+              await DriverAutoCloseState.clearPending();
+            }
+          } else {
+            final point = target.point;
+            final pointId = point.id;
+            arrivalTimes.removeWhere((id, _) => id != pointId);
 
             if (!arrivalTimes.containsKey(pointId)) {
-              arrivalTimes[pointId] = now; // отсчёт стоянки с момента детекта
-              if (DeliveryPoint.normalizeStatus(pointStatus) ==
-                  DeliveryPoint.statusAssigned) {
-                await targetDoc.reference.update({
-                  'status': DeliveryPoint.statusInProgress,
-                  'arrivedAt': FieldValue.serverTimestamp(),
-                  'updatedByUid': driverId,
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
-              }
-              debugPrint('📍 [BGService] Стоит у $clientName, таймер запущен');
-            } else if (now.difference(arrivalTimes[pointId]!) >=
-                _autoCompleteDuration) {
-              await targetDoc.reference.update({
-                'status': DeliveryPoint.statusCompleted,
-                'completedAt': FieldValue.serverTimestamp(),
-                'autoCompleted': true,
-                'updatedByUid': driverId,
-                'updatedAt': FieldValue.serverTimestamp(),
-              });
+              arrivalTimes[pointId] = now;
+              await DriverAutoCloseState.savePending(
+                pointId: pointId,
+                startedAt: now,
+              );
+              await DriverAutoCloseState.markInProgressIfNeeded(
+                companyId: companyId!,
+                pointId: pointId,
+                driverId: driverId!,
+                currentStatus: point.status,
+              );
+              debugPrint(
+                '🔎 [BGService][AutoClose] ${jsonEncode({
+                  'phase': 'timer_started',
+                  'driverId': driverId,
+                  'selectedPointId': pointId,
+                  'selectedPointName': point.clientName,
+                  'distanceMeters': target.distanceMeters.round(),
+                  'radiusMeters': rc.autoCloseRadiusMeters.round(),
+                  'waitSeconds': rc.autoCloseWaitSeconds,
+                })}',
+              );
+              debugPrint(
+                  '📍 [BGService] Стоит у ${point.clientName}, таймер запущен');
+            } else if (driverAutoCloseWaitComplete(arrivalTimes[pointId]!, now,
+                waitDuration: rc.autoCloseWait)) {
+              final correlationId = CorrelationContext.resolveId();
+              final closed = await DriverAutoCloseState.tryCompletePoint(
+                companyId: companyId!,
+                pointId: pointId,
+                driverId: driverId!,
+                lat: position.latitude,
+                lng: position.longitude,
+                distanceMeters: target.distanceMeters,
+                correlationId: correlationId,
+              );
               arrivalTimes.remove(pointId);
-              debugPrint('✅ [BGService] Auto-completed: $clientName');
+              if (closed) {
+                debugPrint(
+                  '🔎 [BGService][AutoClose] ${jsonEncode({
+                    'phase': 'closed',
+                    'driverId': driverId,
+                    'selectedPointId': pointId,
+                    'selectedPointName': point.clientName,
+                    'distanceMeters': target.distanceMeters.round(),
+                    'correlationId': correlationId,
+                  })}',
+                );
+                debugPrint('✅ [BGService] Auto-completed: ${point.clientName}');
+              }
             }
           }
         }

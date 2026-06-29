@@ -6,18 +6,20 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../services/auth_service.dart';
 import '../../services/route_service.dart';
 import '../../services/optimized_location_service.dart';
 import '../../services/background_location_service.dart';
+import '../../core/correlation/correlation_context.dart';
 import '../../services/realtime_gps_service.dart';
 import '../../services/work_schedule_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
+import '../../utils/delivery_point_address_resolver.dart';
+import '../../models/driver_gps_status.dart';
 import '../../models/shift_schedule_config.dart';
 import 'widgets/driver_app_bar_actions.dart';
 import 'android_setup_sheet.dart';
@@ -26,14 +28,25 @@ import '../../services/company_cache.dart';
 import '../../services/firestore_paths.dart';
 import '../../config/app_config.dart';
 import '../../widgets/proof_of_delivery_sheet.dart';
+import '../../services/driver_close_undo_state.dart';
+import '../../services/driver_navigation_launcher.dart';
+import '../../services/driver_auto_close_logic.dart';
 import '../../services/driver_auto_close_prefs.dart';
+import '../../services/driver_auto_close_state.dart';
 import '../../services/company_settings_service.dart';
+import '../../services/driver_session_service.dart';
+import '../../services/driver_session_logic.dart';
+import '../../models/driver_session.dart';
+import '../../models/company_remote_config.dart';
+import '../../services/company_remote_config_service.dart';
+import 'widgets/driver_session_gate.dart';
 import '../../theme/app_theme.dart';
 
 // === ARRIVAL CONFIG ===
-const double kArrivalRadius = AppConfig.autoCompleteRadius; // meters
 const double kStopSpeed = 2.0; // m/s (~7 km/h)
 const int kStopTimeSec = 12; // seconds
+
+enum _DriverSessionUi { loading, ready, blocked, lost }
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -50,6 +63,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
   DeliveryPoint? _currentPoint;
   List<DeliveryPoint> _lastPoints = [];
   bool _isTrackingActive = false;
+  DriverGpsStatus _gpsStatus = DriverGpsStatus.waiting;
+  DateTime? _lastGpsFixAt;
+  DateTime? _trackingStartedAt;
+  bool _needsBackgroundPermission = false;
+  bool _firestoreWriteFailed = false;
+  Timer? _gpsHealthTimer;
+  DateTime _lastFirestoreWarning = DateTime(2000);
+  static const _gpsStaleThreshold = Duration(minutes: 3);
+  static const _gpsWaitingTimeout = Duration(minutes: 2);
   String _scheduleStatus = '';
   Timer? _scheduleStatusTimer;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shiftsSub;
@@ -72,12 +94,33 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool _autoCloseCompanyEnabled = true;
   /// Показали ли уже в этой сессии подсказку про фоновое разрешение «Всегда».
   bool _bgPromptShown = false;
-  /// id точек, для которых уже показали undo (чтобы не дублировать при ребилдах
-  /// и не показывать для давно закрытых при первой загрузке потока).
-  final Set<String> _undoShownIds = {};
+  /// Активное предложение «Отменить» (одна точка, с таймером).
+  DriverCloseUndoOffer? _activeUndoOffer;
+  Timer? _undoExpireTimer;
+  Timer? _undoCountdownTimer;
   double? _lastKnownLat;
   double? _lastKnownLng;
   String? _visibleRouteKey;
+  /// Все активные точки водителя (все маршруты) — для автозакрытия по GPS.
+  List<DeliveryPoint> _allDriverActivePoints = [];
+  String? _autoCloseDriverId;
+  DeliveryPoint? _autoClosePendingPoint;
+  double? _autoClosePendingDistanceM;
+  int? _autoClosePendingRemainingSec;
+  bool _bgServiceRunning = false;
+  bool _bgSystemStopped = false;
+  Timer? _bgStatusTimer;
+
+  // Device session lock (только реальный водитель)
+  bool _sessionEnforced = false;
+  _DriverSessionUi _sessionUi = _DriverSessionUi.ready;
+  DriverSessionService? _driverSessionService;
+  DriverSession? _remoteSession;
+  String? _sessionDeviceLabel;
+  StreamSubscription<DriverSession?>? _sessionSub;
+  Timer? _sessionHeartbeatTimer;
+
+  CompanyRemoteConfig _rc = CompanyRemoteConfig.defaults;
 
   // 🛡️ Cached stream — НЕ пересоздаётся на каждый build()
   Stream<List<DeliveryPoint>>? _cachedStream;
@@ -325,7 +368,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
         'driverId': p.driverId,
         'driverName': p.driverName,
         'driverCapacity': p.driverCapacity,
-        'temporaryAddress': p.temporaryAddress,
+        'deliveryAddressOverride': p.deliveryAddressOverride,
+        'deliveryAddressOverrideLat': p.deliveryAddressOverrideLat,
+        'deliveryAddressOverrideLng': p.deliveryAddressOverrideLng,
         'taskNote': p.taskNote,
         'autoCompleted': p.autoCompleted,
         'routeId': p.routeId,
@@ -361,7 +406,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
         driverId: m['driverId'],
         driverName: m['driverName'],
         driverCapacity: m['driverCapacity'],
-        temporaryAddress: m['temporaryAddress'],
+        deliveryAddressOverride: m['deliveryAddressOverride'] ?? m['temporaryAddress'],
+        deliveryAddressOverrideLat:
+            (m['deliveryAddressOverrideLat'] as num?)?.toDouble(),
+        deliveryAddressOverrideLng:
+            (m['deliveryAddressOverrideLng'] as num?)?.toDouble(),
         taskNote: m['taskNote'],
         autoCompleted: m['autoCompleted'] ?? false,
         routeId: m['routeId'],
@@ -444,6 +493,187 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return _cachedStream!;
   }
 
+  bool _isRealDriver(AuthService auth) {
+    if (auth.viewAsRole != null) return false;
+    return auth.userModel?.isDriver == true;
+  }
+
+  Future<void> _bootDriverSession() async {
+    final auth = context.read<AuthService>();
+    if (!_isRealDriver(auth)) {
+      if (mounted) {
+        setState(() {
+          _sessionEnforced = false;
+          _sessionUi = _DriverSessionUi.ready;
+        });
+      }
+      return;
+    }
+
+    final companyId = auth.userModel?.companyId ?? '';
+    final driverId = auth.currentUser?.uid ?? '';
+    if (companyId.isEmpty || driverId.isEmpty) return;
+
+    // Load remote config from prefs (cached by foreground app).
+    _rc = await CompanyRemoteConfigService.fromPrefs(companyId);
+
+    // If session lock disabled via remote config — skip entirely.
+    if (!_rc.driverDeviceSessionLockEnabled) {
+      if (mounted) {
+        setState(() {
+          _sessionEnforced = false;
+          _sessionUi = _DriverSessionUi.ready;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _sessionEnforced = true;
+        _sessionUi = _DriverSessionUi.loading;
+      });
+    }
+
+    _driverSessionService = DriverSessionService(
+      companyId: companyId,
+      sessionStale: _rc.sessionStale,
+    );
+    final deviceLabel = await DriverSessionService.resolveDeviceLabel();
+
+    if (await DriverSessionService.consumeSessionLostFlag()) {
+      if (mounted) {
+        setState(() {
+          _sessionEnforced = true;
+          _sessionUi = _DriverSessionUi.lost;
+          _sessionDeviceLabel = deviceLabel;
+        });
+      }
+      return;
+    }
+
+    final result = await _driverSessionService!.tryClaimOrVerify(
+      driverId: driverId,
+      userId: driverId,
+      correlationId: CorrelationContext.resolveId(),
+    );
+    if (!mounted) return;
+
+    if (result.isBlocked) {
+      setState(() {
+        _sessionEnforced = true;
+        _sessionUi = _DriverSessionUi.blocked;
+        _remoteSession = result.remote;
+        _sessionDeviceLabel = deviceLabel;
+      });
+      return;
+    }
+
+    setState(() {
+      _sessionEnforced = true;
+      _sessionUi = _DriverSessionUi.ready;
+      _sessionDeviceLabel = deviceLabel;
+    });
+    _startSessionWatch(driverId);
+    _startSessionHeartbeat(driverId);
+  }
+
+  void _startSessionWatch(String driverId) {
+    _sessionSub?.cancel();
+    _sessionSub = _driverSessionService?.watchSession(driverId).listen((session) async {
+      if (!_sessionEnforced || session == null || _sessionUi != _DriverSessionUi.ready) {
+        return;
+      }
+      final deviceId = await DriverSessionService.getOrCreateDeviceId();
+      if (!driverSessionOwnedByDevice(session, deviceId)) {
+        await _onSessionLost(session);
+      }
+    });
+  }
+
+  void _startSessionHeartbeat(String driverId) {
+    _sessionHeartbeatTimer?.cancel();
+    _sessionHeartbeatTimer = Timer.periodic(
+      _rc.sessionHeartbeat,
+      (_) async {
+        if (_sessionUi != _DriverSessionUi.ready || _driverSessionService == null) {
+          return;
+        }
+        final ok = await _driverSessionService!.heartbeat(
+          driverId: driverId,
+          userId: driverId,
+          correlationId: CorrelationContext.resolveId(),
+        );
+        if (!ok && mounted) {
+          final remote = await _driverSessionService!.fetchSession(driverId);
+          await _onSessionLost(remote);
+        }
+      },
+    );
+  }
+
+  Future<void> _onSessionLost(DriverSession? remote) async {
+    if (_sessionUi == _DriverSessionUi.lost) return;
+    _sessionHeartbeatTimer?.cancel();
+    if (_isTrackingActive) await _stopTracking();
+    final driverId = context.read<AuthService>().currentUser?.uid ?? '';
+    if (driverId.isNotEmpty) {
+      await _driverSessionService?.auditSessionLost(
+        driverId: driverId,
+        userId: driverId,
+        remote: remote,
+        correlationId: CorrelationContext.resolveId(),
+      );
+    }
+    await DriverSessionService.markSessionLostFlag();
+    if (mounted) setState(() => _sessionUi = _DriverSessionUi.lost);
+  }
+
+  Future<bool> _ensureSessionActive() async {
+    if (!_sessionEnforced || _sessionUi != _DriverSessionUi.ready) return false;
+    final auth = context.read<AuthService>();
+    final companyId = auth.userModel?.companyId ?? '';
+    final driverId = auth.currentUser?.uid ?? '';
+    if (companyId.isEmpty || driverId.isEmpty) return true;
+    final ok = await DriverSessionService.verifyOwnership(
+      companyId: companyId,
+      driverId: driverId,
+    );
+    if (!ok) {
+      final remote = await _driverSessionService?.fetchSession(driverId);
+      await _onSessionLost(remote);
+    }
+    return ok;
+  }
+
+  Future<void> _takeoverDriverSession() async {
+    final auth = context.read<AuthService>();
+    final driverId = auth.currentUser?.uid ?? '';
+    if (driverId.isEmpty || _driverSessionService == null) return;
+    await _driverSessionService!.forceTakeover(
+      driverId: driverId,
+      userId: driverId,
+      correlationId: CorrelationContext.resolveId(),
+    );
+    if (!mounted) return;
+    setState(() => _sessionUi = _DriverSessionUi.ready);
+    _startSessionWatch(driverId);
+    _startSessionHeartbeat(driverId);
+  }
+
+  Future<void> _logoutFromSessionGate() async {
+    final auth = context.read<AuthService>();
+    final driverId = auth.currentUser?.uid ?? '';
+    if (driverId.isNotEmpty) {
+      await _driverSessionService?.releaseSession(driverId);
+    }
+    await auth.signOut();
+  }
+
+  void _acknowledgeSessionLost() {
+    unawaited(_logoutFromSessionGate());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -451,6 +681,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // 🛡️ Восстанавливаем кеш при старте (до первого build)
     _restorePointsFromCache();
     _loadAutoClosePrefs();
+    _recoverBackgroundState();
 
     // Инициализируем уведомления, затем запускаем расписание
     _initializeAndStartSchedule();
@@ -473,7 +704,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     // Устанавливаем начальный статус
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isTrackingActive) {
+      if (_isTrackingActive && _gpsStatus == DriverGpsStatus.active) {
         _showGpsNotification();
       }
       if (mounted) {
@@ -492,6 +723,64 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _attachShiftsListener();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _bootDriverSession();
+    });
+
+    _gpsHealthTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _runGpsHealthCheck();
+    });
+    _bgStatusTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _refreshBgServiceStatus();
+    });
+  }
+
+  Future<void> _recoverBackgroundState() async {
+    if (kIsWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    final wasActive = prefs.getBool('bg_tracking_active') ?? false;
+    if (!wasActive) return;
+
+    final pending = await DriverAutoCloseState.loadPending();
+    if (pending != null) {
+      _autoCloseArrivalTimes[pending.pointId] = pending.startedAt;
+    }
+
+    await _refreshBgServiceStatus();
+    if (!mounted) return;
+
+    if (_bgSystemStopped) {
+      final l10n = AppLocalizations.of(context);
+      if (l10n != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.bgSystemStoppedWarning),
+              backgroundColor: Colors.orange.shade800,
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: l10n.bgOpenSetup,
+                onPressed: () => showAndroidSetupSheet(context),
+              ),
+            ),
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshBgServiceStatus() async {
+    if (kIsWeb) return;
+    final running = await BackgroundLocationService.isRunning();
+    final stopped = await DriverAutoCloseState.wasSystemStoppedBg();
+    if (!mounted) return;
+    if (running == _bgServiceRunning && stopped == _bgSystemStopped) return;
+    setState(() {
+      _bgServiceRunning = running;
+      _bgSystemStopped = stopped;
     });
   }
 
@@ -540,6 +829,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     try {
       final companyId = context.read<AuthService>().userModel?.companyId ?? '';
       if (companyId.isNotEmpty) {
+        final rc = await CompanyRemoteConfigService().get(companyId);
+        if (mounted) setState(() => _rc = rc);
         final cs =
             await CompanySettingsService(companyId: companyId).getSettings();
         final req = cs?.requirePodPhoto ?? false;
@@ -572,80 +863,152 @@ class _DriverDashboardState extends State<DriverDashboard> {
     });
   }
 
-  void _showAutoCloseUndoSnackBar(DeliveryPoint point, AppLocalizations l10n) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(l10n.autoCloseUndoMessage),
-        // Короткий floating-тост: не перекрывает кнопки точки и сам исчезает.
-        // Раньше держался 90с (autoCloseUndoWindow) и блокировал низ экрана —
-        // единственным способом убрать его было «Отменить» (что переоткрывало точку).
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 8),
-        action: SnackBarAction(
-          label: l10n.undo,
-          onPressed: () => _undoAutoComplete(point),
-        ),
-      ),
-    );
-  }
-
-  /// Ретроспективно показывает undo для точек, закрытых АВТОМАТИЧЕСКИ (в т.ч.
-  /// в фоне) в пределах окна отмены — когда snackbar в момент закрытия не
-  /// показался (приложение было свёрнуто). Вызывается на обновлении потока.
-  void _maybeShowBackgroundUndo(List<DeliveryPoint> points) {
-    if (kIsWeb || !mounted) return;
-    final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
+  void _offerCloseUndo(
+    DeliveryPoint point, {
+    required String previousStatus,
+    required bool autoCompleted,
+    Duration? uiDuration,
+  }) {
+    _clearCloseUndo();
     final now = DateTime.now();
-    for (final p in points) {
-      if (!p.autoCompleted) continue;
-      if (DeliveryPoint.normalizeStatus(p.status) !=
-          DeliveryPoint.statusCompleted) {
-        continue;
+    _activeUndoOffer = createCloseUndoOffer(
+      point: point,
+      previousStatus: previousStatus,
+      autoCompleted: autoCompleted,
+      now: now,
+      uiDuration: uiDuration ?? _rc.closeUndo,
+    );
+    final remaining = _activeUndoOffer!.expiresAt.difference(now);
+    _undoExpireTimer = Timer(remaining, _clearCloseUndo);
+    _undoCountdownTimer?.cancel();
+    _undoCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_activeUndoOffer == null ||
+          _activeUndoOffer!.isExpired(DateTime.now())) {
+        _clearCloseUndo();
+      } else {
+        setState(() {});
       }
-      if (_undoShownIds.contains(p.id)) continue;
-      _undoShownIds.add(p.id);
-      final c = p.completedAt;
-      // Только недавно закрытые (в окне отмены) — старые помечаем и пропускаем,
-      // чтобы они не всплывали при первой загрузке потока.
-      if (c == null || now.difference(c) > AppConfig.autoCloseUndoWindow) {
-        continue;
-      }
-      _showAutoCloseUndoSnackBar(p, l10n);
-      break; // по одному за раз — не заваливаем водителя
-    }
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    setState(() {});
   }
 
-  Future<void> _undoAutoComplete(DeliveryPoint point) async {
+  void _clearCloseUndo() {
+    _undoExpireTimer?.cancel();
+    _undoCountdownTimer?.cancel();
+    _undoExpireTimer = null;
+    _undoCountdownTimer = null;
+    if (_activeUndoOffer == null) return;
+    _activeUndoOffer = null;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _performCloseUndo() async {
+    final offer = _activeUndoOffer;
+    if (offer == null || offer.isExpired(DateTime.now())) {
+      _clearCloseUndo();
+      return;
+    }
     if (_routeService == null) return;
     final driverId = context.read<AuthService>().currentUser?.uid ?? '';
+    final correlationId = CorrelationContext.resolveId();
+    _clearCloseUndo();
     try {
-      await _routeService!.undoAutoComplete(point.id, updatedByUid: driverId);
-      if (!mounted) return;
+      final ok = await _routeService!.undoPointClose(
+        offer.pointId,
+        restoreStatus: offer.previousStatus,
+        updatedByUid: driverId,
+        correlationId: correlationId,
+      );
+      if (!ok || !mounted) return;
       setState(() {
         _lastPoints = _lastPoints.map((p) {
-          if (p.id != point.id) return p;
+          if (p.id != offer.pointId) return p;
           return p.copyWith(
-            status: DeliveryPoint.statusInProgress,
+            status: offer.previousStatus,
+            autoCompleted: false,
+            completedAt: null,
             updatedAt: DateTime.now(),
           );
         }).toList();
-        // Делаем восстановленную точку текущей только если текущей нет или
-        // это она же — фоновый undo произвольной точки не сбивает current.
-        if (_currentPoint == null || _currentPoint!.id == point.id) {
-          _currentPoint = point.copyWith(
-            status: DeliveryPoint.statusInProgress,
-            updatedAt: DateTime.now(),
-          );
+        if (_currentPoint == null || _currentPoint!.id == offer.pointId) {
+          _currentPoint = _lastPoints.cast<DeliveryPoint?>().firstWhere(
+                (p) => p?.id == offer.pointId,
+                orElse: () => null,
+              );
         }
-        _undoShownIds.remove(point.id);
-        _autoCloseArrivalTimes[point.id] = DateTime.now();
+        _autoCloseArrivalTimes[offer.pointId] = DateTime.now();
       });
     } catch (e) {
-      debugPrint('❌ [AutoClose] Undo failed: $e');
+      debugPrint('❌ [Undo] failed: $e');
+      if (mounted) setState(() {});
     }
+  }
+
+  /// Undo для автозакрытия в фоне, когда баннер не успел показаться.
+  void _maybeOfferBackgroundUndo(List<DeliveryPoint> points) {
+    if (kIsWeb || !mounted || _activeUndoOffer != null) return;
+    final now = DateTime.now();
+    for (final p in points) {
+      if (!shouldOfferBackgroundUndo(
+        point: p,
+        now: now,
+        activeOffer: _activeUndoOffer,
+      )) {
+        continue;
+      }
+      final remaining = closeUndoRemainingUi(
+        p.completedAt!,
+        now,
+        maxUi: _rc.closeUndo,
+      );
+      if (remaining <= Duration.zero) continue;
+      _offerCloseUndo(
+        p,
+        previousStatus: DeliveryPoint.statusInProgress,
+        autoCompleted: true,
+        uiDuration: remaining,
+      );
+      break;
+    }
+  }
+
+  Widget _buildCloseUndoBanner(AppLocalizations l10n) {
+    final offer = _activeUndoOffer;
+    if (offer == null || offer.isExpired(DateTime.now())) {
+      return const SizedBox.shrink();
+    }
+    final sec = offer.remainingSeconds(DateTime.now());
+    final msg = offer.autoCompleted
+        ? l10n.autoCloseUndoMessage
+        : l10n.pointCloseUndoMessage(offer.clientName);
+    return Material(
+      color: Colors.deepOrange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.undo, color: Colors.deepOrange.shade800, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$msg · ${sec}s',
+                style: TextStyle(
+                  color: Colors.deepOrange.shade900,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _performCloseUndo,
+              child: Text(l10n.undo),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _initializeNotifications() async {
@@ -659,8 +1022,129 @@ class _DriverDashboardState extends State<DriverDashboard> {
     debugPrint('✅ [Driver] Notifications + BGService initialized');
   }
 
-  void _startTracking() {
+  void _onGpsStatusChanged(DriverGpsStatus status) {
+    if (!mounted) return;
+    setState(() => _gpsStatus = status);
+  }
+
+  void _onGpsFirestoreError(Object error) {
+    debugPrint('❌ [Driver] GPS Firestore write error: $error');
+    if (!mounted) return;
+    setState(() => _firestoreWriteFailed = true);
+    final now = DateTime.now();
+    if (now.difference(_lastFirestoreWarning).inSeconds < 60) return;
+    _lastFirestoreWarning = now;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.gpsFirestoreWriteFailed),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  Future<void> _refreshBackgroundPermissionFlag() async {
+    if (kIsWeb) return;
+    final perm = await Geolocator.checkPermission();
+    if (mounted) {
+      setState(() {
+        _needsBackgroundPermission = perm == LocationPermission.whileInUse;
+      });
+    }
+  }
+
+  void _runGpsHealthCheck() {
+    if (!mounted || !_isTrackingActive) return;
+    if (_gpsStatus == DriverGpsStatus.disabled ||
+        _gpsStatus == DriverGpsStatus.permissionRequired) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastGpsFixAt != null) {
+      if (now.difference(_lastGpsFixAt!) > _gpsStaleThreshold &&
+          _gpsStatus == DriverGpsStatus.active) {
+        setState(() => _gpsStatus = DriverGpsStatus.error);
+      }
+      return;
+    }
+    if (_trackingStartedAt != null &&
+        now.difference(_trackingStartedAt!) > _gpsWaitingTimeout &&
+        _gpsStatus == DriverGpsStatus.waiting) {
+      setState(() => _gpsStatus = DriverGpsStatus.error);
+    }
+  }
+
+  Future<void> _recheckGps() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) setState(() => _gpsStatus = DriverGpsStatus.disabled);
+      await Geolocator.openLocationSettings();
+      return;
+    }
+
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() => _gpsStatus = DriverGpsStatus.permissionRequired);
+      }
+      await Geolocator.openAppSettings();
+      return;
+    }
+
+    await _refreshBackgroundPermissionFlag();
+    if (!mounted || !_isTrackingActive) return;
+
+    final auth = context.read<AuthService>();
+    final driverId = auth.currentUser?.uid ?? '';
+    if (driverId.isEmpty) return;
+    final driverName = auth.userModel?.name ?? l10n.driverFallbackName;
+    final userRole = auth.userModel?.role ?? 'driver';
+
+    _locationService?.stopTracking();
+    final status = await _locationService?.startTracking(
+          driverId,
+          driverName,
+          _onLocationUpdate,
+          userRole: userRole,
+          onStatusChanged: _onGpsStatusChanged,
+          onFirestoreWriteError: _onGpsFirestoreError,
+        ) ??
+        DriverGpsStatus.error;
+
+    if (mounted) {
+      setState(() {
+        _gpsStatus = status;
+        _trackingStartedAt = DateTime.now();
+        _lastGpsFixAt = null;
+        _firestoreWriteFailed = false;
+      });
+    }
+  }
+
+  String _gpsStatusLabel(DriverGpsStatus status, AppLocalizations l10n) {
+    switch (status) {
+      case DriverGpsStatus.active:
+        return l10n.gpsStatusActive;
+      case DriverGpsStatus.waiting:
+        return l10n.gpsStatusWaiting;
+      case DriverGpsStatus.error:
+        return l10n.gpsStatusError;
+      case DriverGpsStatus.disabled:
+        return l10n.gpsStatusDisabled;
+      case DriverGpsStatus.permissionRequired:
+        return l10n.gpsStatusPermissionRequired;
+    }
+  }
+
+  Future<void> _startTracking() async {
     debugPrint('🚀 [GPS] _startTracking() called from driver dashboard');
+    if (!await _ensureSessionActive()) return;
     final authService = context.read<AuthService>();
     final driverName = authService.userModel?.name ??
         (AppLocalizations.of(context)?.driverFallbackName ?? 'Driver');
@@ -678,16 +1162,35 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     // Foreground GPS (пока приложение открыто)
     debugPrint('🚀 [GPS] Calling locationService.startTracking()');
-    _locationService?.startTracking(
-      driverId,
-      driverName,
-      _onLocationUpdate,
-      userRole: userRole,
-    );
+    setState(() {
+      _isTrackingActive = true;
+      _trackingStartedAt = DateTime.now();
+      _lastGpsFixAt = null;
+      _firestoreWriteFailed = false;
+    });
+
+    final gpsStatus = await _locationService?.startTracking(
+          driverId,
+          driverName,
+          _onLocationUpdate,
+          userRole: userRole,
+          onStatusChanged: _onGpsStatusChanged,
+          onFirestoreWriteError: _onGpsFirestoreError,
+        ) ??
+        DriverGpsStatus.error;
+
+    if (mounted) {
+      setState(() => _gpsStatus = gpsStatus);
+      await _refreshBackgroundPermissionFlag();
+    }
 
     // Background foreground-service (когда приложение свёрнуто, только мобильные)
-    if (!kIsWeb) {
+    if (!kIsWeb &&
+        gpsStatus != DriverGpsStatus.disabled &&
+        gpsStatus != DriverGpsStatus.permissionRequired) {
+      await DriverAutoCloseState.clearSystemStoppedBg();
       BackgroundLocationService.start(driverId, driverName, companyId);
+      unawaited(_refreshBgServiceStatus());
     }
 
     // WebSocket GPS для live-карты диспетчера
@@ -696,18 +1199,20 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // Foreground auto-close: таймер каждые 30 сек проверяет точки
     _autoCloseTimer?.cancel();
     _autoCloseTimer = Timer.periodic(
-      const Duration(seconds: 30),
+      const Duration(seconds: 10),
       (_) => _checkAutoClose(),
     );
 
-    setState(() => _isTrackingActive = true);
-    _showGpsNotification();
+    if (_gpsStatus == DriverGpsStatus.active ||
+        _gpsStatus == DriverGpsStatus.waiting) {
+      _showGpsNotification();
+    }
     if (!kIsWeb && Platform.isAndroid) {
       _maybeShowAndroidSetup();
     } else {
       _ensureBackgroundLocation();
     }
-    debugPrint('✅ [Driver] Tracking started: $driverName');
+    debugPrint('✅ [Driver] Tracking started: $driverName status=$_gpsStatus');
   }
 
   /// Один раз на установку показываем памятку по фоновым настройкам Android
@@ -757,7 +1262,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
-  void _stopTracking() async {
+  Future<void> _stopTracking() async {
     _locationService?.stopTracking();
     final authService = context.read<AuthService>();
     final companyId = authService.userModel?.companyId ?? '';
@@ -781,16 +1286,29 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _autoCloseTimer?.cancel();
     _autoCloseTimer = null;
     _autoCloseArrivalTimes.clear();
-    setState(() => _isTrackingActive = false);
+    setState(() {
+      _isTrackingActive = false;
+      _gpsStatus = DriverGpsStatus.waiting;
+      _lastGpsFixAt = null;
+      _trackingStartedAt = null;
+      _needsBackgroundPermission = false;
+      _firestoreWriteFailed = false;
+    });
     _hideGpsNotification();
     debugPrint('🛑 [Driver] Tracking stopped');
   }
 
   @override
   void dispose() {
+    _sessionSub?.cancel();
+    _sessionHeartbeatTimer?.cancel();
     _shiftsSub?.cancel();
     _scheduleStatusTimer?.cancel();
+    _gpsHealthTimer?.cancel();
     _autoCloseTimer?.cancel();
+    _undoExpireTimer?.cancel();
+    _undoCountdownTimer?.cancel();
+    _bgStatusTimer?.cancel();
     _locationService?.stopTracking();
     _realtimeGps.dispose();
     // НЕ вызываем BackgroundLocationService.stop() —
@@ -824,6 +1342,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // Сохраняем последнюю GPS-позицию для таймера автозакрытия
     _lastKnownLat = lat;
     _lastKnownLng = lon;
+    _lastGpsFixAt = DateTime.now();
+    if (_gpsStatus != DriverGpsStatus.active) {
+      setState(() => _gpsStatus = DriverGpsStatus.active);
+    }
 
     // Скорость по смещению между фиксами (для гейта по остановке).
     final nowFix = DateTime.now();
@@ -836,7 +1358,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _autoPrevLng = lon;
     _autoPrevAt = nowFix;
 
-    if (_isTrackingActive) {
+    if (_isTrackingActive && _gpsStatus == DriverGpsStatus.active) {
       _showGpsNotification();
     }
     _handleArrivalLogic(lat, lon);
@@ -877,7 +1399,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     final now = DateTime.now();
     final distance =
         _simpleDistanceMeters(lat, lon, point.latitude, point.longitude);
-    final isInsideRadius = distance <= kArrivalRadius;
+    final isInsideRadius = distance <= _rc.autoCloseRadiusMeters;
 
     double speedMps = double.infinity;
     if (_arrivalPrevLat != null &&
@@ -928,74 +1450,194 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
-  /// Foreground auto-close: каждые 30 сек проверяет ВСЕ активные точки водителя.
-  /// Если водитель в радиусе 100 м от точки ≥ 3 мин — автозакрытие.
-  /// Работает даже когда distanceFilter не генерирует GPS-апдейты (водитель стоит).
+  /// Foreground auto-close: проверяет ВСЕ активные точки водителя (все маршруты).
+  /// Ближайшая в радиусе — без привязки к порядку маршрута.
   Future<void> _checkAutoClose() async {
-    if (_photoRequired) return; // политика «только с фото» — авто отключено
-    if (!_autoCloseCompanyEnabled) return; // компания отключила автозакрытие
+    if (_photoRequired) return;
+    if (!_autoCloseCompanyEnabled) return;
+    if (!await _ensureSessionActive()) return;
     final lat = _lastKnownLat;
     final lng = _lastKnownLng;
     if (lat == null || lng == null) return;
     if (_routeService == null) return;
     if (!mounted) return;
 
-    final now = DateTime.now();
-    final activePoints = _lastPoints.where((p) {
-      final s = DeliveryPoint.normalizeStatus(p.status);
-      return s == DeliveryPoint.statusAssigned ||
-          s == DeliveryPoint.statusInProgress;
-    }).toList();
+    final driverId = _autoCloseDriverId ??
+        context.read<AuthService>().currentUser?.uid ??
+        '';
+    if (driverId.isEmpty) return;
 
-    // Чистим таймеры точек, которых больше нет в активных.
-    final activeIds = activePoints.map((p) => p.id).toSet();
+    final now = DateTime.now();
+    final candidates = _allDriverActivePoints.isNotEmpty
+        ? _allDriverActivePoints
+        : _lastPoints
+            .where((p) => isDriverAutoCloseEligible(
+                  p,
+                  driverId: driverId,
+                  disabledPointIds: _autoCloseDisabledIds,
+                ))
+            .toList();
+
+    final activeIds = candidates.map((p) => p.id).toSet();
     _autoCloseArrivalTimes.removeWhere((id, _) => !activeIds.contains(id));
 
-    // Гейт по остановке: если водитель едет (проезжает мимо / стоит в пробке
-    // вне точки) — таймеры не идут.
-    if (!_isDriverStationaryNow) {
-      if (_autoCloseArrivalTimes.isNotEmpty) {
-        debugPrint('↩️ [AutoClose] Водитель движется — таймеры сброшены');
+    final target = selectNearestDriverAutoCloseTarget(
+      driverLat: lat,
+      driverLng: lng,
+      points: candidates,
+      driverId: driverId,
+      disabledPointIds: _autoCloseDisabledIds,
+      enterRadiusM: _rc.autoCloseRadiusMeters,
+    );
+
+    if (target == null ||
+        shouldResetDriverAutoCloseTimer(
+          distanceMeters: target.distanceMeters,
+          resetRadiusM: _rc.autoCloseResetRadiusMeters,
+        )) {
+      if (_autoCloseArrivalTimes.isNotEmpty || _autoClosePendingPoint != null) {
+        debugPrint('↩️ [AutoClose] Вне радиуса — таймер сброшен');
         _autoCloseArrivalTimes.clear();
+        unawaited(DriverAutoCloseState.clearPending());
+        _updateAutoClosePendingUi(null, null, null);
       }
       return;
     }
 
-    // Только ОДНА ближайшая незавершённая (не отключённая) точка в радиусе —
-    // за остановку закрываем её, а не всех соседей в кластере.
-    DeliveryPoint? target;
-    double best = double.infinity;
-    for (final p in activePoints) {
-      if (_autoCloseDisabledIds.contains(p.id)) continue;
-      final d = _simpleDistanceMeters(lat, lng, p.latitude, p.longitude);
-      if (d <= AppConfig.autoCompleteRadius && d < best) {
-        best = d;
-        target = p;
-      }
-    }
-
-    // Таймеры всех, кроме ближайшей, сбрасываем.
-    final targetId = target?.id;
+    final targetId = target.point.id;
     _autoCloseArrivalTimes.removeWhere((id, _) => id != targetId);
-    if (target == null) return;
 
-    if (!_autoCloseArrivalTimes.containsKey(target.id)) {
-      _autoCloseArrivalTimes[target.id] = now; // отсчёт стоянки с этого момента
-      debugPrint(
-        '📍 [AutoClose] Стоит у ${target.clientName} '
-        '(${best.toStringAsFixed(0)} м), таймер запущен',
+    if (!_autoCloseArrivalTimes.containsKey(targetId)) {
+      _autoCloseArrivalTimes[targetId] = now;
+      unawaited(DriverAutoCloseState.savePending(
+        pointId: targetId,
+        startedAt: now,
+      ));
+      _logAutoCloseAudit(
+        driverId: driverId,
+        point: target.point,
+        distanceMeters: target.distanceMeters,
+        phase: 'timer_started',
+        waitSeconds: _rc.autoCloseWaitSeconds,
       );
-    } else {
-      final waited = now.difference(_autoCloseArrivalTimes[target.id]!);
-      if (waited >= AppConfig.autoCompleteDuration) {
-        debugPrint(
-          '✅ [AutoClose] Автозакрытие: ${target.clientName} '
-          '(${waited.inSeconds} сек стоянки)',
-        );
-        final ok = await _autoCompletePoint(target);
-        if (ok) _autoCloseArrivalTimes.remove(target.id);
+      debugPrint(
+        '📍 [AutoClose] Стоит у ${target.point.clientName} '
+        '(${target.distanceMeters.toStringAsFixed(0)} м), таймер запущен',
+      );
+    }
+
+    final startedAt = _autoCloseArrivalTimes[targetId]!;
+    final remaining = driverAutoCloseRemainingSeconds(
+      startedAt,
+      now,
+      waitDuration: _rc.autoCloseWait,
+    );
+    _updateAutoClosePendingUi(target.point, target.distanceMeters, remaining);
+
+    if (driverAutoCloseWaitComplete(
+      startedAt,
+      now,
+      waitDuration: _rc.autoCloseWait,
+    )) {
+      final correlationId = CorrelationContext.resolveId();
+      _logAutoCloseAudit(
+        driverId: driverId,
+        point: target.point,
+        distanceMeters: target.distanceMeters,
+        phase: 'closing',
+        waitSeconds: _rc.autoCloseWaitSeconds,
+        correlationId: correlationId,
+      );
+      debugPrint(
+        '✅ [AutoClose] Автозакрытие: ${target.point.clientName} '
+        '(${now.difference(startedAt).inSeconds} сек стоянки)',
+      );
+      final ok = await _autoCompletePoint(
+        target.point,
+        correlationId: correlationId,
+        distanceMeters: target.distanceMeters,
+      );
+      if (ok) {
+        _autoCloseArrivalTimes.remove(targetId);
+        _updateAutoClosePendingUi(null, null, null);
       }
     }
+  }
+
+  void _updateAutoClosePendingUi(
+    DeliveryPoint? point,
+    double? distanceM,
+    int? remainingSec,
+  ) {
+    if (!mounted) return;
+    if (_autoClosePendingPoint?.id == point?.id &&
+        _autoClosePendingDistanceM == distanceM &&
+        _autoClosePendingRemainingSec == remainingSec) {
+      return;
+    }
+    setState(() {
+      _autoClosePendingPoint = point;
+      _autoClosePendingDistanceM = distanceM;
+      _autoClosePendingRemainingSec = remainingSec;
+    });
+  }
+
+  void _logAutoCloseAudit({
+    required String driverId,
+    required DeliveryPoint point,
+    required double distanceMeters,
+    required String phase,
+    required int waitSeconds,
+    String? correlationId,
+  }) {
+    debugPrint(
+      '🔎 [AutoClose] ${jsonEncode({
+        'phase': phase,
+        'driverId': driverId,
+        'selectedPointId': point.id,
+        'selectedPointName': point.clientName,
+        'distanceMeters': distanceMeters.round(),
+        'radiusMeters': _rc.autoCloseRadiusMeters.round(),
+        'resetRadiusMeters': _rc.autoCloseResetRadiusMeters.round(),
+        'waitSeconds': waitSeconds,
+        if (correlationId != null) 'correlationId': correlationId,
+      })}',
+    );
+  }
+
+  Widget _buildAutoClosePendingBanner(AppLocalizations l10n) {
+    final point = _autoClosePendingPoint;
+    final dist = _autoClosePendingDistanceM;
+    final sec = _autoClosePendingRemainingSec;
+    if (point == null || dist == null || sec == null) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.timer_outlined, color: Colors.blue.shade800, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.autoClosePendingBanner(
+                  point.clientName,
+                  dist.round(),
+                  sec,
+                ),
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _completePointWithPod(
@@ -1004,11 +1646,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
     AppLocalizations l10n,
   ) async {
     if (_routeService == null) return;
+    if (!await _ensureSessionActive()) return;
     if (!kIsWeb) await _setAutoCloseEnabled(point, false);
     final authService = context.read<AuthService>();
     final messenger = ScaffoldMessenger.of(context);
     final companyId = authService.userModel?.companyId ?? '';
     final driverId = authService.currentUser?.uid ?? '';
+
+    final correlationId = CorrelationContext.resolveId();
 
     if (!kIsWeb && companyId.isNotEmpty) {
       final pod = await showProofOfDeliverySheet(
@@ -1026,12 +1671,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
         podLat: pod.lat,
         podLng: pod.lng,
         podDistanceM: pod.distanceM,
+        correlationId: correlationId,
       );
     } else {
       await _routeService!.updatePointStatus(
         point.id,
         DeliveryPoint.statusCompleted,
         updatedByUid: driverId,
+        correlationId: correlationId,
       );
       try {
         if (companyId.isNotEmpty &&
@@ -1069,15 +1716,20 @@ class _DriverDashboardState extends State<DriverDashboard> {
     AppLocalizations l10n,
   ) async {
     if (_routeService == null) return;
+    if (!await _ensureSessionActive()) return;
     final authService = context.read<AuthService>();
     final messenger = ScaffoldMessenger.of(context);
     final companyId = authService.userModel?.companyId ?? '';
     final driverId = authService.currentUser?.uid ?? '';
+    final previousStatus = DeliveryPoint.normalizeStatus(point.status);
+
+    final correlationId = CorrelationContext.resolveId();
 
     await _routeService!.updatePointStatus(
       point.id,
       DeliveryPoint.statusCompleted,
       updatedByUid: driverId,
+      correlationId: correlationId,
     );
     // Лог посещения (GPS) — как в ветке без фото у _completePointWithPod.
     try {
@@ -1098,34 +1750,60 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     if (!mounted) return;
     setState(() => _markPointCompletedLocally(point.id));
+    _offerCloseUndo(
+      point,
+      previousStatus: previousStatus,
+      autoCompleted: false,
+    );
     messenger.showSnackBar(
-      SnackBar(content: Text('✅ ${l10n.pointCompleted}: ${point.clientName}')),
+      SnackBar(
+        content: Text('✅ ${l10n.pointCompleted}: ${point.clientName}'),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
-  Future<bool> _autoCompletePoint(DeliveryPoint point) async {
+  Future<bool> _autoCompletePoint(
+    DeliveryPoint point, {
+    String? correlationId,
+    double? distanceMeters,
+  }) async {
     try {
-      if (_routeService == null) return false;
+      if (!await _ensureSessionActive()) return false;
       final authService = context.read<AuthService>();
       final driverId = authService.currentUser?.uid ?? '';
-      final l10n = AppLocalizations.of(context);
+      final companyId = authService.userModel?.companyId ?? '';
+      if (companyId.isEmpty || driverId.isEmpty) return false;
+      final previousStatus = DeliveryPoint.normalizeStatus(point.status);
+      final cid = correlationId ?? CorrelationContext.resolveId();
+      final lat = _lastKnownLat;
+      final lng = _lastKnownLng;
+      if (lat == null || lng == null) return false;
 
-      await _routeService!.updatePointStatus(
-        point.id,
-        DeliveryPoint.statusCompleted,
-        updatedByUid: driverId,
-        autoCompleted: true,
+      final closed = await DriverAutoCloseState.tryCompletePoint(
+        companyId: companyId,
+        pointId: point.id,
+        driverId: driverId,
+        lat: lat,
+        lng: lng,
+        distanceMeters: distanceMeters ?? 0,
+        correlationId: cid,
       );
+      if (!closed) return false;
+
       if (mounted) {
         setState(() {
           _markPointCompletedLocally(point.id);
           _autoCloseArrivalTimes.remove(point.id);
         });
-        _undoShownIds.add(point.id); // чтобы ретро-детектор не продублировал
-        if (l10n != null) _showAutoCloseUndoSnackBar(point, l10n);
+        _offerCloseUndo(
+          point,
+          previousStatus: previousStatus,
+          autoCompleted: true,
+        );
       }
       debugPrint(
-          '✅ [AutoClose] Point ${point.clientName} auto-completed via RouteService');
+          '✅ [AutoClose] Point ${point.clientName} auto-completed');
       return true;
     } catch (e) {
       debugPrint('❌ [AutoClose] Error auto-completing ${point.clientName}: $e');
@@ -1157,6 +1835,141 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
+  Widget _buildGpsStatusBanner(AppLocalizations l10n) {
+    late Color bg;
+    late Color border;
+    late Color fg;
+    late IconData icon;
+    late String title;
+    final subtitles = <String>[];
+
+    if (!_isTrackingActive) {
+      bg = Colors.grey.shade200;
+      border = Colors.grey.shade400;
+      fg = Colors.grey.shade700;
+      icon = Icons.gps_off;
+      title = '⏸️ ${l10n.gpsTrackingStopped}';
+    } else {
+      switch (_gpsStatus) {
+        case DriverGpsStatus.active:
+          bg = Colors.green.shade100;
+          border = Colors.green.shade300;
+          fg = Colors.green.shade900;
+          icon = Icons.gps_fixed;
+          title = '📍 ${l10n.gpsTrackingActive}';
+          break;
+        case DriverGpsStatus.waiting:
+          bg = Colors.amber.shade100;
+          border = Colors.amber.shade300;
+          fg = Colors.amber.shade900;
+          icon = Icons.gps_not_fixed;
+          title = '⏳ ${l10n.gpsStatusWaiting}';
+          break;
+        case DriverGpsStatus.error:
+          bg = Colors.red.shade100;
+          border = Colors.red.shade300;
+          fg = Colors.red.shade900;
+          icon = Icons.gps_off;
+          title = l10n.gpsStatusError;
+          subtitles.add(
+            _lastGpsFixAt == null ? l10n.gpsUnavailableHint : l10n.gpsStaleHint,
+          );
+          break;
+        case DriverGpsStatus.disabled:
+        case DriverGpsStatus.permissionRequired:
+          bg = Colors.orange.shade100;
+          border = Colors.orange.shade300;
+          fg = Colors.orange.shade900;
+          icon = Icons.location_off;
+          title = l10n.gpsUnavailableHint;
+          break;
+      }
+      if (_needsBackgroundPermission) {
+        subtitles.add(l10n.gpsBackgroundHintShort);
+      }
+      if (_isTrackingActive && !kIsWeb) {
+        if (_bgSystemStopped) {
+          subtitles.add(l10n.bgSystemStoppedWarning);
+        } else if (_bgServiceRunning) {
+          subtitles.add(l10n.bgModeActive);
+        } else {
+          subtitles.add(l10n.bgModeInactive);
+        }
+      }
+      if (_firestoreWriteFailed) {
+        subtitles.add(l10n.gpsFirestoreWriteFailed);
+      }
+    }
+
+    if (_scheduleStatus.isNotEmpty) subtitles.add(_scheduleStatus);
+
+    if (_sessionEnforced &&
+        _sessionUi == _DriverSessionUi.ready &&
+        _sessionDeviceLabel != null) {
+      subtitles.add(l10n.driverSessionActiveDevice(_sessionDeviceLabel!));
+    }
+
+    final showRecheck =
+        _isTrackingActive && _gpsStatus != DriverGpsStatus.active;
+    final showBgSetup = _isTrackingActive &&
+        !kIsWeb &&
+        (_bgSystemStopped || _needsBackgroundPermission);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(bottom: BorderSide(color: border, width: 2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: fg, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                if (_isTrackingActive)
+                  Text(
+                    _gpsStatusLabel(_gpsStatus, l10n),
+                    style: TextStyle(color: fg, fontSize: 11),
+                  ),
+                for (final line in subtitles)
+                  Text(
+                    line,
+                    style: TextStyle(
+                      color: fg.withValues(alpha: 0.85),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (showRecheck)
+            TextButton(
+              onPressed: _recheckGps,
+              child: Text(l10n.gpsRecheck),
+            ),
+          if (showBgSetup && !kIsWeb && Platform.isAndroid)
+            TextButton(
+              onPressed: () => showAndroidSetupSheet(context),
+              child: Text(l10n.bgOpenSetup),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1171,6 +1984,27 @@ class _DriverDashboardState extends State<DriverDashboard> {
       // ⚡ Предзагрузка кеша компании для водителя
       CompanyCache.instance(companyId).preload(companyId, authService);
       debugPrint('🚛 [Driver] Services initialized with companyId: $companyId');
+    }
+
+    if (_sessionEnforced) {
+      switch (_sessionUi) {
+        case _DriverSessionUi.loading:
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        case _DriverSessionUi.blocked:
+          return DriverSessionBlockedScreen(
+            remoteSession: _remoteSession,
+            onTakeover: () => unawaited(_takeoverDriverSession()),
+            onLogout: () => unawaited(_logoutFromSessionGate()),
+          );
+        case _DriverSessionUi.lost:
+          return DriverSessionLostScreen(
+            onAcknowledge: _acknowledgeSessionLost,
+          );
+        case _DriverSessionUi.ready:
+          break;
+      }
     }
 
     return Directionality(
@@ -1236,64 +2070,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 ),
               ),
             // Индикатор статуса расписания и GPS
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: _isTrackingActive
-                    ? Colors.green.shade100
-                    : Colors.grey.shade200,
-                border: Border(
-                  bottom: BorderSide(
-                    color: _isTrackingActive
-                        ? Colors.green.shade300
-                        : Colors.grey.shade400,
-                    width: 2,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
-                    color: _isTrackingActive
-                        ? Colors.green.shade900
-                        : Colors.grey.shade700,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isTrackingActive
-                              ? '📍 ${l10n.gpsTrackingActive}'
-                              : '⏸️ ${l10n.gpsTrackingStopped}',
-                          style: TextStyle(
-                            color: _isTrackingActive
-                                ? Colors.green.shade900
-                                : Colors.grey.shade700,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (_scheduleStatus.isNotEmpty)
-                          Text(
-                            _scheduleStatus,
-                            style: TextStyle(
-                              color: _isTrackingActive
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildGpsStatusBanner(l10n),
+            _buildCloseUndoBanner(l10n),
+            _buildAutoClosePendingBanner(l10n),
             // Основное содержимое
             Expanded(
               child: _routeService == null
@@ -1329,6 +2108,16 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         var points = _lastPoints;
                         if (snapshot.hasData && snapshot.data != null) {
                           final incomingPoints = snapshot.data!;
+                          final driverId = authService.viewAsDriverId ??
+                              authService.currentUser!.uid;
+                          _autoCloseDriverId = driverId;
+                          _allDriverActivePoints = incomingPoints
+                              .where((p) => isDriverAutoCloseEligible(
+                                    p,
+                                    driverId: driverId,
+                                    disabledPointIds: _autoCloseDisabledIds,
+                                  ))
+                              .toList();
                           final routePoints =
                               _filterDriverPointsToCurrentRoute(incomingPoints);
                           points = _mergeVisibleRoutePoints(routePoints);
@@ -1342,7 +2131,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                             // Undo для авто-закрытий в фоне (snackbar не показался)
                             final closed = List<DeliveryPoint>.from(points);
                             WidgetsBinding.instance.addPostFrameCallback(
-                                (_) => _maybeShowBackgroundUndo(closed));
+                                (_) => _maybeOfferBackgroundUndo(closed));
                           } else {
                             points = _lastPoints;
                           }
@@ -1525,37 +2314,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
     DeliveryPoint point,
     AppLocalizations l10n,
   ) async {
-    final hasTemporaryAddress = point.temporaryAddress != null &&
-        point.temporaryAddress!.trim().isNotEmpty;
-    final address = hasTemporaryAddress
-        ? point.temporaryAddress!.trim()
-        : point.address.trim();
-    final hasCoordinates = point.latitude != 0 || point.longitude != 0;
+    final result = await launchDriverNavigation(
+      point,
+      preferWaze: _rc.navigationPreferWaze,
+    );
 
-    final Uri url;
-    if (hasTemporaryAddress && hasCoordinates) {
-      // Для временного адреса используем уже пересчитанные координаты точки,
-      // чтобы Waze не уводил по старому клиентскому адресу.
-      url = Uri.parse(
-        'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes',
+    if (!context.mounted) return;
+
+    if (result.success) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (result.reason == 'no_destination') {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.navigationNoDestination)),
       );
-    } else if (address.isNotEmpty) {
-      final encoded = Uri.encodeComponent(address);
-      url = Uri.parse('https://waze.com/ul?q=$encoded&navigate=yes');
     } else {
-      url = Uri.parse(
-        'https://waze.com/ul?ll=${point.latitude},${point.longitude}&navigate=yes',
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.wazeLaunchFailed)),
       );
-    }
-
-    try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.wazeOpenError(e.toString()))),
-        );
-      }
     }
   }
 
@@ -1606,6 +2382,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   Widget _buildPointTexts(DeliveryPoint point, bool isCompleted) {
+    final resolved = resolveDeliveryPointAddress(point);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1622,9 +2399,39 @@ class _DriverDashboardState extends State<DriverDashboard> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        if (point.address.isNotEmpty)
+        if (resolved.hasOverride) ...[
+          Builder(builder: (context) {
+            final l10n = AppLocalizations.of(context)!;
+            return Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                l10n.deliveryAddressOverrideBadge,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            );
+          }),
           Text(
-            point.address,
+            resolved.displayAddress,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.orange.shade900,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ] else if (resolved.displayAddress.isNotEmpty)
+          Text(
+            resolved.displayAddress,
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey.shade800,
