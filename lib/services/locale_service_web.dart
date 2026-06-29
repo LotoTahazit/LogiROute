@@ -19,3 +19,35 @@ void saveLoginStatusToWeb(bool isLoggedIn) {
     // Игнорируем ошибки
   }
 }
+
+void saveLoginEmailToWeb(String email) {
+  try {
+    window.localStorage.setItem('login_email', email.trim().toLowerCase());
+  } catch (e) {
+    // Игнорируем ошибки
+  }
+}
+
+String? loadLoginEmailFromWeb() {
+  try {
+    return window.localStorage.getItem('login_email');
+  } catch (e) {
+    return null;
+  }
+}
+
+void saveSelectedCompanyToWeb(String companyId) {
+  try {
+    window.localStorage.setItem('selected_company_id', companyId);
+  } catch (e) {
+    // Игнорируем ошибки
+  }
+}
+
+String? loadSelectedCompanyFromWeb() {
+  try {
+    return window.localStorage.getItem('selected_company_id');
+  } catch (e) {
+    return null;
+  }
+}

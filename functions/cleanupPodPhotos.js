@@ -2,7 +2,10 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
+
+function podBucket() {
+  return admin.storage().bucket();
+}
 
 const RETENTION_DAYS = 90;
 
@@ -19,7 +22,7 @@ exports.cleanupPodPhotos = functions.pubsub
     let deleted = 0;
 
     try {
-      const [files] = await bucket.getFiles({ prefix: 'companies/' });
+      const [files] = await podBucket().getFiles({ prefix: 'companies/' });
 
       for (const file of files) {
         if (!file.name.includes('/pod/')) continue;

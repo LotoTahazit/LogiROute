@@ -10,3 +10,11 @@ void saveLocaleToWeb(String languageCode) {
 void saveLoginStatusToWeb(bool isLoggedIn) {
   // Ничего не делаем на мобильных платформах
 }
+
+void saveLoginEmailToWeb(String email) {}
+
+String? loadLoginEmailFromWeb() => null;
+
+void saveSelectedCompanyToWeb(String companyId) {}
+
+String? loadSelectedCompanyFromWeb() => null;

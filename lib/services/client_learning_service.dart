@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'firestore_paths.dart';
 
 /// Самообучение клиентских данных на основе реальных доставок.
 /// 1. navigation_point — реальная точка подъезда (GPS водителя при доставке)
@@ -15,10 +16,7 @@ class ClientLearningService {
 
   /// Ссылка на коллекцию клиентов
   CollectionReference<Map<String, dynamic>> _clientsCollection() {
-    return _firestore
-        .collection('companies')
-        .doc(companyId)
-        .collection('clients');
+    return FirestorePaths(firestore: _firestore).clients(companyId);
   }
 
   /// Вызывается при завершении доставки.

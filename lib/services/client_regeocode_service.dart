@@ -67,7 +67,7 @@ class ClientRegeocodeService {
     void Function(int done, int total)? onProgress,
     Duration throttle = const Duration(milliseconds: 250),
   }) async {
-    final list = await _clients.getAllClients();
+    final list = await _clients.fetchAllClientsForExport();
     var updated = 0, unchanged = 0, failed = 0, skipped = 0, pointsUpdated = 0;
     final total = list.length;
 

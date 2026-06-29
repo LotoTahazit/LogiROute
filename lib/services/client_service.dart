@@ -3,7 +3,24 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:flutter/foundation.dart';
 import '../models/client_model.dart';
 
+/// Страница списка клиентов (pagination).
+class ClientsPageResult {
+  final List<ClientModel> clients;
+  final DocumentSnapshot<Map<String, dynamic>>? lastDocument;
+  final bool hasMore;
+
+  const ClientsPageResult({
+    required this.clients,
+    this.lastDocument,
+    this.hasMore = false,
+  });
+}
+
 class ClientService {
+  static const int defaultPageSize = 100;
+  static const int cachePageSize = 200;
+  static const int exportBatchSize = 500;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String companyId;
 
@@ -35,10 +52,35 @@ class ClientService {
         .collection('clients');
   }
 
-  /// Получить всех клиентов, отсортированных по имени
+  /// Первая страница клиентов (UI lists). Не читает всю коллекцию.
+  Future<ClientsPageResult> getClientsPage({
+    int limit = defaultPageSize,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query =
+          _clientsCollection().orderBy('name').limit(limit);
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+      final snapshot = await query.get();
+      final clients = snapshot.docs
+          .map((doc) => ClientModel.fromMap(doc.data(), doc.id))
+          .toList();
+      return ClientsPageResult(
+        clients: clients,
+        lastDocument: snapshot.docs.isEmpty ? null : snapshot.docs.last,
+        hasMore: snapshot.docs.length >= limit,
+      );
+    } catch (e) {
+      debugPrint('❌ [Client] Error loading clients page: $e');
+      return const ClientsPageResult(clients: []);
+    }
+  }
+
+  /// Первая страница для кеша/legacy callers (bounded, не full collection).
   Future<List<ClientModel>> getAllClients([String? overrideCompanyId]) async {
     try {
-      // ✅ Проверяем кеш
       final cached = _cache[companyId];
       final cacheTime = _cacheTimestamps[companyId];
       if (cached != null &&
@@ -49,27 +91,41 @@ class ClientService {
         return cached;
       }
 
-      final snapshot = await _clientsCollection().orderBy('name').get();
+      final page = await getClientsPage(limit: cachePageSize);
       debugPrint(
-          '📊 [Client] Loaded ${snapshot.docs.length} clients from companies/$companyId/clients');
-      final clients = snapshot.docs
-          .map((doc) => ClientModel.fromMap(doc.data(), doc.id))
-          .toList();
-
-      // ✅ Сохраняем в кеш
-      _cache[companyId] = clients;
+          '📊 [Client] Loaded ${page.clients.length} clients (page) from companies/$companyId/clients');
+      _cache[companyId] = page.clients;
       _cacheTimestamps[companyId] = DateTime.now();
-
-      return clients;
+      return page.clients;
     } catch (e) {
       debugPrint('❌ [Client] Error getting clients: $e');
       return [];
     }
   }
 
-  /// Поиск клиентов по имени или номеру
+  /// Явный full read для export/regeocode — paginated batches.
+  Future<List<ClientModel>> fetchAllClientsForExport({
+    void Function(int loaded)? onProgress,
+  }) async {
+    final all = <ClientModel>[];
+    DocumentSnapshot<Map<String, dynamic>>? cursor;
+    while (true) {
+      final page = await getClientsPage(
+        limit: exportBatchSize,
+        startAfter: cursor,
+      );
+      all.addAll(page.clients);
+      onProgress?.call(all.length);
+      if (!page.hasMore || page.lastDocument == null) break;
+      cursor = page.lastDocument;
+      if (all.length >= 10000) break;
+    }
+    return all;
+  }
+
+  /// Поиск клиентов по имени или номеру (bounded).
   Future<List<ClientModel>> searchClients(String query,
-      [String? overrideCompanyId]) async {
+      [String? overrideCompanyId, int limit = 30]) async {
     if (query.isEmpty) return [];
 
     try {
@@ -78,7 +134,7 @@ class ClientService {
         final snapshot = await _clientsCollection()
             .where('clientNumber', isGreaterThanOrEqualTo: query)
             .where('clientNumber', isLessThan: '$query\uf8ff')
-            .limit(10)
+            .limit(limit)
             .get();
 
         print('📊 [Client] Found ${snapshot.docs.length} clients by number');

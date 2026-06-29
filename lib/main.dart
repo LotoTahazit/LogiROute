@@ -18,11 +18,14 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/locale_service.dart';
 import 'services/company_selection_service.dart';
+import 'services/driver_auto_close_state.dart';
 import 'widgets/role_router.dart';
 import 'widgets/invoice_deep_link_viewer.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'core/navigation/register_documents.dart';
 import 'l10n/app_localizations.dart';
+import 'core/error/platform_error_hooks.dart';
+import 'services/platform_error_service.dart';
 import 'theme/app_theme.dart';
 
 Timer? _bgWatchdogTimer;
@@ -67,6 +70,12 @@ void _startBackgroundServiceWatchdog() {
       if (!isRunning) {
         debugPrint('⚠️ [Watchdog] BG service stopped. Restarting...');
         await service.startService();
+        final recovered = await service.isRunning();
+        if (!recovered) {
+          await DriverAutoCloseState.markSystemStoppedBg(true);
+        }
+      } else {
+        await DriverAutoCloseState.clearSystemStoppedBg();
       }
     } catch (e) {
       debugPrint('⚠️ [Watchdog] Error: $e');
@@ -87,7 +96,22 @@ Future<void> _requestIgnoreBatteryOptimizationOnce() async {
   }
 }
 
-void main() async {
+void main() {
+  runZonedGuarded(() async {
+    await _bootstrap();
+  }, (error, stack) {
+    debugPrint('🔥 Zoned error: $error');
+    debugPrint('$stack');
+    PlatformErrorService.report(
+      error: error,
+      stack: stack,
+      source: 'run_zoned_guarded',
+      operation: 'unhandled_zone',
+    );
+  });
+}
+
+Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Мобильный клиент — только портрет: верстки рассчитаны на портрет, в
@@ -105,21 +129,9 @@ void main() async {
     debugPrint('⚠️ [dotenv] .env.local not loaded: $e');
   }
 
-  // 🔥 Глобальный ловец ошибок Flutter
-  FlutterError.onError = (details) {
-    FlutterError.dumpErrorToConsole(details);
-    debugPrint('🔥 FlutterError: ${details.exception}');
-    debugPrint('${details.stack}');
-  };
-
-  // 🔥 Глобальный ловец необработанных ошибок
-  PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('🔥 Unhandled error: $error');
-    debugPrint('$stack');
-    return true;
-  };
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  initPlatformErrorHooks();
 
   // 🛡️ App Check: привязывает запросы к настоящему экземпляру приложения, чтобы
   // публичный конфиг Firebase нельзя было использовать из скрипта/бота. Включение

@@ -10,6 +10,7 @@ import '../models/user_model.dart';
 import '../services/locale_service_stub.dart'
     if (dart.library.html) '../services/locale_service_web.dart';
 import '../services/company_provision_service.dart';
+import 'firestore_paths.dart';
 import '../services/background_location_service.dart';
 import 'access_log_service.dart';
 
@@ -134,20 +135,53 @@ class AuthService extends ChangeNotifier {
   String? _viewAsRole;
   String? _viewAsDriverId;
   bool _isLoading = true;
+  bool _initialAuthResolved = false;
   String? _virtualCompanyId; // ✅ Виртуальный companyId для super_admin
   late final StreamSubscription<User?> _authSubscription;
   int _authGen = 0;
+  bool _signInBusy = false;
+  bool _profileMissing = false;
+  Future<void>? _profileLoadFuture;
+  String? _profileLoadUid;
 
   AuthService() {
     _authSubscription = _auth.authStateChanges().listen(_onAuthStateChanged);
-    // Web: битый IndexedDB Auth иногда не шлёт первое событие — снимаем спиннер.
+    if (kIsWeb) {
+      unawaited(_initWebAuthPersistence());
+    }
+    // Web: не блокируем UI дольше 12 с (офисная сеть / медленный IndexedDB).
     Future<void>.delayed(const Duration(seconds: 12), () {
       if (_isLoading) {
-        debugPrint('⚠️ [AuthService] auth init timeout');
-        _isLoading = false;
-        notifyListeners();
+        debugPrint('⚠️ [AuthService] auth init timeout — unlock UI');
+        _completeAuthInit();
       }
     });
+  }
+
+  void _completeAuthInit() {
+    _initialAuthResolved = true;
+    if (!_isLoading) return;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> _initWebAuthPersistence() async {
+    try {
+      await _auth.setPersistence(Persistence.LOCAL);
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] setPersistence: $e');
+    }
+  }
+
+  Future<User?> _resolveUserAfterRestore(User? user) async {
+    if (user != null || _initialAuthResolved || !kIsWeb) return user;
+    for (var i = 0; i < 15; i++) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      final restored = _auth.currentUser;
+      if (restored != null) return restored;
+    }
+    _initialAuthResolved = true;
+    return user;
   }
 
   @override
@@ -180,21 +214,69 @@ class AuthService extends ChangeNotifier {
   }
 
   String? get userRole => _userModel?.role;
+  /// UI simulation (Owner Dashboard / view-as); rules use real claims.
+  String? get effectiveRole => _viewAsRole ?? _userModel?.role;
   String? get viewAsRole => _viewAsRole;
   String? get viewAsDriverId => _viewAsDriverId;
   bool get isLoading => _isLoading;
+  String? get virtualCompanyId => _virtualCompanyId;
+
+  /// Auth есть, но компания ещё не создана (прерванная self-service регистрация).
+  bool get needsCompanyRegistration {
+    final user = _currentUser ?? _auth.currentUser;
+    if (user == null) return false;
+    if (_profileMissing || _userModel == null) return true;
+    final cid = _userModel!.companyId;
+    if (cid != null && cid.isNotEmpty) return false;
+    final role = _userModel!.role;
+    return role == 'owner' || role == 'pending';
+  }
 
   /// Установить виртуальный companyId для super_admin
   void setVirtualCompanyId(String? companyId) {
-    if (_userModel?.isSuperAdmin == true && _virtualCompanyId != companyId) {
+    final canSet = _userModel?.isSuperAdmin == true ||
+        (_userModel?.isAdmin == true && _viewAsRole != null);
+    if (canSet && _virtualCompanyId != companyId) {
       _virtualCompanyId = companyId;
       print('✅ [AuthService] Virtual companyId set to: $companyId');
+      _saveVirtualCompanyToPrefs();
       notifyListeners();
     }
   }
 
+  Future<void> _saveVirtualCompanyToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_virtualCompanyId != null && _virtualCompanyId!.isNotEmpty) {
+        await prefs.setString(_kVirtualCompanyId, _virtualCompanyId!);
+        await prefs.setString('selected_company_id', _virtualCompanyId!);
+        saveSelectedCompanyToWeb(_virtualCompanyId!);
+      } else {
+        await prefs.remove(_kVirtualCompanyId);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] Failed to save virtual company: $e');
+    }
+  }
+
+  Future<void> _restoreVirtualCompanyFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _virtualCompanyId = prefs.getString(_kVirtualCompanyId) ??
+          prefs.getString('selected_company_id');
+      _virtualCompanyId ??= loadSelectedCompanyFromWeb();
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] Failed to restore virtual company: $e');
+    }
+  }
+
   Future<void> _onAuthStateChanged(User? user) async {
+    if (_signInBusy) return;
     final gen = ++_authGen;
+    user = await _resolveUserAfterRestore(user);
+    if (user != null || _initialAuthResolved) {
+      _initialAuthResolved = true;
+    }
     debugPrint('🔐 [AuthService] _onAuthStateChanged: user=${user?.email}');
 
     if (user != null && _currentUser?.uid == user.uid && _userModel != null) {
@@ -210,16 +292,17 @@ class AuthService extends ChangeNotifier {
     try {
       if (user != null) {
         debugPrint('🔐 [AuthService] Loading user model for uid: ${user.uid}');
-        await _loadUserModel(user.uid);
+        await _loadUserModelOnce(user.uid);
         if (gen != _authGen) return;
         debugPrint(
             '✅ [AuthService] User model loaded: ${_userModel?.email}, role=${_userModel?.role}');
         if (_userModel != null) {
-          await _ensureClaims(user);
+          unawaited(_ensureClaims(user));
         }
         if (gen != _authGen) return;
         if (_userModel?.isAdmin == true) {
           await _restoreViewAsFromPrefs();
+          await _restoreVirtualCompanyFromPrefs();
         }
         saveLoginStatusToWeb(true);
       } else {
@@ -230,10 +313,11 @@ class AuthService extends ChangeNotifier {
       }
     } finally {
       if (gen != _authGen) return;
-      _isLoading = false;
-      debugPrint(
-          '✅ [AuthService] _onAuthStateChanged COMPLETE, notifying listeners');
-      notifyListeners();
+      if (user != null || _initialAuthResolved) {
+        _completeAuthInit();
+        debugPrint(
+            '✅ [AuthService] _onAuthStateChanged COMPLETE, notifying listeners');
+      }
     }
   }
 
@@ -257,7 +341,22 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadUserModelOnce(String uid) {
+    if (_profileLoadFuture != null && _profileLoadUid == uid) {
+      return _profileLoadFuture!;
+    }
+    _profileLoadUid = uid;
+    _profileLoadFuture = _loadUserModel(uid).whenComplete(() {
+      if (_profileLoadUid == uid) {
+        _profileLoadUid = null;
+        _profileLoadFuture = null;
+      }
+    });
+    return _profileLoadFuture!;
+  }
+
   Future<void> _loadUserModel(String uid) async {
+    _profileMissing = false;
     try {
       debugPrint('🔐 [AuthService] _loadUserModel START: uid=$uid');
       final doc = await _firestore
@@ -297,6 +396,7 @@ class AuthService extends ChangeNotifier {
             '✅ [AuthService] UserModel created: ${_userModel?.email}, role=${_userModel?.role}, companyId=${_userModel?.companyId}');
       } else {
         // Профиль не найден в Firestore
+        _profileMissing = true;
         debugPrint(
             '❌ [AuthService] User profile not found in Firestore for uid: $uid');
         _userModel = null;
@@ -309,28 +409,61 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<String?> signIn(String email, String password) async {
+    if (_signInBusy) return 'unknown_error';
+    _signInBusy = true;
+    _isLoading = true;
+    notifyListeners();
     try {
       debugPrint('🔐 [AuthService] signIn START: email=$email');
 
       await _auth.signInWithEmailAndPassword(email: email, password: password);
 
-      final uid = _auth.currentUser?.uid;
-      if (uid != null) {
-        await _loadUserModel(uid);
-        if (_userModel == null) {
-          await _auth.signOut();
-          return 'profile-not-found';
+      final user = _auth.currentUser;
+      if (user == null) return 'unknown_error';
+
+      _currentUser = user;
+      _initialAuthResolved = true;
+      notifyListeners();
+
+      await _ensureClaims(user);
+      await _loadUserModelOnce(user.uid);
+
+      if (_userModel == null) {
+        if (_profileMissing) {
+          saveLoginStatusToWeb(true);
+          return null;
         }
+        return 'network-request-failed';
       }
 
+      final cid = _userModel!.companyId;
+      if ((cid == null || cid.isEmpty) &&
+          (_userModel!.role == 'owner' || _userModel!.role == 'pending')) {
+        saveLoginStatusToWeb(true);
+        return null;
+      }
+
+      if (_userModel?.isAdmin == true) {
+        await _restoreViewAsFromPrefs();
+        await _restoreVirtualCompanyFromPrefs();
+      }
+      saveLoginStatusToWeb(true);
       debugPrint('✅ [AuthService] Firebase signIn SUCCESS');
       unawaited(_logAccessEvent(AccessEventType.login));
-
       return null;
     } catch (e) {
+      _currentUser = null;
+      _userModel = null;
+      try {
+        await _auth.signOut();
+      } catch (_) {}
       final code = _authErrorCode(e);
       debugPrint('❌ [AuthService] signIn: $code — $e');
       return code;
+    } finally {
+      _signInBusy = false;
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -347,10 +480,137 @@ class AuthService extends ChangeNotifier {
     );
   }
 
+  Future<String?> completeOwnerRegistration({
+    required String name,
+    required String companyId,
+    required String nameHebrew,
+    String nameEnglish = '',
+    required String taxId,
+    String phone = '',
+    String? email,
+  }) async {
+    final user = _currentUser ?? _auth.currentUser;
+    if (user == null) return 'unknown_error';
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'registerOwnerCompany',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+      );
+      await callable.call<Map<String, dynamic>>({
+        'companyId': companyId.trim().toLowerCase(),
+        'nameHebrew': nameHebrew.trim(),
+        'nameEnglish': nameEnglish.trim(),
+        'taxId': taxId.trim(),
+        'phone': phone.trim(),
+        'name': name.trim(),
+        'email': (email ?? user.email ?? '').trim().toLowerCase(),
+      });
+
+      _profileMissing = false;
+      await _ensureClaims(user);
+      await user.getIdToken(true);
+      await _loadUserModelOnce(user.uid);
+
+      if (_userModel == null) return 'profile-not-found';
+      notifyListeners();
+      return null;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('❌ [AuthService] completeOwnerRegistration: ${e.code} — ${e.message}');
+      return e.message?.trim().isNotEmpty == true ? e.message! : e.code;
+    } catch (e) {
+      debugPrint('❌ [AuthService] completeOwnerRegistration: $e');
+      return _authErrorCode(e);
+    }
+  }
+
+  Future<String?> registerOwnerWithCompany({
+    required String email,
+    required String password,
+    required String name,
+    required String companyId,
+    required String nameHebrew,
+    String nameEnglish = '',
+    required String taxId,
+    String phone = '',
+  }) async {
+    if (_signInBusy) return 'unknown_error';
+    _signInBusy = true;
+    _isLoading = true;
+    notifyListeners();
+
+    User? created;
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim().toLowerCase(),
+        password: password,
+      );
+      created = cred.user;
+      if (created == null) return 'unknown_error';
+
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'registerOwnerCompany',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+      );
+      await callable.call<Map<String, dynamic>>({
+        'companyId': companyId.trim().toLowerCase(),
+        'nameHebrew': nameHebrew.trim(),
+        'nameEnglish': nameEnglish.trim(),
+        'taxId': taxId.trim(),
+        'phone': phone.trim(),
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+      });
+
+      _currentUser = created;
+      _initialAuthResolved = true;
+      await _ensureClaims(created);
+      await created.getIdToken(true);
+      await _loadUserModelOnce(created.uid);
+
+      if (_userModel == null) return 'profile-not-found';
+
+      saveLoginStatusToWeb(true);
+      unawaited(_logAccessEvent(AccessEventType.login));
+      return null;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('❌ [AuthService] registerOwnerCompany: ${e.code} — ${e.message}');
+      try {
+        await created?.delete();
+      } catch (_) {}
+      try {
+        await _auth.signOut();
+      } catch (_) {}
+      _currentUser = null;
+      _userModel = null;
+      return e.message?.trim().isNotEmpty == true ? e.message! : e.code;
+    } on FirebaseAuthException catch (e) {
+      return e.code;
+    } catch (e) {
+      debugPrint('❌ [AuthService] registerOwnerWithCompany: $e');
+      try {
+        await created?.delete();
+      } catch (_) {}
+      try {
+        await _auth.signOut();
+      } catch (_) {}
+      _currentUser = null;
+      _userModel = null;
+      return _authErrorCode(e);
+    } finally {
+      _signInBusy = false;
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async {
     _viewAsRole = null;
     _viewAsDriverId = null;
     _virtualCompanyId = null;
+    _currentUser = null;
+    _userModel = null;
+    saveLoginStatusToWeb(false);
     notifyListeners();
 
     unawaited(_clearViewAsPrefs());
@@ -371,6 +631,7 @@ class AuthService extends ChangeNotifier {
   // 🛡️ Persistent keys for viewAsRole
   static const _kViewAsRole = 'auth_view_as_role';
   static const _kViewAsDriverId = 'auth_view_as_driver_id';
+  static const _kVirtualCompanyId = 'auth_virtual_company_id';
 
   void setViewAsRole(String? role, {String? driverId}) {
     if (_userModel?.isAdmin == true) {
@@ -445,7 +706,7 @@ class AuthService extends ChangeNotifier {
 
       // ✅ Secondary app — чтобы НЕ разлогинивать текущего админа/суперадмина
       secondaryApp = await Firebase.initializeApp(
-        name: 'secondary_ ${DateTime.now().millisecondsSinceEpoch}',
+        name: 'secondary_${DateTime.now().millisecondsSinceEpoch}',
         options: Firebase.app().options,
       );
 
@@ -458,9 +719,10 @@ class AuthService extends ChangeNotifier {
       );
 
       final newUid = userCredential.user!.uid;
+      final createdBy = _userModel?.uid ?? 'system';
 
-      // ✅ Пишем профиль в Firestore уже от ТЕКУЩЕГО залогиненного админа
-      await _firestore.collection('users').doc(newUid).set({
+      final batch = _firestore.batch();
+      batch.set(_firestore.collection('users').doc(newUid), {
         'email': email,
         'name': name,
         'role': role,
@@ -470,6 +732,18 @@ class AuthService extends ChangeNotifier {
         if (vehicleNumber != null) 'vehicleNumber': vehicleNumber,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      if (companyId.isNotEmpty) {
+        batch.set(
+          FirestorePaths(firestore: _firestore).members(companyId).doc(newUid),
+          {
+            'role': role,
+            'status': 'active',
+            'createdAt': FieldValue.serverTimestamp(),
+            'createdBy': createdBy,
+          },
+        );
+      }
+      await batch.commit();
 
       // ✅ Выйти из secondary (не обязательно, но аккуратно)
       await secondaryAuth.signOut();
@@ -481,10 +755,65 @@ class AuthService extends ChangeNotifier {
       debugPrint('Unexpected createUser error: $e');
       return 'unknown_error';
     } finally {
-      // ✅ Удаляем secondary app, чтобы не копились инстансы (особенно на Web)
       try {
         await secondaryApp?.delete();
       } catch (_) {}
+    }
+  }
+
+  /// Привязать существующего пользователя к компании (email уже в Auth).
+  Future<String?> linkUserToCompany({
+    required String email,
+    required String companyId,
+    required String role,
+    required String name,
+    String? phone,
+  }) async {
+    try {
+      final normalized = email.trim().toLowerCase();
+      final snap = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: normalized)
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return 'user-not-found';
+
+      final doc = snap.docs.first;
+      final data = doc.data();
+      final existingCompany = data['companyId'] as String?;
+      final existingRole = data['role'] as String?;
+      if (existingCompany != null &&
+          existingCompany.isNotEmpty &&
+          existingCompany != companyId &&
+          existingRole != null &&
+          existingRole != 'pending') {
+        return 'user-in-other-company';
+      }
+
+      final createdBy = _userModel?.uid ?? 'system';
+      final batch = _firestore.batch();
+      batch.set(doc.reference, {
+        'email': normalized,
+        'name': name.trim(),
+        'role': role,
+        'companyId': companyId,
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      batch.set(
+        FirestorePaths(firestore: _firestore).members(companyId).doc(doc.id),
+        {
+          'role': role,
+          'status': 'active',
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': createdBy,
+        },
+      );
+      await batch.commit();
+      return null;
+    } catch (e) {
+      debugPrint('❌ [AuthService] linkUserToCompany: $e');
+      return 'unknown_error';
     }
   }
 

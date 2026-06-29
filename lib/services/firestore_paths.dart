@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../core/company_context.dart';
 
 /// FIRESTORE SCHEMA
 /// This file is the single source of truth for all Firestore paths.
@@ -15,11 +14,6 @@ class FirestorePaths {
 
   FirestorePaths({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
-
-  /// Создать FirestorePaths из CompanyContext.
-  static FirestorePaths fromContext(CompanyContext ctx) {
-    return FirestorePaths(firestore: ctx.firestore);
-  }
 
   // ============================================================================
   // ROOT LEVEL COLLECTIONS (глобальные, не зависят от компании)
@@ -53,6 +47,23 @@ class FirestorePaths {
   /// Коллекция мостов (глобальная)
   CollectionReference<Map<String, dynamic>> bridges() {
     return _firestore.collection('bridges');
+  }
+
+  /// Platform Error Center — platform/system/errors
+  CollectionReference<Map<String, dynamic>> platformSystemErrors() {
+    return _firestore
+        .collection('platform')
+        .doc('system')
+        .collection('errors');
+  }
+
+  /// Stack trace / private metadata (super_admin only)
+  DocumentReference<Map<String, dynamic>> platformErrorPrivate(String errorId) {
+    return _firestore
+        .collection('platform')
+        .doc('system')
+        .collection('error_private')
+        .doc(errorId);
   }
 
   // ============================================================================
@@ -256,29 +267,28 @@ class FirestorePaths {
   // DISPATCHER MODULE — companies/{companyId}/dispatcher/*
   // ============================================================================
 
-  /// Коллекция локаций водителей компании
+  /// Live GPS: companies/{companyId}/driver_locations/{driverId}
+  /// (единственный runtime path для health/onboarding/dispatcher map)
   CollectionReference<Map<String, dynamic>> driverLocations(String companyId) {
     return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('logistics')
-        .doc('_root')
-        .collection('drivers');
+        .collection('driver_locations');
   }
 
-  /// Typed ref: driver_locations
+  /// Alias — тот же path, что [driverLocations].
   CollectionReference<Map<String, dynamic>> driverLocationsRef(
       String companyId) {
     return driverLocations(companyId);
   }
 
-  /// Документ локации конкретного водителя
+  /// Документ GPS конкретного водителя
   DocumentReference<Map<String, dynamic>> driverLocation(
       String companyId, String driverId) {
     return driverLocations(companyId).doc(driverId);
   }
 
-  /// История GPS водителя
+  /// История GPS: driver_locations/{driverId}/history
   CollectionReference<Map<String, dynamic>> driverLocationHistory(
       String companyId, String driverId) {
     return driverLocation(companyId, driverId).collection('history');
@@ -318,24 +328,47 @@ class FirestorePaths {
         .collection('archive_routes');
   }
 
-  /// Static: коллекция driver_locations компании
-  static CollectionReference<Map<String, dynamic>> driverLocationsOf(
-      String companyId) {
-    return FirebaseFirestore.instance
+  /// Device session lock: companies/{companyId}/driver_sessions/{driverId}
+  CollectionReference<Map<String, dynamic>> driverSessions(String companyId) {
+    return _firestore
         .collection('companies')
         .doc(companyId)
-        .collection('driver_locations');
+        .collection('driver_sessions');
+  }
+
+  /// Saved import column mappings: companies/{companyId}/import_mappings/{id}
+  CollectionReference<Map<String, dynamic>> importMappings(String companyId) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('import_mappings');
+  }
+
+  /// Static: коллекция driver_locations компании (GPS runtime path)
+  static CollectionReference<Map<String, dynamic>> driverLocationsOf(
+      String companyId) {
+    return FirestorePaths(firestore: FirebaseFirestore.instance)
+        .driverLocations(companyId);
+  }
+
+  /// Static: driver_sessions (device lock)
+  static CollectionReference<Map<String, dynamic>> driverSessionsOf(
+      String companyId) {
+    return FirestorePaths(firestore: FirebaseFirestore.instance)
+        .driverSessions(companyId);
+  }
+
+  /// Static: import_mappings
+  static CollectionReference<Map<String, dynamic>> importMappingsOf(
+      String companyId) {
+    return FirestorePaths(firestore: FirebaseFirestore.instance)
+        .importMappings(companyId);
   }
 
   /// Static: история GPS водителя
   static CollectionReference<Map<String, dynamic>> driverHistoryOf(
       String companyId, String driverId) {
-    return FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
-        .collection('driver_locations')
-        .doc(driverId)
-        .collection('history');
+    return driverLocationsOf(companyId).doc(driverId).collection('history');
   }
 
   /// Static: документ конфигурации компании
@@ -419,7 +452,8 @@ class FirestorePaths {
         .collection('settings');
   }
 
-  /// Коллекция дневных сводок компании
+  /// @Deprecated Legacy — не используется runtime (C5). KPI → metrics/daily/days.
+  @Deprecated('Use MetricsService / recalculateDailyMetrics instead')
   CollectionReference<Map<String, dynamic>> dailySummaries(String companyId) {
     return _firestore
         .collection('companies')
@@ -502,6 +536,33 @@ class FirestorePaths {
         .collection('companies')
         .doc(companyId)
         .collection('audit');
+  }
+
+  /// Data Integrity Checker — прогоны проверок (read-only, CF пишет).
+  CollectionReference<Map<String, dynamic>> integrityChecks(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('integrity_checks');
+  }
+
+  /// Data Integrity Checker — найденные проблемы (CF пишет, owner+ меняет статус).
+  CollectionReference<Map<String, dynamic>> integrityIssues(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('integrity_issues');
+  }
+
+  /// Pilot product usage events (append-only, no PII).
+  CollectionReference<Map<String, dynamic>> usageEvents(String companyId) {
+    validateCompanyId(companyId);
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('usage_events');
   }
 
   /// Support: коллекция платёжных событий компании

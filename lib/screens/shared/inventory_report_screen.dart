@@ -195,8 +195,27 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
         return l10n.inventoryActionDeduct;
       case 'update':
         return l10n.inventoryActionUpdate;
+      case 'barcode_in':
+        return l10n.inventoryActionBarcodeIn;
+      case 'barcode_out':
+        return l10n.inventoryActionBarcodeOut;
       default:
         return action;
+    }
+  }
+
+  ({IconData icon, Color color}) _actionVisual(InventoryChange change) {
+    switch (change.action) {
+      case 'barcode_in':
+        return (icon: Icons.qr_code_scanner, color: Colors.green.shade700);
+      case 'barcode_out':
+        return (icon: Icons.qr_code_2, color: Colors.red.shade700);
+      default:
+        final isAddition = change.quantityChange > 0;
+        return (
+          icon: isAddition ? Icons.add_circle : Icons.remove_circle,
+          color: isAddition ? Colors.green : Colors.red,
+        );
     }
   }
 
@@ -473,11 +492,9 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                           // Изменения за день
                           ...dayChanges.map((change) {
                             final isAddition = change.quantityChange > 0;
-                            final color =
-                                isAddition ? Colors.green : Colors.red;
-                            final icon = isAddition
-                                ? Icons.add_circle
-                                : Icons.remove_circle;
+                            final visual = _actionVisual(change);
+                            final color = visual.color;
+                            final icon = visual.icon;
 
                             final isHighlighted = _searchQuery.isNotEmpty &&
                                 (change.productCode.toLowerCase().contains(
@@ -536,6 +553,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                                           fontSize: 12,
                                           fontStyle: FontStyle.italic,
                                         ),
+                                      ),
+                                    if (change.barcode != null &&
+                                        change.barcode!.isNotEmpty)
+                                      Text(
+                                        l10n.barcodeWithValue(change.barcode!),
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                   ],
                                 ),

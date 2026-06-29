@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../utils/validation_helper.dart';
 import '../../utils/auth_error_messages.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/locale_service.dart';
+import '../../services/locale_service_stub.dart'
+    if (dart.library.html) '../../services/locale_service_web.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
+import 'owner_signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    final saved = loadLoginEmailFromWeb();
+    if (saved != null && saved.isNotEmpty) {
+      _emailController.text = saved;
+    }
   }
 
   @override
@@ -69,6 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Text(AuthErrorMessages.message(l10n, error)),
           ),
         );
+      } else {
+        saveLoginEmailToWeb(email);
+        TextInput.finishAutofillContext(shouldSave: true);
       }
     } on TimeoutException {
       debugPrint('❌ LOGIN: TIMEOUT (signIn took > 20s)');
@@ -177,24 +188,49 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 28),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(labelText: l10n.email),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              AutofillGroup(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(labelText: l10n.email),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      textInputAction: TextInputAction.next,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(labelText: l10n.password),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: _isLoading ? null : (_) => _signIn(),
+                    ),
+                  ],
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(labelText: l10n.password),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-                obscureText: true,
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OwnerSignupScreen(),
+                          ),
+                        ),
+                child: Text(l10n.noAccount),
               ),
               const SizedBox(height: 8),
               Align(

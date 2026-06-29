@@ -16,6 +16,7 @@ exports.syncUserClaims = functions.firestore
     const after = change.after.exists ? change.after.data() : null;
     const role = after && after.role ? String(after.role) : null;
     const companyId = after && after.companyId ? String(after.companyId) : null;
+    const isDemo = after && after.isDemo === true;
 
     let existing = {};
     try {
@@ -27,12 +28,16 @@ exports.syncUserClaims = functions.firestore
       return null;
     }
 
-    if (existing.role === role && existing.companyId === companyId) {
+    if (
+      existing.role === role
+      && existing.companyId === companyId
+      && (existing.isDemo === true) === isDemo
+    ) {
       return null; // без изменений
     }
 
     try {
-      await admin.auth().setCustomUserClaims(uid, { role, companyId });
+      await admin.auth().setCustomUserClaims(uid, { role, companyId, isDemo });
       console.log(`✅ claims set uid=${uid} role=${role} companyId=${companyId}`);
     } catch (e) {
       console.error(`❌ setCustomUserClaims(${uid}) failed: ${e.message}`);
@@ -58,11 +63,12 @@ exports.ensureMyClaims = functions.https.onCall(async (data, context) => {
   const d = snap.data();
   const role = d.role ? String(d.role) : null;
   const companyId = d.companyId ? String(d.companyId) : null;
+  const isDemo = d.isDemo === true;
 
   const tok = context.auth.token || {};
-  if (tok.role === role && tok.companyId === companyId) {
+  if (tok.role === role && tok.companyId === companyId && (tok.isDemo === true) === isDemo) {
     return { ok: true, changed: false };
   }
-  await admin.auth().setCustomUserClaims(uid, { role, companyId });
+  await admin.auth().setCustomUserClaims(uid, { role, companyId, isDemo });
   return { ok: true, changed: true };
 });

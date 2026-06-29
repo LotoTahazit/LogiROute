@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { applyPlanToCompany, normalizePlan } = require("./lib/companyModules");
 
 const db = admin.firestore();
 
@@ -24,9 +25,6 @@ async function initAccountingCounters(companyId) {
 /**
  * Trigger: при создании нового документа компании.
  * Создаёт welcome-уведомление (server-side, обходит правила безопасности).
- *
- * Это нужно потому что клиентский код НЕ может создавать notifications
- * (create: false в firestore.rules — защита от спама/подделки billing-сообщений).
  */
 exports.onCompanyCreated = functions.firestore
   .document("companies/{companyId}")
@@ -35,6 +33,14 @@ exports.onCompanyCreated = functions.firestore
     const data = snap.data();
 
     console.log(`🏢 Новая компания создана: ${companyId}`);
+
+    try {
+      const plan = normalizePlan(data.plan);
+      await applyPlanToCompany(db, companyId, plan);
+      console.log(`✅ Plan/modules/limits synced for ${companyId} (plan=${plan})`);
+    } catch (err) {
+      console.error(`❌ applyPlan failed for ${companyId}: ${err.message}`);
+    }
 
     try {
       await initAccountingCounters(companyId);
