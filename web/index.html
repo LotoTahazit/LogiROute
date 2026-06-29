@@ -5,8 +5,6 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
   <title>LogiRoute</title>
 
   <link rel="manifest" href="manifest.json">
@@ -41,6 +39,7 @@
 <body>
   <div id="flutter_loader">
     <img src="icons/Icon-192.png" alt="LogiRoute" width="96" height="96">
+    <p id="lr_status" style="color:#888;margin-top:16px;font-size:14px;"></p>
   </div>
 
   <script>
@@ -49,21 +48,27 @@
         he: {
           loadTooLong: 'הטעינה אורכת יותר מדי',
           loadError: 'שגיאת טעינה',
-          resetDesc: 'מנקה מטמון, נתוני התחברות ומאפס את האתר — כמו «מחיקת נתונים» בדפדפן.',
+          loading: 'טוען…',
+          loadingApp: 'טוען אפליקציה…',
+          resetDesc: 'מנקה רק מטמון האפליקציה. ההתחברות, החברה שנבחרה והסיסמה השמורה בדפדפן נשארים.',
           resetBtn: 'איפוס וטעינה מחדש',
           resetConfirm: 'לאפס נתוני אתר ולטעון מחדש? תידרש/י התחברות מחדש.'
         },
         en: {
           loadTooLong: 'Loading is taking too long',
           loadError: 'Loading error',
-          resetDesc: 'Clears cache, sign-in data and site storage — like “clear site data” in the browser.',
+          loading: 'Loading…',
+          loadingApp: 'Loading app…',
+          resetDesc: 'Clears app cache only. Sign-in, selected company and browser saved password stay.',
           resetBtn: 'Reset and reload',
           resetConfirm: 'Reset site data and reload? You will need to sign in again.'
         },
         ru: {
           loadTooLong: 'Загрузка слишком долгая',
           loadError: 'Ошибка загрузки',
-          resetDesc: 'Очищает кэш, данные входа и хранилище сайта — как «урна» в настройках браузера.',
+          loading: 'Загрузка…',
+          loadingApp: 'Загрузка приложения…',
+          resetDesc: 'Очищает только кэш приложения. Вход, выбранная компания и пароль в браузере сохраняются.',
           resetBtn: 'Сбросить и загрузить',
           resetConfirm: 'Сбросить данные сайта и перезагрузить? Потребуется войти снова.'
         }
@@ -80,18 +85,24 @@
         return 'he';
       }
 
+      function setStatus(msg) {
+        var el = document.getElementById('lr_status');
+        if (el) el.textContent = msg;
+      }
+      window.__lrSetStatus = setStatus;
+
       var lang = detectLang();
       window.__lrBootT = STR[lang] || STR.he;
       document.documentElement.lang = lang;
       document.body.style.direction = lang === 'he' ? 'rtl' : 'ltr';
+      setStatus((STR[lang] || STR.he).loading);
     })();
 
     (async function bootLogiRoute() {
       var loader = document.getElementById('flutter_loader');
       var t = window.__lrBootT;
 
-      async function wipeAllSiteData() {
-        sessionStorage.clear();
+      async function wipeCachesOnly() {
         if ('serviceWorker' in navigator) {
           var regs = await navigator.serviceWorker.getRegistrations();
           await Promise.all(regs.map(function (r) { return r.unregister(); }));
@@ -100,49 +111,27 @@
           var keys = await caches.keys();
           await Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }
-        if (indexedDB.databases) {
-          try {
-            var dbs = await indexedDB.databases();
-            await Promise.all(dbs.map(function (db) {
-              if (!db.name) return Promise.resolve();
-              return new Promise(function (resolve) {
-                var req = indexedDB.deleteDatabase(db.name);
-                req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
-              });
-            }));
-          } catch (e) { console.warn(e); }
-        }
-        localStorage.clear();
+      }
+
+      async function wipeAllSiteData() {
+        sessionStorage.clear();
+        await wipeCachesOnly();
       }
 
       async function migrateStorageForNewBuild() {
         try {
           var res = await fetch('lr_epoch.txt?_=' + Date.now(), { cache: 'no-store' });
-          if (!res.ok) return false;
+          if (!res.ok) return null;
           var epoch = (await res.text()).trim();
-          if (!epoch) return false;
-          if (localStorage.getItem('lr_epoch') === epoch) return false;
-          await wipeAllSiteData();
+          if (!epoch) return null;
+          if (localStorage.getItem('lr_epoch') === epoch) return epoch;
+          await wipeCachesOnly();
           localStorage.setItem('lr_epoch', epoch);
-          location.reload();
-          return true;
+          return epoch;
         } catch (e) {
           console.warn('[LogiRoute] epoch', e);
-          return false;
+          return null;
         }
-      }
-
-      async function purgeLegacyWorkers() {
-        if (!('serviceWorker' in navigator)) return false;
-        var had = !!navigator.serviceWorker.controller;
-        var regs = await navigator.serviceWorker.getRegistrations();
-        had = had || regs.length > 0;
-        await Promise.all(regs.map(function (r) { return r.unregister(); }));
-        if ('caches' in window) {
-          var keys = await caches.keys();
-          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-        }
-        return had;
       }
 
       function showResetUi(title) {
@@ -163,30 +152,42 @@
       }
 
       try {
-        if (await migrateStorageForNewBuild()) return;
-
-        var reloads = parseInt(sessionStorage.getItem('lr_sw_reload') || '0', 10);
-        if (await purgeLegacyWorkers() && reloads < 2) {
-          sessionStorage.setItem('lr_sw_reload', String(reloads + 1));
-          location.reload();
-          return;
+        var epoch = await migrateStorageForNewBuild();
+        if (!epoch) {
+          try { epoch = localStorage.getItem('lr_epoch') || ''; } catch (_) {}
         }
-        sessionStorage.removeItem('lr_sw_reload');
+
+        if (!sessionStorage.getItem('lr_sw_purged')) {
+          if ('serviceWorker' in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            if (regs.length || navigator.serviceWorker.controller) {
+              await wipeCachesOnly();
+            }
+          }
+          sessionStorage.setItem('lr_sw_purged', '1');
+        }
 
         window.addEventListener('flutter-first-frame', function () {
           if (loader) loader.remove();
         });
 
-        var bust = Date.now();
-        var res = await fetch('flutter_bootstrap.js?_=' + bust, { cache: 'no-store' });
-        if (!res.ok) throw new Error('bootstrap HTTP ' + res.status);
+        window.__lrSetStatus(t.loadingApp);
+        var bust = epoch || '0';
         var tag = document.createElement('script');
-        tag.text = await res.text();
+        tag.src = 'flutter_bootstrap.js?v=' + bust;
+        tag.onerror = function () {
+          console.error('[LogiRoute boot] bootstrap script failed');
+          showResetUi(t.loadError);
+        };
         document.head.appendChild(tag);
 
         setTimeout(function () {
           if (document.getElementById('flutter_loader')) showResetUi(t.loadTooLong);
-        }, 45000);
+        }, 25000);
+        setTimeout(function () {
+          var el = document.getElementById('flutter_loader');
+          if (el) el.remove();
+        }, 30000);
       } catch (err) {
         console.error('[LogiRoute boot]', err);
         showResetUi(t.loadError);
