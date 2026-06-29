@@ -2,7 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logiroute/models/template_product.dart';
+import 'package:logiroute/services/firestore_paths.dart';
 import 'package:logiroute/services/template_service.dart';
+
+CollectionReference<Map<String, dynamic>> _productTypesRef(
+  FakeFirebaseFirestore firestore,
+  String companyId,
+) =>
+    FirestorePaths(firestore: firestore).productTypes(companyId);
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -134,7 +141,8 @@ void main() {
       service = TemplateService(firestore: fakeFirestore);
     });
 
-    test('imports templates into /companies/{companyId}/product_types/',
+    test(
+        'imports templates into companies/{id}/warehouse/_root/product_types/',
         () async {
       const companyId = 'company-abc';
       const createdBy = 'user-123';
@@ -174,12 +182,17 @@ void main() {
       expect(result.errorCount, equals(0));
       expect(result.errorProductNames, isEmpty);
 
-      // Verify documents written to Firestore
-      final productTypesSnapshot = await fakeFirestore
-          .collection('companies/$companyId/product_types')
-          .get();
+      // Verify documents written to the canonical Firestore path
+      final productTypesSnapshot =
+          await _productTypesRef(fakeFirestore, companyId).get();
 
       expect(productTypesSnapshot.docs.length, equals(2));
+
+      // Legacy flat path must remain empty (production uses warehouse/_root)
+      final legacySnapshot = await fakeFirestore
+          .collection('companies/$companyId/product_types')
+          .get();
+      expect(legacySnapshot.docs, isEmpty);
 
       final writtenProducts =
           productTypesSnapshot.docs.map((d) => d.data()).toList();
@@ -209,9 +222,8 @@ void main() {
       const companyId = 'company-abc';
       const createdBy = 'user-123';
 
-      // Pre-populate existing product with same productCode
-      await fakeFirestore
-          .collection('companies/$companyId/product_types')
+      // Pre-populate existing product with same productCode (canonical path)
+      await _productTypesRef(fakeFirestore, companyId)
           .doc('existing-1')
           .set({
         'companyId': companyId,
@@ -257,10 +269,9 @@ void main() {
       expect(result.skippedCount, equals(1));
       expect(result.errorCount, equals(0));
 
-      // Verify only 2 docs total (1 existing + 1 new)
-      final snapshot = await fakeFirestore
-          .collection('companies/$companyId/product_types')
-          .get();
+      // Verify only 2 docs total (1 existing + 1 new) at canonical path
+      final snapshot =
+          await _productTypesRef(fakeFirestore, companyId).get();
       expect(snapshot.docs.length, equals(2));
     });
   });
@@ -338,10 +349,9 @@ void main() {
       expect(secondResult.skippedCount, equals(3));
       expect(secondResult.errorCount, equals(0));
 
-      // Verify total documents in Firestore — still only 3
-      final snapshot = await fakeFirestore
-          .collection('companies/$companyId/product_types')
-          .get();
+      // Verify total documents in Firestore — still only 3 (canonical path)
+      final snapshot =
+          await _productTypesRef(fakeFirestore, companyId).get();
       expect(snapshot.docs.length, equals(3));
     });
   });

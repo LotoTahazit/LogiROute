@@ -1,11 +1,14 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/import_result.dart';
 import '../models/template_product.dart';
+import '../models/usage_event.dart';
 import '../services/auth_service.dart';
 import '../services/company_context.dart';
 import '../services/template_service.dart';
+import '../services/usage_analytics_service.dart';
 
 /// Шаги многошагового диалога импорта шаблонов.
 enum _DialogStep { selectBusinessType, previewProducts, importing, summary }
@@ -119,18 +122,21 @@ class _TemplateImportDialogState extends State<TemplateImportDialog> {
 
       final authService = context.read<AuthService>();
       final createdBy = authService.currentUser?.uid ?? '';
+      final role = authService.userModel?.role ?? 'unknown';
 
       final selectedTemplates =
           _templates.where((t) => _selectedTemplateIds.contains(t.id)).toList();
 
-      // Analytics: template_import_started
-      FirebaseAnalytics.instance.logEvent(
-        name: 'template_import_started',
-        parameters: {
-          'businessType': _selectedBusinessType ?? '',
+      unawaited(UsageAnalyticsService.track(
+        companyId: companyId,
+        userId: createdBy,
+        role: role,
+        event: UsageEventName.importStarted,
+        metadata: {
+          'source': 'product_templates',
           'selectedCount': selectedTemplates.length,
         },
-      );
+      ));
 
       final result = await TemplateService().importSelectedTemplates(
         companyId: companyId,
@@ -138,16 +144,18 @@ class _TemplateImportDialogState extends State<TemplateImportDialog> {
         selectedTemplates: selectedTemplates,
       );
 
-      // Analytics: template_import_completed
-      FirebaseAnalytics.instance.logEvent(
-        name: 'template_import_completed',
-        parameters: {
-          'businessType': _selectedBusinessType ?? '',
+      unawaited(UsageAnalyticsService.track(
+        companyId: companyId,
+        userId: createdBy,
+        role: role,
+        event: UsageEventName.importCompleted,
+        metadata: {
+          'source': 'product_templates',
           'addedCount': result.addedCount,
           'skippedCount': result.skippedCount,
           'errorCount': result.errorCount,
         },
-      );
+      ));
 
       if (mounted) {
         setState(() {

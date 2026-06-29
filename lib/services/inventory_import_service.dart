@@ -146,7 +146,8 @@ class InventoryImportService {
     final l10n = AppLocalizations.of(context)!;
 
     // 1. Pick and parse file
-    final fileData = await ImportFileParser.pickAndParse();
+    final pick = await ImportFileParser.pickAndParse();
+    final fileData = pick.data;
     if (fileData == null) {
       return (rows: null, duplicateMode: DuplicateMode.skip);
     }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'import_file_parser.dart';
 import '../widgets/column_mapping_dialog.dart';
 import '../l10n/app_localizations.dart';
+import 'import/import_field_registry.dart';
+import '../models/import_wizard_type.dart';
 
 /// Result of client import
 class ClientImportResult {
@@ -152,17 +154,29 @@ class ClientImportService {
       ];
 
   /// Pick file → show column mapping → parse rows
-  static Future<({List<ParsedClientRow>? rows, DuplicateMode duplicateMode})>
-      pickAndParse(BuildContext context) async {
+  static Future<
+      ({
+        List<ParsedClientRow>? rows,
+        DuplicateMode duplicateMode,
+        String? error,
+      })> pickAndParse(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
 
-    final fileData = await ImportFileParser.pickAndParse();
-    if (fileData == null) {
-      return (rows: null, duplicateMode: DuplicateMode.skip);
+    final pick = await ImportFileParser.pickAndParse();
+    if (pick.error == 'cancelled') {
+      return (rows: null, duplicateMode: DuplicateMode.skip, error: null);
     }
+    if (pick.error != null || pick.data == null) {
+      return (
+        rows: null,
+        duplicateMode: DuplicateMode.skip,
+        error: pick.error ?? 'parse_failed',
+      );
+    }
+    final fileData = pick.data!;
 
     if (!context.mounted) {
-      return (rows: null, duplicateMode: DuplicateMode.skip);
+      return (rows: null, duplicateMode: DuplicateMode.skip, error: null);
     }
     final mapping = await showDialog<ColumnMapping>(
       context: context,
@@ -170,18 +184,28 @@ class ClientImportService {
       builder: (_) => ColumnMappingDialog(
         title: l10n.mapColumnsClients,
         sourceHeaders: fileData.headers,
-        targetFields: getTargetFields(l10n),
+        targetFields: ImportFieldRegistry.fieldsFor(
+          ImportWizardType.clients,
+          l10n,
+        ),
         sampleRows: fileData.rows.take(3).toList(),
+        showConfidence: true,
       ),
     );
-    if (mapping == null) return (rows: null, duplicateMode: DuplicateMode.skip);
+    if (mapping == null) {
+      return (rows: null, duplicateMode: DuplicateMode.skip, error: null);
+    }
 
-    final parsed = _parseWithMapping(fileData.rows, mapping.mapping);
-    return (rows: parsed, duplicateMode: mapping.duplicateMode);
+    final parsed = parseWithMapping(fileData.rows, mapping.mapping);
+    return (
+      rows: parsed,
+      duplicateMode: mapping.duplicateMode,
+      error: null,
+    );
   }
 
   /// Parse rows using column mapping
-  static List<ParsedClientRow> _parseWithMapping(
+  static List<ParsedClientRow> parseWithMapping(
       List<List<String>> rows, Map<String, int> mapping) {
     final parsed = <ParsedClientRow>[];
 
@@ -240,6 +264,9 @@ class ClientImportService {
   /// Create Excel template for client import
   static List<int> createTemplate() {
     final excel = Excel.createExcel();
+    if (excel.sheets.containsKey('Sheet1')) {
+      excel.rename('Sheet1', 'Clients');
+    }
     final sheet = excel['Clients'];
 
     sheet.appendRow([
@@ -283,6 +310,9 @@ class ClientImportService {
   /// Export existing clients to Excel
   static List<int> exportClients(List<Map<String, dynamic>> clients) {
     final excel = Excel.createExcel();
+    if (excel.sheets.containsKey('Sheet1')) {
+      excel.rename('Sheet1', 'Clients');
+    }
     final sheet = excel['Clients'];
 
     sheet.appendRow([

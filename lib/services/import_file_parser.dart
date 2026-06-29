@@ -20,38 +20,126 @@ class ParsedFileData {
   });
 }
 
+/// Результат выбора файла: [data] или код ошибки ([error]).
+class ImportPickResult {
+  final ParsedFileData? data;
+  /// cancelled | read_failed | parse_failed
+  final String? error;
+
+  const ImportPickResult({this.data, this.error});
+}
+
 /// Universal file parser: Excel, CSV (auto-detect delimiter/encoding), Priority XML
 class ImportFileParser {
   static const _allowedExtensions = ['xlsx', 'xls', 'csv', 'tsv', 'txt', 'xml'];
+  static const _preferredSheets = ['Clients', 'Client', 'Template', 'Products'];
+
+  /// Pick spreadsheet file (xlsx/csv only) for import wizard.
+  static Future<ImportPickResult> pickSpreadsheet() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls', 'csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) {
+      return const ImportPickResult(error: 'cancelled');
+    }
+
+    final file = result.files.first;
+    final ext = file.extension?.toLowerCase() ?? '';
+    var bytes = file.bytes;
+    if (bytes == null && file.readStream != null) {
+      try {
+        final chunks = await file.readStream!.toList();
+        bytes = Uint8List.fromList(chunks.expand((c) => c).toList());
+      } catch (_) {
+        return const ImportPickResult(error: 'read_failed');
+      }
+    }
+    if (bytes == null) return const ImportPickResult(error: 'read_failed');
+
+    final ParsedFileData? data;
+    if (ext == 'csv') {
+      data = _parseCsv(bytes, file.name, ext);
+    } else {
+      data = _parseExcel(bytes, file.name);
+    }
+    if (data == null) return const ImportPickResult(error: 'parse_failed');
+    return ImportPickResult(data: data);
+  }
 
   /// Pick file and parse to raw data
-  static Future<ParsedFileData?> pickAndParse() async {
+  static Future<ImportPickResult> pickAndParse() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: _allowedExtensions,
       withData: true,
     );
-    if (result == null || result.files.isEmpty) return null;
+    if (result == null || result.files.isEmpty) {
+      return const ImportPickResult(error: 'cancelled');
+    }
 
     final file = result.files.first;
     final ext = file.extension?.toLowerCase() ?? '';
-    final bytes = file.bytes;
-    if (bytes == null) return null;
-
-    if (ext == 'xml') {
-      return _parseXml(bytes, file.name);
-    } else if (ext == 'csv' || ext == 'tsv' || ext == 'txt') {
-      return _parseCsv(bytes, file.name, ext);
-    } else {
-      return _parseExcel(bytes, file.name);
+    var bytes = file.bytes;
+    if (bytes == null && file.readStream != null) {
+      try {
+        final chunks = await file.readStream!.toList();
+        bytes = Uint8List.fromList(chunks.expand((c) => c).toList());
+      } catch (_) {
+        return const ImportPickResult(error: 'read_failed');
+      }
     }
+    if (bytes == null) return const ImportPickResult(error: 'read_failed');
+
+    ParsedFileData? data;
+    if (ext == 'xml') {
+      data = _parseXml(bytes, file.name);
+    } else if (ext == 'csv' || ext == 'tsv' || ext == 'txt') {
+      data = _parseCsv(bytes, file.name, ext);
+    } else {
+      data = _parseExcel(bytes, file.name);
+    }
+    if (data == null) return const ImportPickResult(error: 'parse_failed');
+    return ImportPickResult(data: data);
   }
 
-  /// Parse Excel file
+  static Sheet? _pickSheet(Excel excel) {
+    for (final name in _preferredSheets) {
+      final sheet = excel.tables[name];
+      if (sheet != null && _sheetHasData(sheet)) return sheet;
+    }
+    Sheet? best;
+    var bestScore = 0;
+    for (final sheet in excel.tables.values) {
+      final score = _dataRowCount(sheet);
+      if (score > bestScore) {
+        bestScore = score;
+        best = sheet;
+      }
+    }
+    return bestScore > 0 ? best : null;
+  }
+
+  static bool _sheetHasData(Sheet sheet) => _dataRowCount(sheet) > 0;
+
+  static int _dataRowCount(Sheet sheet) {
+    if (sheet.rows.length < 2) return 0;
+    var count = 0;
+    for (int i = 1; i < sheet.rows.length; i++) {
+      if (sheet.rows[i]
+          .any((c) => (c?.value?.toString().trim() ?? '').isNotEmpty)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /// Parse Excel file — лист с данными (не пустой Sheet1).
   static ParsedFileData? _parseExcel(Uint8List bytes, String fileName) {
     final excel = Excel.decodeBytes(bytes);
-    final sheet = excel.tables[excel.tables.keys.first];
-    if (sheet == null || sheet.rows.length < 2) return null;
+    final sheet = _pickSheet(excel);
+    if (sheet == null || sheet.rows.isEmpty) return null;
 
     final headers =
         sheet.rows.first.map((c) => c?.value?.toString().trim() ?? '').toList();
@@ -60,15 +148,14 @@ class ImportFileParser {
     for (int i = 1; i < sheet.rows.length; i++) {
       final row =
           sheet.rows[i].map((c) => c?.value?.toString().trim() ?? '').toList();
-      // Skip completely empty rows
       if (row.any((v) => v.isNotEmpty)) {
-        // Pad to header length
         while (row.length < headers.length) {
           row.add('');
         }
         rows.add(row);
       }
     }
+    if (rows.isEmpty) return null;
 
     return ParsedFileData(
       headers: headers,
@@ -81,16 +168,13 @@ class ImportFileParser {
   /// Parse CSV/TSV with auto-detect delimiter and encoding
   static ParsedFileData? _parseCsv(
       Uint8List bytes, String fileName, String ext) {
-    // Try UTF-8 first, then Windows-1255 (Hebrew)
     String content;
     try {
       content = utf8.decode(bytes);
     } catch (_) {
-      // Fallback: Latin1 (covers Windows-1255 byte range)
       content = latin1.decode(bytes);
     }
 
-    // Auto-detect delimiter
     String delimiter;
     if (ext == 'tsv') {
       delimiter = '\t';
@@ -124,7 +208,6 @@ class ImportFileParser {
     );
   }
 
-  /// Detect CSV delimiter by counting occurrences in first few lines
   static String _detectDelimiter(String content) {
     final lines = content.split('\n').take(5).toList();
     final delimiters = [',', ';', '\t', '|'];
@@ -144,7 +227,6 @@ class ImportFileParser {
     return best;
   }
 
-  /// Parse Priority XML format (CUSTDES, PARTDES, etc.)
   static ParsedFileData? _parseXml(Uint8List bytes, String fileName) {
     String content;
     try {
@@ -155,13 +237,9 @@ class ImportFileParser {
 
     final doc = XmlDocument.parse(content);
     final root = doc.rootElement;
-
-    // Priority exports: root contains repeated elements (e.g. <CUSTDES>, <PARTDES>)
-    // Each child element's sub-elements are fields
     final recordElements = root.childElements.toList();
     if (recordElements.isEmpty) return null;
 
-    // Collect all unique field names from all records
     final fieldNames = <String>{};
     for (final record in recordElements) {
       for (final field in record.childElements) {

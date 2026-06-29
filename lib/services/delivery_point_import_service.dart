@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'dart:async' show unawaited;
 import '../models/delivery_point.dart';
+import '../models/usage_event.dart';
 import '../utils/geocoding_helper.dart';
 import '../utils/snackbar_helper.dart';
+import '../core/correlation/correlation_context.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/column_mapping_dialog.dart';
 import '../widgets/import_preview_dialog.dart';
 import '../services/company_context.dart';
-import '../services/route_service.dart';
+import 'import/import_field_registry.dart';
+import '../models/import_wizard_type.dart';
+import 'route_service.dart';
+import '../services/client_service.dart';
+import '../utils/delivery_point_address_resolver.dart';
 import 'import_file_parser.dart';
 import '../l10n/app_localizations.dart';
 
@@ -21,6 +29,9 @@ class ParsedDeliveryPointRow {
   final String urgency;
   final String? zone;
   final String? taskNote;
+  final String? deliveryAddressOverride;
+  final double? deliveryAddressOverrideLat;
+  final double? deliveryAddressOverrideLng;
   final String? openingTimeRaw;
   final List<String> errors;
 
@@ -38,6 +49,9 @@ class ParsedDeliveryPointRow {
     this.urgency = 'normal',
     this.zone,
     this.taskNote,
+    this.deliveryAddressOverride,
+    this.deliveryAddressOverrideLat,
+    this.deliveryAddressOverrideLng,
     this.openingTimeRaw,
     this.errors = const [],
   });
@@ -142,7 +156,8 @@ class DeliveryPointImportService {
   static Future<List<ParsedDeliveryPointRow>?> pickAndParse(
       BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final fileData = await ImportFileParser.pickAndParse();
+    final pick = await ImportFileParser.pickAndParse();
+    final fileData = pick.data;
     if (fileData == null || !context.mounted) return null;
 
     final mapping = await showDialog<ColumnMapping>(
@@ -151,16 +166,20 @@ class DeliveryPointImportService {
       builder: (_) => ColumnMappingDialog(
         title: l10n.mapColumnsDeliveryPoints,
         sourceHeaders: fileData.headers,
-        targetFields: getTargetFields(l10n),
+        targetFields: ImportFieldRegistry.fieldsFor(
+          ImportWizardType.deliveryPoints,
+          l10n,
+        ),
         sampleRows: fileData.rows.take(3).toList(),
         showDuplicateMode: false,
+        showConfidence: true,
       ),
     );
     if (mapping == null) return null;
-    return _parseWithMapping(fileData.rows, mapping.mapping);
+    return parseWithMapping(fileData.rows, mapping.mapping);
   }
 
-  static List<ParsedDeliveryPointRow> _parseWithMapping(
+  static List<ParsedDeliveryPointRow> parseWithMapping(
       List<List<String>> rows, Map<String, int> mapping) {
     final parsed = <ParsedDeliveryPointRow>[];
 
@@ -175,11 +194,16 @@ class DeliveryPointImportService {
       }
 
       final clientName = getVal('clientName');
-      final address = getVal('address');
       final clientNumber = getVal('clientNumber');
+      final address = getVal('address');
+      final override = getVal('deliveryAddressOverride');
 
-      if (clientName.isEmpty) errors.add('שם לקוח חסר');
-      if (address.isEmpty) errors.add('כתובת חסרה');
+      if (clientName.isEmpty && clientNumber.isEmpty) {
+        errors.add('שם לקוח או מספר לקוח חסר');
+      }
+      if (address.isEmpty && override.isEmpty) {
+        errors.add('כתובת או כתובת פריקה חסרה');
+      }
       if (clientNumber.isNotEmpty &&
           !RegExp(r'^\d{4,10}$').hasMatch(clientNumber)) {
         errors.add('מספר לקוח לא תקין');
@@ -187,6 +211,8 @@ class DeliveryPointImportService {
 
       final lat = double.tryParse(getVal('latitude'));
       final lng = double.tryParse(getVal('longitude'));
+      final oLat = double.tryParse(getVal('deliveryAddressOverrideLat'));
+      final oLng = double.tryParse(getVal('deliveryAddressOverrideLng'));
       if (lat != null && lng != null &&
           !DeliveryPoint.isValidCoordinates(lat, lng)) {
         errors.add('קואורדינטות מחוץ לישראל');
@@ -199,7 +225,7 @@ class DeliveryPointImportService {
         rowIndex: i + 2,
         clientNumber: clientNumber,
         clientName: clientName,
-        address: address,
+        address: address.isNotEmpty ? address : override,
         latitude: lat,
         longitude: lng,
         pallets: pallets,
@@ -207,6 +233,9 @@ class DeliveryPointImportService {
         urgency: _normalizeUrgency(getVal('urgency')),
         zone: getVal('zone').isEmpty ? null : getVal('zone'),
         taskNote: getVal('taskNote').isEmpty ? null : getVal('taskNote'),
+        deliveryAddressOverride: override.isEmpty ? null : override,
+        deliveryAddressOverrideLat: oLat,
+        deliveryAddressOverrideLng: oLng,
         openingTimeRaw:
             getVal('openingTime').isEmpty ? null : getVal('openingTime'),
         errors: errors,
@@ -229,6 +258,8 @@ class DeliveryPointImportService {
     }
     return 'normal';
   }
+
+  static DateTime? parseOpeningTime(String? raw) => _parseOpeningTime(raw);
 
   static DateTime? _parseOpeningTime(String? raw) {
     if (raw == null || raw.isEmpty) return null;
@@ -282,7 +313,19 @@ class DeliveryPointImportService {
     );
     if (confirmed != true || !context.mounted) return;
 
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final trace = correlationIf(
+      operation: CorrelatedOperation.importExcel,
+      companyId: companyId,
+      userId: userId,
+    );
+    unawaited(trace?.trackPilot(
+      UsageEventName.importStarted,
+      metadata: {'source': 'delivery_points', 'rows': rows.where((r) => r.isValid).length},
+    ));
+
     final routeService = RouteService(companyId: companyId);
+    final clientService = ClientService(companyId: companyId);
     int added = 0;
     final errors = <String>[];
 
@@ -290,10 +333,40 @@ class DeliveryPointImportService {
       try {
         double lat = row.latitude ?? 0;
         double lng = row.longitude ?? 0;
+        String pointAddress = row.address;
+        String? override;
+        double? overrideLat;
+        double? overrideLng;
 
-        if (!DeliveryPoint.isValidCoordinates(lat, lng) &&
-            row.address.isNotEmpty) {
-          final geo = await GeocodingHelper.geocodeAddress(row.address);
+        if (row.clientNumber.isNotEmpty) {
+          final clients =
+              await clientService.searchClients(row.clientNumber, null, 1);
+          if (clients.isNotEmpty) {
+            final client = clients.first;
+            final clientAddr = client.address.trim();
+            final resolved = resolveImportPointAddresses(
+              importedAddress: row.address,
+              clientAddress: clientAddr,
+            );
+            pointAddress = resolved.pointAddress;
+            override = resolved.deliveryAddressOverride;
+            if (DeliveryPoint.isValidCoordinates(client.latitude, client.longitude)) {
+              lat = client.latitude;
+              lng = client.longitude;
+            }
+          }
+        }
+
+        final geoAddress = override ?? pointAddress;
+        if (override != null && geoAddress.isNotEmpty) {
+          final geo = await GeocodingHelper.geocodeAddress(override);
+          if (geo != null) {
+            overrideLat = geo['latitude'];
+            overrideLng = geo['longitude'];
+          }
+        } else if (!DeliveryPoint.isValidCoordinates(lat, lng) &&
+            geoAddress.isNotEmpty) {
+          final geo = await GeocodingHelper.geocodeAddress(geoAddress);
           if (geo != null) {
             lat = geo['latitude']!;
             lng = geo['longitude']!;
@@ -310,9 +383,12 @@ class DeliveryPointImportService {
           companyId: companyId,
           clientName: row.clientName,
           clientNumber: row.clientNumber.isEmpty ? null : row.clientNumber,
-          address: row.address,
+          address: pointAddress,
           latitude: lat,
           longitude: lng,
+          deliveryAddressOverride: override,
+          deliveryAddressOverrideLat: overrideLat,
+          deliveryAddressOverrideLng: overrideLng,
           pallets: row.pallets,
           boxes: row.boxes > 0 ? row.boxes : (row.pallets > 0 ? row.pallets * 4 : 1),
           urgency: row.urgency,
@@ -321,7 +397,12 @@ class DeliveryPointImportService {
           openingTime: _parseOpeningTime(row.openingTimeRaw),
           status: DeliveryPoint.statusPending,
         );
-        await routeService.addDeliveryPoint(point);
+        await routeService.addDeliveryPoint(
+          point,
+          createdByUid: userId.isNotEmpty ? userId : null,
+          createdByRole: 'dispatcher',
+          correlationId: trace?.correlationId,
+        );
         added++;
       } catch (e) {
         errors.add(l10n.importRowError(row.rowIndex, e.toString()));
@@ -329,6 +410,21 @@ class DeliveryPointImportService {
     }
 
     if (context.mounted) {
+      unawaited(trace?.trackPilot(
+        UsageEventName.importCompleted,
+        metadata: {
+          'source': 'delivery_points',
+          'added': added,
+          'errors': errors.length,
+        },
+      ));
+      await trace?.audit(
+        moduleKey: 'logistics',
+        type: 'data_imported',
+        entityCollection: 'delivery_points',
+        entityDocId: 'delivery_points_import',
+        extra: {'added': added, 'errors': errors.length},
+      );
       SnackbarHelper.showSuccess(
         context,
         l10n.importResultMessage(added, errors.length),

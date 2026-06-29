@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../services/import/import_column_matcher.dart';
+import '../services/import/import_confidence_engine.dart';
 import '../theme/app_theme.dart';
 import 'logi_route_tab_bar.dart';
 
@@ -43,6 +45,12 @@ class ColumnMappingDialog extends StatefulWidget {
   /// First few rows for preview
   final List<List<String>> sampleRows;
 
+  /// Show confidence % column (import wizard)
+  final bool showConfidence;
+
+  /// Pre-computed confidence per field key
+  final Map<String, int>? confidenceByField;
+
   const ColumnMappingDialog({
     super.key,
     required this.sourceHeaders,
@@ -50,6 +58,8 @@ class ColumnMappingDialog extends StatefulWidget {
     required this.title,
     this.showDuplicateMode = true,
     this.sampleRows = const [],
+    this.showConfidence = false,
+    this.confidenceByField,
   });
 
   @override
@@ -58,37 +68,28 @@ class ColumnMappingDialog extends StatefulWidget {
 
 class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
   late Map<String, int> _mapping;
+  late Map<String, int> _confidence;
+  List<int> _unusedColumns = [];
   DuplicateMode _duplicateMode = DuplicateMode.skip;
 
   @override
   void initState() {
     super.initState();
     _mapping = {};
+    _confidence = {};
     _autoMap();
   }
 
-  /// Auto-map by matching aliases to source headers
+  /// Auto-map via ImportColumnMatcher (exact → synonym → fuzzy).
   void _autoMap() {
-    final lowerHeaders = widget.sourceHeaders
-        .map((h) => h.toLowerCase().replaceAll(RegExp(r'[\s*]'), ''))
-        .toList();
-
-    for (final field in widget.targetFields) {
-      int bestIdx = -1;
-      for (final alias in field.aliases) {
-        final lowerAlias = alias.toLowerCase().replaceAll(RegExp(r'[\s*]'), '');
-        for (int i = 0; i < lowerHeaders.length; i++) {
-          if (lowerHeaders[i] == lowerAlias ||
-              lowerHeaders[i].contains(lowerAlias) ||
-              lowerAlias.contains(lowerHeaders[i])) {
-            bestIdx = i;
-            break;
-          }
-        }
-        if (bestIdx >= 0) break;
-      }
-      _mapping[field.key] = bestIdx;
-    }
+    final suggestion = ImportColumnMatcher.suggestMapping(
+      sourceHeaders: widget.sourceHeaders,
+      targetFields: widget.targetFields,
+      sampleRows: widget.sampleRows,
+    );
+    _mapping = suggestion.mapping;
+    _confidence = widget.confidenceByField ?? suggestion.confidenceByField;
+    _unusedColumns = suggestion.unusedColumnIndexes;
   }
 
   bool get _isValid {
@@ -119,10 +120,11 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
                 flex: 3,
                 child: SingleChildScrollView(
                   child: Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(2),
-                      1: FlexColumnWidth(3),
-                      2: FlexColumnWidth(2),
+                    columnWidths: {
+                      0: const FlexColumnWidth(2),
+                      1: const FlexColumnWidth(3),
+                      2: const FlexColumnWidth(2),
+                      if (widget.showConfidence) 3: const FlexColumnWidth(1),
                     },
                     border: TableBorder.all(color: Colors.grey.shade300),
                     children: [
@@ -132,6 +134,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
                           _headerCell(l10n.targetField),
                           _headerCell(l10n.sourceColumn),
                           _headerCell(l10n.sampleValue),
+                          if (widget.showConfidence) _headerCell('%'),
                         ],
                       ),
                       ...widget.targetFields.map(_buildFieldRow),
@@ -145,6 +148,21 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 _buildDuplicateOptions(l10n),
+              ],
+              if (_unusedColumns.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(l10n.importWizardUnusedColumns,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: _unusedColumns
+                      .map((i) => Chip(
+                            label: Text(widget.sourceHeaders[i],
+                                style: const TextStyle(fontSize: 11)),
+                          ))
+                      .toList(),
+                ),
               ],
             ],
           ),
@@ -184,6 +202,17 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
             ? widget.sampleRows.first[idx]
             : '')
         : '';
+    final conf = _confidence[field.key] ?? 0;
+    final level = ImportConfidenceEngine.levelFor(
+      field: field,
+      columnIndex: idx,
+      confidence: conf,
+    );
+    final confColor = switch (level) {
+      ImportConfidenceLevel.high => Colors.green.shade700,
+      ImportConfidenceLevel.review => Colors.orange.shade800,
+      ImportConfidenceLevel.missing => Colors.red,
+    };
 
     return TableRow(
       children: [
@@ -192,7 +221,7 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
           child: Text(
             '${field.label}${field.required ? " *" : ""}',
             style: TextStyle(
-              color: field.required && idx < 0 ? Colors.red : null,
+              color: level == ImportConfidenceLevel.missing ? Colors.red : null,
             ),
           ),
         ),
@@ -226,6 +255,17 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
             style: TextStyle(color: AppTheme.muted, fontSize: 12),
           ),
         ),
+        if (widget.showConfidence)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              '$conf',
+              style: TextStyle(
+                color: confColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
       ],
     );
   }
