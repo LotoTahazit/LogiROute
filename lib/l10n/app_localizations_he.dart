@@ -47,6 +47,13 @@ class AppLocalizationsHe extends AppLocalizations {
       'התחברות חד-פעמית של העסק לרשות המסים לקבלת מספרי הקצאה. ייפתח דף ההתחברות.';
 
   @override
+  String get israelInvoiceAssignmentReady => 'מספר הקצאה — מוכן';
+
+  @override
+  String get israelInvoiceAssignmentMissingOAuth =>
+      'מספר הקצאה — חסר חיבור OAuth';
+
+  @override
   String get autoDistributePallets => 'פצל אוטומטית משטחים';
 
   @override
@@ -433,6 +440,16 @@ class AppLocalizationsHe extends AppLocalizations {
   String get deliverySection => 'מסירה';
 
   @override
+  String get settingsDeliveryAndOps => 'מסירה ותפעול';
+
+  @override
+  String get settingsDriverDefaults => 'ברירת מחדל לנהג';
+
+  @override
+  String get settingsOpsManagedByAdmin =>
+      'הגדרות מסירה ונהג מנוהלות על ידי מנהל המערכת';
+
+  @override
   String get pointDone => 'נקודה הושלמה';
 
   @override
@@ -519,6 +536,16 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get autoCloseUndoMessage => 'הנקודה נסגרה אוטומטית';
+
+  @override
+  String pointCloseUndoMessage(String name) {
+    return 'משלוח \"$name\" נסגר';
+  }
+
+  @override
+  String autoClosePendingBanner(String name, int distance, int seconds) {
+    return 'סגירה אוטומטית: $name · $distance מ׳ · ~$seconds שנ׳';
+  }
 
   @override
   String get undo => 'ביטול';
@@ -746,6 +773,12 @@ class AppLocalizationsHe extends AppLocalizations {
   String get analytics => 'ניתוחים';
 
   @override
+  String get analyticsPeriodHint => 'הניתוח מחושב לתקופה שנבחרה בלבד.';
+
+  @override
+  String get analyticsPeriodToday => 'היום';
+
+  @override
   String get settings => 'הגדרות';
 
   @override
@@ -891,6 +924,31 @@ class AppLocalizationsHe extends AppLocalizations {
       'כתובת זו תשמש רק למשלוח הנוכחי. הכתובת הראשית של הלקוח תישאר ללא שינוי.';
 
   @override
+  String get deliveryAddressOverrideToggle => 'כתובת המשלוח שונה מכתובת הלקוח';
+
+  @override
+  String get deliveryAddressOverrideLabel => 'כתובת למשלוח זה';
+
+  @override
+  String get deliveryAddressOverrideHint => 'סניף, פריקה חד-פעמית, מקום זמני…';
+
+  @override
+  String get deliveryAddressOverrideBadge => 'כתובת משלוח חד-פעמית';
+
+  @override
+  String get deliveryAddressOverrideNoCoords =>
+      'קואורדינטות כתובת המשלוח לא נמצאו';
+
+  @override
+  String get deliveryAddressLabel => 'כתובת משלוח';
+
+  @override
+  String get findCoordinates => 'מצא קואורדינטות';
+
+  @override
+  String get clientAddressLabel => 'כתובת לקוח';
+
+  @override
   String get originalAddress => 'כתובת מקורית';
 
   @override
@@ -943,6 +1001,50 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get gpsTrackingStopped => 'מעקב GPS הופסק';
+
+  @override
+  String get gpsStatusActive => 'פעיל';
+
+  @override
+  String get gpsStatusWaiting => 'ממתין';
+
+  @override
+  String get gpsStatusError => 'שגיאה';
+
+  @override
+  String get gpsStatusDisabled => 'מושבת';
+
+  @override
+  String get gpsStatusPermissionRequired => 'נדרשת הרשאה';
+
+  @override
+  String get gpsUnavailableHint => 'GPS לא זמין. הפעל מיקום ואפשר גישה.';
+
+  @override
+  String get gpsBackgroundHintShort => 'למעקב ברקע, אפשר גישה למיקום \"תמיד\".';
+
+  @override
+  String get bgModeActive => 'מצב רקע פעיל';
+
+  @override
+  String get bgModeInactive => 'מצב רקע לא פעיל';
+
+  @override
+  String get bgSystemStoppedWarning =>
+      'מעקב ברקע הופסק על ידי המערכת. בדקו הגדרות סוללה.';
+
+  @override
+  String get bgOpenSetup => 'הגדרות Android';
+
+  @override
+  String get gpsFirestoreWriteFailed =>
+      'לא ניתן לשלוח קואורדינטות לשרת. בדוק את האינטרנט.';
+
+  @override
+  String get gpsStaleHint => 'GPS לא התעדכן זמן רב. בדוק הגדרות מיקום.';
+
+  @override
+  String get gpsRecheck => 'בדוק שוב';
 
   @override
   String get weekendDay => 'יום מנוחה';
@@ -1071,6 +1173,52 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get typeLabel => 'סוג (בביע, מכסה, כוס)';
+
+  @override
+  String get typeLabelFood => 'קטגוריה (חלב, לחם, משקאות)';
+
+  @override
+  String get typeLabelClothing => 'סוג (חולצה, מכנס, נעל)';
+
+  @override
+  String get typeLabelConstruction => 'סוג (מלט, בלוקים)';
+
+  @override
+  String get typeLabelGeneric => 'סוג / קטגוריה';
+
+  @override
+  String get numberLabelFood => 'גרסה / גודל (0.5ל, 1ק\"ג)';
+
+  @override
+  String get numberLabelClothing => 'מידה / מק\"ט';
+
+  @override
+  String get numberLabelConstruction => 'דרגה / גודל';
+
+  @override
+  String get numberLabelGeneric => 'מספר או קוד גרסה';
+
+  @override
+  String get volumeLabelFood => 'נפח או משקל (אופציונלי)';
+
+  @override
+  String get volumeLabelOptionalGeneric => 'גודל / הערה (אופציונלי)';
+
+  @override
+  String get weightLabelOptional => 'משקל ק\"ג (אופציונלי)';
+
+  @override
+  String quantityOnPalletName(String palletName) {
+    return 'כמות על $palletName';
+  }
+
+  @override
+  String piecesPerUnitInBox(String unitName) {
+    return 'אריזה — $unitName בקרטון (אופציונלי)';
+  }
+
+  @override
+  String get quantityPerBoxLabel => 'כמות בקרטון';
 
   @override
   String get numberLabel => 'מספר (100, 200, וכו\')';
@@ -1823,6 +1971,33 @@ class AppLocalizationsHe extends AppLocalizations {
   String get categoryBoxes => 'קופסאות';
 
   @override
+  String get categoryBeverages => 'משקאות';
+
+  @override
+  String get categoryFrozen => 'קפואים';
+
+  @override
+  String get categorySnacks => 'חטיפים';
+
+  @override
+  String get categoryPants => 'מכנסיים';
+
+  @override
+  String get categoryShoes => 'נעליים';
+
+  @override
+  String get categoryAccessories => 'אביזרים';
+
+  @override
+  String get categoryBlocks => 'בלוקים';
+
+  @override
+  String get categoryMix => 'תערובות';
+
+  @override
+  String get categoryTools => 'כלים';
+
+  @override
   String get terminology => 'טרמינולוגיה';
 
   @override
@@ -2054,6 +2229,29 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get reportsTitle => 'דוחות';
+
+  @override
+  String get reportsPeriodHint => 'הדוח מחושב לתקופה שנבחרה בלבד.';
+
+  @override
+  String get reportsPeriodThisMonth => 'חודש נוכחי';
+
+  @override
+  String get reportsPeriodLast3Months => '3 חודשים';
+
+  @override
+  String get reportsPeriodLast12Months => '12 חודשים';
+
+  @override
+  String get reportsPeriodCustom => 'טווח מותאם';
+
+  @override
+  String get reportsLoadMore => 'טען עוד';
+
+  @override
+  String reportsTruncatedHint(int count) {
+    return 'מוצגים עד $count מסמכים. לחץ «טען עוד» או צמצם את התקופה.';
+  }
 
   @override
   String get monthlyReport => 'דוח חודשי';
@@ -2652,6 +2850,39 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get billingGuardVerifyFailedTitle => 'לא ניתן לאמת את סטטוס המנוי';
+
+  @override
+  String get billingGuardVerifyFailedBody =>
+      'בדוק את חיבור האינטרנט או נסה שוב מאוחר יותר.';
+
+  @override
+  String get billingGuardRetry => 'נסה שוב';
+
+  @override
+  String get billingSupportDialogTitle => 'צור קשר עם התמיכה';
+
+  @override
+  String get billingSupportDialogBody =>
+      'שלח לנו אימייל — נעזור לשחזר גישה או לשנות תוכנית.';
+
+  @override
+  String get billingSupportCopyEmail => 'העתק אימייל';
+
+  @override
+  String get billingSupportEmailCopied => 'האימייל הועתק';
+
+  @override
+  String get billingSupportOpenEmail => 'שלח אימייל';
+
+  @override
+  String get billingSupportCall => 'התקשר';
+
+  @override
+  String get billingSupportPayUnavailable =>
+      'לא ניתן לאמת את המנוי. התשלום אינו זמין כרגע.';
+
+  @override
   String get companySettingsNotSelected => 'לא נבחרה חברה';
 
   @override
@@ -3120,6 +3351,43 @@ class AppLocalizationsHe extends AppLocalizations {
       'לאזן את המסלולים? המערכת תעביר נקודות ממסלולים עמוסים למסלולים קלים.';
 
   @override
+  String get mergeRoutes => 'מיזוג מסלולים';
+
+  @override
+  String get mergeRoutesHint =>
+      'נקודות פעילות יעברו למסלול היעד. נקודות שהושלמו יישארו במסלול המקורי.';
+
+  @override
+  String get mergeRoutesTarget => 'מסלול יעד';
+
+  @override
+  String get mergeRoutesSources => 'הוסף נקודות פעילות מ';
+
+  @override
+  String get mergeRoutesNoEligible =>
+      'אין מסלולים למיזוג (נדרשים 2+ לאותו נהג)';
+
+  @override
+  String get mergeRoutesPickTarget => 'בחר מסלול יעד';
+
+  @override
+  String get mergeRoutesPickSource => 'בחר לפחות מסלול מקור אחד';
+
+  @override
+  String get mergeRoutesNothingMoved => 'אין נקודות פעילות להעברה';
+
+  @override
+  String mergeRoutesSuccess(Object count) {
+    return 'הועברו נקודות פעילות: $count';
+  }
+
+  @override
+  String mergeRoutesRouteLabel(
+      Object driver, Object active, Object done, Object total) {
+    return '$driver · $active פעיל / $done הושלם · $total נקודות';
+  }
+
+  @override
   String get routesBalanced => 'המסלולים אוזנו בהצלחה';
 
   @override
@@ -3135,6 +3403,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get navigationOpenError => 'שגיאה בפתיחת ניווט';
+
+  @override
+  String get navigationNoDestination => 'אין קואורדינטות או כתובת לניווט';
 
   @override
   String get driverFallbackName => 'נהג';
@@ -3253,6 +3524,12 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get inventoryActionUpdate => 'עדכון';
+
+  @override
+  String get inventoryActionBarcodeIn => 'כניסה (ברקוד)';
+
+  @override
+  String get inventoryActionBarcodeOut => 'יציאה (ברקוד)';
 
   @override
   String get priceManagement => 'ניהול מחירים';
@@ -3553,7 +3830,17 @@ class AppLocalizationsHe extends AppLocalizations {
   String get paymentPageOpened => 'דף התשלום נפתח';
 
   @override
-  String get cannotOpenPayment => 'לא ניתן לפתוח את דף התשלום';
+  String get cannotOpenPayment => 'לא ניתן לפתוח את דף התשלום.';
+
+  @override
+  String get checkoutCopyLink => 'העתק קישור';
+
+  @override
+  String get checkoutLinkCopied => 'הקישור הועתק';
+
+  @override
+  String get checkoutSessionFailed =>
+      'לא ניתן ליצור סשן תשלום. נסה שוב מאוחר יותר.';
 
   @override
   String get selectFormat => 'בחר פורמט';
@@ -3775,6 +4062,12 @@ class AppLocalizationsHe extends AppLocalizations {
   String get eventInvoiceIssued => 'חשבונית הופקה';
 
   @override
+  String get docNumberShort => 'מס׳';
+
+  @override
+  String get auditEventBy => 'ע\"י';
+
+  @override
   String get eventInvoicePrinted => 'חשבונית הודפסה';
 
   @override
@@ -3793,6 +4086,21 @@ class AppLocalizationsHe extends AppLocalizations {
   String get eventDeliveryPointStatusChanged => 'סטטוס נקודת מסירה שונה';
 
   @override
+  String get eventDeliveryAddressChanged => 'כתובת משלוח שונתה';
+
+  @override
+  String get auditOldDeliveryAddress => 'קודם';
+
+  @override
+  String get auditNewDeliveryAddress => 'חדש';
+
+  @override
+  String get auditChangedByRole => 'שונה על ידי';
+
+  @override
+  String get auditCorrelationId => 'CorrelationId';
+
+  @override
   String get eventManualAssignment => 'שיוך ידני';
 
   @override
@@ -3809,6 +4117,19 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get eventRetentionChecked => 'שמירת נתונים נבדקה';
+
+  @override
+  String get metricsNotCalculatedYet =>
+      'המדדים עדיין לא חושבו. לחץ «חשב מחדש» או המתן לעדכון הלילי.';
+
+  @override
+  String get recalculateMetrics => 'חשב מחדש מדדים';
+
+  @override
+  String get metricsRecalculateDone => 'המדדים עודכנו';
+
+  @override
+  String get metricsRecalculateFailed => 'לא ניתן לחשב מחדש את המדדים';
 
   @override
   String get deliveriesToday => 'משלוחים היום';
@@ -3900,7 +4221,19 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get usersLimitUpgrade =>
-      'לא ניתן להזמין משתמשים נוספים. שדרג את התוכנית להגדלת המגבלה.';
+      'הגעת למגבלת התוכנית — אזהרה בלבד (הזמנות לא נחסמות בפיילוט). מומלץ לשדרג.';
+
+  @override
+  String get limitEnforcementSoft => 'מגבלה רכה (אזהרה)';
+
+  @override
+  String get limitEnforcementHard => 'מגבלה קשה';
+
+  @override
+  String get limitEnforcementNotEnforced => 'לא במעקב עדיין';
+
+  @override
+  String get limitSoftExceededNote => 'חריגה מהמגבלה לא חוסמת פעולות בפיילוט.';
 
   @override
   String get changeRole => 'שנה תפקיד';
@@ -4204,10 +4537,21 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settingsTaxManagedByAdmin => 'הגדרות מס מנוהלות ע\"י מנהל המערכת';
 
   @override
+  String get settingsOwnerSetupHint =>
+      'שם החברה וח.פ. — בלשונית «פרופיל חברה». כאן: מע\"מ, חשבוניות ואינטגרציות.';
+
+  @override
   String get settingsInvoiceSettings => 'הגדרות חשבונית';
 
   @override
   String get settingsInvoiceFooter => 'טקסט תחתית חשבונית';
+
+  @override
+  String get settingsInvoiceFooterHint =>
+      'מודפס בתחתית חשבונית PDF: תודה, תנאים, פרטי בנק';
+
+  @override
+  String get settingsTaxIdFillInProfile => 'מלא ח.פ. בלשונית פרופיל החברה';
 
   @override
   String get settingsPaymentTerms => 'תנאי תשלום';
@@ -4663,6 +5007,14 @@ class AppLocalizationsHe extends AppLocalizations {
   String get importInventoryTitle => 'ייבוא מלאי';
 
   @override
+  String get importFileReadFailed =>
+      'לא ניתן לקרוא את הקובץ בדפדפן. נסה שוב או דפדפן אחר.';
+
+  @override
+  String get importFileParseFailed =>
+      'לא ניתן לנתח את קובץ האקסל. הורד תבנית מחדש ומלא את גיליון Clients.';
+
+  @override
   String get importClientsTitle => 'ייבוא לקוחות';
 
   @override
@@ -4728,6 +5080,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get exportToExcelMenu => 'ייצוא ל-Excel';
+
+  @override
+  String get exportLargeDatasetWarning =>
+      'תיטען כל הקолקציה (עלול לקחת זמן ו-reads רבים). להמשיך?';
+
+  @override
+  String exportLargeDatasetNotice(int count) {
+    return 'יוצאו $count רשומות — נפח גדול.';
+  }
 
   @override
   String get downloadTemplateMenu => 'הורד תבנית';
@@ -5098,6 +5459,57 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get restoreTestRecorded => 'בדיקת שחזור נרשמה';
+
+  @override
+  String get restoreDrillHint =>
+      'Restore drill — בדיקת שחזור עם evidence. אסור success בלי הוכחה.';
+
+  @override
+  String get backupRecordHint => 'רשומת יומן = גיבוי בוצע. לא restore drill.';
+
+  @override
+  String get restoreDrillTargetEnvironment => 'פרויקט / סביבת יעד *';
+
+  @override
+  String get restoreDrillRestoredCollections => 'Collections ששוחזרו *';
+
+  @override
+  String get restoreDrillRestoredCollectionsHint =>
+      'מופרד בפסיקים: invoices, clients, delivery_points';
+
+  @override
+  String get restoreDrillEvidenceNotes => 'Evidence (מה נבדק) *';
+
+  @override
+  String get restoreDrillDurationMinutes => 'משך (דקות) *';
+
+  @override
+  String get restoreDrillTestDate => 'תאריך drill *';
+
+  @override
+  String get restoreDrillResult => 'תוצאה *';
+
+  @override
+  String get restoreDrillResultSuccess => 'Success';
+
+  @override
+  String get restoreDrillResultFailed => 'Failed';
+
+  @override
+  String get restoreDrillIncomplete => 'מלא את כל שדות ה-evidence';
+
+  @override
+  String get restoreDrillEvidenceSuccessHint =>
+      'ל-success — לפחות 40 תווים: מה שוחזר ואיך אומת.';
+
+  @override
+  String get registerRestoreDrill => 'רשום restore drill';
+
+  @override
+  String get registerRestoreDrillTitle => 'Restore drill (עם evidence)';
+
+  @override
+  String get labelVerifiedRestoreDrills => 'Drills מאומתים';
 
   @override
   String get noBackupsRecorded => 'אין גיבויים רשומים';
@@ -5484,6 +5896,9 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get wazeLaunchFailed => 'לא ניתן לפתוח את Waze';
+
+  @override
   String get remainingLabel => 'נותרו';
 
   @override
@@ -5749,6 +6164,72 @@ class AppLocalizationsHe extends AppLocalizations {
   String get unlockAllPeriods => 'פתח את כל התקופות';
 
   @override
+  String get lockPreviousMonthEnd => 'סוף חודש קודם';
+
+  @override
+  String get computerizedWarehouseTitle => 'מחסן ממוחשב (ברקודים)';
+
+  @override
+  String get computerizedWarehouseEnabled => 'הפעל סריקת ברקוד';
+
+  @override
+  String get computerizedWarehouseHint =>
+      'מוסיף סריקת ברקוד בתפריט המחסן. חיפוש לפי מק\"ט או ברקוד EAN על הפריט.';
+
+  @override
+  String get barcodeScanTitle => 'סריקת ברקוד';
+
+  @override
+  String get barcodeScanHint =>
+      'סורק USB: מקד את השדה וסרוק. נייד: הקלד או הדבק.';
+
+  @override
+  String get barcodeScanFieldLabel => 'ברקוד / מק\"ט';
+
+  @override
+  String get barcodeScanIn => 'כניסה למלאי';
+
+  @override
+  String get barcodeScanOut => 'יציאה מהמלאי';
+
+  @override
+  String get barcodeScanApply => 'בצע';
+
+  @override
+  String get barcodeNotFound => 'פריט לא נמצא לברקוד זה';
+
+  @override
+  String get barcodeInsufficientStock => 'אין מספיק במלאי';
+
+  @override
+  String barcodeScanSuccess(String code, int qty) {
+    return '$code: יתרה $qty יח\'';
+  }
+
+  @override
+  String get barcodeEditTitle => 'עדכון ברקוד';
+
+  @override
+  String get barcodeDuplicateError => 'ברקוד זה כבר משויך לפריט אחר';
+
+  @override
+  String get barcodeUpdatedSuccess => 'ברקוד עודכן';
+
+  @override
+  String barcodeWithValue(String code) {
+    return 'ברקוד: $code';
+  }
+
+  @override
+  String get barcodeOptionalHelper =>
+      'אופציונלי: EAN לסריקה (אפשר גם לפי מק\"ט)';
+
+  @override
+  String inventoryUpdatedLine(String date, String user) {
+    return 'עודכן: $date ע\"י $user';
+  }
+
+  @override
   String get usersLoseAccessWarning =>
       '⚠️ משתמשים יאבדו את כל הגישה (קריאה וכתיבה חסומות)';
 
@@ -5794,10 +6275,34 @@ class AppLocalizationsHe extends AppLocalizations {
       'ההרשמה התקבלה בהצלחה.\nמנהל המערכת ישייך אותך לחברה ויקצה לך תפקיד.';
 
   @override
+  String get noWorkspaceTitle => 'אין מסך עבודה זמין';
+
+  @override
+  String get noWorkspaceBody => 'לתפקיד שלך אין מסך עבודה. פנה למנהל המערכת.';
+
+  @override
   String get registerTitle => 'הרשמה ל-LogiRoute';
 
   @override
-  String get registerSubtitle => 'לאחר ההרשמה, מנהל המערכת ישייך אותך לחברה';
+  String get registerSubtitle => 'צור חשבון וחברה — ניסיון 14 יום בחינם';
+
+  @override
+  String get registerOwnerSubtitle =>
+      'תוך 2 דקות: חשבון בעלים + חברה + ניסיון 14 יום. אחר כך ייבוא לקוחות והשלמת הגדרה.';
+
+  @override
+  String get registerAlreadyProvisioned =>
+      'לחשבון זה כבר יש חברה. התחבר או פנה לתמיכה.';
+
+  @override
+  String get registerResumeTitle => 'המשך הרשמה';
+
+  @override
+  String get registerResumeSubtitle =>
+      'החשבון נוצר — הזן פרטי חברה כדי לסיים את ההרשמה.';
+
+  @override
+  String get registerContinueButton => 'צור חברה';
 
   @override
   String get phoneOptional => 'טלפון (אופציונלי)';
@@ -6001,6 +6506,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get quantityCannotBeNegative => 'כמות לא יכולה להיות שלילית';
+
+  @override
+  String get quantityMustBePositive => 'יש להזין כמות גדולה מ-0';
 
   @override
   String get excelExportWebOnly => 'ייצוא Excel זמין רק בגרסת האינטרנט';
@@ -6431,4 +6939,1110 @@ class AppLocalizationsHe extends AppLocalizations {
   String volumeWithUnit(String value) {
     return 'נפח: $value מ\"ל';
   }
+
+  @override
+  String get setupWizardTitle => 'הגדרת חברה';
+
+  @override
+  String get setupWizardContinueLater => 'המשך מאוחר יותר';
+
+  @override
+  String get setupWizardBannerTitle => 'השלימו הגדרת חברה ראשונית';
+
+  @override
+  String get setupWizardBannerAction => 'פתח אשף הגדרה';
+
+  @override
+  String setupWizardProgress(int current, int total) {
+    return 'שלב $current מתוך $total';
+  }
+
+  @override
+  String get setupWizardOpenStep => 'פתח';
+
+  @override
+  String get setupWizardMarkComplete => 'סמן כהושלם';
+
+  @override
+  String get setupWizardSkip => 'דלג';
+
+  @override
+  String get setupWizardReadyTitle => 'החברה מוכנה לעבודה.';
+
+  @override
+  String get setupWizardReadyBody =>
+      'כל השלבים הנדרשים הושלמו. אפשר להתחיל עבודה יומית.';
+
+  @override
+  String get setupWizardStatusNotStarted => 'לא התחיל';
+
+  @override
+  String get setupWizardStatusInProgress => 'בתהליך';
+
+  @override
+  String get setupWizardStatusCompleted => 'הושלם';
+
+  @override
+  String get setupWizardStatusSkipped => 'דולג';
+
+  @override
+  String get setupWizardStepCompanyInfo => 'פרטי חברה';
+
+  @override
+  String get setupWizardStepImportClients => 'ייבוא לקוחות';
+
+  @override
+  String get setupWizardStepImportProducts => 'ייבוא מוצרים';
+
+  @override
+  String get setupWizardStepAddDrivers => 'הוספת נהגים';
+
+  @override
+  String get setupWizardStepWarehouse => 'הגדרת מחסן';
+
+  @override
+  String get setupWizardStepAccounting => 'הגדרת חשבונאות';
+
+  @override
+  String get setupWizardStepGps => 'בדיקת GPS נהג';
+
+  @override
+  String get setupWizardStepFirstRoute => 'מסלול ראשון';
+
+  @override
+  String get setupWizardStepTestDelivery => 'משלוח בדיקה';
+
+  @override
+  String get setupWizardStepReady => 'המערכת מוכנה';
+
+  @override
+  String get setupWizardHintCompanyInfo => 'מלאו שם, ח.פ, כתובת ופרטי קשר.';
+
+  @override
+  String get setupWizardHintImportClients => 'ייבוא Excel או הוספה ידנית.';
+
+  @override
+  String get setupWizardHintImportProducts =>
+      'ייבוא מק\"ט (ניתן לדלג בלי מחסן).';
+
+  @override
+  String get setupWizardHintAddDrivers => 'צרו לפחות נהג אחד עם קיבולת משאית.';
+
+  @override
+  String get setupWizardHintWarehouse =>
+      'שאלון: יחידות, קרטונים, משטחים — לפי המחסן שלכם.';
+
+  @override
+  String get warehouseQuestionnaireTitle => 'הגדרת מחסן';
+
+  @override
+  String get warehouseQuestionnaireSubtitle =>
+      'יחידות, קרטונים, משטחים — שאלון למחסן שלכם';
+
+  @override
+  String get warehouseQuestionnaireSaved => 'פרופיל המחסן נשמר';
+
+  @override
+  String get warehouseQuestionUnitTitle => 'איך אתם שולחים סחורה?';
+
+  @override
+  String get warehouseQuestionUnitHint =>
+      'מעורב — אם חלק מהמק\"ט בקרטון וחלק ביחידות.';
+
+  @override
+  String get warehouseUnitLoose => 'יחידות בלבד';
+
+  @override
+  String get warehouseUnitLooseHint => 'בלי קרטונים — משקל, ליטר, יחידות';
+
+  @override
+  String get warehouseUnitBoxed => 'רק בקרטונים';
+
+  @override
+  String get warehouseUnitBoxedHint => 'תמיד אריזה / קרטון';
+
+  @override
+  String get warehouseUnitBoth => 'גם וגם';
+
+  @override
+  String get warehouseUnitBothHint => 'מוצרים שונים — אריזה שונה';
+
+  @override
+  String get warehouseQuestionPalletTitle => 'קרטונים על משטחים?';
+
+  @override
+  String get warehouseQuestionPalletHint =>
+      'מעורב — אם רק חלק מהמק\"ט על משטחים.';
+
+  @override
+  String get warehousePalletNone => 'בלי משטחים';
+
+  @override
+  String get warehousePalletNoneHint => 'רק קרטונים או יחידות';
+
+  @override
+  String get warehousePalletAlways => 'תמיד על משטחים';
+
+  @override
+  String get warehousePalletAlwaysHint => 'לוגיסטיקת משטחים סטандартית';
+
+  @override
+  String get warehousePalletBoth => 'מעורב';
+
+  @override
+  String get warehousePalletBothHint => 'חלק על משטחים, חלק לא';
+
+  @override
+  String get warehouseLooseNoPallets =>
+      'לשילוח יחידות בדרך כלל לא צריך משטחים.';
+
+  @override
+  String get warehouseQuestionDefaultsTitle => 'ערכי ברירת מחדל (אופציונלי)';
+
+  @override
+  String get warehouseQuestionDefaultsHint =>
+      'לא לכל 100 המק\"טים. רק ממלא טופס «הוסף מוצר». לכל מק\"ט — יחידות/קרטון וקרטונים/משטח משלו (ידני או Excel).';
+
+  @override
+  String get warehouseDefaultUnitsPerBox => 'יחידות בקרטון — רמז למק\"ט חדש';
+
+  @override
+  String get warehouseDefaultBoxesPerPallet =>
+      'קרטונים על משטח — רמז למק\"ט חדש';
+
+  @override
+  String get setupWizardHintAccounting => 'בחרו ספק חשבונאות או export.';
+
+  @override
+  String get setupWizardHintGps => 'הנהג מפעיל GPS; הדיספצ\'ר רואה על המפה.';
+
+  @override
+  String get setupWizardHintFirstRoute => 'צרו מסלול והקצו נהג בממשק דיספצ\'ר.';
+
+  @override
+  String get setupWizardHintTestDelivery => 'סגרו נקודה אחת באפליקציית נהג.';
+
+  @override
+  String get setupWizardHintReady => 'ההגדרה הושלמה — אפשר לעבוד.';
+
+  @override
+  String get onboardingSection => 'מרכז השקה';
+
+  @override
+  String get onboardingCenterTitle => 'מרכז השקה';
+
+  @override
+  String get onboardingCenterSubtitle =>
+      'השלימו משימות בכל סדר. ההתקדמות מסתנכרנת מהנתונים אוטומטית.';
+
+  @override
+  String get onboardingCenterOpenWizard => 'אשף שלב-אחר-שלב';
+
+  @override
+  String get onboardingCenterRefresh => 'רענון סטטוס';
+
+  @override
+  String get onboardingCenterAutoDetected => 'זוהה אוטומטית';
+
+  @override
+  String get onboardingCenterNextStep => 'המשימה המומלצת';
+
+  @override
+  String onboardingCenterCompletedSteps(int done, int total) {
+    return '$done מתוך $total משימות';
+  }
+
+  @override
+  String onboardingCenterEstimatedTime(int minutes) {
+    return 'נותרו ~$minutes דק\'';
+  }
+
+  @override
+  String get onboardingCenterAlmostReadyTitle => 'החברה כמעט מוכנה';
+
+  @override
+  String get onboardingCenterAlmostReadyBody =>
+      'משימות החובה הושלמו. סיימו אופציונליות והשלימו Go Live.';
+
+  @override
+  String get onboardingCenterCanStartTitle => 'אפשר להתחיל לעבוד';
+
+  @override
+  String get onboardingCenterCanStartBody =>
+      'השקה הושלמה — עברו לעבודה יומיומית מלוח הבעלים.';
+
+  @override
+  String get launchCenterCardCompanyDetails => 'פרטי חברה';
+
+  @override
+  String get launchCenterCardFirstOwnerAdmin => 'בעלים/מנהל ראשון';
+
+  @override
+  String get launchCenterCardClients => 'לקוחות';
+
+  @override
+  String get launchCenterCardProducts => 'מוצרים / מק\"ט';
+
+  @override
+  String get launchCenterCardDrivers => 'נהגים';
+
+  @override
+  String get launchCenterCardWarehouse => 'מחסן';
+
+  @override
+  String get launchCenterCardAccounting => 'הנהלת חשבונות';
+
+  @override
+  String get launchCenterCardGps => 'GPS';
+
+  @override
+  String get launchCenterCardFirstRoute => 'מסלול ראשון';
+
+  @override
+  String get launchCenterCardTestDelivery => 'משלוח בדיקה';
+
+  @override
+  String get launchCenterCardGoLive => 'Go Live';
+
+  @override
+  String get launchCenterHintCompanyDetails => 'שם, ח.פ. ופרופיל חברה.';
+
+  @override
+  String get launchCenterHintFirstOwnerAdmin => 'לפחות בעלים או מנהל אחד.';
+
+  @override
+  String get launchCenterHintClients => 'ייבוא או הוספת לקוחות.';
+
+  @override
+  String get launchCenterHintProducts => 'ייבוא או הגדרת סוגי מוצר / מק\"ט.';
+
+  @override
+  String get launchCenterHintDrivers => 'הוסיפו נהגים למסלולים.';
+
+  @override
+  String get launchCenterHintWarehouse => 'מבנה מחסן ומלאי.';
+
+  @override
+  String get launchCenterHintAccounting => 'ספק חשבונאות או חשבונית ראשונה.';
+
+  @override
+  String get launchCenterHintGps => 'נהג שולח GPS — דיספצ\'ר רואה במפה.';
+
+  @override
+  String get launchCenterHintFirstRoute => 'צרו מסלול והקצו נהג.';
+
+  @override
+  String get launchCenterHintTestDelivery => 'סגרו משלוח אחד באפליקציית נהג.';
+
+  @override
+  String get launchCenterHintGoLive => 'אשרו מוכנות לעבודה יומיומית.';
+
+  @override
+  String get launchCenterRequired => 'חובה';
+
+  @override
+  String get launchCenterOptional => 'אופציונלי';
+
+  @override
+  String get launchCenterAssign => 'הקצאה';
+
+  @override
+  String get launchCenterAssignCard => 'הקצאת משימה';
+
+  @override
+  String get launchCenterAssignee => 'ממונה';
+
+  @override
+  String get launchCenterUnassigned => 'לא מוקצה';
+
+  @override
+  String get launchCenterNotes => 'הערות';
+
+  @override
+  String launchCenterEstimatedMin(int minutes) {
+    return '~$minutes דק\'';
+  }
+
+  @override
+  String get launchCenterCompanyReady => 'החברה מוכנה';
+
+  @override
+  String get launchCenterCompanyReadyTitle => 'החברה מוכנה';
+
+  @override
+  String get launchCenterCompanyReadyBody =>
+      'כל משימות החובה הושלמו. השלימו Go Live כשמוכנים.';
+
+  @override
+  String get launchCenterModeSelfSetup => 'Self Setup';
+
+  @override
+  String get launchCenterModeDoneForYou => 'Done for you';
+
+  @override
+  String get onboardingSectionCompanySetup => 'הגדרת חברה';
+
+  @override
+  String get onboardingSectionImportStatus => 'סטטוס ייבוא';
+
+  @override
+  String get onboardingSectionDrivers => 'נהגים';
+
+  @override
+  String get onboardingSectionWarehouse => 'מחסן';
+
+  @override
+  String get onboardingSectionAccounting => 'הנהלת חשבונות';
+
+  @override
+  String get onboardingSectionGps => 'GPS';
+
+  @override
+  String get onboardingSectionFirstRoute => 'מסלול ראשון';
+
+  @override
+  String get onboardingSectionTestDelivery => 'משלוח בדיקה';
+
+  @override
+  String get onboardingSectionGoLive => 'Go Live';
+
+  @override
+  String get healthStripCompany => 'חברה';
+
+  @override
+  String get healthStripBilling => 'חיוב';
+
+  @override
+  String get healthStripFirestore => 'Firestore';
+
+  @override
+  String get healthStripRoutes => 'מסלולים';
+
+  @override
+  String healthStripRoutesActive(int count) {
+    return '$count פעילים';
+  }
+
+  @override
+  String get healthStripFcm => 'FCM';
+
+  @override
+  String get healthStripAccounting => 'הנהלת חשבונות';
+
+  @override
+  String get healthStripAccountingSyncFailed => 'סנכרון נכשל';
+
+  @override
+  String get healthStripLastError => 'שגיאה אחרונה';
+
+  @override
+  String get healthStripSetup => 'Setup';
+
+  @override
+  String get healthStripGps => 'GPS';
+
+  @override
+  String get healthStripInvoices => 'חשבוניות';
+
+  @override
+  String get healthStripWarehouse => 'מחסן';
+
+  @override
+  String get healthStripDrivers => 'נהגים';
+
+  @override
+  String get healthStripLastSync => 'סנכרון';
+
+  @override
+  String get healthStripProblems => 'בעיות';
+
+  @override
+  String get healthStripOk => 'OK';
+
+  @override
+  String get healthStripWarn => 'WARN';
+
+  @override
+  String get healthStripFail => 'FAIL';
+
+  @override
+  String get healthStripJustNow => 'עכשיו';
+
+  @override
+  String healthStripMinutesAgo(int minutes) {
+    return 'לפני $minutes דק\'';
+  }
+
+  @override
+  String healthStripHoursAgo(int hours) {
+    return 'לפני $hours ש\'';
+  }
+
+  @override
+  String get customerHealthCompanyId => 'מזהה חברה';
+
+  @override
+  String get customerHealthLoadMore => 'טען עוד';
+
+  @override
+  String get customerHealthDashboardTitle => 'בריאות לקוחות';
+
+  @override
+  String get customerHealthStatus => 'Health';
+
+  @override
+  String get customerHealthHealthy => 'Healthy';
+
+  @override
+  String get customerHealthWarning => 'Warning';
+
+  @override
+  String get customerHealthCritical => 'Critical';
+
+  @override
+  String get customerHealthUnknown => 'Unknown';
+
+  @override
+  String get customerHealthFilterAll => 'הכל';
+
+  @override
+  String get customerHealthFilterDemo => 'Demo';
+
+  @override
+  String get customerHealthFailedSync => 'Sync נכשל';
+
+  @override
+  String get customerHealthStaleGps => 'GPS ישן';
+
+  @override
+  String get customerHealthLastActivity => 'פעילות אחרונה';
+
+  @override
+  String get customerHealthDemoBadge => 'Demo';
+
+  @override
+  String get customerHealthNoRows => 'אין חברות לפי הסינון';
+
+  @override
+  String get customerHealthOpenSupport => 'Support Console';
+
+  @override
+  String get customerHealthSwitchCompany => 'החלף חברה';
+
+  @override
+  String get demoCompanyTitle => 'חברת דמו';
+
+  @override
+  String get demoCompanySuperAdminOnly => 'super_admin בלבד';
+
+  @override
+  String get demoCompanyDesc =>
+      'Demo Foods Israel — נתוני דמו למכירות. כל הרשומות עם isDemo. מזהה: demo-foods-israel.';
+
+  @override
+  String get demoCompanyCreate => 'צור חברת דמו';
+
+  @override
+  String get demoCompanyResetAction => 'איפוס ויצירה מחדש';
+
+  @override
+  String get demoCompanyResetTitle => 'איפוס נתוני דמו';
+
+  @override
+  String get demoCompanyResetConfirm =>
+      'למחוק demo-foods-israel וליצור מחדש? חברות אמיתיות לא יושפעו.';
+
+  @override
+  String get demoCompanySuccess => 'חברת הדמו מוכנה';
+
+  @override
+  String get demoCompanyCredentialsTitle => 'התחברות (בדויים)';
+
+  @override
+  String get demoCompanyCredOwner => 'Owner';
+
+  @override
+  String get demoCompanyCredDispatcher => 'Dispatcher';
+
+  @override
+  String get demoCompanyCredDriver => 'נהג 1';
+
+  @override
+  String demoCompanyLastSeed(int clients, int products) {
+    return 'נטענו: $clients לקוחות, $products מק\"ט';
+  }
+
+  @override
+  String get demoCompanyPasswordHint =>
+      'סיסמת דמו מוגדרת ב-env / הגדרה מקומית בלבד.';
+
+  @override
+  String get demoCompanyResetPreviewTitle => 'תצוגה מקדימה לאיפוס';
+
+  @override
+  String demoCompanyResetPreviewBody(int deletable, int blocked) {
+    return 'יימחקו $deletable מסמכים. חסומים (ללא isDemo): $blocked. להמשיך?';
+  }
+
+  @override
+  String demoCompanyResetBlocked(int blocked) {
+    return 'איפוס חסום: $blocked מסמכים ללא isDemo.';
+  }
+
+  @override
+  String get supportDiagQuickActions => 'פעולות מהירות';
+
+  @override
+  String get supportDiagOpenAsOwner => 'פתח כ-owner';
+
+  @override
+  String get supportDiagOpenAsDispatcher => 'פתח כ-dispatcher';
+
+  @override
+  String get supportDiagSetupNext => 'שלב חובה הבא';
+
+  @override
+  String get supportDiagUsersDrivers => 'משתמשים / נהגים';
+
+  @override
+  String get supportDiagTotalUsers => 'סה״כ משתמשים';
+
+  @override
+  String get supportDiagActiveDrivers => 'נהגים פעילים (היום)';
+
+  @override
+  String get supportDiagActiveRoutes => 'מסלולים פעילים';
+
+  @override
+  String get supportDiagPendingPoints => 'נקודות ממתינות';
+
+  @override
+  String get supportDiagCompletedToday => 'הושלמו היום';
+
+  @override
+  String get supportDiagCancelledPoints => 'בוטלו / חסומות';
+
+  @override
+  String get supportDiagSyncStatus => 'סטטוס sync אחרון';
+
+  @override
+  String get supportDiagNotifications => 'התראות';
+
+  @override
+  String get supportDiagLastPush => 'לוג push אחרון';
+
+  @override
+  String get supportDiagLastEmail => 'לוג email אחרון';
+
+  @override
+  String get supportDiagRecentErrors => 'שגיאות אחרונות';
+
+  @override
+  String get supportDiagFilterCorrelation => 'סינון לפי correlationId';
+
+  @override
+  String get supportDiagLastPayment => 'תשלום מוצלח אחרון';
+
+  @override
+  String get supportDiagFailedPayment => 'תשלום כושל אחרון';
+
+  @override
+  String get supportDiagLoadedAt => 'נטען';
+
+  @override
+  String get usageSummaryTitle => 'Usage (פיילוט)';
+
+  @override
+  String get usageSummaryDays7 => '7 ימים';
+
+  @override
+  String get usageSummaryDays30 => '30 ימים';
+
+  @override
+  String get usageSummaryActiveUsers => 'משתמשים פעילים';
+
+  @override
+  String get usageSummaryTotalEvents => 'סה״כ אירועים';
+
+  @override
+  String get usageSummaryLastEvent => 'אירוע אחרון';
+
+  @override
+  String get usageSummaryNoEvents => 'אין אירועים בתקופה';
+
+  @override
+  String get usageSummaryOwnerOnly => 'owner / admin / super_admin בלבד';
+
+  @override
+  String usageSummarySampleNote(int sampleSize) {
+    return 'משתמשים פעילים — לפי $sampleSize אירועים אחרונים (limit)';
+  }
+
+  @override
+  String get driverSessionBlockedTitle => 'הנהג כבר פעיל במכשיר אחר';
+
+  @override
+  String get driverSessionBlockedSubtitle => 'עבודה במסלול חסומה במכשיר זה.';
+
+  @override
+  String driverSessionBlockedDevice(String label) {
+    return 'מכשיר פעיל: $label';
+  }
+
+  @override
+  String get driverSessionTakeoverButton => 'עבור למכשיר זה';
+
+  @override
+  String get driverSessionLostTitle => 'הסשן הועבר למכשיר אחר';
+
+  @override
+  String get driverSessionLostSubtitle => 'מעקב GPS והמסלול הופסקו במכשיר זה.';
+
+  @override
+  String get driverSessionLostAcknowledge => 'הבנתי';
+
+  @override
+  String driverSessionActiveDevice(String label) {
+    return 'מכשיר פעיל: $label';
+  }
+
+  @override
+  String get importWizardTitle => 'אשף ייבוא';
+
+  @override
+  String get importWizardStepType => 'סוג נתונים';
+
+  @override
+  String get importWizardStepFile => 'קובץ';
+
+  @override
+  String get importWizardStepHeaders => 'כותרות';
+
+  @override
+  String get importWizardStepMapping => 'מיפוי';
+
+  @override
+  String get importWizardStepPreview => 'תצוגה מקדימה';
+
+  @override
+  String get importWizardStepImport => 'ייבוא';
+
+  @override
+  String get importWizardStepResult => 'תוצאה';
+
+  @override
+  String get importWizardConfidence => '%';
+
+  @override
+  String get importWizardSaveTemplate => 'לשמור תבנית?';
+
+  @override
+  String get importWizardSaveTemplateHint =>
+      'שמירת מיפוי עמודות לקבצים דומים בעתיד.';
+
+  @override
+  String get importWizardUseSavedMapping => 'נמצאה תבנית שמורה';
+
+  @override
+  String get importWizardTypeClients => 'לקוחות';
+
+  @override
+  String get importWizardTypeProducts => 'מוצרים';
+
+  @override
+  String get importWizardTypeDeliveryPoints => 'נקודות משלוח';
+
+  @override
+  String get importWizardFileHint => 'בחרו קובץ Excel (.xlsx) או CSV.';
+
+  @override
+  String get importWizardPickFile => 'בחירת קובץ';
+
+  @override
+  String importWizardFileSummary(int columns, int rows) {
+    return '$columns עמודות, $rows שורות';
+  }
+
+  @override
+  String importWizardHeadersFound(int count) {
+    return 'עמודות שנמצאו: $count';
+  }
+
+  @override
+  String get importWizardPreviewTitle => 'תצוגה מקדימה (עד 20 שורות)';
+
+  @override
+  String get importWizardRun => 'ייבוא';
+
+  @override
+  String get importWizardImporting => 'מייבא…';
+
+  @override
+  String get importWizardResultTitle => 'הייבוא הושלם';
+
+  @override
+  String get importWizardImported => 'נוספו';
+
+  @override
+  String get importWizardUpdated => 'עודכנו';
+
+  @override
+  String get importWizardSkipped => 'דולגו';
+
+  @override
+  String get importWizardErrors => 'שגיאות';
+
+  @override
+  String get importWizardDownloadErrors => 'הורדת שגיאות (CSV)';
+
+  @override
+  String get importWizardTemplateName => 'שם תבנית';
+
+  @override
+  String get importWizardTemplateDefaultName => 'התבנית שלי';
+
+  @override
+  String get importWizardMenu => 'אשף ייבוא';
+
+  @override
+  String get importWizardBack => 'חזרה';
+
+  @override
+  String get importWizardApply => 'החל';
+
+  @override
+  String get importWizardUnusedColumns => 'עמודות שלא בשימוש';
+
+  @override
+  String importWizardDetectedPack(String pack) {
+    return 'פורמט שזוהה: $pack';
+  }
+
+  @override
+  String get createCompanyFlowTitle => 'יצירת חברה';
+
+  @override
+  String get createCompanyFlowStepCompany => 'פרטי חברה';
+
+  @override
+  String get createCompanyFlowStepOwner => 'משתמש ראשון';
+
+  @override
+  String get createCompanyFlowStepMode => 'מצב הטמעה';
+
+  @override
+  String get createCompanyFlowStepConfirm => 'אישור';
+
+  @override
+  String get createCompanyFlowDefaults =>
+      'מדינה: ישראל · שפה: עברית · אזור זמן: Asia/Jerusalem · ניסיון: 14 יום';
+
+  @override
+  String get createCompanyFlowModeSelf => 'Self Setup';
+
+  @override
+  String get createCompanyFlowModeSelfHint => 'הבעלים משלים Launch Center';
+
+  @override
+  String get createCompanyFlowModeDone => 'Done-for-you';
+
+  @override
+  String get createCompanyFlowModeDoneHint => 'LogiRoute מגדירה את החברה';
+
+  @override
+  String createCompanyFlowModeLabel(String mode) {
+    return 'מצב: $mode';
+  }
+
+  @override
+  String get createCompanyFlowMaxUsers => 'מגבלת משתמשים';
+
+  @override
+  String get createCompanyFlowSuccessTitle => 'החברה נוצרה';
+
+  @override
+  String get createCompanyFlowSuccessBody =>
+      'החברה מוכנה. למשתמש הראשון נשלח מייל כניסה.';
+
+  @override
+  String get createCompanyFlowEmailFailed =>
+      'שליחת המייל נכשלה. החברה נוצרה — שלחו איפוס סיסמה ידנית.';
+
+  @override
+  String get createCompanyFlowOpenAsOwner => 'פתיחה כ-owner';
+
+  @override
+  String get createCompanyFlowOpenAsDispatcher => 'פתיחה כ-dispatcher';
+
+  @override
+  String get createCompanyFlowCopyInvite => 'העתקת הזמנה';
+
+  @override
+  String get createCompanyFlowInviteCopied => 'ההזמנה הועתקה';
+
+  @override
+  String get createCompanyFlowOwnerRequired =>
+      'נדרשים שם ואימייל ל-owner/admin';
+
+  @override
+  String get createCompanyFlowUserInOtherCompany =>
+      'אימייל זה כבר משויך לחברה אחרת';
+
+  @override
+  String get createCompanyFlowEmailConflict => 'לא ניתן ליצור או לקשר משתמש';
+
+  @override
+  String get launchCenterOpen => 'פתיחת Launch Center';
+
+  @override
+  String get trialEndsLabel => 'ניסיון עד';
+
+  @override
+  String get platformErrorCenterTitle => 'מרכז שגיאות';
+
+  @override
+  String get platformErrorDetailTitle => 'פרטי שגיאה';
+
+  @override
+  String get platformErrorFilterOpen => 'פתוחות בלבד';
+
+  @override
+  String get platformErrorEmpty => 'אין שגיאות';
+
+  @override
+  String get platformErrorColSeverity => 'חומרה';
+
+  @override
+  String get platformErrorColCount => 'חזרות';
+
+  @override
+  String get platformErrorColOperation => 'פעולה';
+
+  @override
+  String get platformErrorColFirstSeen => 'הופעה ראשונה';
+
+  @override
+  String get platformErrorColLastSeen => 'הופעה אחרונה';
+
+  @override
+  String get platformErrorResolved => 'נסגר';
+
+  @override
+  String get platformErrorOpen => 'פתוח';
+
+  @override
+  String get platformErrorCorrelationIds => 'Correlation ID';
+
+  @override
+  String get platformErrorStackTrace => 'Stack trace';
+
+  @override
+  String get platformErrorNoStack => 'אין stack trace';
+
+  @override
+  String get platformErrorCopy => 'העתק שגיאה';
+
+  @override
+  String get platformErrorCopyJson => 'העתק JSON';
+
+  @override
+  String get platformErrorCopied => 'הועתק';
+
+  @override
+  String get platformErrorMarkResolved => 'סמן כנסגר';
+
+  @override
+  String get platformErrorReopen => 'פתח מחדש';
+
+  @override
+  String get platformErrorIncidentSuggested =>
+      'השגיאה חזרה >20 פעמים בשעה האחרונה';
+
+  @override
+  String get remoteConfigTitle => 'הגדרות פיילוט';
+
+  @override
+  String get remoteConfigSubtitle =>
+      'פרמטרים חיים — שינויים נכנסים לתוקף ללא בנייה מחדש';
+
+  @override
+  String get remoteConfigSaved => 'ההגדרות נשמרו';
+
+  @override
+  String remoteConfigSaveError(String error) {
+    return 'שגיאת שמירה: $error';
+  }
+
+  @override
+  String get remoteConfigResetField => 'איפוס לברירת מחדל';
+
+  @override
+  String get remoteConfigResetAll => 'איפוס הכל לברירת מחדל';
+
+  @override
+  String remoteConfigDefault(String value) {
+    return 'ברירת מחדל: $value';
+  }
+
+  @override
+  String get rcAutoCloseRadius => 'רדיוס סגירה אוטומטית (מ\')';
+
+  @override
+  String get rcAutoCloseRadiusDesc =>
+      'רדיוס GPS שבתוכו נקודת המשלוח נסגרת אוטומטית';
+
+  @override
+  String get rcAutoCloseResetRadius => 'רדיוס איפוס (מ\')';
+
+  @override
+  String get rcAutoCloseResetRadiusDesc =>
+      'חייב להיות ≥ מרדיוס הסגירה. מונע איפוס טיימר בגלל רעד GPS';
+
+  @override
+  String get rcAutoCloseWait => 'זמן המתנה לסגירה (שניות)';
+
+  @override
+  String get rcAutoCloseWaitDesc =>
+      'שניות שהנהג חייב להישאר בתוך הרדיוס לפני הסגירה האוטומטית';
+
+  @override
+  String get rcCloseUndo => 'משך ביטול (שניות)';
+
+  @override
+  String get rcCloseUndoDesc =>
+      'שניות שכפתור \'ביטול\' מוצג לאחר סגירת נקודת משלוח';
+
+  @override
+  String get rcGpsStale => 'סף GPS מיושן (דקות)';
+
+  @override
+  String get rcGpsStaleDesc =>
+      'לאחר מספר דקות זה ללא עדכון GPS הנהג נחשב לא מקוון';
+
+  @override
+  String get rcSessionHeartbeat => 'פעימת לב של סשן (שניות)';
+
+  @override
+  String get rcSessionHeartbeatDesc =>
+      'כמה פעמים מכשיר הנהג שולח פעימת לב לשמירת בעלות הסשן';
+
+  @override
+  String get rcSessionStale => 'פסק זמן סשן מיושן (דקות)';
+
+  @override
+  String get rcSessionStaleDesc =>
+      'הסשן נחשב מיושן לאחר מספר דקות זה ללא פעימת לב';
+
+  @override
+  String get rcBgAutoClose => 'סגירה אוטומטית ברקע';
+
+  @override
+  String get rcBgAutoCloseDesc =>
+      'אפשר לשירות הרקע לסגור נקודות משלוח אוטומטית';
+
+  @override
+  String get rcSessionLock => 'נעילת סשן מכשיר נהג';
+
+  @override
+  String get rcSessionLockDesc => 'מניעת כניסה בו-זמנית של נהג משני מכשירים';
+
+  @override
+  String get rcPreferWaze => 'העדפת ניווט Waze';
+
+  @override
+  String get rcPreferWazeDesc =>
+      'השתמש ב-Waze כאפליקציית ניווט ראשית. כשכבוי, Google Maps ישמש במקום';
+
+  @override
+  String get rcImportPreviewRows => 'שורות תצוגה מקדימה לייבוא';
+
+  @override
+  String get rcImportPreviewRowsDesc =>
+      'מספר השורות המוצגות בשלב התצוגה המקדימה של הייבוא';
+
+  @override
+  String get rcSectionAutoClose => 'סגירה אוטומטית';
+
+  @override
+  String get rcSectionSession => 'סשן';
+
+  @override
+  String get rcSectionFeatures => 'תכונות';
+
+  @override
+  String get dataIntegrityTitle => 'שלמות נתונים';
+
+  @override
+  String get dataIntegritySubtitle =>
+      'איתור אי-התאמות בין משתמשים, נקודות, מסלולים, חשבוניות ומלאי';
+
+  @override
+  String get dataIntegrityRunCheck => 'הרץ בדיקה';
+
+  @override
+  String dataIntegrityCheckDone(int count) {
+    return 'הבדיקה הושלמה: $count בעיות';
+  }
+
+  @override
+  String get dataIntegrityCsvCopied => 'CSV הועתק ללוח';
+
+  @override
+  String get dataIntegrityNever => 'בדיקת שלמות מעולם לא רצה';
+
+  @override
+  String get dataIntegrityLastCheck => 'בדיקה אחרונה';
+
+  @override
+  String get dataIntegrityNoIssues => 'לא נמצאו בעיות';
+
+  @override
+  String get dataIntegrityExportCsv => 'ייצוא CSV';
+
+  @override
+  String dataIntegrityIssuesCount(int count) {
+    return '$count בעיות';
+  }
+
+  @override
+  String get dataIntegrityFilterAll => 'הכול';
+
+  @override
+  String get dataIntegrityStatusOpen => 'פתוחות';
+
+  @override
+  String get dataIntegrityStatusIgnored => 'מתעלם';
+
+  @override
+  String get dataIntegrityStatusResolved => 'נפתרו';
+
+  @override
+  String get dataIntegrityMarkIgnored => 'התעלם';
+
+  @override
+  String get dataIntegrityMarkResolved => 'סמן כנפתר';
+
+  @override
+  String get dataIntegrityReopen => 'פתח מחדש';
+
+  @override
+  String get dataIntegrityOpenEntity => 'פרטים';
+
+  @override
+  String get dataIntegrityCopyId => 'העתק מזהה';
+
+  @override
+  String get dataIntegrityOpen => 'פתח בדיקת שלמות';
+
+  @override
+  String get severityCritical => 'קריטי';
+
+  @override
+  String get severityHigh => 'גבוה';
+
+  @override
+  String get severityMedium => 'בינוני';
+
+  @override
+  String get severityLow => 'נמוך';
 }

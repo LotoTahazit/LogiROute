@@ -18,33 +18,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get vatRegimeLabel => 'Тип плательщика (печать)';
 
   @override
-  String get vatRegimeAuthorized => 'עוסק מורשה';
+  String get vatRegimeAuthorized => 'Плательщик НДС (עוסק מורשה)';
 
   @override
-  String get vatRegimeExempt => 'עוסק פטור';
+  String get vatRegimeExempt => 'Без НДС (עוסק פטור)';
 
   @override
-  String get vatRegimeCompany => 'חברה בע״מ';
+  String get vatRegimeCompany => 'ООО (חברה בע״מ)';
 
   @override
-  String get israelInvoiceStatusTitle => 'מערכת חשבוניות ישראל';
+  String get israelInvoiceStatusTitle => 'Система «חשבוניות ישראל»';
 
   @override
   String get israelInvoicePlatformNotConfigured =>
       'Платформа не настроена — нужны ISRAEL_INVOICE_* в functions/.env';
 
   @override
-  String get israelInvoiceCompanyConnected => 'Подключено к רשות המסים';
+  String get israelInvoiceCompanyConnected => 'Подключено к налоговой';
 
   @override
-  String get israelInvoiceCompanyNotConnected => 'Не подключено — OAuth';
+  String get israelInvoiceCompanyNotConnected =>
+      'Не подключено — требуется OAuth';
 
   @override
-  String get israelInvoiceConnect => 'Подключить «Хешбониёт Исраэль»';
+  String get israelInvoiceConnect => 'Подключить систему «חשבוניות ישראל»';
 
   @override
   String get israelInvoiceConnectHint =>
-      'Разовая авторизация компании в налоговой для номеров הקצאה. Откроется страница входа רשות המסים.';
+      'Разовая авторизация компании в налоговой для номеров הקצאה. Откроется страница входа.';
+
+  @override
+  String get israelInvoiceAssignmentReady => 'Номер הקצאה — готов';
+
+  @override
+  String get israelInvoiceAssignmentMissingOAuth => 'Номер הקצאה — нужен OAuth';
 
   @override
   String get autoDistributePallets => 'Авто-распределить паллеты';
@@ -440,6 +447,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deliverySection => 'Доставка';
 
   @override
+  String get settingsDeliveryAndOps => 'Доставка и операции';
+
+  @override
+  String get settingsDriverDefaults => 'Водитель по умолчанию';
+
+  @override
+  String get settingsOpsManagedByAdmin =>
+      'Настройки доставки и водителя управляются администратором';
+
+  @override
   String get pointDone => 'Точка выполнена';
 
   @override
@@ -527,6 +544,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get autoCloseUndoMessage => 'Точка закрыта автоматически';
+
+  @override
+  String pointCloseUndoMessage(String name) {
+    return 'Доставка «$name» закрыта';
+  }
+
+  @override
+  String autoClosePendingBanner(String name, int distance, int seconds) {
+    return 'Автозакрытие: $name · $distance м · ~$seconds сек';
+  }
 
   @override
   String get undo => 'Отменить';
@@ -755,6 +782,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get analytics => 'Аналитика';
 
   @override
+  String get analyticsPeriodHint => 'Аналитика строится за выбранный период.';
+
+  @override
+  String get analyticsPeriodToday => 'Сегодня';
+
+  @override
   String get settings => 'Настройки';
 
   @override
@@ -900,6 +933,33 @@ class AppLocalizationsRu extends AppLocalizations {
       'Этот адрес будет использован только для текущей доставки. Основной адрес клиента останется неизменным.';
 
   @override
+  String get deliveryAddressOverrideToggle =>
+      'Адрес этой доставки отличается от адреса клиента';
+
+  @override
+  String get deliveryAddressOverrideLabel => 'Адрес этой доставки';
+
+  @override
+  String get deliveryAddressOverrideHint =>
+      'Филиал, разовая разгрузка, временное место…';
+
+  @override
+  String get deliveryAddressOverrideBadge => 'Разовый адрес доставки';
+
+  @override
+  String get deliveryAddressOverrideNoCoords =>
+      'Координаты адреса доставки не найдены';
+
+  @override
+  String get deliveryAddressLabel => 'Адрес доставки';
+
+  @override
+  String get findCoordinates => 'Найти координаты';
+
+  @override
+  String get clientAddressLabel => 'Адрес клиента';
+
+  @override
   String get originalAddress => 'Основной адрес';
 
   @override
@@ -952,6 +1012,52 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get gpsTrackingStopped => 'GPS отслеживание остановлено';
+
+  @override
+  String get gpsStatusActive => 'Active';
+
+  @override
+  String get gpsStatusWaiting => 'Waiting';
+
+  @override
+  String get gpsStatusError => 'Error';
+
+  @override
+  String get gpsStatusDisabled => 'Disabled';
+
+  @override
+  String get gpsStatusPermissionRequired => 'Permission required';
+
+  @override
+  String get gpsUnavailableHint =>
+      'GPS недоступен. Включите геолокацию и разрешите доступ.';
+
+  @override
+  String get gpsBackgroundHintShort =>
+      'Для трекинга в фоне включите доступ «Разрешать всегда».';
+
+  @override
+  String get bgModeActive => 'Фоновый режим активен';
+
+  @override
+  String get bgModeInactive => 'Фоновый режим не активен';
+
+  @override
+  String get bgSystemStoppedWarning =>
+      'Фоновое отслеживание было остановлено системой. Проверьте настройки батареи.';
+
+  @override
+  String get bgOpenSetup => 'Настройки Android';
+
+  @override
+  String get gpsFirestoreWriteFailed =>
+      'Не удалось отправить координаты на сервер. Проверьте интернет.';
+
+  @override
+  String get gpsStaleHint => 'GPS давно не обновлялся. Проверьте геолокацию.';
+
+  @override
+  String get gpsRecheck => 'Проверить снова';
 
   @override
   String get weekendDay => 'Выходной день';
@@ -1081,6 +1187,53 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get typeLabel => 'Тип (бутылка, крышка, стакан)';
+
+  @override
+  String get typeLabelFood => 'Категория (молочное, хлеб, напитки)';
+
+  @override
+  String get typeLabelClothing => 'Тип (рубашка, брюки, обувь)';
+
+  @override
+  String get typeLabelConstruction => 'Тип (цемент, блоки, смеси)';
+
+  @override
+  String get typeLabelGeneric => 'Тип / категория';
+
+  @override
+  String get numberLabelFood => 'Вариант / размер (0.5л, 1кг)';
+
+  @override
+  String get numberLabelClothing => 'Размер / артикул';
+
+  @override
+  String get numberLabelConstruction => 'Марка / размер';
+
+  @override
+  String get numberLabelGeneric => 'Номер или код варианта';
+
+  @override
+  String get volumeLabelFood => 'Объём или вес (необязательно)';
+
+  @override
+  String get volumeLabelOptionalGeneric =>
+      'Размер / примечание (необязательно)';
+
+  @override
+  String get weightLabelOptional => 'Вес, кг (необязательно)';
+
+  @override
+  String quantityOnPalletName(String palletName) {
+    return 'Количество на $palletName';
+  }
+
+  @override
+  String piecesPerUnitInBox(String unitName) {
+    return 'Упаковка — $unitName в коробке (необяз.)';
+  }
+
+  @override
+  String get quantityPerBoxLabel => 'Количество в коробке';
 
   @override
   String get numberLabel => 'Номер (100, 200, и т.д.)';
@@ -1839,6 +1992,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categoryBoxes => 'Коробки';
 
   @override
+  String get categoryBeverages => 'Напитки';
+
+  @override
+  String get categoryFrozen => 'Заморозка';
+
+  @override
+  String get categorySnacks => 'Снеки';
+
+  @override
+  String get categoryPants => 'Брюки';
+
+  @override
+  String get categoryShoes => 'Обувь';
+
+  @override
+  String get categoryAccessories => 'Аксессуары';
+
+  @override
+  String get categoryBlocks => 'Блоки';
+
+  @override
+  String get categoryMix => 'Смеси';
+
+  @override
+  String get categoryTools => 'Инструмент';
+
+  @override
   String get terminology => 'Терминология';
 
   @override
@@ -2070,6 +2250,29 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportsTitle => 'Отчёты';
+
+  @override
+  String get reportsPeriodHint => 'Отчёт строится за выбранный период.';
+
+  @override
+  String get reportsPeriodThisMonth => 'Этот месяц';
+
+  @override
+  String get reportsPeriodLast3Months => '3 месяца';
+
+  @override
+  String get reportsPeriodLast12Months => '12 месяцев';
+
+  @override
+  String get reportsPeriodCustom => 'Свой период';
+
+  @override
+  String get reportsLoadMore => 'Загрузить ещё';
+
+  @override
+  String reportsTruncatedHint(int count) {
+    return 'Показано не более $count документов. Нажмите «Загрузить ещё» или сузьте период.';
+  }
 
   @override
   String get monthlyReport => 'Месячный отчёт';
@@ -2677,6 +2880,40 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get billingGuardVerifyFailedTitle =>
+      'Не удалось проверить статус подписки';
+
+  @override
+  String get billingGuardVerifyFailedBody =>
+      'Проверьте подключение к Интернету или повторите позже.';
+
+  @override
+  String get billingGuardRetry => 'Повторить';
+
+  @override
+  String get billingSupportDialogTitle => 'Обратитесь в поддержку';
+
+  @override
+  String get billingSupportDialogBody =>
+      'Напишите нам — мы поможем восстановить доступ или изменить тариф.';
+
+  @override
+  String get billingSupportCopyEmail => 'Скопировать email';
+
+  @override
+  String get billingSupportEmailCopied => 'Email скопирован';
+
+  @override
+  String get billingSupportOpenEmail => 'Написать';
+
+  @override
+  String get billingSupportCall => 'Позвонить';
+
+  @override
+  String get billingSupportPayUnavailable =>
+      'Не удалось проверить подписку. Оплата временно недоступна.';
+
+  @override
   String get companySettingsNotSelected => 'Компания не выбрана';
 
   @override
@@ -3152,6 +3389,43 @@ class AppLocalizationsRu extends AppLocalizations {
       'Сбалансировать маршруты? Система перенесёт точки с перегруженных маршрутов на лёгкие.';
 
   @override
+  String get mergeRoutes => 'Объединить маршруты';
+
+  @override
+  String get mergeRoutesHint =>
+      'Активные точки перейдут в выбранный маршрут. Завершённые останутся в своих маршрутах.';
+
+  @override
+  String get mergeRoutesTarget => 'Целевой маршрут';
+
+  @override
+  String get mergeRoutesSources => 'Добавить активные точки из';
+
+  @override
+  String get mergeRoutesNoEligible =>
+      'Нет маршрутов для объединения (нужно 2+ у одного водителя)';
+
+  @override
+  String get mergeRoutesPickTarget => 'Выберите целевой маршрут';
+
+  @override
+  String get mergeRoutesPickSource => 'Выберите хотя бы один маршрут-источник';
+
+  @override
+  String get mergeRoutesNothingMoved => 'Нет активных точек для переноса';
+
+  @override
+  String mergeRoutesSuccess(Object count) {
+    return 'Перенесено активных точек: $count';
+  }
+
+  @override
+  String mergeRoutesRouteLabel(
+      Object driver, Object active, Object done, Object total) {
+    return '$driver · $active активн. / $done готово · $total точек';
+  }
+
+  @override
   String get routesBalanced => 'Маршруты сбалансированы';
 
   @override
@@ -3167,6 +3441,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get navigationOpenError => 'Ошибка открытия навигации';
+
+  @override
+  String get navigationNoDestination => 'Нет координат и адреса для навигации';
 
   @override
   String get driverFallbackName => 'Водитель';
@@ -3285,6 +3562,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get inventoryActionUpdate => 'Обновлено';
+
+  @override
+  String get inventoryActionBarcodeIn => 'Приход (штрихкод)';
+
+  @override
+  String get inventoryActionBarcodeOut => 'Расход (штрихкод)';
 
   @override
   String get priceManagement => 'Управление ценами';
@@ -3591,7 +3874,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get paymentPageOpened => 'Страница оплаты открыта';
 
   @override
-  String get cannotOpenPayment => 'Не удалось открыть страницу оплаты';
+  String get cannotOpenPayment => 'Не удалось открыть страницу оплаты.';
+
+  @override
+  String get checkoutCopyLink => 'Скопировать ссылку';
+
+  @override
+  String get checkoutLinkCopied => 'Ссылка скопирована';
+
+  @override
+  String get checkoutSessionFailed =>
+      'Не удалось создать сессию оплаты. Попробуйте позже.';
 
   @override
   String get selectFormat => 'Выберите формат';
@@ -3815,6 +4108,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get eventInvoiceIssued => 'Счёт выставлен';
 
   @override
+  String get docNumberShort => '№';
+
+  @override
+  String get auditEventBy => 'От';
+
+  @override
   String get eventInvoicePrinted => 'Счёт распечатан';
 
   @override
@@ -3833,6 +4132,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get eventDeliveryPointStatusChanged => 'Статус точки доставки изменён';
 
   @override
+  String get eventDeliveryAddressChanged => 'Адрес доставки изменён';
+
+  @override
+  String get auditOldDeliveryAddress => 'Было';
+
+  @override
+  String get auditNewDeliveryAddress => 'Стало';
+
+  @override
+  String get auditChangedByRole => 'Изменил';
+
+  @override
+  String get auditCorrelationId => 'CorrelationId';
+
+  @override
   String get eventManualAssignment => 'Ручное назначение';
 
   @override
@@ -3849,6 +4163,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get eventRetentionChecked => 'Проверка хранения данных';
+
+  @override
+  String get metricsNotCalculatedYet =>
+      'Метрики ещё не рассчитаны. Нажмите «Пересчитать» или дождитесь ночного обновления.';
+
+  @override
+  String get recalculateMetrics => 'Пересчитать метрики';
+
+  @override
+  String get metricsRecalculateDone => 'Метрики обновлены';
+
+  @override
+  String get metricsRecalculateFailed => 'Не удалось пересчитать метрики';
 
   @override
   String get deliveriesToday => 'Доставки сегодня';
@@ -3941,7 +4268,20 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get usersLimitUpgrade =>
-      'Невозможно пригласить больше пользователей. Обновите тариф для увеличения лимита.';
+      'Лимит тарифа достигнут — предупреждение (приглашения не блокируются на пилоте). Рекомендуем обновить тариф.';
+
+  @override
+  String get limitEnforcementSoft => 'Мягкий лимит (предупреждение)';
+
+  @override
+  String get limitEnforcementHard => 'Жёсткий лимит';
+
+  @override
+  String get limitEnforcementNotEnforced => 'Пока не отслеживается';
+
+  @override
+  String get limitSoftExceededNote =>
+      'Превышение не блокирует операции на пилоте.';
 
   @override
   String get changeRole => 'Сменить роль';
@@ -4248,10 +4588,22 @@ class AppLocalizationsRu extends AppLocalizations {
       'Налоговые настройки управляются системным администратором';
 
   @override
+  String get settingsOwnerSetupHint =>
+      'Название компании и ח.פ. — на вкладке «Профиль компании». Здесь: режим НДС, счета и интеграции.';
+
+  @override
   String get settingsInvoiceSettings => 'Настройки счёта';
 
   @override
-  String get settingsInvoiceFooter => 'Текст подвала счёта';
+  String get settingsInvoiceFooter => 'Текст внизу счёта';
+
+  @override
+  String get settingsInvoiceFooterHint =>
+      'Печатается в нижней части PDF-счёта: благодарность, условия, реквизиты';
+
+  @override
+  String get settingsTaxIdFillInProfile =>
+      'Заполнить ИНН во вкладке «Профиль компании»';
 
   @override
   String get settingsPaymentTerms => 'Условия оплаты';
@@ -4710,6 +5062,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get importInventoryTitle => 'Импорт склада';
 
   @override
+  String get importFileReadFailed =>
+      'Не удалось прочитать файл в браузере. Попробуйте ещё раз или другой браузер.';
+
+  @override
+  String get importFileParseFailed =>
+      'Не удалось разобрать Excel. Скачайте шаблон заново и заполните данные (не пустой лист).';
+
+  @override
   String get importClientsTitle => 'Импорт клиентов';
 
   @override
@@ -4775,6 +5135,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get exportToExcelMenu => 'Экспорт в Excel';
+
+  @override
+  String get exportLargeDatasetWarning =>
+      'Будет загружена вся коллекция (может занять время и много reads). Продолжить?';
+
+  @override
+  String exportLargeDatasetNotice(int count) {
+    return 'Экспортировано $count записей — большой объём данных.';
+  }
 
   @override
   String get downloadTemplateMenu => 'Скачать шаблон';
@@ -5149,6 +5518,59 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get restoreTestRecorded => 'Тест восстановления зарегистрирован';
+
+  @override
+  String get restoreDrillHint =>
+      'Restore drill — журнал проверки восстановления с evidence. Галочка без доказательств недопустима.';
+
+  @override
+  String get backupRecordHint =>
+      'Запись в журнале = факт бэкапа. Не путать с restore drill.';
+
+  @override
+  String get restoreDrillTargetEnvironment => 'Целевой проект / среда *';
+
+  @override
+  String get restoreDrillRestoredCollections => 'Восстановленные коллекции *';
+
+  @override
+  String get restoreDrillRestoredCollectionsHint =>
+      'через запятую: invoices, clients, delivery_points';
+
+  @override
+  String get restoreDrillEvidenceNotes => 'Evidence (что проверили) *';
+
+  @override
+  String get restoreDrillDurationMinutes => 'Длительность (мин) *';
+
+  @override
+  String get restoreDrillTestDate => 'Дата drill *';
+
+  @override
+  String get restoreDrillResult => 'Результат *';
+
+  @override
+  String get restoreDrillResultSuccess => 'Success';
+
+  @override
+  String get restoreDrillResultFailed => 'Failed';
+
+  @override
+  String get restoreDrillIncomplete =>
+      'Заполните все обязательные поля evidence';
+
+  @override
+  String get restoreDrillEvidenceSuccessHint =>
+      'Для success — минимум 40 символов: что восстановили, как проверили.';
+
+  @override
+  String get registerRestoreDrill => 'Зарегистрировать restore drill';
+
+  @override
+  String get registerRestoreDrillTitle => 'Restore drill (с evidence)';
+
+  @override
+  String get labelVerifiedRestoreDrills => 'Проверенных drill';
 
   @override
   String get noBackupsRecorded => 'Нет зарегистрированных копий';
@@ -5539,6 +5961,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get wazeLaunchFailed => 'Не удалось открыть Waze';
+
+  @override
   String get remainingLabel => 'Осталось';
 
   @override
@@ -5804,6 +6229,74 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unlockAllPeriods => 'Разблокировать все периоды';
 
   @override
+  String get lockPreviousMonthEnd => 'Конец прошлого месяца';
+
+  @override
+  String get computerizedWarehouseTitle =>
+      'Компьютеризированный склад (штрихкоды)';
+
+  @override
+  String get computerizedWarehouseEnabled => 'Включить сканирование штрихкодов';
+
+  @override
+  String get computerizedWarehouseHint =>
+      'Пункт «Сканирование» в меню склада. Поиск по артикулу или EAN на позиции.';
+
+  @override
+  String get barcodeScanTitle => 'Сканирование штрихкода';
+
+  @override
+  String get barcodeScanHint =>
+      'USB-сканер: фокус в поле и скан. Телефон: ввод или вставка кода.';
+
+  @override
+  String get barcodeScanFieldLabel => 'Штрихкод / артикул';
+
+  @override
+  String get barcodeScanIn => 'Приход';
+
+  @override
+  String get barcodeScanOut => 'Расход';
+
+  @override
+  String get barcodeScanApply => 'Применить';
+
+  @override
+  String get barcodeNotFound => 'Позиция не найдена по этому штрихкоду';
+
+  @override
+  String get barcodeInsufficientStock => 'Недостаточно на складе';
+
+  @override
+  String barcodeScanSuccess(String code, int qty) {
+    return '$code: остаток $qty шт.';
+  }
+
+  @override
+  String get barcodeEditTitle => 'Изменить штрихкод';
+
+  @override
+  String get barcodeDuplicateError =>
+      'Этот штрихкод уже привязан к другой позиции';
+
+  @override
+  String get barcodeUpdatedSuccess => 'Штрихкод обновлён';
+
+  @override
+  String barcodeWithValue(String code) {
+    return 'Штрихкод: $code';
+  }
+
+  @override
+  String get barcodeOptionalHelper =>
+      'Необязательно: EAN для сканирования (можно искать и по артикулу)';
+
+  @override
+  String inventoryUpdatedLine(String date, String user) {
+    return 'Обновлено: $date, $user';
+  }
+
+  @override
   String get usersLoseAccessWarning =>
       '⚠️ Пользователи потеряют весь доступ (чтение и запись заблокированы)';
 
@@ -5852,11 +6345,36 @@ class AppLocalizationsRu extends AppLocalizations {
       'Регистрация успешно принята.\nАдминистратор назначит вас в компанию и выдаст роль.';
 
   @override
+  String get noWorkspaceTitle => 'Нет доступного рабочего экрана';
+
+  @override
+  String get noWorkspaceBody =>
+      'У вашей роли нет доступного рабочего экрана. Обратитесь к администратору.';
+
+  @override
   String get registerTitle => 'Регистрация в LogiRoute';
 
   @override
   String get registerSubtitle =>
-      'После регистрации администратор назначит вас в компанию';
+      'Создайте аккаунт и компанию — trial 14 дней без оплаты';
+
+  @override
+  String get registerOwnerSubtitle =>
+      'За 2 минуты: аккаунт владельца + компания + trial 14 дней. Дальше — импорт клиентов и настройка.';
+
+  @override
+  String get registerAlreadyProvisioned =>
+      'У этого аккаунта уже есть компания. Войдите или обратитесь в поддержку.';
+
+  @override
+  String get registerResumeTitle => 'Продолжить регистрацию';
+
+  @override
+  String get registerResumeSubtitle =>
+      'Аккаунт создан — укажите данные компании, чтобы завершить регистрацию.';
+
+  @override
+  String get registerContinueButton => 'Создать компанию';
 
   @override
   String get phoneOptional => 'Телефон (необязательно)';
@@ -6066,6 +6584,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Количество не может быть отрицательным';
 
   @override
+  String get quantityMustBePositive => 'Укажите количество больше 0';
+
+  @override
   String get excelExportWebOnly =>
       'Экспорт в Excel доступен только в веб-версии';
 
@@ -6100,7 +6621,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get additionalInfoOptional => 'Доп. информация (необязательно)';
 
   @override
-  String get hashbonitUnderConstruction => 'Hashbonit в разработке';
+  String get hashbonitUnderConstruction => 'חשבונית בבנייה';
 
   @override
   String errorSavingWithDetail(String error) {
@@ -6499,4 +7020,1135 @@ class AppLocalizationsRu extends AppLocalizations {
   String volumeWithUnit(String value) {
     return 'Объём: $value мл';
   }
+
+  @override
+  String get setupWizardTitle => 'Настройка компании';
+
+  @override
+  String get setupWizardContinueLater => 'Продолжить позже';
+
+  @override
+  String get setupWizardBannerTitle => 'Завершите первичную настройку компании';
+
+  @override
+  String get setupWizardBannerAction => 'Открыть мастер';
+
+  @override
+  String setupWizardProgress(int current, int total) {
+    return 'Шаг $current из $total';
+  }
+
+  @override
+  String get setupWizardOpenStep => 'Открыть';
+
+  @override
+  String get setupWizardMarkComplete => 'Отметить выполненным';
+
+  @override
+  String get setupWizardSkip => 'Пропустить';
+
+  @override
+  String get setupWizardReadyTitle => 'Компания готова к работе.';
+
+  @override
+  String get setupWizardReadyBody =>
+      'Все обязательные шаги выполнены. Можно начинать ежедневную работу.';
+
+  @override
+  String get setupWizardStatusNotStarted => 'Не начат';
+
+  @override
+  String get setupWizardStatusInProgress => 'В процессе';
+
+  @override
+  String get setupWizardStatusCompleted => 'Выполнен';
+
+  @override
+  String get setupWizardStatusSkipped => 'Пропущен';
+
+  @override
+  String get setupWizardStepCompanyInfo => 'Информация о компании';
+
+  @override
+  String get setupWizardStepImportClients => 'Импорт клиентов';
+
+  @override
+  String get setupWizardStepImportProducts => 'Импорт товаров';
+
+  @override
+  String get setupWizardStepAddDrivers => 'Добавление водителей';
+
+  @override
+  String get setupWizardStepWarehouse => 'Настройка склада';
+
+  @override
+  String get setupWizardStepAccounting => 'Настройка бухгалтерии';
+
+  @override
+  String get setupWizardStepGps => 'Проверка GPS водителя';
+
+  @override
+  String get setupWizardStepFirstRoute => 'Первый маршрут';
+
+  @override
+  String get setupWizardStepTestDelivery => 'Тестовая доставка';
+
+  @override
+  String get setupWizardStepReady => 'Система готова';
+
+  @override
+  String get setupWizardHintCompanyInfo =>
+      'Заполните название, ח.פ, адрес и контакты.';
+
+  @override
+  String get setupWizardHintImportClients =>
+      'Импортируйте Excel или добавьте клиентов вручную.';
+
+  @override
+  String get setupWizardHintImportProducts =>
+      'Импортируйте справочник מק\"ט (можно пропустить без склада).';
+
+  @override
+  String get setupWizardHintAddDrivers =>
+      'Создайте минимум одного водителя с ёмкостью машины.';
+
+  @override
+  String get setupWizardHintWarehouse =>
+      'Пройдите опросник: штуки, коробки, паллеты — под ваш склад.';
+
+  @override
+  String get warehouseQuestionnaireTitle => 'Настройка склада';
+
+  @override
+  String get warehouseQuestionnaireSubtitle =>
+      'Штуки, коробки, паллеты — опросник для вашего склада';
+
+  @override
+  String get warehouseQuestionnaireSaved => 'Профиль склада сохранён';
+
+  @override
+  String get warehouseQuestionUnitTitle => 'Как вы отгружаете товар?';
+
+  @override
+  String get warehouseQuestionUnitHint =>
+      'Можно выбрать смешанный режим, если часть SKU в коробках, часть — штучно.';
+
+  @override
+  String get warehouseUnitLoose => 'Только штучно';
+
+  @override
+  String get warehouseUnitLooseHint => 'Без коробок — вес, литры, штуки';
+
+  @override
+  String get warehouseUnitBoxed => 'Только в коробках';
+
+  @override
+  String get warehouseUnitBoxedHint => 'Всегда упаковка / короб / картон';
+
+  @override
+  String get warehouseUnitBoth => 'И так, и так';
+
+  @override
+  String get warehouseUnitBothHint => 'Разные товары — по-разному';
+
+  @override
+  String get warehouseQuestionPalletTitle => 'Коробки на паллетах?';
+
+  @override
+  String get warehouseQuestionPalletHint =>
+      'Если часть товаров на паллетах, а часть — нет, выберите «По-разному».';
+
+  @override
+  String get warehousePalletNone => 'Без паллет';
+
+  @override
+  String get warehousePalletNoneHint => 'Только коробки или штуки';
+
+  @override
+  String get warehousePalletAlways => 'Всегда на паллетах';
+
+  @override
+  String get warehousePalletAlwaysHint => 'Стандартная паллетная логистика';
+
+  @override
+  String get warehousePalletBoth => 'По-разному';
+
+  @override
+  String get warehousePalletBothHint => 'Часть SKU паллетируется, часть — нет';
+
+  @override
+  String get warehouseLooseNoPallets =>
+      'Для штучной отгрузки паллеты обычно не нужны — можно сразу сохранить.';
+
+  @override
+  String get warehouseQuestionDefaultsTitle =>
+      'Типовые значения (необязательно)';
+
+  @override
+  String get warehouseQuestionDefaultsHint =>
+      'Не для всех 100 SKU сразу. Это только подсказка при добавлении товара. У каждого מק\"ט — свои «штук в коробке» и «короб на паллете» (в форме или в Excel).';
+
+  @override
+  String get warehouseDefaultUnitsPerBox =>
+      'Штук в коробке — подсказка для новых SKU';
+
+  @override
+  String get warehouseDefaultBoxesPerPallet =>
+      'Коробок на паллете — подсказка для новых SKU';
+
+  @override
+  String get setupWizardHintAccounting =>
+      'Выберите провайдера бухгалтерии или export.';
+
+  @override
+  String get setupWizardHintGps =>
+      'Водитель включает GPS на телефоне; диспетчер видит позицию на карте.';
+
+  @override
+  String get setupWizardHintFirstRoute =>
+      'Создайте маршрут и назначьте водителя в диспетчерской.';
+
+  @override
+  String get setupWizardHintTestDelivery =>
+      'Закройте одну точку в приложении водителя.';
+
+  @override
+  String get setupWizardHintReady => 'Проверка завершена — можно работать.';
+
+  @override
+  String get onboardingSection => 'Центр запуска';
+
+  @override
+  String get onboardingCenterTitle => 'Центр запуска';
+
+  @override
+  String get onboardingCenterSubtitle =>
+      'Выполняйте задачи в любом порядке. Прогресс синхронизируется из данных автоматически.';
+
+  @override
+  String get onboardingCenterOpenWizard => 'Пошаговый мастер';
+
+  @override
+  String get onboardingCenterRefresh => 'Обновить статус';
+
+  @override
+  String get onboardingCenterAutoDetected => 'Определено автоматически';
+
+  @override
+  String get onboardingCenterNextStep => 'Рекомендуемый шаг';
+
+  @override
+  String onboardingCenterCompletedSteps(int done, int total) {
+    return '$done из $total задач';
+  }
+
+  @override
+  String onboardingCenterEstimatedTime(int minutes) {
+    return 'Осталось ~$minutes мин';
+  }
+
+  @override
+  String get onboardingCenterAlmostReadyTitle => 'Компания почти готова';
+
+  @override
+  String get onboardingCenterAlmostReadyBody =>
+      'Обязательные задачи выполнены. Завершите опциональные и нажмите Go Live.';
+
+  @override
+  String get onboardingCenterCanStartTitle => 'Можно начинать работу';
+
+  @override
+  String get onboardingCenterCanStartBody =>
+      'Запуск завершён — переходите к ежедневной работе в панели владельца.';
+
+  @override
+  String get launchCenterCardCompanyDetails => 'Реквизиты компании';
+
+  @override
+  String get launchCenterCardFirstOwnerAdmin => 'Первый owner/admin';
+
+  @override
+  String get launchCenterCardClients => 'Клиенты';
+
+  @override
+  String get launchCenterCardProducts => 'Товары / SKU';
+
+  @override
+  String get launchCenterCardDrivers => 'Водители';
+
+  @override
+  String get launchCenterCardWarehouse => 'Склад';
+
+  @override
+  String get launchCenterCardAccounting => 'Бухгалтерия';
+
+  @override
+  String get launchCenterCardGps => 'GPS';
+
+  @override
+  String get launchCenterCardFirstRoute => 'Первый маршрут';
+
+  @override
+  String get launchCenterCardTestDelivery => 'Тестовая доставка';
+
+  @override
+  String get launchCenterCardGoLive => 'Go Live';
+
+  @override
+  String get launchCenterHintCompanyDetails =>
+      'Название, ИНН и профиль компании.';
+
+  @override
+  String get launchCenterHintFirstOwnerAdmin =>
+      'Минимум один владелец или администратор.';
+
+  @override
+  String get launchCenterHintClients =>
+      'Импорт или добавление клиентов доставки.';
+
+  @override
+  String get launchCenterHintProducts =>
+      'Импорт или настройка типов товаров / SKU.';
+
+  @override
+  String get launchCenterHintDrivers => 'Добавьте водителей для маршрутов.';
+
+  @override
+  String get launchCenterHintWarehouse => 'Структура склада и остатки.';
+
+  @override
+  String get launchCenterHintAccounting =>
+      'Провайдер бухгалтерии или первый счёт.';
+
+  @override
+  String get launchCenterHintGps =>
+      'Водитель отправляет GPS — диспетчер видит на карте.';
+
+  @override
+  String get launchCenterHintFirstRoute =>
+      'Создайте маршрут и назначьте водителя.';
+
+  @override
+  String get launchCenterHintTestDelivery =>
+      'Закройте одну доставку в приложении водителя.';
+
+  @override
+  String get launchCenterHintGoLive =>
+      'Подтвердите готовность к ежедневной работе.';
+
+  @override
+  String get launchCenterRequired => 'Обязательно';
+
+  @override
+  String get launchCenterOptional => 'Опционально';
+
+  @override
+  String get launchCenterAssign => 'Назначить';
+
+  @override
+  String get launchCenterAssignCard => 'Назначить задачу';
+
+  @override
+  String get launchCenterAssignee => 'Исполнитель';
+
+  @override
+  String get launchCenterUnassigned => 'Не назначено';
+
+  @override
+  String get launchCenterNotes => 'Заметки';
+
+  @override
+  String launchCenterEstimatedMin(int minutes) {
+    return '~$minutes мин';
+  }
+
+  @override
+  String get launchCenterCompanyReady => 'Компания готова';
+
+  @override
+  String get launchCenterCompanyReadyTitle => 'Компания готова';
+
+  @override
+  String get launchCenterCompanyReadyBody =>
+      'Все обязательные задачи выполнены. Завершите Go Live, когда будете готовы.';
+
+  @override
+  String get launchCenterModeSelfSetup => 'Self Setup';
+
+  @override
+  String get launchCenterModeDoneForYou => 'Done for you';
+
+  @override
+  String get onboardingSectionCompanySetup => 'Настройка компании';
+
+  @override
+  String get onboardingSectionImportStatus => 'Импорт данных';
+
+  @override
+  String get onboardingSectionDrivers => 'Водители';
+
+  @override
+  String get onboardingSectionWarehouse => 'Склад';
+
+  @override
+  String get onboardingSectionAccounting => 'Бухгалтерия';
+
+  @override
+  String get onboardingSectionGps => 'GPS';
+
+  @override
+  String get onboardingSectionFirstRoute => 'Первый маршрут';
+
+  @override
+  String get onboardingSectionTestDelivery => 'Тестовая доставка';
+
+  @override
+  String get onboardingSectionGoLive => 'Go Live';
+
+  @override
+  String get healthStripCompany => 'Компания';
+
+  @override
+  String get healthStripBilling => 'Биллинг';
+
+  @override
+  String get healthStripFirestore => 'Firestore';
+
+  @override
+  String get healthStripRoutes => 'Маршруты';
+
+  @override
+  String healthStripRoutesActive(int count) {
+    return '$count активных';
+  }
+
+  @override
+  String get healthStripFcm => 'FCM';
+
+  @override
+  String get healthStripAccounting => 'Бухгалтерия';
+
+  @override
+  String get healthStripAccountingSyncFailed => 'Ошибка синхронизации';
+
+  @override
+  String get healthStripLastError => 'Последняя ошибка';
+
+  @override
+  String get healthStripSetup => 'Настройка';
+
+  @override
+  String get healthStripGps => 'GPS';
+
+  @override
+  String get healthStripInvoices => 'Счета';
+
+  @override
+  String get healthStripWarehouse => 'Склад';
+
+  @override
+  String get healthStripDrivers => 'Водители';
+
+  @override
+  String get healthStripLastSync => 'Синхронизация';
+
+  @override
+  String get healthStripProblems => 'Проблемы';
+
+  @override
+  String get healthStripOk => 'OK';
+
+  @override
+  String get healthStripWarn => 'WARN';
+
+  @override
+  String get healthStripFail => 'FAIL';
+
+  @override
+  String get healthStripJustNow => 'только что';
+
+  @override
+  String healthStripMinutesAgo(int minutes) {
+    return '$minutes мин назад';
+  }
+
+  @override
+  String healthStripHoursAgo(int hours) {
+    return '$hours ч назад';
+  }
+
+  @override
+  String get customerHealthCompanyId => 'ID компании';
+
+  @override
+  String get customerHealthLoadMore => 'Загрузить ещё';
+
+  @override
+  String get customerHealthDashboardTitle => 'Здоровье клиентов';
+
+  @override
+  String get customerHealthStatus => 'Health';
+
+  @override
+  String get customerHealthHealthy => 'Healthy';
+
+  @override
+  String get customerHealthWarning => 'Warning';
+
+  @override
+  String get customerHealthCritical => 'Critical';
+
+  @override
+  String get customerHealthUnknown => 'Unknown';
+
+  @override
+  String get customerHealthFilterAll => 'Все';
+
+  @override
+  String get customerHealthFilterDemo => 'Demo';
+
+  @override
+  String get customerHealthFailedSync => 'Ошибки sync';
+
+  @override
+  String get customerHealthStaleGps => 'Stale GPS';
+
+  @override
+  String get customerHealthLastActivity => 'Активность';
+
+  @override
+  String get customerHealthDemoBadge => 'Demo';
+
+  @override
+  String get customerHealthNoRows => 'Нет компаний по фильтру';
+
+  @override
+  String get customerHealthOpenSupport => 'Support Console';
+
+  @override
+  String get customerHealthSwitchCompany => 'Переключить компанию';
+
+  @override
+  String get demoCompanyTitle => 'Демо-компания';
+
+  @override
+  String get demoCompanySuperAdminOnly => 'Только super_admin';
+
+  @override
+  String get demoCompanyDesc =>
+      'Demo Foods Israel — демонстрационная компания с реалистичными данными для продаж. Все записи помечены isDemo. ID: demo-foods-israel.';
+
+  @override
+  String get demoCompanyCreate => 'Создать демо-компанию';
+
+  @override
+  String get demoCompanyResetAction => 'Сбросить и пересоздать';
+
+  @override
+  String get demoCompanyResetTitle => 'Сброс демо-данных';
+
+  @override
+  String get demoCompanyResetConfirm =>
+      'Удалить demo-foods-israel и создать заново? Реальные компании не затронуты.';
+
+  @override
+  String get demoCompanySuccess => 'Демо-компания готова';
+
+  @override
+  String get demoCompanyCredentialsTitle => 'Учётные записи (фиктивные)';
+
+  @override
+  String get demoCompanyCredOwner => 'Owner';
+
+  @override
+  String get demoCompanyCredDispatcher => 'Dispatcher';
+
+  @override
+  String get demoCompanyCredDriver => 'Водитель 1';
+
+  @override
+  String demoCompanyLastSeed(int clients, int products) {
+    return 'Загружено: $clients клиентов, $products SKU';
+  }
+
+  @override
+  String get demoCompanyPasswordHint =>
+      'Пароль демо настраивается через переменную окружения / локальную конфигурацию (не в документации).';
+
+  @override
+  String get demoCompanyResetPreviewTitle => 'Предпросмотр сброса';
+
+  @override
+  String demoCompanyResetPreviewBody(int deletable, int blocked) {
+    return 'Будет удалено документов: $deletable. Заблокировано (без isDemo): $blocked. Продолжить?';
+  }
+
+  @override
+  String demoCompanyResetBlocked(int blocked) {
+    return 'Сброс заблокирован: $blocked документов без isDemo или с isDemo:false. Удалите их вручную.';
+  }
+
+  @override
+  String get supportDiagQuickActions => 'Быстрые действия';
+
+  @override
+  String get supportDiagOpenAsOwner => 'Открыть как owner';
+
+  @override
+  String get supportDiagOpenAsDispatcher => 'Открыть как dispatcher';
+
+  @override
+  String get supportDiagSetupNext => 'Следующий обязательный шаг';
+
+  @override
+  String get supportDiagUsersDrivers => 'Пользователи / водители';
+
+  @override
+  String get supportDiagTotalUsers => 'Всего пользователей';
+
+  @override
+  String get supportDiagActiveDrivers => 'Активные водители (сегодня)';
+
+  @override
+  String get supportDiagActiveRoutes => 'Активные маршруты';
+
+  @override
+  String get supportDiagPendingPoints => 'Точки в ожидании';
+
+  @override
+  String get supportDiagCompletedToday => 'Доставлено сегодня';
+
+  @override
+  String get supportDiagCancelledPoints => 'Отменённые / заблокированные';
+
+  @override
+  String get supportDiagSyncStatus => 'Статус последней sync';
+
+  @override
+  String get supportDiagNotifications => 'Уведомления';
+
+  @override
+  String get supportDiagLastPush => 'Последний push log';
+
+  @override
+  String get supportDiagLastEmail => 'Последний email log';
+
+  @override
+  String get supportDiagRecentErrors => 'Последние ошибки';
+
+  @override
+  String get supportDiagFilterCorrelation => 'Фильтр по correlationId';
+
+  @override
+  String get supportDiagLastPayment => 'Последний успешный платёж';
+
+  @override
+  String get supportDiagFailedPayment => 'Последний неудачный платёж';
+
+  @override
+  String get supportDiagLoadedAt => 'Загружено';
+
+  @override
+  String get usageSummaryTitle => 'Usage (пилот)';
+
+  @override
+  String get usageSummaryDays7 => '7 дней';
+
+  @override
+  String get usageSummaryDays30 => '30 дней';
+
+  @override
+  String get usageSummaryActiveUsers => 'Активные пользователи';
+
+  @override
+  String get usageSummaryTotalEvents => 'Событий всего';
+
+  @override
+  String get usageSummaryLastEvent => 'Последнее событие';
+
+  @override
+  String get usageSummaryNoEvents => 'Нет событий за период';
+
+  @override
+  String get usageSummaryOwnerOnly => 'Доступно owner / admin / super_admin';
+
+  @override
+  String usageSummarySampleNote(int sampleSize) {
+    return 'Active users — по последним $sampleSize событиям (limit)';
+  }
+
+  @override
+  String get driverSessionBlockedTitle =>
+      'Этот водитель уже активен на другом устройстве';
+
+  @override
+  String get driverSessionBlockedSubtitle =>
+      'Работа с маршрутом на этом устройстве заблокирована.';
+
+  @override
+  String driverSessionBlockedDevice(String label) {
+    return 'Активное устройство: $label';
+  }
+
+  @override
+  String get driverSessionTakeoverButton => 'Перейти на это устройство';
+
+  @override
+  String get driverSessionLostTitle => 'Сессия перенесена на другое устройство';
+
+  @override
+  String get driverSessionLostSubtitle =>
+      'GPS и маршрут остановлены. Войдите снова или переключите устройство.';
+
+  @override
+  String get driverSessionLostAcknowledge => 'Понятно';
+
+  @override
+  String driverSessionActiveDevice(String label) {
+    return 'Активное устройство: $label';
+  }
+
+  @override
+  String get importWizardTitle => 'Мастер импорта';
+
+  @override
+  String get importWizardStepType => 'Тип данных';
+
+  @override
+  String get importWizardStepFile => 'Файл';
+
+  @override
+  String get importWizardStepHeaders => 'Заголовки';
+
+  @override
+  String get importWizardStepMapping => 'Сопоставление';
+
+  @override
+  String get importWizardStepPreview => 'Превью';
+
+  @override
+  String get importWizardStepImport => 'Импорт';
+
+  @override
+  String get importWizardStepResult => 'Результат';
+
+  @override
+  String get importWizardConfidence => '%';
+
+  @override
+  String get importWizardSaveTemplate => 'Сохранить шаблон?';
+
+  @override
+  String get importWizardSaveTemplateHint =>
+      'Сохранить сопоставление колонок для похожих файлов в будущем.';
+
+  @override
+  String get importWizardUseSavedMapping => 'Найден сохранённый шаблон';
+
+  @override
+  String get importWizardTypeClients => 'Клиенты';
+
+  @override
+  String get importWizardTypeProducts => 'Товары';
+
+  @override
+  String get importWizardTypeDeliveryPoints => 'Точки доставки';
+
+  @override
+  String get importWizardFileHint => 'Выберите файл Excel (.xlsx) или CSV.';
+
+  @override
+  String get importWizardPickFile => 'Выбрать файл';
+
+  @override
+  String importWizardFileSummary(int columns, int rows) {
+    return '$columns колонок, $rows строк';
+  }
+
+  @override
+  String importWizardHeadersFound(int count) {
+    return 'Найдено колонок: $count';
+  }
+
+  @override
+  String get importWizardPreviewTitle => 'Превью (до 20 строк)';
+
+  @override
+  String get importWizardRun => 'Импортировать';
+
+  @override
+  String get importWizardImporting => 'Импорт выполняется…';
+
+  @override
+  String get importWizardResultTitle => 'Импорт завершён';
+
+  @override
+  String get importWizardImported => 'Добавлено';
+
+  @override
+  String get importWizardUpdated => 'Обновлено';
+
+  @override
+  String get importWizardSkipped => 'Пропущено';
+
+  @override
+  String get importWizardErrors => 'Ошибки';
+
+  @override
+  String get importWizardDownloadErrors => 'Скачать ошибки (CSV)';
+
+  @override
+  String get importWizardTemplateName => 'Название шаблона';
+
+  @override
+  String get importWizardTemplateDefaultName => 'Мой шаблон';
+
+  @override
+  String get importWizardMenu => 'Мастер импорта';
+
+  @override
+  String get importWizardBack => 'Назад';
+
+  @override
+  String get importWizardApply => 'Применить';
+
+  @override
+  String get importWizardUnusedColumns => 'Неиспользуемые колонки';
+
+  @override
+  String importWizardDetectedPack(String pack) {
+    return 'Определён формат: $pack';
+  }
+
+  @override
+  String get createCompanyFlowTitle => 'Создание компании';
+
+  @override
+  String get createCompanyFlowStepCompany => 'Данные компании';
+
+  @override
+  String get createCompanyFlowStepOwner => 'Первый пользователь';
+
+  @override
+  String get createCompanyFlowStepMode => 'Режим внедрения';
+
+  @override
+  String get createCompanyFlowStepConfirm => 'Подтверждение';
+
+  @override
+  String get createCompanyFlowDefaults =>
+      'Страна: Израиль · Язык: иврит · Часовой пояс: Asia/Jerusalem · Trial: 14 дней';
+
+  @override
+  String get createCompanyFlowModeSelf => 'Self Setup';
+
+  @override
+  String get createCompanyFlowModeSelfHint =>
+      'Owner сам проходит Launch Center';
+
+  @override
+  String get createCompanyFlowModeDone => 'Done-for-you';
+
+  @override
+  String get createCompanyFlowModeDoneHint =>
+      'LogiRoute настраивает компанию под ключ';
+
+  @override
+  String createCompanyFlowModeLabel(String mode) {
+    return 'Режим: $mode';
+  }
+
+  @override
+  String get createCompanyFlowMaxUsers => 'Лимит пользователей';
+
+  @override
+  String get createCompanyFlowSuccessTitle => 'Компания создана';
+
+  @override
+  String get createCompanyFlowSuccessBody =>
+      'Компания готова к внедрению. Первому пользователю отправлено письмо для входа.';
+
+  @override
+  String get createCompanyFlowEmailFailed =>
+      'Не удалось отправить письмо. Компания создана — отправьте сброс пароля вручную.';
+
+  @override
+  String get createCompanyFlowOpenAsOwner => 'Открыть как owner';
+
+  @override
+  String get createCompanyFlowOpenAsDispatcher => 'Открыть как dispatcher';
+
+  @override
+  String get createCompanyFlowCopyInvite => 'Скопировать приглашение';
+
+  @override
+  String get createCompanyFlowInviteCopied => 'Текст приглашения скопирован';
+
+  @override
+  String get createCompanyFlowOwnerRequired =>
+      'Укажите имя и email первого owner/admin';
+
+  @override
+  String get createCompanyFlowUserInOtherCompany =>
+      'Пользователь с этим email уже привязан к другой компании';
+
+  @override
+  String get createCompanyFlowEmailConflict =>
+      'Не удалось создать или привязать пользователя';
+
+  @override
+  String get launchCenterOpen => 'Открыть Launch Center';
+
+  @override
+  String get trialEndsLabel => 'Trial до';
+
+  @override
+  String get platformErrorCenterTitle => 'Центр ошибок';
+
+  @override
+  String get platformErrorDetailTitle => 'Карточка ошибки';
+
+  @override
+  String get platformErrorFilterOpen => 'Только открытые';
+
+  @override
+  String get platformErrorEmpty => 'Ошибок пока нет';
+
+  @override
+  String get platformErrorColSeverity => 'Критичность';
+
+  @override
+  String get platformErrorColCount => 'Повторы';
+
+  @override
+  String get platformErrorColOperation => 'Операция';
+
+  @override
+  String get platformErrorColFirstSeen => 'Первый раз';
+
+  @override
+  String get platformErrorColLastSeen => 'Последний раз';
+
+  @override
+  String get platformErrorResolved => 'Закрыта';
+
+  @override
+  String get platformErrorOpen => 'Открыта';
+
+  @override
+  String get platformErrorCorrelationIds => 'Correlation ID';
+
+  @override
+  String get platformErrorStackTrace => 'Stack trace';
+
+  @override
+  String get platformErrorNoStack => 'Нет stack trace';
+
+  @override
+  String get platformErrorCopy => 'Копировать ошибку';
+
+  @override
+  String get platformErrorCopyJson => 'Копировать JSON';
+
+  @override
+  String get platformErrorCopied => 'Скопировано';
+
+  @override
+  String get platformErrorMarkResolved => 'Отметить resolved';
+
+  @override
+  String get platformErrorReopen => 'Открыть снова';
+
+  @override
+  String get platformErrorIncidentSuggested =>
+      'Ошибка повторилась >20 раз за час';
+
+  @override
+  String get remoteConfigTitle => 'Конфигурация пилота';
+
+  @override
+  String get remoteConfigSubtitle =>
+      'Живые параметры — изменения применяются без пересборки';
+
+  @override
+  String get remoteConfigSaved => 'Конфигурация сохранена';
+
+  @override
+  String remoteConfigSaveError(String error) {
+    return 'Ошибка сохранения: $error';
+  }
+
+  @override
+  String get remoteConfigResetField => 'Сбросить до умолчания';
+
+  @override
+  String get remoteConfigResetAll => 'Сбросить всё';
+
+  @override
+  String remoteConfigDefault(String value) {
+    return 'Умолчание: $value';
+  }
+
+  @override
+  String get rcAutoCloseRadius => 'Радиус автозакрытия (м)';
+
+  @override
+  String get rcAutoCloseRadiusDesc =>
+      'Радиус GPS, внутри которого точка доставки закрывается автоматически';
+
+  @override
+  String get rcAutoCloseResetRadius => 'Радиус сброса (м)';
+
+  @override
+  String get rcAutoCloseResetRadiusDesc =>
+      'Должен быть ≥ радиуса закрытия. Защита от GPS-дрожания';
+
+  @override
+  String get rcAutoCloseWait => 'Время ожидания (сек)';
+
+  @override
+  String get rcAutoCloseWaitDesc =>
+      'Секунд внутри радиуса до автозакрытия точки';
+
+  @override
+  String get rcCloseUndo => 'Длительность Undo (сек)';
+
+  @override
+  String get rcCloseUndoDesc =>
+      'Секунд показа кнопки «Отменить» после закрытия точки';
+
+  @override
+  String get rcGpsStale => 'Порог устаревания GPS (мин)';
+
+  @override
+  String get rcGpsStaleDesc =>
+      'Через столько минут без GPS-обновления водитель считается офлайн';
+
+  @override
+  String get rcSessionHeartbeat => 'Интервал heartbeat сессии (сек)';
+
+  @override
+  String get rcSessionHeartbeatDesc =>
+      'Как часто устройство водителя отправляет heartbeat для удержания сессии';
+
+  @override
+  String get rcSessionStale => 'Таймаут устаревания сессии (мин)';
+
+  @override
+  String get rcSessionStaleDesc =>
+      'Сессия считается устаревшей через столько минут без heartbeat';
+
+  @override
+  String get rcBgAutoClose => 'Фоновое автозакрытие';
+
+  @override
+  String get rcBgAutoCloseDesc =>
+      'Разрешить фоновому сервису автоматически закрывать точки доставки';
+
+  @override
+  String get rcSessionLock => 'Блокировка сессии устройства';
+
+  @override
+  String get rcSessionLockDesc =>
+      'Запрет одновременного входа водителя с двух устройств';
+
+  @override
+  String get rcPreferWaze => 'Предпочитать Waze';
+
+  @override
+  String get rcPreferWazeDesc =>
+      'Использовать Waze как основной навигатор. При выключении — Google Maps';
+
+  @override
+  String get rcImportPreviewRows => 'Строк в предпросмотре импорта';
+
+  @override
+  String get rcImportPreviewRowsDesc =>
+      'Количество строк, отображаемых на шаге предпросмотра при импорте';
+
+  @override
+  String get rcSectionAutoClose => 'Автозакрытие';
+
+  @override
+  String get rcSectionSession => 'Сессия';
+
+  @override
+  String get rcSectionFeatures => 'Функции';
+
+  @override
+  String get dataIntegrityTitle => 'Целостность данных';
+
+  @override
+  String get dataIntegritySubtitle =>
+      'Поиск несоответствий между пользователями, точками, рейсами, счетами и складом';
+
+  @override
+  String get dataIntegrityRunCheck => 'Запустить проверку';
+
+  @override
+  String dataIntegrityCheckDone(int count) {
+    return 'Проверка завершена: $count проблем';
+  }
+
+  @override
+  String get dataIntegrityCsvCopied => 'CSV скопирован в буфер обмена';
+
+  @override
+  String get dataIntegrityNever => 'Проверка целостности ещё не запускалась';
+
+  @override
+  String get dataIntegrityLastCheck => 'Последняя проверка';
+
+  @override
+  String get dataIntegrityNoIssues => 'Проблем не найдено';
+
+  @override
+  String get dataIntegrityExportCsv => 'Экспорт CSV';
+
+  @override
+  String dataIntegrityIssuesCount(int count) {
+    return '$count проблем';
+  }
+
+  @override
+  String get dataIntegrityFilterAll => 'Все';
+
+  @override
+  String get dataIntegrityStatusOpen => 'Открытые';
+
+  @override
+  String get dataIntegrityStatusIgnored => 'Игнорируемые';
+
+  @override
+  String get dataIntegrityStatusResolved => 'Решённые';
+
+  @override
+  String get dataIntegrityMarkIgnored => 'Игнорировать';
+
+  @override
+  String get dataIntegrityMarkResolved => 'Отметить решённой';
+
+  @override
+  String get dataIntegrityReopen => 'Открыть снова';
+
+  @override
+  String get dataIntegrityOpenEntity => 'Подробнее';
+
+  @override
+  String get dataIntegrityCopyId => 'Копировать ID';
+
+  @override
+  String get dataIntegrityOpen => 'Открыть проверку целостности';
+
+  @override
+  String get severityCritical => 'Критично';
+
+  @override
+  String get severityHigh => 'Высокий';
+
+  @override
+  String get severityMedium => 'Средний';
+
+  @override
+  String get severityLow => 'Низкий';
 }

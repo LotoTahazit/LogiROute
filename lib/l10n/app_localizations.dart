@@ -139,7 +139,7 @@ abstract class AppLocalizations {
   /// No description provided for @israelInvoiceStatusTitle.
   ///
   /// In en, this message translates to:
-  /// **'Israel Invoices system'**
+  /// **'Israel Invoice System'**
   String get israelInvoiceStatusTitle;
 
   /// No description provided for @israelInvoicePlatformNotConfigured.
@@ -163,7 +163,7 @@ abstract class AppLocalizations {
   /// No description provided for @israelInvoiceConnect.
   ///
   /// In en, this message translates to:
-  /// **'Connect Israel Invoices'**
+  /// **'Connect Israel Invoice System'**
   String get israelInvoiceConnect;
 
   /// No description provided for @israelInvoiceConnectHint.
@@ -171,6 +171,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'One-time business authorization with the Tax Authority for allocation numbers. A login page will open.'**
   String get israelInvoiceConnectHint;
+
+  /// No description provided for @israelInvoiceAssignmentReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Allocation number — ready'**
+  String get israelInvoiceAssignmentReady;
+
+  /// No description provided for @israelInvoiceAssignmentMissingOAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Allocation number — OAuth connection required'**
+  String get israelInvoiceAssignmentMissingOAuth;
 
   /// No description provided for @autoDistributePallets.
   ///
@@ -905,6 +917,24 @@ abstract class AppLocalizations {
   /// **'Delivery'**
   String get deliverySection;
 
+  /// No description provided for @settingsDeliveryAndOps.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery & operations'**
+  String get settingsDeliveryAndOps;
+
+  /// No description provided for @settingsDriverDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Default driver'**
+  String get settingsDriverDefaults;
+
+  /// No description provided for @settingsOpsManagedByAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery and driver settings are managed by the administrator'**
+  String get settingsOpsManagedByAdmin;
+
   /// No description provided for @pointDone.
   ///
   /// In en, this message translates to:
@@ -1066,6 +1096,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Point closed automatically'**
   String get autoCloseUndoMessage;
+
+  /// No description provided for @pointCloseUndoMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery \"{name}\" closed'**
+  String pointCloseUndoMessage(String name);
+
+  /// No description provided for @autoClosePendingBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-close: {name} · {distance} m · ~{seconds} sec'**
+  String autoClosePendingBanner(String name, int distance, int seconds);
 
   /// No description provided for @undo.
   ///
@@ -1505,6 +1547,18 @@ abstract class AppLocalizations {
   /// **'Analytics'**
   String get analytics;
 
+  /// No description provided for @analyticsPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics is built for the selected period only.'**
+  String get analyticsPeriodHint;
+
+  /// No description provided for @analyticsPeriodToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get analyticsPeriodToday;
+
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:
@@ -1775,6 +1829,54 @@ abstract class AppLocalizations {
   /// **'This address will be used only for the current delivery. The client\'s main address will remain unchanged.'**
   String get temporaryAddressTooltip;
 
+  /// No description provided for @deliveryAddressOverrideToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'This delivery address differs from the client address'**
+  String get deliveryAddressOverrideToggle;
+
+  /// No description provided for @deliveryAddressOverrideLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Address for this delivery'**
+  String get deliveryAddressOverrideLabel;
+
+  /// No description provided for @deliveryAddressOverrideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch, one-time unloading, temporary site…'**
+  String get deliveryAddressOverrideHint;
+
+  /// No description provided for @deliveryAddressOverrideBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time delivery address'**
+  String get deliveryAddressOverrideBadge;
+
+  /// No description provided for @deliveryAddressOverrideNoCoords.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery address coordinates not found'**
+  String get deliveryAddressOverrideNoCoords;
+
+  /// No description provided for @deliveryAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery address'**
+  String get deliveryAddressLabel;
+
+  /// No description provided for @findCoordinates.
+  ///
+  /// In en, this message translates to:
+  /// **'Find coordinates'**
+  String get findCoordinates;
+
+  /// No description provided for @clientAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Client address'**
+  String get clientAddressLabel;
+
   /// No description provided for @originalAddress.
   ///
   /// In en, this message translates to:
@@ -1876,6 +1978,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'GPS tracking stopped'**
   String get gpsTrackingStopped;
+
+  /// No description provided for @gpsStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get gpsStatusActive;
+
+  /// No description provided for @gpsStatusWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get gpsStatusWaiting;
+
+  /// No description provided for @gpsStatusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get gpsStatusError;
+
+  /// No description provided for @gpsStatusDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get gpsStatusDisabled;
+
+  /// No description provided for @gpsStatusPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission required'**
+  String get gpsStatusPermissionRequired;
+
+  /// No description provided for @gpsUnavailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS unavailable. Turn on location and allow access.'**
+  String get gpsUnavailableHint;
+
+  /// No description provided for @gpsBackgroundHintShort.
+  ///
+  /// In en, this message translates to:
+  /// **'For background tracking, allow location \"All the time\".'**
+  String get gpsBackgroundHintShort;
+
+  /// No description provided for @bgModeActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Background mode active'**
+  String get bgModeActive;
+
+  /// No description provided for @bgModeInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Background mode inactive'**
+  String get bgModeInactive;
+
+  /// No description provided for @bgSystemStoppedWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Background tracking was stopped by the system. Check battery settings.'**
+  String get bgSystemStoppedWarning;
+
+  /// No description provided for @bgOpenSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Android setup'**
+  String get bgOpenSetup;
+
+  /// No description provided for @gpsFirestoreWriteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send coordinates to the server. Check your internet.'**
+  String get gpsFirestoreWriteFailed;
+
+  /// No description provided for @gpsStaleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS has not updated for a while. Check location settings.'**
+  String get gpsStaleHint;
+
+  /// No description provided for @gpsRecheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get gpsRecheck;
 
   /// No description provided for @weekendDay.
   ///
@@ -2110,6 +2296,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type (bottle, cap, cup)'**
   String get typeLabel;
+
+  /// No description provided for @typeLabelFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Category (dairy, bread, beverages)'**
+  String get typeLabelFood;
+
+  /// No description provided for @typeLabelClothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Type (shirt, pants, shoes)'**
+  String get typeLabelClothing;
+
+  /// No description provided for @typeLabelConstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Type (cement, blocks, mix)'**
+  String get typeLabelConstruction;
+
+  /// No description provided for @typeLabelGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Type / category'**
+  String get typeLabelGeneric;
+
+  /// No description provided for @numberLabelFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Variant / size (0.5L, 1kg)'**
+  String get numberLabelFood;
+
+  /// No description provided for @numberLabelClothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Size / SKU'**
+  String get numberLabelClothing;
+
+  /// No description provided for @numberLabelConstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Grade / size'**
+  String get numberLabelConstruction;
+
+  /// No description provided for @numberLabelGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Number or variant code'**
+  String get numberLabelGeneric;
+
+  /// No description provided for @volumeLabelFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume or weight (optional)'**
+  String get volumeLabelFood;
+
+  /// No description provided for @volumeLabelOptionalGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Size / note (optional)'**
+  String get volumeLabelOptionalGeneric;
+
+  /// No description provided for @weightLabelOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight kg (optional)'**
+  String get weightLabelOptional;
+
+  /// No description provided for @quantityOnPalletName.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity per {palletName}'**
+  String quantityOnPalletName(String palletName);
+
+  /// No description provided for @piecesPerUnitInBox.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack — {unitName} per box (optional)'**
+  String piecesPerUnitInBox(String unitName);
+
+  /// No description provided for @quantityPerBoxLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity per box'**
+  String get quantityPerBoxLabel;
 
   /// No description provided for @numberLabel.
   ///
@@ -3546,6 +3816,60 @@ abstract class AppLocalizations {
   /// **'Boxes'**
   String get categoryBoxes;
 
+  /// No description provided for @categoryBeverages.
+  ///
+  /// In en, this message translates to:
+  /// **'Beverages'**
+  String get categoryBeverages;
+
+  /// No description provided for @categoryFrozen.
+  ///
+  /// In en, this message translates to:
+  /// **'Frozen'**
+  String get categoryFrozen;
+
+  /// No description provided for @categorySnacks.
+  ///
+  /// In en, this message translates to:
+  /// **'Snacks'**
+  String get categorySnacks;
+
+  /// No description provided for @categoryPants.
+  ///
+  /// In en, this message translates to:
+  /// **'Pants'**
+  String get categoryPants;
+
+  /// No description provided for @categoryShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get categoryShoes;
+
+  /// No description provided for @categoryAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get categoryAccessories;
+
+  /// No description provided for @categoryBlocks.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocks'**
+  String get categoryBlocks;
+
+  /// No description provided for @categoryMix.
+  ///
+  /// In en, this message translates to:
+  /// **'Mix'**
+  String get categoryMix;
+
+  /// No description provided for @categoryTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get categoryTools;
+
   /// No description provided for @terminology.
   ///
   /// In en, this message translates to:
@@ -4007,6 +4331,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reports'**
   String get reportsTitle;
+
+  /// No description provided for @reportsPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Report is built for the selected period only.'**
+  String get reportsPeriodHint;
+
+  /// No description provided for @reportsPeriodThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get reportsPeriodThisMonth;
+
+  /// No description provided for @reportsPeriodLast3Months.
+  ///
+  /// In en, this message translates to:
+  /// **'3 months'**
+  String get reportsPeriodLast3Months;
+
+  /// No description provided for @reportsPeriodLast12Months.
+  ///
+  /// In en, this message translates to:
+  /// **'12 months'**
+  String get reportsPeriodLast12Months;
+
+  /// No description provided for @reportsPeriodCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom range'**
+  String get reportsPeriodCustom;
+
+  /// No description provided for @reportsLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get reportsLoadMore;
+
+  /// No description provided for @reportsTruncatedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing up to {count} documents. Tap Load more or narrow the period.'**
+  String reportsTruncatedHint(int count);
 
   /// No description provided for @monthlyReport.
   ///
@@ -5094,6 +5460,66 @@ abstract class AppLocalizations {
   /// **'Error opening payment page: {error}'**
   String billingGuardCheckoutError(String error);
 
+  /// No description provided for @billingGuardVerifyFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not verify subscription status'**
+  String get billingGuardVerifyFailedTitle;
+
+  /// No description provided for @billingGuardVerifyFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet connection or try again later.'**
+  String get billingGuardVerifyFailedBody;
+
+  /// No description provided for @billingGuardRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get billingGuardRetry;
+
+  /// No description provided for @billingSupportDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact support'**
+  String get billingSupportDialogTitle;
+
+  /// No description provided for @billingSupportDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Email us — we will help restore access or change your plan.'**
+  String get billingSupportDialogBody;
+
+  /// No description provided for @billingSupportCopyEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy email'**
+  String get billingSupportCopyEmail;
+
+  /// No description provided for @billingSupportEmailCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Email copied'**
+  String get billingSupportEmailCopied;
+
+  /// No description provided for @billingSupportOpenEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Send email'**
+  String get billingSupportOpenEmail;
+
+  /// No description provided for @billingSupportCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get billingSupportCall;
+
+  /// No description provided for @billingSupportPayUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not verify subscription. Payment is temporarily unavailable.'**
+  String get billingSupportPayUnavailable;
+
   /// No description provided for @companySettingsNotSelected.
   ///
   /// In en, this message translates to:
@@ -5892,6 +6318,67 @@ abstract class AppLocalizations {
   /// **'Balance routes? The system will move points from overloaded routes to lighter ones.'**
   String get balanceRoutesConfirm;
 
+  /// No description provided for @mergeRoutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge routes'**
+  String get mergeRoutes;
+
+  /// No description provided for @mergeRoutesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Active stops will move into the target route. Completed stops stay in their original routes.'**
+  String get mergeRoutesHint;
+
+  /// No description provided for @mergeRoutesTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Target route'**
+  String get mergeRoutesTarget;
+
+  /// No description provided for @mergeRoutesSources.
+  ///
+  /// In en, this message translates to:
+  /// **'Add active stops from'**
+  String get mergeRoutesSources;
+
+  /// No description provided for @mergeRoutesNoEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'No routes to merge (need 2+ for the same driver)'**
+  String get mergeRoutesNoEligible;
+
+  /// No description provided for @mergeRoutesPickTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a target route'**
+  String get mergeRoutesPickTarget;
+
+  /// No description provided for @mergeRoutesPickSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one source route'**
+  String get mergeRoutesPickSource;
+
+  /// No description provided for @mergeRoutesNothingMoved.
+  ///
+  /// In en, this message translates to:
+  /// **'No active stops to move'**
+  String get mergeRoutesNothingMoved;
+
+  /// No description provided for @mergeRoutesSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved active stops: {count}'**
+  String mergeRoutesSuccess(Object count);
+
+  /// No description provided for @mergeRoutesRouteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{driver} · {active} active / {done} done · {total} stops'**
+  String mergeRoutesRouteLabel(
+      Object driver, Object active, Object done, Object total);
+
   /// No description provided for @routesBalanced.
   ///
   /// In en, this message translates to:
@@ -5921,6 +6408,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error opening navigation'**
   String get navigationOpenError;
+
+  /// No description provided for @navigationNoDestination.
+  ///
+  /// In en, this message translates to:
+  /// **'No coordinates or address for navigation'**
+  String get navigationNoDestination;
 
   /// No description provided for @driverFallbackName.
   ///
@@ -6125,6 +6618,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Updated'**
   String get inventoryActionUpdate;
+
+  /// No description provided for @inventoryActionBarcodeIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock in (barcode)'**
+  String get inventoryActionBarcodeIn;
+
+  /// No description provided for @inventoryActionBarcodeOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock out (barcode)'**
+  String get inventoryActionBarcodeOut;
 
   /// No description provided for @priceManagement.
   ///
@@ -6615,8 +7120,26 @@ abstract class AppLocalizations {
   /// No description provided for @cannotOpenPayment.
   ///
   /// In en, this message translates to:
-  /// **'Cannot open payment page'**
+  /// **'Cannot open the payment page.'**
   String get cannotOpenPayment;
+
+  /// No description provided for @checkoutCopyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get checkoutCopyLink;
+
+  /// No description provided for @checkoutLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get checkoutLinkCopied;
+
+  /// No description provided for @checkoutSessionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create a payment session. Please try again later.'**
+  String get checkoutSessionFailed;
 
   /// No description provided for @selectFormat.
   ///
@@ -7044,6 +7567,18 @@ abstract class AppLocalizations {
   /// **'Invoice issued'**
   String get eventInvoiceIssued;
 
+  /// No description provided for @docNumberShort.
+  ///
+  /// In en, this message translates to:
+  /// **'No.'**
+  String get docNumberShort;
+
+  /// No description provided for @auditEventBy.
+  ///
+  /// In en, this message translates to:
+  /// **'By'**
+  String get auditEventBy;
+
   /// No description provided for @eventInvoicePrinted.
   ///
   /// In en, this message translates to:
@@ -7080,6 +7615,36 @@ abstract class AppLocalizations {
   /// **'Delivery point status changed'**
   String get eventDeliveryPointStatusChanged;
 
+  /// No description provided for @eventDeliveryAddressChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery address changed'**
+  String get eventDeliveryAddressChanged;
+
+  /// No description provided for @auditOldDeliveryAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Old'**
+  String get auditOldDeliveryAddress;
+
+  /// No description provided for @auditNewDeliveryAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get auditNewDeliveryAddress;
+
+  /// No description provided for @auditChangedByRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed by'**
+  String get auditChangedByRole;
+
+  /// No description provided for @auditCorrelationId.
+  ///
+  /// In en, this message translates to:
+  /// **'CorrelationId'**
+  String get auditCorrelationId;
+
   /// No description provided for @eventManualAssignment.
   ///
   /// In en, this message translates to:
@@ -7115,6 +7680,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Data retention checked'**
   String get eventRetentionChecked;
+
+  /// No description provided for @metricsNotCalculatedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Metrics have not been calculated yet. Tap Recalculate or wait for the nightly update.'**
+  String get metricsNotCalculatedYet;
+
+  /// No description provided for @recalculateMetrics.
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculate metrics'**
+  String get recalculateMetrics;
+
+  /// No description provided for @metricsRecalculateDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Metrics updated'**
+  String get metricsRecalculateDone;
+
+  /// No description provided for @metricsRecalculateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to recalculate metrics'**
+  String get metricsRecalculateFailed;
 
   /// No description provided for @deliveriesToday.
   ///
@@ -7275,8 +7864,32 @@ abstract class AppLocalizations {
   /// No description provided for @usersLimitUpgrade.
   ///
   /// In en, this message translates to:
-  /// **'Cannot invite more users. Upgrade your plan to increase the limit.'**
+  /// **'Plan limit reached — warning only (invites not blocked during pilot). Consider upgrading.'**
   String get usersLimitUpgrade;
+
+  /// No description provided for @limitEnforcementSoft.
+  ///
+  /// In en, this message translates to:
+  /// **'Soft limit (warning)'**
+  String get limitEnforcementSoft;
+
+  /// No description provided for @limitEnforcementHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard limit'**
+  String get limitEnforcementHard;
+
+  /// No description provided for @limitEnforcementNotEnforced.
+  ///
+  /// In en, this message translates to:
+  /// **'Not tracked yet'**
+  String get limitEnforcementNotEnforced;
+
+  /// No description provided for @limitSoftExceededNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Exceeding this limit does not block operations during pilot.'**
+  String get limitSoftExceededNote;
 
   /// No description provided for @changeRole.
   ///
@@ -7842,6 +8455,12 @@ abstract class AppLocalizations {
   /// **'Tax settings are managed by the system administrator'**
   String get settingsTaxManagedByAdmin;
 
+  /// No description provided for @settingsOwnerSetupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name and tax ID — on the Company profile tab. Here: VAT regime, invoices, and integrations.'**
+  String get settingsOwnerSetupHint;
+
   /// No description provided for @settingsInvoiceSettings.
   ///
   /// In en, this message translates to:
@@ -7853,6 +8472,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invoice footer text'**
   String get settingsInvoiceFooter;
+
+  /// No description provided for @settingsInvoiceFooterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Printed at the bottom of PDF invoices: thanks, terms, bank details'**
+  String get settingsInvoiceFooterHint;
+
+  /// No description provided for @settingsTaxIdFillInProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill tax ID on the Company Profile tab'**
+  String get settingsTaxIdFillInProfile;
 
   /// No description provided for @settingsPaymentTerms.
   ///
@@ -8636,6 +9267,18 @@ abstract class AppLocalizations {
   /// **'Import Inventory'**
   String get importInventoryTitle;
 
+  /// No description provided for @importFileReadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the file in the browser. Try again or use another browser.'**
+  String get importFileReadFailed;
+
+  /// No description provided for @importFileParseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not parse the Excel file. Download the template again and fill the Clients sheet.'**
+  String get importFileParseFailed;
+
   /// No description provided for @importClientsTitle.
   ///
   /// In en, this message translates to:
@@ -8749,6 +9392,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export to Excel'**
   String get exportToExcelMenu;
+
+  /// No description provided for @exportLargeDatasetWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The full collection will be loaded (may take time and many reads). Continue?'**
+  String get exportLargeDatasetWarning;
+
+  /// No description provided for @exportLargeDatasetNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported {count} records — large dataset.'**
+  String exportLargeDatasetNotice(int count);
 
   /// No description provided for @downloadTemplateMenu.
   ///
@@ -9434,6 +10089,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restore test recorded'**
   String get restoreTestRecorded;
+
+  /// No description provided for @restoreDrillHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore drill is a verified recovery test with evidence. Success without proof is not allowed.'**
+  String get restoreDrillHint;
+
+  /// No description provided for @backupRecordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Journal entry = backup was performed. Not the same as a restore drill.'**
+  String get backupRecordHint;
+
+  /// No description provided for @restoreDrillTargetEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'Target project / environment *'**
+  String get restoreDrillTargetEnvironment;
+
+  /// No description provided for @restoreDrillRestoredCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored collections *'**
+  String get restoreDrillRestoredCollections;
+
+  /// No description provided for @restoreDrillRestoredCollectionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'comma-separated: invoices, clients, delivery_points'**
+  String get restoreDrillRestoredCollectionsHint;
+
+  /// No description provided for @restoreDrillEvidenceNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Evidence (what was verified) *'**
+  String get restoreDrillEvidenceNotes;
+
+  /// No description provided for @restoreDrillDurationMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration (minutes) *'**
+  String get restoreDrillDurationMinutes;
+
+  /// No description provided for @restoreDrillTestDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Drill date *'**
+  String get restoreDrillTestDate;
+
+  /// No description provided for @restoreDrillResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Result *'**
+  String get restoreDrillResult;
+
+  /// No description provided for @restoreDrillResultSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Success'**
+  String get restoreDrillResultSuccess;
+
+  /// No description provided for @restoreDrillResultFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get restoreDrillResultFailed;
+
+  /// No description provided for @restoreDrillIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill all required evidence fields'**
+  String get restoreDrillIncomplete;
+
+  /// No description provided for @restoreDrillEvidenceSuccessHint.
+  ///
+  /// In en, this message translates to:
+  /// **'For success — at least 40 chars: what was restored and how it was verified.'**
+  String get restoreDrillEvidenceSuccessHint;
+
+  /// No description provided for @registerRestoreDrill.
+  ///
+  /// In en, this message translates to:
+  /// **'Register restore drill'**
+  String get registerRestoreDrill;
+
+  /// No description provided for @registerRestoreDrillTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore drill (with evidence)'**
+  String get registerRestoreDrillTitle;
+
+  /// No description provided for @labelVerifiedRestoreDrills.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified drills'**
+  String get labelVerifiedRestoreDrills;
 
   /// No description provided for @noBackupsRecorded.
   ///
@@ -10161,6 +10912,12 @@ abstract class AppLocalizations {
   /// **'Error opening Waze: {error}'**
   String wazeOpenError(String error);
 
+  /// No description provided for @wazeLaunchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open Waze'**
+  String get wazeLaunchFailed;
+
   /// No description provided for @remainingLabel.
   ///
   /// In en, this message translates to:
@@ -10653,6 +11410,120 @@ abstract class AppLocalizations {
   /// **'Unlock all periods'**
   String get unlockAllPeriods;
 
+  /// No description provided for @lockPreviousMonthEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'End of previous month'**
+  String get lockPreviousMonthEnd;
+
+  /// No description provided for @computerizedWarehouseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Computerized warehouse (barcodes)'**
+  String get computerizedWarehouseTitle;
+
+  /// No description provided for @computerizedWarehouseEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable barcode scanning'**
+  String get computerizedWarehouseEnabled;
+
+  /// No description provided for @computerizedWarehouseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows barcode scan in warehouse menu. Scan by product code (SKU) or EAN stored on item.'**
+  String get computerizedWarehouseHint;
+
+  /// No description provided for @barcodeScanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode scan'**
+  String get barcodeScanTitle;
+
+  /// No description provided for @barcodeScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'USB scanner: focus the field and scan. Mobile: type or paste the code.'**
+  String get barcodeScanHint;
+
+  /// No description provided for @barcodeScanFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode / SKU'**
+  String get barcodeScanFieldLabel;
+
+  /// No description provided for @barcodeScanIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock in'**
+  String get barcodeScanIn;
+
+  /// No description provided for @barcodeScanOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock out'**
+  String get barcodeScanOut;
+
+  /// No description provided for @barcodeScanApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get barcodeScanApply;
+
+  /// No description provided for @barcodeNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Item not found for this barcode'**
+  String get barcodeNotFound;
+
+  /// No description provided for @barcodeInsufficientStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough stock'**
+  String get barcodeInsufficientStock;
+
+  /// No description provided for @barcodeScanSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{code}: balance {qty} units'**
+  String barcodeScanSuccess(String code, int qty);
+
+  /// No description provided for @barcodeEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update barcode'**
+  String get barcodeEditTitle;
+
+  /// No description provided for @barcodeDuplicateError.
+  ///
+  /// In en, this message translates to:
+  /// **'This barcode is already assigned to another item'**
+  String get barcodeDuplicateError;
+
+  /// No description provided for @barcodeUpdatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode updated'**
+  String get barcodeUpdatedSuccess;
+
+  /// No description provided for @barcodeWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode: {code}'**
+  String barcodeWithValue(String code);
+
+  /// No description provided for @barcodeOptionalHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional EAN for scanning (SKU search works without it)'**
+  String get barcodeOptionalHelper;
+
+  /// No description provided for @inventoryUpdatedLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated: {date} by {user}'**
+  String inventoryUpdatedLine(String date, String user);
+
   /// No description provided for @usersLoseAccessWarning.
   ///
   /// In en, this message translates to:
@@ -10731,6 +11602,18 @@ abstract class AppLocalizations {
   /// **'Registration received successfully.\nThe system administrator will assign you to a company and assign a role.'**
   String get pendingApprovalBody;
 
+  /// No description provided for @noWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No workspace available'**
+  String get noWorkspaceTitle;
+
+  /// No description provided for @noWorkspaceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your role has no workspace. Please contact your administrator.'**
+  String get noWorkspaceBody;
+
   /// No description provided for @registerTitle.
   ///
   /// In en, this message translates to:
@@ -10740,8 +11623,38 @@ abstract class AppLocalizations {
   /// No description provided for @registerSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'After registration, the system administrator will assign you to a company'**
+  /// **'Create your account and company — 14-day free trial'**
   String get registerSubtitle;
+
+  /// No description provided for @registerOwnerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'In 2 minutes: owner account + company + 14-day trial. Then import clients and finish setup.'**
+  String get registerOwnerSubtitle;
+
+  /// No description provided for @registerAlreadyProvisioned.
+  ///
+  /// In en, this message translates to:
+  /// **'This account already has a company. Sign in or contact support.'**
+  String get registerAlreadyProvisioned;
+
+  /// No description provided for @registerResumeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue registration'**
+  String get registerResumeTitle;
+
+  /// No description provided for @registerResumeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account exists — enter company details to finish registration.'**
+  String get registerResumeSubtitle;
+
+  /// No description provided for @registerContinueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create company'**
+  String get registerContinueButton;
 
   /// No description provided for @phoneOptional.
   ///
@@ -11121,6 +12034,12 @@ abstract class AppLocalizations {
   /// **'Quantity cannot be negative'**
   String get quantityCannotBeNegative;
 
+  /// No description provided for @quantityMustBePositive.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a quantity greater than 0'**
+  String get quantityMustBePositive;
+
   /// No description provided for @excelExportWebOnly.
   ///
   /// In en, this message translates to:
@@ -11184,7 +12103,7 @@ abstract class AppLocalizations {
   /// No description provided for @hashbonitUnderConstruction.
   ///
   /// In en, this message translates to:
-  /// **'Hashbonit is under construction'**
+  /// **'חשבונית בבנייה'**
   String get hashbonitUnderConstruction;
 
   /// No description provided for @errorSavingWithDetail.
@@ -11822,6 +12741,2064 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Volume: {value} ml'**
   String volumeWithUnit(String value);
+
+  /// No description provided for @setupWizardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company setup'**
+  String get setupWizardTitle;
+
+  /// No description provided for @setupWizardContinueLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue later'**
+  String get setupWizardContinueLater;
+
+  /// No description provided for @setupWizardBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete initial company setup'**
+  String get setupWizardBannerTitle;
+
+  /// No description provided for @setupWizardBannerAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open setup wizard'**
+  String get setupWizardBannerAction;
+
+  /// No description provided for @setupWizardProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String setupWizardProgress(int current, int total);
+
+  /// No description provided for @setupWizardOpenStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get setupWizardOpenStep;
+
+  /// No description provided for @setupWizardMarkComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark complete'**
+  String get setupWizardMarkComplete;
+
+  /// No description provided for @setupWizardSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get setupWizardSkip;
+
+  /// No description provided for @setupWizardReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company is ready to operate.'**
+  String get setupWizardReadyTitle;
+
+  /// No description provided for @setupWizardReadyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All required steps are done. You can start daily operations.'**
+  String get setupWizardReadyBody;
+
+  /// No description provided for @setupWizardStatusNotStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not started'**
+  String get setupWizardStatusNotStarted;
+
+  /// No description provided for @setupWizardStatusInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get setupWizardStatusInProgress;
+
+  /// No description provided for @setupWizardStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get setupWizardStatusCompleted;
+
+  /// No description provided for @setupWizardStatusSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get setupWizardStatusSkipped;
+
+  /// No description provided for @setupWizardStepCompanyInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Company information'**
+  String get setupWizardStepCompanyInfo;
+
+  /// No description provided for @setupWizardStepImportClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Import clients'**
+  String get setupWizardStepImportClients;
+
+  /// No description provided for @setupWizardStepImportProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Import products'**
+  String get setupWizardStepImportProducts;
+
+  /// No description provided for @setupWizardStepAddDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Add drivers'**
+  String get setupWizardStepAddDrivers;
+
+  /// No description provided for @setupWizardStepWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse setup'**
+  String get setupWizardStepWarehouse;
+
+  /// No description provided for @setupWizardStepAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting setup'**
+  String get setupWizardStepAccounting;
+
+  /// No description provided for @setupWizardStepGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver GPS check'**
+  String get setupWizardStepGps;
+
+  /// No description provided for @setupWizardStepFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'First route'**
+  String get setupWizardStepFirstRoute;
+
+  /// No description provided for @setupWizardStepTestDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Test delivery'**
+  String get setupWizardStepTestDelivery;
+
+  /// No description provided for @setupWizardStepReady.
+  ///
+  /// In en, this message translates to:
+  /// **'System ready'**
+  String get setupWizardStepReady;
+
+  /// No description provided for @setupWizardHintCompanyInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill company name, tax ID, address and contacts.'**
+  String get setupWizardHintCompanyInfo;
+
+  /// No description provided for @setupWizardHintImportClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Excel or add clients manually.'**
+  String get setupWizardHintImportClients;
+
+  /// No description provided for @setupWizardHintImportProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Import product catalog (skip if no warehouse).'**
+  String get setupWizardHintImportProducts;
+
+  /// No description provided for @setupWizardHintAddDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Create at least one driver with truck capacity.'**
+  String get setupWizardHintAddDrivers;
+
+  /// No description provided for @setupWizardHintWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete the questionnaire: units, boxes, pallets for your warehouse.'**
+  String get setupWizardHintWarehouse;
+
+  /// No description provided for @warehouseQuestionnaireTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse setup'**
+  String get warehouseQuestionnaireTitle;
+
+  /// No description provided for @warehouseQuestionnaireSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Units, boxes, pallets — questionnaire for your warehouse'**
+  String get warehouseQuestionnaireSubtitle;
+
+  /// No description provided for @warehouseQuestionnaireSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse profile saved'**
+  String get warehouseQuestionnaireSaved;
+
+  /// No description provided for @warehouseQuestionUnitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How do you ship products?'**
+  String get warehouseQuestionUnitTitle;
+
+  /// No description provided for @warehouseQuestionUnitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose mixed if some SKUs are boxed and some are loose.'**
+  String get warehouseQuestionUnitHint;
+
+  /// No description provided for @warehouseUnitLoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Loose units only'**
+  String get warehouseUnitLoose;
+
+  /// No description provided for @warehouseUnitLooseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No boxes — weight, liters, pieces'**
+  String get warehouseUnitLooseHint;
+
+  /// No description provided for @warehouseUnitBoxed.
+  ///
+  /// In en, this message translates to:
+  /// **'Boxes only'**
+  String get warehouseUnitBoxed;
+
+  /// No description provided for @warehouseUnitBoxedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Always cartons / cases'**
+  String get warehouseUnitBoxedHint;
+
+  /// No description provided for @warehouseUnitBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get warehouseUnitBoth;
+
+  /// No description provided for @warehouseUnitBothHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Different products, different packaging'**
+  String get warehouseUnitBothHint;
+
+  /// No description provided for @warehouseQuestionPalletTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Boxes on pallets?'**
+  String get warehouseQuestionPalletTitle;
+
+  /// No description provided for @warehouseQuestionPalletHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose mixed if only some SKUs are palletized.'**
+  String get warehouseQuestionPalletHint;
+
+  /// No description provided for @warehousePalletNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No pallets'**
+  String get warehousePalletNone;
+
+  /// No description provided for @warehousePalletNoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Boxes or loose units only'**
+  String get warehousePalletNoneHint;
+
+  /// No description provided for @warehousePalletAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Always on pallets'**
+  String get warehousePalletAlways;
+
+  /// No description provided for @warehousePalletAlwaysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard pallet logistics'**
+  String get warehousePalletAlwaysHint;
+
+  /// No description provided for @warehousePalletBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed'**
+  String get warehousePalletBoth;
+
+  /// No description provided for @warehousePalletBothHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Some SKUs palletized, some not'**
+  String get warehousePalletBothHint;
+
+  /// No description provided for @warehouseLooseNoPallets.
+  ///
+  /// In en, this message translates to:
+  /// **'Loose shipping usually needs no pallets — you can save now.'**
+  String get warehouseLooseNoPallets;
+
+  /// No description provided for @warehouseQuestionDefaultsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Default values (optional)'**
+  String get warehouseQuestionDefaultsTitle;
+
+  /// No description provided for @warehouseQuestionDefaultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Not for all 100 SKUs at once. Only pre-fills the add-product form. Each SKU has its own units/box and boxes/pallet (form or Excel import).'**
+  String get warehouseQuestionDefaultsHint;
+
+  /// No description provided for @warehouseDefaultUnitsPerBox.
+  ///
+  /// In en, this message translates to:
+  /// **'Units per box — hint for new SKUs'**
+  String get warehouseDefaultUnitsPerBox;
+
+  /// No description provided for @warehouseDefaultBoxesPerPallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Boxes per pallet — hint for new SKUs'**
+  String get warehouseDefaultBoxesPerPallet;
+
+  /// No description provided for @setupWizardHintAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose accounting provider or export mode.'**
+  String get setupWizardHintAccounting;
+
+  /// No description provided for @setupWizardHintGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver enables GPS; dispatcher sees position on map.'**
+  String get setupWizardHintGps;
+
+  /// No description provided for @setupWizardHintFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a route and assign a driver in dispatcher UI.'**
+  String get setupWizardHintFirstRoute;
+
+  /// No description provided for @setupWizardHintTestDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete one delivery point in driver app.'**
+  String get setupWizardHintTestDelivery;
+
+  /// No description provided for @setupWizardHintReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup complete — ready to go.'**
+  String get setupWizardHintReady;
+
+  /// No description provided for @onboardingSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch Center'**
+  String get onboardingSection;
+
+  /// No description provided for @onboardingCenterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch Center'**
+  String get onboardingCenterTitle;
+
+  /// No description provided for @onboardingCenterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete launch tasks in any order. Progress syncs from your data automatically.'**
+  String get onboardingCenterSubtitle;
+
+  /// No description provided for @onboardingCenterOpenWizard.
+  ///
+  /// In en, this message translates to:
+  /// **'Step-by-step wizard'**
+  String get onboardingCenterOpenWizard;
+
+  /// No description provided for @onboardingCenterRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh status'**
+  String get onboardingCenterRefresh;
+
+  /// No description provided for @onboardingCenterAutoDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected automatically'**
+  String get onboardingCenterAutoDetected;
+
+  /// No description provided for @onboardingCenterNextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Next recommended'**
+  String get onboardingCenterNextStep;
+
+  /// No description provided for @onboardingCenterCompletedSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total} tasks'**
+  String onboardingCenterCompletedSteps(int done, int total);
+
+  /// No description provided for @onboardingCenterEstimatedTime.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min remaining'**
+  String onboardingCenterEstimatedTime(int minutes);
+
+  /// No description provided for @onboardingCenterAlmostReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company almost ready'**
+  String get onboardingCenterAlmostReadyTitle;
+
+  /// No description provided for @onboardingCenterAlmostReadyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Required tasks are done. Finish optional tasks and complete Go Live.'**
+  String get onboardingCenterAlmostReadyBody;
+
+  /// No description provided for @onboardingCenterCanStartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to go'**
+  String get onboardingCenterCanStartTitle;
+
+  /// No description provided for @onboardingCenterCanStartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch is complete — start daily operations from the owner dashboard.'**
+  String get onboardingCenterCanStartBody;
+
+  /// No description provided for @launchCenterCardCompanyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Company details'**
+  String get launchCenterCardCompanyDetails;
+
+  /// No description provided for @launchCenterCardFirstOwnerAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'First owner/admin'**
+  String get launchCenterCardFirstOwnerAdmin;
+
+  /// No description provided for @launchCenterCardClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Clients'**
+  String get launchCenterCardClients;
+
+  /// No description provided for @launchCenterCardProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Products / SKU'**
+  String get launchCenterCardProducts;
+
+  /// No description provided for @launchCenterCardDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Drivers'**
+  String get launchCenterCardDrivers;
+
+  /// No description provided for @launchCenterCardWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get launchCenterCardWarehouse;
+
+  /// No description provided for @launchCenterCardAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting'**
+  String get launchCenterCardAccounting;
+
+  /// No description provided for @launchCenterCardGps.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS'**
+  String get launchCenterCardGps;
+
+  /// No description provided for @launchCenterCardFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'First route'**
+  String get launchCenterCardFirstRoute;
+
+  /// No description provided for @launchCenterCardTestDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Test delivery'**
+  String get launchCenterCardTestDelivery;
+
+  /// No description provided for @launchCenterCardGoLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Live'**
+  String get launchCenterCardGoLive;
+
+  /// No description provided for @launchCenterHintCompanyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal name, tax ID, and company profile.'**
+  String get launchCenterHintCompanyDetails;
+
+  /// No description provided for @launchCenterHintFirstOwnerAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'At least one owner or admin with access.'**
+  String get launchCenterHintFirstOwnerAdmin;
+
+  /// No description provided for @launchCenterHintClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Import or add delivery clients.'**
+  String get launchCenterHintClients;
+
+  /// No description provided for @launchCenterHintProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Import or define product types / SKU.'**
+  String get launchCenterHintProducts;
+
+  /// No description provided for @launchCenterHintDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Add drivers who will run routes.'**
+  String get launchCenterHintDrivers;
+
+  /// No description provided for @launchCenterHintWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure warehouse structure and inventory.'**
+  String get launchCenterHintWarehouse;
+
+  /// No description provided for @launchCenterHintAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect accounting provider or issue first invoice.'**
+  String get launchCenterHintAccounting;
+
+  /// No description provided for @launchCenterHintGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver sends fresh GPS — dispatcher sees on map.'**
+  String get launchCenterHintGps;
+
+  /// No description provided for @launchCenterHintFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a route and assign a driver.'**
+  String get launchCenterHintFirstRoute;
+
+  /// No description provided for @launchCenterHintTestDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete one delivery in the driver app.'**
+  String get launchCenterHintTestDelivery;
+
+  /// No description provided for @launchCenterHintGoLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm company is ready for daily operations.'**
+  String get launchCenterHintGoLive;
+
+  /// No description provided for @launchCenterRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get launchCenterRequired;
+
+  /// No description provided for @launchCenterOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get launchCenterOptional;
+
+  /// No description provided for @launchCenterAssign.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign'**
+  String get launchCenterAssign;
+
+  /// No description provided for @launchCenterAssignCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign task'**
+  String get launchCenterAssignCard;
+
+  /// No description provided for @launchCenterAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignee'**
+  String get launchCenterAssignee;
+
+  /// No description provided for @launchCenterUnassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned'**
+  String get launchCenterUnassigned;
+
+  /// No description provided for @launchCenterNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get launchCenterNotes;
+
+  /// No description provided for @launchCenterEstimatedMin.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min'**
+  String launchCenterEstimatedMin(int minutes);
+
+  /// No description provided for @launchCenterCompanyReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ready'**
+  String get launchCenterCompanyReady;
+
+  /// No description provided for @launchCenterCompanyReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ready'**
+  String get launchCenterCompanyReadyTitle;
+
+  /// No description provided for @launchCenterCompanyReadyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All required launch tasks are done. Complete Go Live when you are ready.'**
+  String get launchCenterCompanyReadyBody;
+
+  /// No description provided for @launchCenterModeSelfSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Self Setup'**
+  String get launchCenterModeSelfSetup;
+
+  /// No description provided for @launchCenterModeDoneForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Done for you'**
+  String get launchCenterModeDoneForYou;
+
+  /// No description provided for @onboardingSectionCompanySetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Setup'**
+  String get onboardingSectionCompanySetup;
+
+  /// No description provided for @onboardingSectionImportStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Status'**
+  String get onboardingSectionImportStatus;
+
+  /// No description provided for @onboardingSectionDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Drivers'**
+  String get onboardingSectionDrivers;
+
+  /// No description provided for @onboardingSectionWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get onboardingSectionWarehouse;
+
+  /// No description provided for @onboardingSectionAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting'**
+  String get onboardingSectionAccounting;
+
+  /// No description provided for @onboardingSectionGps.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS'**
+  String get onboardingSectionGps;
+
+  /// No description provided for @onboardingSectionFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'First Route'**
+  String get onboardingSectionFirstRoute;
+
+  /// No description provided for @onboardingSectionTestDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Delivery'**
+  String get onboardingSectionTestDelivery;
+
+  /// No description provided for @onboardingSectionGoLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Live'**
+  String get onboardingSectionGoLive;
+
+  /// No description provided for @healthStripCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get healthStripCompany;
+
+  /// No description provided for @healthStripBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get healthStripBilling;
+
+  /// No description provided for @healthStripFirestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Firestore'**
+  String get healthStripFirestore;
+
+  /// No description provided for @healthStripRoutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Routes'**
+  String get healthStripRoutes;
+
+  /// No description provided for @healthStripRoutesActive.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} active'**
+  String healthStripRoutesActive(int count);
+
+  /// No description provided for @healthStripFcm.
+  ///
+  /// In en, this message translates to:
+  /// **'FCM'**
+  String get healthStripFcm;
+
+  /// No description provided for @healthStripAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounting'**
+  String get healthStripAccounting;
+
+  /// No description provided for @healthStripAccountingSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Failed'**
+  String get healthStripAccountingSyncFailed;
+
+  /// No description provided for @healthStripLastError.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Error'**
+  String get healthStripLastError;
+
+  /// No description provided for @healthStripSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup'**
+  String get healthStripSetup;
+
+  /// No description provided for @healthStripGps.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS'**
+  String get healthStripGps;
+
+  /// No description provided for @healthStripInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoices'**
+  String get healthStripInvoices;
+
+  /// No description provided for @healthStripWarehouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Warehouse'**
+  String get healthStripWarehouse;
+
+  /// No description provided for @healthStripDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Drivers'**
+  String get healthStripDrivers;
+
+  /// No description provided for @healthStripLastSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Sync'**
+  String get healthStripLastSync;
+
+  /// No description provided for @healthStripProblems.
+  ///
+  /// In en, this message translates to:
+  /// **'Problems'**
+  String get healthStripProblems;
+
+  /// No description provided for @healthStripOk.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get healthStripOk;
+
+  /// No description provided for @healthStripWarn.
+  ///
+  /// In en, this message translates to:
+  /// **'WARN'**
+  String get healthStripWarn;
+
+  /// No description provided for @healthStripFail.
+  ///
+  /// In en, this message translates to:
+  /// **'FAIL'**
+  String get healthStripFail;
+
+  /// No description provided for @healthStripJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get healthStripJustNow;
+
+  /// No description provided for @healthStripMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min ago'**
+  String healthStripMinutesAgo(int minutes);
+
+  /// No description provided for @healthStripHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h ago'**
+  String healthStripHoursAgo(int hours);
+
+  /// No description provided for @customerHealthCompanyId.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID'**
+  String get customerHealthCompanyId;
+
+  /// No description provided for @customerHealthLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get customerHealthLoadMore;
+
+  /// No description provided for @customerHealthDashboardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Health'**
+  String get customerHealthDashboardTitle;
+
+  /// No description provided for @customerHealthStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get customerHealthStatus;
+
+  /// No description provided for @customerHealthHealthy.
+  ///
+  /// In en, this message translates to:
+  /// **'Healthy'**
+  String get customerHealthHealthy;
+
+  /// No description provided for @customerHealthWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get customerHealthWarning;
+
+  /// No description provided for @customerHealthCritical.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get customerHealthCritical;
+
+  /// No description provided for @customerHealthUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get customerHealthUnknown;
+
+  /// No description provided for @customerHealthFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get customerHealthFilterAll;
+
+  /// No description provided for @customerHealthFilterDemo.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo'**
+  String get customerHealthFilterDemo;
+
+  /// No description provided for @customerHealthFailedSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed sync'**
+  String get customerHealthFailedSync;
+
+  /// No description provided for @customerHealthStaleGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Stale GPS'**
+  String get customerHealthStaleGps;
+
+  /// No description provided for @customerHealthLastActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Last activity'**
+  String get customerHealthLastActivity;
+
+  /// No description provided for @customerHealthDemoBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo'**
+  String get customerHealthDemoBadge;
+
+  /// No description provided for @customerHealthNoRows.
+  ///
+  /// In en, this message translates to:
+  /// **'No companies match this filter'**
+  String get customerHealthNoRows;
+
+  /// No description provided for @customerHealthOpenSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Support Console'**
+  String get customerHealthOpenSupport;
+
+  /// No description provided for @customerHealthSwitchCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch active company'**
+  String get customerHealthSwitchCompany;
+
+  /// No description provided for @demoCompanyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo company'**
+  String get demoCompanyTitle;
+
+  /// No description provided for @demoCompanySuperAdminOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'super_admin only'**
+  String get demoCompanySuperAdminOnly;
+
+  /// No description provided for @demoCompanyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo Foods Israel — realistic demo data for sales. All records tagged isDemo. ID: demo-foods-israel.'**
+  String get demoCompanyDesc;
+
+  /// No description provided for @demoCompanyCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create demo company'**
+  String get demoCompanyCreate;
+
+  /// No description provided for @demoCompanyResetAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset and recreate'**
+  String get demoCompanyResetAction;
+
+  /// No description provided for @demoCompanyResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset demo data'**
+  String get demoCompanyResetTitle;
+
+  /// No description provided for @demoCompanyResetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete demo-foods-israel and recreate? Real companies are not affected.'**
+  String get demoCompanyResetConfirm;
+
+  /// No description provided for @demoCompanySuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo company is ready'**
+  String get demoCompanySuccess;
+
+  /// No description provided for @demoCompanyCredentialsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo logins (fictional)'**
+  String get demoCompanyCredentialsTitle;
+
+  /// No description provided for @demoCompanyCredOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get demoCompanyCredOwner;
+
+  /// No description provided for @demoCompanyCredDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher'**
+  String get demoCompanyCredDispatcher;
+
+  /// No description provided for @demoCompanyCredDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver 1'**
+  String get demoCompanyCredDriver;
+
+  /// No description provided for @demoCompanyLastSeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded: {clients} clients, {products} SKUs'**
+  String demoCompanyLastSeed(int clients, int products);
+
+  /// No description provided for @demoCompanyPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo password is configured via environment variable / local setup only.'**
+  String get demoCompanyPasswordHint;
+
+  /// No description provided for @demoCompanyResetPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset preview'**
+  String get demoCompanyResetPreviewTitle;
+
+  /// No description provided for @demoCompanyResetPreviewBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents to delete: {deletable}. Blocked (missing isDemo): {blocked}. Continue?'**
+  String demoCompanyResetPreviewBody(int deletable, int blocked);
+
+  /// No description provided for @demoCompanyResetBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset blocked: {blocked} documents without isDemo or with isDemo:false.'**
+  String demoCompanyResetBlocked(int blocked);
+
+  /// No description provided for @supportDiagQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get supportDiagQuickActions;
+
+  /// No description provided for @supportDiagOpenAsOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as owner'**
+  String get supportDiagOpenAsOwner;
+
+  /// No description provided for @supportDiagOpenAsDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as dispatcher'**
+  String get supportDiagOpenAsDispatcher;
+
+  /// No description provided for @supportDiagSetupNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next required step'**
+  String get supportDiagSetupNext;
+
+  /// No description provided for @supportDiagUsersDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users / drivers'**
+  String get supportDiagUsersDrivers;
+
+  /// No description provided for @supportDiagTotalUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Total users'**
+  String get supportDiagTotalUsers;
+
+  /// No description provided for @supportDiagActiveDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active drivers (today)'**
+  String get supportDiagActiveDrivers;
+
+  /// No description provided for @supportDiagActiveRoutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Active routes'**
+  String get supportDiagActiveRoutes;
+
+  /// No description provided for @supportDiagPendingPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending delivery points'**
+  String get supportDiagPendingPoints;
+
+  /// No description provided for @supportDiagCompletedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed today'**
+  String get supportDiagCompletedToday;
+
+  /// No description provided for @supportDiagCancelledPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled / blocked'**
+  String get supportDiagCancelledPoints;
+
+  /// No description provided for @supportDiagSyncStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest sync status'**
+  String get supportDiagSyncStatus;
+
+  /// No description provided for @supportDiagNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get supportDiagNotifications;
+
+  /// No description provided for @supportDiagLastPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Last push log'**
+  String get supportDiagLastPush;
+
+  /// No description provided for @supportDiagLastEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Last email log'**
+  String get supportDiagLastEmail;
+
+  /// No description provided for @supportDiagRecentErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent errors'**
+  String get supportDiagRecentErrors;
+
+  /// No description provided for @supportDiagFilterCorrelation.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by correlationId'**
+  String get supportDiagFilterCorrelation;
+
+  /// No description provided for @supportDiagLastPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Last successful payment'**
+  String get supportDiagLastPayment;
+
+  /// No description provided for @supportDiagFailedPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Last failed payment'**
+  String get supportDiagFailedPayment;
+
+  /// No description provided for @supportDiagLoadedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded at'**
+  String get supportDiagLoadedAt;
+
+  /// No description provided for @usageSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage (pilot)'**
+  String get usageSummaryTitle;
+
+  /// No description provided for @usageSummaryDays7.
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get usageSummaryDays7;
+
+  /// No description provided for @usageSummaryDays30.
+  ///
+  /// In en, this message translates to:
+  /// **'30 days'**
+  String get usageSummaryDays30;
+
+  /// No description provided for @usageSummaryActiveUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active users'**
+  String get usageSummaryActiveUsers;
+
+  /// No description provided for @usageSummaryTotalEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Total events'**
+  String get usageSummaryTotalEvents;
+
+  /// No description provided for @usageSummaryLastEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Last event'**
+  String get usageSummaryLastEvent;
+
+  /// No description provided for @usageSummaryNoEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'No events in period'**
+  String get usageSummaryNoEvents;
+
+  /// No description provided for @usageSummaryOwnerOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner / admin / super_admin only'**
+  String get usageSummaryOwnerOnly;
+
+  /// No description provided for @usageSummarySampleNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Active users from latest {sampleSize} events (limit)'**
+  String usageSummarySampleNote(int sampleSize);
+
+  /// No description provided for @driverSessionBlockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This driver is already active on another device'**
+  String get driverSessionBlockedTitle;
+
+  /// No description provided for @driverSessionBlockedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route work is blocked on this device.'**
+  String get driverSessionBlockedSubtitle;
+
+  /// No description provided for @driverSessionBlockedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Active device: {label}'**
+  String driverSessionBlockedDevice(String label);
+
+  /// No description provided for @driverSessionTakeoverButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to this device'**
+  String get driverSessionTakeoverButton;
+
+  /// No description provided for @driverSessionLostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session moved to another device'**
+  String get driverSessionLostTitle;
+
+  /// No description provided for @driverSessionLostSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS and route tracking stopped on this device.'**
+  String get driverSessionLostSubtitle;
+
+  /// No description provided for @driverSessionLostAcknowledge.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get driverSessionLostAcknowledge;
+
+  /// No description provided for @driverSessionActiveDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Active device: {label}'**
+  String driverSessionActiveDevice(String label);
+
+  /// No description provided for @importWizardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import wizard'**
+  String get importWizardTitle;
+
+  /// No description provided for @importWizardStepType.
+  ///
+  /// In en, this message translates to:
+  /// **'Data type'**
+  String get importWizardStepType;
+
+  /// No description provided for @importWizardStepFile.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get importWizardStepFile;
+
+  /// No description provided for @importWizardStepHeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'Headers'**
+  String get importWizardStepHeaders;
+
+  /// No description provided for @importWizardStepMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Mapping'**
+  String get importWizardStepMapping;
+
+  /// No description provided for @importWizardStepPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get importWizardStepPreview;
+
+  /// No description provided for @importWizardStepImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get importWizardStepImport;
+
+  /// No description provided for @importWizardStepResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get importWizardStepResult;
+
+  /// No description provided for @importWizardConfidence.
+  ///
+  /// In en, this message translates to:
+  /// **'%'**
+  String get importWizardConfidence;
+
+  /// No description provided for @importWizardSaveTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Save mapping template?'**
+  String get importWizardSaveTemplate;
+
+  /// No description provided for @importWizardSaveTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save column mapping for similar files in the future.'**
+  String get importWizardSaveTemplateHint;
+
+  /// No description provided for @importWizardUseSavedMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved template found'**
+  String get importWizardUseSavedMapping;
+
+  /// No description provided for @importWizardTypeClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Clients'**
+  String get importWizardTypeClients;
+
+  /// No description provided for @importWizardTypeProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Products'**
+  String get importWizardTypeProducts;
+
+  /// No description provided for @importWizardTypeDeliveryPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery points'**
+  String get importWizardTypeDeliveryPoints;
+
+  /// No description provided for @importWizardFileHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an Excel (.xlsx) or CSV file.'**
+  String get importWizardFileHint;
+
+  /// No description provided for @importWizardPickFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose file'**
+  String get importWizardPickFile;
+
+  /// No description provided for @importWizardFileSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{columns} columns, {rows} rows'**
+  String importWizardFileSummary(int columns, int rows);
+
+  /// No description provided for @importWizardHeadersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Columns found: {count}'**
+  String importWizardHeadersFound(int count);
+
+  /// No description provided for @importWizardPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview (up to 20 rows)'**
+  String get importWizardPreviewTitle;
+
+  /// No description provided for @importWizardRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get importWizardRun;
+
+  /// No description provided for @importWizardImporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing…'**
+  String get importWizardImporting;
+
+  /// No description provided for @importWizardResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete'**
+  String get importWizardResultTitle;
+
+  /// No description provided for @importWizardImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported'**
+  String get importWizardImported;
+
+  /// No description provided for @importWizardUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get importWizardUpdated;
+
+  /// No description provided for @importWizardSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get importWizardSkipped;
+
+  /// No description provided for @importWizardErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors'**
+  String get importWizardErrors;
+
+  /// No description provided for @importWizardDownloadErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Download errors (CSV)'**
+  String get importWizardDownloadErrors;
+
+  /// No description provided for @importWizardTemplateName.
+  ///
+  /// In en, this message translates to:
+  /// **'Template name'**
+  String get importWizardTemplateName;
+
+  /// No description provided for @importWizardTemplateDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'My template'**
+  String get importWizardTemplateDefaultName;
+
+  /// No description provided for @importWizardMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Import wizard'**
+  String get importWizardMenu;
+
+  /// No description provided for @importWizardBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get importWizardBack;
+
+  /// No description provided for @importWizardApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get importWizardApply;
+
+  /// No description provided for @importWizardUnusedColumns.
+  ///
+  /// In en, this message translates to:
+  /// **'Unused columns'**
+  String get importWizardUnusedColumns;
+
+  /// No description provided for @importWizardDetectedPack.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected format: {pack}'**
+  String importWizardDetectedPack(String pack);
+
+  /// No description provided for @createCompanyFlowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create company'**
+  String get createCompanyFlowTitle;
+
+  /// No description provided for @createCompanyFlowStepCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company details'**
+  String get createCompanyFlowStepCompany;
+
+  /// No description provided for @createCompanyFlowStepOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'First user'**
+  String get createCompanyFlowStepOwner;
+
+  /// No description provided for @createCompanyFlowStepMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Onboarding mode'**
+  String get createCompanyFlowStepMode;
+
+  /// No description provided for @createCompanyFlowStepConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get createCompanyFlowStepConfirm;
+
+  /// No description provided for @createCompanyFlowDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Country: Israel · Language: Hebrew · Timezone: Asia/Jerusalem · Trial: 14 days'**
+  String get createCompanyFlowDefaults;
+
+  /// No description provided for @createCompanyFlowModeSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'Self Setup'**
+  String get createCompanyFlowModeSelf;
+
+  /// No description provided for @createCompanyFlowModeSelfHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner completes Launch Center'**
+  String get createCompanyFlowModeSelfHint;
+
+  /// No description provided for @createCompanyFlowModeDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done-for-you'**
+  String get createCompanyFlowModeDone;
+
+  /// No description provided for @createCompanyFlowModeDoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'LogiRoute sets up the company'**
+  String get createCompanyFlowModeDoneHint;
+
+  /// No description provided for @createCompanyFlowModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode: {mode}'**
+  String createCompanyFlowModeLabel(String mode);
+
+  /// No description provided for @createCompanyFlowMaxUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'User limit'**
+  String get createCompanyFlowMaxUsers;
+
+  /// No description provided for @createCompanyFlowSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company created'**
+  String get createCompanyFlowSuccessTitle;
+
+  /// No description provided for @createCompanyFlowSuccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Company is ready. The first user was sent a sign-in email.'**
+  String get createCompanyFlowSuccessBody;
+
+  /// No description provided for @createCompanyFlowEmailFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Email could not be sent. Company was created — send password reset manually.'**
+  String get createCompanyFlowEmailFailed;
+
+  /// No description provided for @createCompanyFlowOpenAsOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as owner'**
+  String get createCompanyFlowOpenAsOwner;
+
+  /// No description provided for @createCompanyFlowOpenAsDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as dispatcher'**
+  String get createCompanyFlowOpenAsDispatcher;
+
+  /// No description provided for @createCompanyFlowCopyInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy invitation'**
+  String get createCompanyFlowCopyInvite;
+
+  /// No description provided for @createCompanyFlowInviteCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation copied'**
+  String get createCompanyFlowInviteCopied;
+
+  /// No description provided for @createCompanyFlowOwnerRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'First owner/admin name and email are required'**
+  String get createCompanyFlowOwnerRequired;
+
+  /// No description provided for @createCompanyFlowUserInOtherCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already linked to another company'**
+  String get createCompanyFlowUserInOtherCompany;
+
+  /// No description provided for @createCompanyFlowEmailConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create or link user'**
+  String get createCompanyFlowEmailConflict;
+
+  /// No description provided for @launchCenterOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Launch Center'**
+  String get launchCenterOpen;
+
+  /// No description provided for @trialEndsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial until'**
+  String get trialEndsLabel;
+
+  /// No description provided for @platformErrorCenterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Error Center'**
+  String get platformErrorCenterTitle;
+
+  /// No description provided for @platformErrorDetailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Error details'**
+  String get platformErrorDetailTitle;
+
+  /// No description provided for @platformErrorFilterOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open only'**
+  String get platformErrorFilterOpen;
+
+  /// No description provided for @platformErrorEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No errors recorded'**
+  String get platformErrorEmpty;
+
+  /// No description provided for @platformErrorColSeverity.
+  ///
+  /// In en, this message translates to:
+  /// **'Severity'**
+  String get platformErrorColSeverity;
+
+  /// No description provided for @platformErrorColCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Count'**
+  String get platformErrorColCount;
+
+  /// No description provided for @platformErrorColOperation.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation'**
+  String get platformErrorColOperation;
+
+  /// No description provided for @platformErrorColFirstSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'First seen'**
+  String get platformErrorColFirstSeen;
+
+  /// No description provided for @platformErrorColLastSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen'**
+  String get platformErrorColLastSeen;
+
+  /// No description provided for @platformErrorResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get platformErrorResolved;
+
+  /// No description provided for @platformErrorOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get platformErrorOpen;
+
+  /// No description provided for @platformErrorCorrelationIds.
+  ///
+  /// In en, this message translates to:
+  /// **'Correlation IDs'**
+  String get platformErrorCorrelationIds;
+
+  /// No description provided for @platformErrorStackTrace.
+  ///
+  /// In en, this message translates to:
+  /// **'Stack trace'**
+  String get platformErrorStackTrace;
+
+  /// No description provided for @platformErrorNoStack.
+  ///
+  /// In en, this message translates to:
+  /// **'No stack trace'**
+  String get platformErrorNoStack;
+
+  /// No description provided for @platformErrorCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy error'**
+  String get platformErrorCopy;
+
+  /// No description provided for @platformErrorCopyJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy JSON'**
+  String get platformErrorCopyJson;
+
+  /// No description provided for @platformErrorCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get platformErrorCopied;
+
+  /// No description provided for @platformErrorMarkResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark resolved'**
+  String get platformErrorMarkResolved;
+
+  /// No description provided for @platformErrorReopen.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopen'**
+  String get platformErrorReopen;
+
+  /// No description provided for @platformErrorIncidentSuggested.
+  ///
+  /// In en, this message translates to:
+  /// **'This error repeated >20 times in the last hour'**
+  String get platformErrorIncidentSuggested;
+
+  /// No description provided for @remoteConfigTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pilot Configuration'**
+  String get remoteConfigTitle;
+
+  /// No description provided for @remoteConfigSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live parameters — changes take effect without a new build'**
+  String get remoteConfigSubtitle;
+
+  /// No description provided for @remoteConfigSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration saved'**
+  String get remoteConfigSaved;
+
+  /// No description provided for @remoteConfigSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Save error: {error}'**
+  String remoteConfigSaveError(String error);
+
+  /// No description provided for @remoteConfigResetField.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default'**
+  String get remoteConfigResetField;
+
+  /// No description provided for @remoteConfigResetAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all to defaults'**
+  String get remoteConfigResetAll;
+
+  /// No description provided for @remoteConfigDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default: {value}'**
+  String remoteConfigDefault(String value);
+
+  /// No description provided for @rcAutoCloseRadius.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-close radius (m)'**
+  String get rcAutoCloseRadius;
+
+  /// No description provided for @rcAutoCloseRadiusDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS radius within which the delivery point auto-closes'**
+  String get rcAutoCloseRadiusDesc;
+
+  /// No description provided for @rcAutoCloseResetRadius.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset radius (m)'**
+  String get rcAutoCloseResetRadius;
+
+  /// No description provided for @rcAutoCloseResetRadiusDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be ≥ auto-close radius. Prevents GPS jitter from resetting the timer'**
+  String get rcAutoCloseResetRadiusDesc;
+
+  /// No description provided for @rcAutoCloseWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-close wait (sec)'**
+  String get rcAutoCloseWait;
+
+  /// No description provided for @rcAutoCloseWaitDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds the driver must stay within radius before the point auto-closes'**
+  String get rcAutoCloseWaitDesc;
+
+  /// No description provided for @rcCloseUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo duration (sec)'**
+  String get rcCloseUndo;
+
+  /// No description provided for @rcCloseUndoDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds the \'Undo\' button is shown after closing a delivery point'**
+  String get rcCloseUndoDesc;
+
+  /// No description provided for @rcGpsStale.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS stale threshold (min)'**
+  String get rcGpsStale;
+
+  /// No description provided for @rcGpsStaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'After this many minutes without GPS update the driver is considered offline'**
+  String get rcGpsStaleDesc;
+
+  /// No description provided for @rcSessionHeartbeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Session heartbeat (sec)'**
+  String get rcSessionHeartbeat;
+
+  /// No description provided for @rcSessionHeartbeatDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How often the driver device sends a heartbeat to maintain session ownership'**
+  String get rcSessionHeartbeatDesc;
+
+  /// No description provided for @rcSessionStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Session stale timeout (min)'**
+  String get rcSessionStale;
+
+  /// No description provided for @rcSessionStaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Session is considered stale after this many minutes without a heartbeat'**
+  String get rcSessionStaleDesc;
+
+  /// No description provided for @rcBgAutoClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Background auto-close'**
+  String get rcBgAutoClose;
+
+  /// No description provided for @rcBgAutoCloseDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the background service to auto-close delivery points'**
+  String get rcBgAutoCloseDesc;
+
+  /// No description provided for @rcSessionLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver device session lock'**
+  String get rcSessionLock;
+
+  /// No description provided for @rcSessionLockDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Prevent a driver from being logged in on two devices simultaneously'**
+  String get rcSessionLockDesc;
+
+  /// No description provided for @rcPreferWaze.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer Waze navigation'**
+  String get rcPreferWaze;
+
+  /// No description provided for @rcPreferWazeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Waze as the primary navigation app. When off, Google Maps is used instead'**
+  String get rcPreferWazeDesc;
+
+  /// No description provided for @rcImportPreviewRows.
+  ///
+  /// In en, this message translates to:
+  /// **'Import preview rows'**
+  String get rcImportPreviewRows;
+
+  /// No description provided for @rcImportPreviewRowsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of rows shown in the import preview step'**
+  String get rcImportPreviewRowsDesc;
+
+  /// No description provided for @rcSectionAutoClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-close'**
+  String get rcSectionAutoClose;
+
+  /// No description provided for @rcSectionSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Session'**
+  String get rcSectionSession;
+
+  /// No description provided for @rcSectionFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get rcSectionFeatures;
+
+  /// No description provided for @dataIntegrityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Integrity'**
+  String get dataIntegrityTitle;
+
+  /// No description provided for @dataIntegritySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Find inconsistencies across users, points, routes, invoices and inventory'**
+  String get dataIntegritySubtitle;
+
+  /// No description provided for @dataIntegrityRunCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Run check'**
+  String get dataIntegrityRunCheck;
+
+  /// No description provided for @dataIntegrityCheckDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Check complete: {count} issues'**
+  String dataIntegrityCheckDone(int count);
+
+  /// No description provided for @dataIntegrityCsvCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV copied to clipboard'**
+  String get dataIntegrityCsvCopied;
+
+  /// No description provided for @dataIntegrityNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrity check never ran'**
+  String get dataIntegrityNever;
+
+  /// No description provided for @dataIntegrityLastCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Last check'**
+  String get dataIntegrityLastCheck;
+
+  /// No description provided for @dataIntegrityNoIssues.
+  ///
+  /// In en, this message translates to:
+  /// **'No issues found'**
+  String get dataIntegrityNoIssues;
+
+  /// No description provided for @dataIntegrityExportCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export CSV'**
+  String get dataIntegrityExportCsv;
+
+  /// No description provided for @dataIntegrityIssuesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} issues'**
+  String dataIntegrityIssuesCount(int count);
+
+  /// No description provided for @dataIntegrityFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get dataIntegrityFilterAll;
+
+  /// No description provided for @dataIntegrityStatusOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get dataIntegrityStatusOpen;
+
+  /// No description provided for @dataIntegrityStatusIgnored.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored'**
+  String get dataIntegrityStatusIgnored;
+
+  /// No description provided for @dataIntegrityStatusResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get dataIntegrityStatusResolved;
+
+  /// No description provided for @dataIntegrityMarkIgnored.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore'**
+  String get dataIntegrityMarkIgnored;
+
+  /// No description provided for @dataIntegrityMarkResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark resolved'**
+  String get dataIntegrityMarkResolved;
+
+  /// No description provided for @dataIntegrityReopen.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopen'**
+  String get dataIntegrityReopen;
+
+  /// No description provided for @dataIntegrityOpenEntity.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get dataIntegrityOpenEntity;
+
+  /// No description provided for @dataIntegrityCopyId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy ID'**
+  String get dataIntegrityCopyId;
+
+  /// No description provided for @dataIntegrityOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open integrity check'**
+  String get dataIntegrityOpen;
+
+  /// No description provided for @severityCritical.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get severityCritical;
+
+  /// No description provided for @severityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get severityHigh;
+
+  /// No description provided for @severityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get severityMedium;
+
+  /// No description provided for @severityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get severityLow;
 }
 
 class _AppLocalizationsDelegate
