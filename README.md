@@ -66,6 +66,11 @@ firebase deploy
 
 ## 📚 Документация
 
+### Архитектура и продукт:
+- **[docs/project-structure.md](docs/project-structure.md)** - Техническая структура (факты, модули, тарифы, ограничения)
+- **[docs/competitive-analysis.md](docs/competitive-analysis.md)** - Позиционирование и конкурентный анализ
+- **[docs/computerized-warehouse.md](docs/computerized-warehouse.md)** - מחסן ממוחשב (штрихкоды)
+
 ### Настройка:
 - **[SETUP.md](SETUP.md)** - Полная инструкция по настройке
 - **[QUICK_START.md](QUICK_START.md)** - Быстрый старт

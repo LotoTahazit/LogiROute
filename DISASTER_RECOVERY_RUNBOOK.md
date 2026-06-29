@@ -168,17 +168,73 @@ async function restoreCompanyDocs(companyId, collection) {
 | CTO | [указать] |
 | Google Cloud Support | https://cloud.google.com/support |
 
-## Тестирование restore
+## Restore drill (пилот — обязательно до go-live)
 
-**Рекомендация**: проводить тестовый restore раз в квартал.
+**Цель:** проверить, что восстановление из бэкапа/PITR реально работает, и зафиксировать evidence в приложении (Admin → Backup → Restore drill).
 
-### Чеклист тестового restore:
-- [ ] PITR restore в тестовую базу
-- [ ] Проверка целостности accountingDocs
-- [ ] Проверка целостности users/members
-- [ ] Проверка audit trail
-- [ ] Замер реального времени restore
-- [ ] Обновление RTO в этом документе
+> **Production restore** — только по runbook ниже, отдельное решение CTO. Drill делается в **test/staging** или в **новую базу** (`restore-YYYYMMDD`), не в `(default)` production.
 
-### Последний тест: [дата не проводился]
-### Реальное время restore: [не замерено]
+### Сценарий drill (≈ 1–2 часа)
+
+1. **Подготовка**
+   - Выбрать backup: daily snapshot или PITR timestamp (см. Сценарий 1 или 5).
+   - Целевая среда: новая Firestore DB `restore-YYYYMMDD` или staging-проект.
+   - Зафиксировать backup в журнале: Admin → «Зарегистрировать бэкап LogiRoute Cloud».
+
+2. **Выполнение restore (ручно, GCP)**
+   ```bash
+   gcloud firestore databases restore \
+     --source-database="(default)" \
+     --destination-database="restore-$(date +%Y%m%d)" \
+     --snapshot-time="2026-06-01T12:00:00Z" \
+     --project=logiroute-app
+   ```
+   Засечь время начала/окончания (durationMinutes).
+
+3. **Верификация (evidence)**
+   - Открыть восстановленную БД в Firebase Console или скриптом Admin SDK.
+   - Проверить минимум 3 коллекции, например:
+     - `companies/{pilotCompanyId}/logistics/_root/delivery_points` — count > 0
+     - `companies/{pilotCompanyId}/accounting/_root/invoices` — sample doc readable
+     - `companies/{pilotCompanyId}/logistics/_root/clients` — sample doc readable
+   - Записать в evidenceNotes: timestamp restore, destination DB, что сравнили, результат.
+
+4. **Журнал в приложении**
+   - Admin → Backup Management → вкладка Restore tests → «Зарегистрировать restore drill».
+   - Заполнить все поля (backupId, targetEnvironment, collections, duration, result, evidence).
+   - **Success** только если restore + верификация прошли; иначе **Failed** с описанием ошибки.
+
+### Что считается Success
+
+| Критерий | Обязательно |
+|----------|-------------|
+| Restore завершился без ошибки GCP | ✅ |
+| Данные pilot-компании читаются в целевой БД | ✅ |
+| Evidence ≥ 40 символов с конкретикой | ✅ |
+| durationMinutes > 0 | ✅ |
+| restoredCollections перечислены | ✅ |
+
+### При Failed
+
+1. Зафиксировать drill с result **Failed** и evidence (ошибка gcloud, timeout, пустые коллекции).
+2. Не ставить Success «на будущее».
+3. Эскалация DevOps/CTO; повтор drill после fix.
+4. Go-live **блокируется**, пока нет одного verified Success drill.
+
+---
+
+## Тестирование restore (квартальный)
+
+**Рекомендация**: проводить restore drill раз в квартал + после крупных изменений infra.
+
+### Чеклист:
+- [ ] PITR или daily backup restore в **отдельную** базу (не production)
+- [ ] Проверка delivery_points, clients, invoices pilot-компании
+- [ ] Замер durationMinutes
+- [ ] Запись restore drill в Admin UI с evidence
+- [ ] Обновление RTO фактическими данными
+
+### Последний verified drill: _заполнить после первого drill_
+### Реальное время restore: _из поля durationMinutes журнала_
+
+---
