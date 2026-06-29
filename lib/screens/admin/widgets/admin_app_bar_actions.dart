@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../warehouse/warehouse_dashboard.dart';
 import '../../shared/inventory_report_screen.dart';
+import '../usage_summary_screen.dart';
 import '../analytics_screen.dart';
 import '../../../screens/shared/reports_screen.dart';
 import '../inventory_counts_list_screen.dart';
+import '../company_remote_config_screen.dart';
 import '../company_settings_screen.dart';
 import '../archive_management_screen.dart';
 import '../../shared/route_archive_screen.dart';
@@ -17,9 +20,20 @@ import '../support_console_screen.dart';
 import '../admin_activity_screen.dart';
 import '../../../screens/shared/client_management_screen.dart';
 import '../integrity_check_screen.dart';
+import '../data_integrity_screen.dart';
+import '../create_company_flow_screen.dart';
 import '../create_company_screen.dart';
 import '../product_management_screen.dart';
 import '../terminology_settings_screen.dart';
+import '../demo_company_screen.dart';
+import '../../setup/onboarding_center_screen.dart';
+import '../../setup/warehouse_setup_questionnaire_screen.dart';
+import '../../../services/company_context.dart';
+import '../../../services/company_selection_service.dart';
+import '../customer_health_dashboard_screen.dart';
+import '../platform_error_center_screen.dart';
+import '../../../services/platform_error_service.dart';
+import '../../setup/company_setup_wizard_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locale_service.dart';
@@ -43,7 +57,7 @@ class AdminAppBarActions extends StatelessWidget {
 
   bool get _isSuperAdmin => authService.userModel?.isSuperAdmin == true;
 
-  void _handleAction(BuildContext context, String value) {
+  Future<void> _handleAction(BuildContext context, String value) async {
     switch (value) {
       case 'add_user':
         onAddUser();
@@ -58,6 +72,11 @@ class AdminAppBarActions extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+        );
+      case 'usage_summary':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UsageSummaryScreen()),
         );
       case 'reports':
         Navigator.push(
@@ -89,10 +108,42 @@ class AdminAppBarActions extends StatelessWidget {
           context,
           MaterialPageRoute(builder: (_) => const CompanySettingsScreen()),
         );
+      case 'company_remote_config':
+        final cid = CompanyContext.of(context).effectiveCompanyId ?? '';
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CompanyRemoteConfigScreen(companyId: cid),
+          ),
+        );
+      case 'setup_wizard':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CompanySetupWizardScreen()),
+        );
+      case 'onboarding_center':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const OnboardingCenterScreen()),
+        );
       case 'terminology':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TerminologySettingsScreen()),
+        );
+      case 'warehouse_setup':
+        final companyId = context.read<CompanySelectionService>().getEffectiveCompanyId(
+              authService,
+            ) ??
+            CompanyContext.of(context).effectiveCompanyId ??
+            authService.userModel?.companyId ??
+            '';
+        if (companyId.isEmpty) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WarehouseSetupQuestionnaireScreen(companyId: companyId),
+          ),
         );
       case 'route_archive':
         Navigator.push(
@@ -144,15 +195,51 @@ class AdminAppBarActions extends StatelessWidget {
           context,
           MaterialPageRoute(builder: (_) => const IntegrityCheckScreen()),
         );
-      case 'create_company':
+      case 'data_integrity':
+        final cid = CompanyContext.of(context).effectiveCompanyId ?? '';
+        if (cid.isEmpty) return;
         Navigator.push(
           context,
+          MaterialPageRoute(
+            builder: (_) => DataIntegrityScreen(companyId: cid),
+          ),
+        );
+      case 'create_company':
+        await Navigator.push<void>(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateCompanyFlowScreen()),
+        );
+      case 'create_company_legacy':
+        final newCompanyId = await Navigator.push<String>(
+          context,
           MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
+        );
+        if (newCompanyId != null && context.mounted) {
+          await Navigator.push<void>(
+            context,
+            MaterialPageRoute(builder: (_) => const CompanySetupWizardScreen()),
+          );
+        }
+      case 'demo_company':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DemoCompanyScreen()),
         );
       case 'support_console':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SupportConsoleScreen()),
+        );
+      case 'customer_health':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const CustomerHealthDashboardScreen()),
+        );
+      case 'error_center':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PlatformErrorCenterScreen()),
         );
       case 'logout':
         authService.signOut();
@@ -189,6 +276,7 @@ class AdminAppBarActions extends StatelessWidget {
 
   List<PopupMenuEntry<String>> _reportItems(AppLocalizations l10n) => [
         _item('analytics', Icons.analytics, l10n.analytics),
+        _item('usage_summary', Icons.insights, l10n.usageSummaryTitle),
         _item('reports', Icons.assessment, l10n.reports),
         _item('inventory_report', Icons.swap_horiz, l10n.inventoryChangesReport),
         _item('inventory_counts', Icons.fact_check, l10n.inventoryCountReportsTooltip),
@@ -201,8 +289,13 @@ class AdminAppBarActions extends StatelessWidget {
       ];
 
   List<PopupMenuEntry<String>> _companyItems(AppLocalizations l10n) => [
+        _item('warehouse_setup', Icons.inventory_2_outlined, l10n.warehouseQuestionnaireTitle),
+        _item('onboarding_center', Icons.flag_outlined, l10n.onboardingCenterTitle),
+        _item('setup_wizard', Icons.rocket_launch, l10n.setupWizardTitle),
         _item('company_settings', Icons.business, l10n.companySettings),
+        _item('company_remote_config', Icons.tune, l10n.remoteConfigTitle),
         _item('terminology', Icons.translate, l10n.terminologySettings),
+        _item('data_integrity', Icons.rule, l10n.dataIntegrityTitle),
         _item('route_archive', Icons.history, l10n.routeArchiveTitle),
         _item('archive', Icons.archive, l10n.archiveManagement),
         _item('client_management', Icons.people, l10n.clientManagement),
@@ -220,6 +313,9 @@ class AdminAppBarActions extends StatelessWidget {
         _item('data_retention', Icons.policy, l10n.dataRetention),
         _item('integrity_check', Icons.verified_user, l10n.integrityCheck),
         _item('create_company', Icons.add_business, l10n.createCompany),
+        _item('demo_company', Icons.storefront, l10n.demoCompanyCreate),
+        _item('customer_health', Icons.monitor_heart, l10n.customerHealthDashboardTitle),
+        _item('error_center', Icons.error_outline, l10n.platformErrorCenterTitle),
         _item('support_console', Icons.support_agent, l10n.supportConsoleTitle),
       ];
 
@@ -228,9 +324,16 @@ class AdminAppBarActions extends StatelessWidget {
     required String tooltip,
     required List<PopupMenuEntry<String>> items,
     required BuildContext context,
+    int? badgeCount,
   }) {
+    final menuIcon = badgeCount != null && badgeCount > 0
+        ? Badge(
+            label: Text('$badgeCount'),
+            child: Icon(icon),
+          )
+        : Icon(icon);
     return PopupMenuButton<String>(
-      icon: Icon(icon),
+      icon: menuIcon,
       tooltip: tooltip,
       onSelected: (v) => _handleAction(context, v),
       itemBuilder: (_) => items,
@@ -340,11 +443,15 @@ class AdminAppBarActions extends StatelessWidget {
           items: _billingItems(l10n),
         ),
         if (_isSuperAdmin)
-          _groupMenu(
-            context: context,
-            icon: Icons.admin_panel_settings_outlined,
-            tooltip: l10n.appBarGroupPlatform,
-            items: _platformItems(l10n),
+          StreamBuilder<int>(
+            stream: PlatformErrorService().watchOpenCriticalCount(),
+            builder: (context, snap) => _groupMenu(
+              context: context,
+              icon: Icons.admin_panel_settings_outlined,
+              tooltip: l10n.appBarGroupPlatform,
+              items: _platformItems(l10n),
+              badgeCount: snap.data,
+            ),
           ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.language),

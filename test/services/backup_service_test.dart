@@ -1,6 +1,51 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logiroute/models/restore_drill_record.dart';
+import 'package:logiroute/services/backup_service.dart';
 
 void main() {
+  group('RestoreDrillRecord evidence', () {
+    RestoreDrillRecord sample({RestoreDrillResult result = RestoreDrillResult.success}) {
+      return RestoreDrillRecord(
+        backupId: 'b1',
+        backupLocation: 'Firebase: logiroute-app',
+        testDate: DateTime(2026, 6, 1),
+        targetEnvironment: 'restore-20260601',
+        restoredCollections: const ['clients', 'invoices'],
+        testedBy: 'admin',
+        result: result,
+        evidenceNotes: result == RestoreDrillResult.success
+            ? 'Restored to restore-20260601; verified 12 clients and 5 invoices match counts.'
+            : 'Restore failed: gcloud timeout after 45 min.',
+        durationMinutes: 45,
+      );
+    }
+
+    test('success requires long evidence', () {
+      final short = RestoreDrillRecord(
+        backupId: 'b1',
+        backupLocation: 'Firebase: logiroute-app',
+        testDate: DateTime(2026, 6, 1),
+        targetEnvironment: 'restore-20260601',
+        restoredCollections: const ['clients'],
+        testedBy: 'admin',
+        result: RestoreDrillResult.success,
+        evidenceNotes: 'too short',
+        durationMinutes: 45,
+      );
+      expect(short.validationError(), isNotNull);
+    });
+
+    test('complete success drill passes validation', () {
+      expect(sample().validationError(), isNull);
+      expect(sample().hasCompleteEvidence, isTrue);
+    });
+
+    test('failed drill still needs evidence', () {
+      final failed = sample(result: RestoreDrillResult.failed);
+      expect(failed.validationError(), isNull);
+    });
+  });
+
   group('BackupService quarterly logic', () {
     test('quarter start months are Jan, Apr, Jul, Oct', () {
       final quarterStartMonths = [1, 4, 7, 10];

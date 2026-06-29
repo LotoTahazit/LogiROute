@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'locale_service_stub.dart'
+    if (dart.library.html) 'locale_service_web.dart';
 import 'auth_service.dart';
 import 'firestore_paths.dart';
 
@@ -14,6 +17,7 @@ class CompanyInfo {
 /// Сервис для управления выбранной компанией (для super_admin)
 class CompanySelectionService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const _kSelectedCompany = 'selected_company_id';
 
   String? _selectedCompanyId;
   List<CompanyInfo> _availableCompanies = [];
@@ -23,6 +27,15 @@ class CompanySelectionService extends ChangeNotifier {
   List<CompanyInfo> get availableCompanies => _availableCompanies;
   bool get isLoading => _isLoading;
 
+  /// Приоритет tenant для super_admin / admin (H2 — Support Console sync).
+  @visibleForTesting
+  static String? resolveAdminTenant({
+    String? selectedCompanyId,
+    String? virtualCompanyId,
+    String? userCompanyId,
+  }) =>
+      selectedCompanyId ?? virtualCompanyId ?? userCompanyId;
+
   /// Получить эффективный companyId для использования в сервисах
   /// Для super_admin - выбранная компания, для остальных - их companyId
   /// ВАЖНО: Это единственный источник правды для companyId в приложении!
@@ -30,21 +43,48 @@ class CompanySelectionService extends ChangeNotifier {
     final user = authService.userModel;
     if (user == null) return null;
 
-    if (user.isSuperAdmin) {
-      // Для super_admin используем выбранную компанию
-      return _selectedCompanyId;
-    } else {
-      // Для обычных пользователей - их компания
-      return user.companyId;
+    if (user.isSuperAdmin || user.isAdmin) {
+      return resolveAdminTenant(
+        selectedCompanyId: _selectedCompanyId,
+        virtualCompanyId: authService.virtualCompanyId,
+        userCompanyId: user.companyId,
+      );
+    }
+    return user.companyId;
+  }
+
+  Future<void> ensureRestored() async {
+    await _restorePersistedSelection();
+  }
+
+  Future<void> _restorePersistedSelection() async {
+    if (_selectedCompanyId != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _selectedCompanyId = prefs.getString(_kSelectedCompany);
+      _selectedCompanyId ??= loadSelectedCompanyFromWeb();
+    } catch (e) {
+      debugPrint('⚠️ [CompanySelection] restore failed: $e');
+    }
+  }
+
+  Future<void> _persistSelection(String companyId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kSelectedCompany, companyId);
+      saveSelectedCompanyToWeb(companyId);
+    } catch (e) {
+      debugPrint('⚠️ [CompanySelection] persist failed: $e');
     }
   }
 
   /// Загрузить список доступных компаний
   Future<void> loadCompanies() async {
     _isLoading = true;
-    // не вызываем notifyListeners() здесь — только по завершении
 
     try {
+      await _restorePersistedSelection();
+
       // Получаем все документы компаний
       final snapshot = await _firestore.collection('companies').get();
 
@@ -70,9 +110,9 @@ class CompanySelectionService extends ChangeNotifier {
       // Сортируем по названию
       _availableCompanies.sort((a, b) => a.name.compareTo(b.name));
 
-      // Если компания не выбрана, выбираем первую
-      if (_selectedCompanyId == null && _availableCompanies.isNotEmpty) {
-        _selectedCompanyId = _availableCompanies.first.id;
+      if (_selectedCompanyId != null &&
+          !_availableCompanies.any((c) => c.id == _selectedCompanyId)) {
+        _selectedCompanyId = null;
       }
 
       print(
@@ -90,6 +130,7 @@ class CompanySelectionService extends ChangeNotifier {
     if (_selectedCompanyId != companyId) {
       _selectedCompanyId = companyId;
       print('✅ [CompanySelection] Selected company: $companyId');
+      _persistSelection(companyId);
       notifyListeners();
     }
   }

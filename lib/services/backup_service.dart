@@ -1,22 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// שירות גיבוי — תואם לדרישות ניהול ספרים
-/// גיבוי בשבוע הראשון של כל רבעון, אחסון במקום נפרד
+import '../models/restore_drill_record.dart';
+
+/// Журнал бэкапов и restore drill (audit trail, не сам GCP backup).
 class BackupService {
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   BackupService({required this.companyId});
 
-  /// בדיקה: האם נדרש גיבוי רבעוני?
-  /// גיבוי נדרש בשבוע הראשון של ינואר, אפריל, יולי, אוקטובר
   bool isQuarterlyBackupDue() {
     final now = DateTime.now();
-    final quarterStartMonths = [1, 4, 7, 10];
+    const quarterStartMonths = [1, 4, 7, 10];
     return quarterStartMonths.contains(now.month) && now.day <= 7;
   }
 
-  /// רישום גיבוי שבוצע
+  /// Запись о бэкапе (журнал аудита).
   Future<void> recordBackup({
     required String performedBy,
     required String backupLocation,
@@ -27,16 +26,16 @@ class BackupService {
         .doc(companyId)
         .collection('backups')
         .add({
+      'type': 'backup_record',
       'performedBy': performedBy,
       'backupLocation': backupLocation,
       'timestamp': FieldValue.serverTimestamp(),
       'quarter': _currentQuarter(),
       'year': DateTime.now().year,
-      if (notes != null) 'notes': notes,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     });
   }
 
-  /// קבלת היסטוריית גיבויים
   Future<List<Map<String, dynamic>>> getBackupHistory({int limit = 20}) async {
     final snapshot = await _firestore
         .collection('companies')
@@ -53,7 +52,6 @@ class BackupService {
     }).toList();
   }
 
-  /// בדיקה: האם הגיבוי האחרון עדכני לרבעון הנוכחי?
   Future<bool> isCurrentQuarterBackedUp() async {
     final quarter = _currentQuarter();
     final year = DateTime.now().year;
@@ -78,35 +76,30 @@ class BackupService {
     return 'Q4';
   }
 
-  /// רישום תוצאת בדיקת שחזור (restore test)
-  /// נדרש להוכחת DR — אודיטור רוצה לראות שהשחזור עובד
-  Future<void> recordRestoreTest({
-    required String performedBy,
-    required bool success,
-    required String backupId,
-    String? notes,
-    int? documentsVerified,
-    Duration? restoreDuration,
-  }) async {
+  /// Restore drill с обязательным evidence.
+  Future<void> recordRestoreDrill(RestoreDrillRecord drill) async {
+    final err = drill.validationError();
+    if (err != null) {
+      throw ArgumentError('Restore drill incomplete: $err');
+    }
+    if (drill.isSuccess && !drill.hasCompleteEvidence) {
+      throw ArgumentError('Restore drill success requires complete evidence');
+    }
+
+    final payload = drill.toFirestoreMap(
+      quarter: _currentQuarter(),
+      year: DateTime.now().year,
+    );
+    payload['testDate'] = Timestamp.fromDate(drill.testDate);
+    payload['timestamp'] = FieldValue.serverTimestamp();
+
     await _firestore
         .collection('companies')
         .doc(companyId)
         .collection('restore_tests')
-        .add({
-      'performedBy': performedBy,
-      'success': success,
-      'backupId': backupId,
-      'timestamp': FieldValue.serverTimestamp(),
-      'quarter': _currentQuarter(),
-      'year': DateTime.now().year,
-      if (notes != null) 'notes': notes,
-      if (documentsVerified != null) 'documentsVerified': documentsVerified,
-      if (restoreDuration != null)
-        'restoreDurationMs': restoreDuration.inMilliseconds,
-    });
+        .add(payload);
   }
 
-  /// קבלת היסטוריית בדיקות שחזור
   Future<List<Map<String, dynamic>>> getRestoreTestHistory(
       {int limit = 10}) async {
     final snapshot = await _firestore
@@ -124,15 +117,34 @@ class BackupService {
     }).toList();
   }
 
-  /// דוח מצב גיבויים — סיכום לאודיטור
+  static bool drillHasEvidence(Map<String, dynamic> t) {
+    final notes = (t['evidenceNotes'] as String?)?.trim() ?? '';
+    final collections = t['restoredCollections'];
+    final hasCollections = collections is List && collections.isNotEmpty;
+    final duration = (t['durationMinutes'] as num?)?.toInt() ?? 0;
+    final env = (t['targetEnvironment'] as String?)?.trim() ?? '';
+    return notes.length >= 20 &&
+        hasCollections &&
+        duration > 0 &&
+        env.length >= 3;
+  }
+
+  static bool drillSucceeded(Map<String, dynamic> t) {
+    final result = t['result'] as String?;
+    if (result != null) return result == 'success';
+    return t['success'] == true;
+  }
+
   Future<Map<String, dynamic>> getBackupComplianceReport() async {
     final isBackedUp = await isCurrentQuarterBackedUp();
     final backups = await getBackupHistory(limit: 4);
-    final restoreTests = await getRestoreTestHistory(limit: 4);
+    final restoreTests = await getRestoreTestHistory(limit: 10);
 
-    final lastRestoreSuccess = restoreTests.isNotEmpty
-        ? restoreTests.first['success'] as bool? ?? false
-        : false;
+    final verifiedDrills = restoreTests.where(drillHasEvidence).toList();
+    final lastVerified = verifiedDrills.isNotEmpty ? verifiedDrills.first : null;
+    final lastRestoreSuccess = lastVerified != null &&
+        drillSucceeded(lastVerified) &&
+        drillHasEvidence(lastVerified);
 
     return {
       'currentQuarter': _currentQuarter(),
@@ -141,7 +153,9 @@ class BackupService {
       'backupsDue': isQuarterlyBackupDue(),
       'totalBackupsRecorded': backups.length,
       'lastRestoreTestSuccess': lastRestoreSuccess,
+      'lastRestoreDrillVerified': lastVerified != null,
       'totalRestoreTests': restoreTests.length,
+      'totalVerifiedRestoreDrills': verifiedDrills.length,
       'compliant': isBackedUp && lastRestoreSuccess,
     };
   }

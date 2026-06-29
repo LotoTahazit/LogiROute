@@ -62,19 +62,45 @@ class PlanLimits {
   final int maxRoutesPerDay;
 
   const PlanLimits({
-    this.maxUsers = 999,
-    this.maxDocsPerMonth = 99999,
-    this.maxRoutesPerDay = 999,
+    required this.maxUsers,
+    required this.maxDocsPerMonth,
+    required this.maxRoutesPerDay,
   });
 
-  factory PlanLimits.fromMap(Map<String, dynamic>? map) {
-    if (map == null) return const PlanLimits();
+  factory PlanLimits.fromMap(Map<String, dynamic>? map, {String plan = 'full'}) {
+    final normalized = _normalizePlan(plan);
+    final defaults = _defaultsForPlan(normalized);
+    if (map == null || map.isEmpty) return defaults;
     int i(String key, int def) => ((map[key] ?? def) as num).toInt();
     return PlanLimits(
-      maxUsers: i('maxUsers', 999),
-      maxDocsPerMonth: i('maxDocsPerMonth', 99999),
-      maxRoutesPerDay: i('maxRoutesPerDay', 999),
+      maxUsers: i('maxUsers', defaults.maxUsers),
+      maxDocsPerMonth: i('maxDocsPerMonth', defaults.maxDocsPerMonth),
+      maxRoutesPerDay: i('maxRoutesPerDay', defaults.maxRoutesPerDay),
     );
+  }
+
+  static String _normalizePlan(String? plan) {
+    const known = {'warehouse_only', 'logistics', 'ops', 'full'};
+    return known.contains(plan) ? plan! : 'full';
+  }
+
+  /// Sync with [PlanLimitsService.defaultLimitsForPlan] (H5).
+  static PlanLimits _defaultsForPlan(String plan) {
+    switch (plan) {
+      case 'warehouse_only':
+        return const PlanLimits(
+            maxUsers: 5, maxDocsPerMonth: 500, maxRoutesPerDay: 10);
+      case 'logistics':
+        return const PlanLimits(
+            maxUsers: 10, maxDocsPerMonth: 1000, maxRoutesPerDay: 40);
+      case 'ops':
+        return const PlanLimits(
+            maxUsers: 15, maxDocsPerMonth: 2000, maxRoutesPerDay: 50);
+      case 'full':
+      default:
+        return const PlanLimits(
+            maxUsers: 50, maxDocsPerMonth: 10000, maxRoutesPerDay: 200);
+    }
   }
 
   Map<String, dynamic> toMap() => {
@@ -149,6 +175,9 @@ class CompanySettings {
   /// סוג עוסק לתצוגה ב-PDF: authorized | exempt | company
   final String vatRegime;
 
+  /// מחסן ממוחשב — סריקת ברקודים בממשק המחסן (כבוי כברירת מחדל).
+  final bool computerizedWarehouseEnabled;
+
   /// Плановое время выезда в минутах от полуночи (парсинг [departureTime]).
   int get departureMinutes => parseTimeToMinutes(departureTime, fallback: 7 * 60);
 
@@ -189,7 +218,7 @@ class CompanySettings {
   final ModuleEntitlements modules;
   final PlanLimits limits;
   final String plan; // logistics | warehouse_only | ops | full
-  final String billingStatus; // active | trial | grace | suspended | cancelled
+  final String billingStatus; // active | trial | grace | suspended | cancelled (C3)
   final DateTime? trialEndsAt;
   final DateTime? accountingLockedUntil; // период закрытия бухгалтерии
 
@@ -231,8 +260,13 @@ class CompanySettings {
     this.dispatcherTaxInvoiceReceipt = false,
     this.bkmvSoftwareRegistrationNumber = '00000000',
     this.vatRegime = 'authorized',
+    this.computerizedWarehouseEnabled = false,
     this.modules = const ModuleEntitlements(),
-    this.limits = const PlanLimits(),
+    this.limits = const PlanLimits(
+      maxUsers: 50,
+      maxDocsPerMonth: 10000,
+      maxRoutesPerDay: 200,
+    ),
     this.plan = 'full',
     this.billingStatus = 'active',
     this.trialEndsAt,
@@ -285,12 +319,17 @@ class CompanySettings {
       bkmvSoftwareRegistrationNumber:
           (data['bkmvSoftwareRegistrationNumber'] as String?) ?? '00000000',
       vatRegime: (data['vatRegime'] as String?) ?? 'authorized',
+      computerizedWarehouseEnabled:
+          data['computerizedWarehouseEnabled'] == true,
       modules: ModuleEntitlements.fromMap(data['modules'] != null
           ? Map<String, dynamic>.from(data['modules'] as Map)
           : null),
-      limits: PlanLimits.fromMap(data['limits'] != null
-          ? Map<String, dynamic>.from(data['limits'] as Map)
-          : null),
+      limits: PlanLimits.fromMap(
+        data['limits'] != null
+            ? Map<String, dynamic>.from(data['limits'] as Map)
+            : null,
+        plan: data['plan'] ?? 'full',
+      ),
       plan: data['plan'] ?? 'full',
       billingStatus: data['billingStatus'] ?? 'active',
       trialEndsAt: data['trialUntil'] != null
@@ -341,6 +380,7 @@ class CompanySettings {
       'dispatcherTaxInvoiceReceipt': dispatcherTaxInvoiceReceipt,
       'bkmvSoftwareRegistrationNumber': bkmvSoftwareRegistrationNumber,
       'vatRegime': vatRegime,
+      'computerizedWarehouseEnabled': computerizedWarehouseEnabled,
       'modules': modules.toMap(),
       'limits': limits.toMap(),
       'plan': plan,
@@ -388,6 +428,7 @@ class CompanySettings {
     bool? dispatcherTaxInvoiceReceipt,
     String? bkmvSoftwareRegistrationNumber,
     String? vatRegime,
+    bool? computerizedWarehouseEnabled,
     ModuleEntitlements? modules,
     PlanLimits? limits,
     String? plan,
@@ -432,6 +473,8 @@ class CompanySettings {
       bkmvSoftwareRegistrationNumber: bkmvSoftwareRegistrationNumber ??
           this.bkmvSoftwareRegistrationNumber,
       vatRegime: vatRegime ?? this.vatRegime,
+      computerizedWarehouseEnabled: computerizedWarehouseEnabled ??
+          this.computerizedWarehouseEnabled,
       modules: modules ?? this.modules,
       limits: limits ?? this.limits,
       plan: plan ?? this.plan,

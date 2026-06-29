@@ -57,6 +57,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   /// Куда выгружать бухгалтерию: none | export | greeninvoice | icount
   String _accountingProvider = 'none';
   String _vatRegime = 'authorized';
+  bool _computerizedWarehouseEnabled = false;
+  bool _warehouseFlagSaving = false;
 
   static const _accountingProviders = [
     'none',
@@ -164,6 +166,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           _accountingProvider = settings.accountingProvider;
           _bkmvRegController.text = settings.bkmvSoftwareRegistrationNumber;
           _vatRegime = settings.vatRegime;
+          _computerizedWarehouseEnabled = settings.computerizedWarehouseEnabled;
           debugPrint('✅ [CompanySettings] Settings loaded and applied');
         } else {
           debugPrint(
@@ -195,6 +198,51 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _persistWarehouseFlag(bool enabled) async {
+    if (_companyId == null || _service == null) return;
+    setState(() => _warehouseFlagSaving = true);
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      await _service!.setComputerizedWarehouseEnabled(enabled);
+      _loaded = (_loaded ??
+              CompanySettings(
+                id: 'settings',
+                nameHebrew: '',
+                nameEnglish: '',
+                taxId: '',
+                addressHebrew: '',
+                addressEnglish: '',
+                poBox: '',
+                city: '',
+                zipCode: '',
+                phone: '',
+                fax: '',
+                email: '',
+                website: '',
+                invoiceFooterText: '',
+                paymentTerms: '',
+                bankDetails: '',
+                driverName: '',
+                driverPhone: '',
+                departureTime: '07:00',
+              ))
+          .copyWith(computerizedWarehouseEnabled: enabled);
+      if (mounted) {
+        SnackbarHelper.showSuccess(context, l10n.settingsSaved);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          l10n.companySettingsSaveFailed(e.toString()),
+        );
+        setState(() => _computerizedWarehouseEnabled = !enabled);
+      }
+    } finally {
+      if (mounted) setState(() => _warehouseFlagSaving = false);
     }
   }
 
@@ -255,9 +303,11 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
             ? '00000000'
             : _bkmvRegController.text.trim().padLeft(8, '0').substring(0, 8),
         vatRegime: _vatRegime,
+        computerizedWarehouseEnabled: _computerizedWarehouseEnabled,
       );
 
       await service.saveSettings(settings);
+      await service.setComputerizedWarehouseEnabled(_computerizedWarehouseEnabled);
       _loaded = settings;
 
       if (mounted) {
@@ -531,6 +581,25 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               : (v) => setState(() => _autoCloseEnabled = v),
                           title: Text(l10n.autoCloseEnabledTitle),
                           subtitle: Text(l10n.autoCloseEnabledHint),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      l10n.computerizedWarehouseTitle,
+                      [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _computerizedWarehouseEnabled,
+                          onChanged: _warehouseFlagSaving
+                              ? null
+                              : (v) async {
+                                  setState(
+                                      () => _computerizedWarehouseEnabled = v);
+                                  await _persistWarehouseFlag(v);
+                                },
+                          title: Text(l10n.computerizedWarehouseEnabled),
+                          subtitle: Text(l10n.computerizedWarehouseHint),
                         ),
                       ],
                     ),

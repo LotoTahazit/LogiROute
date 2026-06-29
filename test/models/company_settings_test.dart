@@ -60,16 +60,17 @@ void main() {
   });
 
   group('PlanLimits', () {
-    test('default values', () {
-      const limits = PlanLimits();
-      expect(limits.maxUsers, 999);
-      expect(limits.maxDocsPerMonth, 99999);
-      expect(limits.maxRoutesPerDay, 999);
+    test('fromMap null returns full plan defaults', () {
+      final limits = PlanLimits.fromMap(null, plan: 'full');
+      expect(limits.maxUsers, 50);
+      expect(limits.maxDocsPerMonth, 10000);
+      expect(limits.maxRoutesPerDay, 200);
     });
 
-    test('fromMap with null returns defaults', () {
-      final limits = PlanLimits.fromMap(null);
-      expect(limits.maxUsers, 999);
+    test('fromMap null returns warehouse_only defaults', () {
+      final limits = PlanLimits.fromMap(null, plan: 'warehouse_only');
+      expect(limits.maxUsers, 5);
+      expect(limits.maxDocsPerMonth, 500);
     });
 
     test('fromMap with custom values', () {

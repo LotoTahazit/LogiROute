@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/company_settings.dart';
+import 'company_modules_service.dart';
 import 'company_settings_service.dart';
 import 'firestore_paths.dart';
 
@@ -32,6 +33,11 @@ class CompanyProvisionService {
     String email = '',
     String website = '',
     int trialDays = 14,
+    String plan = 'full',
+    String country = 'Israel',
+    String defaultLanguage = 'he',
+    String timezone = 'Asia/Jerusalem',
+    String? onboardingMode,
   }) async {
     if (!isValidCompanyId(companyId)) {
       throw ArgumentError('invalid company id');
@@ -49,10 +55,16 @@ class CompanyProvisionService {
       'name': nameHebrew,
       'billingStatus': 'trial',
       'trialUntil': Timestamp.fromDate(trialUntil),
-      'plan': 'full',
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': createdByUid,
+      'country': country,
+      'defaultLanguage': defaultLanguage,
+      'timezone': timezone,
+      if (onboardingMode != null) 'onboardingMode': onboardingMode,
     });
+
+    await CompanyModulesService(companyId: companyId, firestore: _firestore)
+        .applyPlan(plan);
 
     final settings = CompanySettings(
       id: 'settings',
@@ -78,6 +90,15 @@ class CompanyProvisionService {
       trialEndsAt: trialUntil,
     );
     await CompanySettingsService(companyId: companyId).saveSettings(settings);
+
+    await FirestorePaths(firestore: _firestore)
+        .companySettings(companyId)
+        .doc('config')
+        .set({
+      'country': country,
+      'language': defaultLanguage,
+      'timezone': timezone,
+    }, SetOptions(merge: true));
 
     debugPrint('✅ [CompanyProvision] Created company $companyId (counters via onCompanyCreated CF)');
     return true;

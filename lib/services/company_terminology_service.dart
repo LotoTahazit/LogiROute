@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/company_terminology.dart';
+import '../models/warehouse_structure.dart';
 import 'firestore_paths.dart';
 
 /// Сервис управления терминологией компании
@@ -52,5 +53,14 @@ class CompanyTerminologyService {
     final terminology = CompanyTerminology.getTemplate(businessType, companyId);
     await saveTerminology(terminology);
     print('✅ [Terminology] Set template: $businessType');
+  }
+
+  Future<void> saveWarehouseStructure(WarehouseStructure structure) async {
+    final current = await getTerminology();
+    final next = structure.copyWith(configured: true);
+    await saveTerminology(current.copyWith(
+      usesPallets: next.usesPallets,
+      warehouseStructure: next,
+    ));
   }
 }

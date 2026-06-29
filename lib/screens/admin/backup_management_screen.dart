@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../services/backup_service.dart';
+import '../../models/restore_drill_record.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
@@ -246,94 +247,239 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
     }
   }
 
-  Future<void> _recordRestoreTest() async {
+  Future<void> _recordRestoreDrill() async {
     final auth = context.read<AuthService>();
     final l10n = AppLocalizations.of(context)!;
-    final notesController = TextEditingController();
-    bool success = true;
-    String? selectedBackupId;
+    final testedBy = auth.userModel?.name ?? auth.currentUser?.uid ?? '';
 
-    final result = await showDialog<bool>(
+    String? selectedBackupId;
+    String selectedBackupLocation = '';
+    DateTime testDate = DateTime.now();
+    RestoreDrillResult result = RestoreDrillResult.success;
+    final targetController = TextEditingController(
+      text: 'restore-${DateTime.now().year}${DateTime.now().month.toString().padLeft(2, '0')}${DateTime.now().day.toString().padLeft(2, '0')}',
+    );
+    final collectionsController = TextEditingController();
+    final evidenceController = TextEditingController();
+    final durationController = TextEditingController(text: '30');
+
+    String? validationHint;
+
+    RestoreDrillRecord? buildDraft() {
+      if (selectedBackupId == null) return null;
+      final collections = collectionsController.text
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      final duration = int.tryParse(durationController.text.trim()) ?? 0;
+      return RestoreDrillRecord(
+        backupId: selectedBackupId!,
+        backupLocation: selectedBackupLocation,
+        testDate: testDate,
+        targetEnvironment: targetController.text.trim(),
+        restoredCollections: collections,
+        testedBy: testedBy,
+        result: result,
+        evidenceNotes: evidenceController.text.trim(),
+        durationMinutes: duration,
+      );
+    }
+
+    void refreshValidation(StateSetter setDialogState) {
+      final draft = buildDraft();
+      if (draft == null) {
+        validationHint = l10n.restoreDrillIncomplete;
+      } else {
+        final err = draft.validationError();
+        validationHint = err == null
+            ? null
+            : (err == 'evidenceNotesSuccess'
+                ? l10n.restoreDrillEvidenceSuccessHint
+                : l10n.restoreDrillIncomplete);
+      }
+      setDialogState(() {});
+    }
+
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final dialogWidth =
-              MediaQuery.sizeOf(ctx).width < 500 ? 320.0 : 400.0;
+              MediaQuery.sizeOf(ctx).width < 500 ? 320.0 : 440.0;
+          final draft = buildDraft();
+          final canSave = draft?.validationError() == null;
+
           return AlertDialog(
-          title: Text(l10n.registerRestoreTestTitle),
-          content: SizedBox(
-            width: dialogWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_backups.isNotEmpty)
-                  DropdownButtonFormField<String>(
-                    decoration:
-                        InputDecoration(labelText: l10n.restoreFromBackup),
-                    initialValue: selectedBackupId,
-                    items: _backups.map((b) {
-                      final id = b['id'] as String? ?? '';
-                      final loc = b['backupLocation'] as String? ?? '—';
-                      final ts = b['timestamp'] as Timestamp?;
-                      final date = ts != null
-                          ? '${ts.toDate().day}.${ts.toDate().month}.${ts.toDate().year}'
-                          : '';
-                      return DropdownMenuItem(
-                        value: id,
-                        child: Text('$loc ($date)',
-                            overflow: TextOverflow.ellipsis),
-                      );
-                    }).toList(),
-                    onChanged: (v) =>
-                        setDialogState(() => selectedBackupId = v),
-                  )
-                else
-                  Text(l10n.noBackupsYetRegisterFirst,
-                      style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  title: Text(l10n.restoreSuccess),
-                  value: success,
-                  onChanged: (v) => setDialogState(() => success = v),
-                  contentPadding: EdgeInsets.zero,
+            title: Text(l10n.registerRestoreDrillTitle),
+            content: SizedBox(
+              width: dialogWidth,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(l10n.restoreDrillHint,
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade700)),
+                    const SizedBox(height: 12),
+                    if (_backups.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        decoration:
+                            InputDecoration(labelText: l10n.restoreFromBackup),
+                        initialValue: selectedBackupId,
+                        items: _backups.map((b) {
+                          final id = b['id'] as String? ?? '';
+                          final loc = b['backupLocation'] as String? ?? '—';
+                          final ts = b['timestamp'] as Timestamp?;
+                          final date = ts != null
+                              ? '${ts.toDate().day}.${ts.toDate().month}.${ts.toDate().year}'
+                              : '';
+                          return DropdownMenuItem(
+                            value: id,
+                            child: Text('$loc ($date)',
+                                overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          selectedBackupId = v;
+                          final b = _backups.firstWhere(
+                            (x) => x['id'] == v,
+                            orElse: () => {},
+                          );
+                          selectedBackupLocation =
+                              b['backupLocation'] as String? ?? '';
+                          refreshValidation(setDialogState);
+                        },
+                      )
+                    else
+                      Text(l10n.noBackupsYetRegisterFirst,
+                          style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l10n.restoreDrillTestDate),
+                      subtitle: Text(
+                          '${testDate.day}.${testDate.month}.${testDate.year}'),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: testDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          testDate = picked;
+                          refreshValidation(setDialogState);
+                        }
+                      },
+                    ),
+                    TextField(
+                      controller: targetController,
+                      decoration: InputDecoration(
+                        labelText: l10n.restoreDrillTargetEnvironment,
+                        hintText: 'restore-20260621 / staging-logiroute',
+                      ),
+                      onChanged: (_) => refreshValidation(setDialogState),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: collectionsController,
+                      decoration: InputDecoration(
+                        labelText: l10n.restoreDrillRestoredCollections,
+                        hintText: l10n.restoreDrillRestoredCollectionsHint,
+                      ),
+                      maxLines: 2,
+                      onChanged: (_) => refreshValidation(setDialogState),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: durationController,
+                      decoration: InputDecoration(
+                        labelText: l10n.restoreDrillDurationMinutes,
+                      ),
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => refreshValidation(setDialogState),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(l10n.restoreDrillResult,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    SegmentedButton<RestoreDrillResult>(
+                      segments: [
+                        ButtonSegment(
+                          value: RestoreDrillResult.success,
+                          label: Text(l10n.restoreDrillResultSuccess),
+                          icon: const Icon(Icons.check_circle_outline),
+                        ),
+                        ButtonSegment(
+                          value: RestoreDrillResult.failed,
+                          label: Text(l10n.restoreDrillResultFailed),
+                          icon: const Icon(Icons.error_outline),
+                        ),
+                      ],
+                      selected: {result},
+                      onSelectionChanged: (s) {
+                        result = s.first;
+                        refreshValidation(setDialogState);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: evidenceController,
+                      decoration: InputDecoration(
+                        labelText: l10n.restoreDrillEvidenceNotes,
+                        helperText: result == RestoreDrillResult.success
+                            ? l10n.restoreDrillEvidenceSuccessHint
+                            : null,
+                      ),
+                      maxLines: 4,
+                      onChanged: (_) => refreshValidation(setDialogState),
+                    ),
+                    if (validationHint != null) ...[
+                      const SizedBox(height: 8),
+                      Text(validationHint!,
+                          style: TextStyle(
+                              color: Colors.orange.shade800, fontSize: 12)),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: notesController,
-                  decoration: InputDecoration(labelText: l10n.notesLabel),
-                  maxLines: 2,
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.cancel)),
-            FilledButton(
-                onPressed: selectedBackupId != null
-                    ? () => Navigator.pop(ctx, true)
-                    : null,
-                child: Text(l10n.save)),
-          ],
-        );
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(l10n.cancel)),
+              FilledButton(
+                onPressed: canSave ? () => Navigator.pop(ctx, true) : null,
+                child: Text(l10n.save),
+              ),
+            ],
+          );
         },
       ),
     );
 
-    if (result == true && selectedBackupId != null) {
-      await _backupService.recordRestoreTest(
-        performedBy: auth.userModel?.name ?? auth.currentUser?.uid ?? '',
-        success: success,
-        backupId: selectedBackupId!,
-        notes: notesController.text.trim().isEmpty
-            ? null
-            : notesController.text.trim(),
-      );
+    RestoreDrillRecord? savedDrill;
+    if (confirmed == true) {
+      savedDrill = buildDraft();
+    }
+
+    targetController.dispose();
+    collectionsController.dispose();
+    evidenceController.dispose();
+    durationController.dispose();
+
+    if (savedDrill == null) return;
+
+    try {
+      await _backupService.recordRestoreDrill(savedDrill);
       if (mounted) {
         SnackbarHelper.showSuccess(context, l10n.restoreTestRecorded);
         _loadData();
       }
+    } catch (e) {
+      if (mounted) SnackbarHelper.showError(context, '$e');
     }
   }
 
@@ -407,6 +553,10 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(l10n.backupCloudInfoBody),
+                  const SizedBox(height: 4),
+                  Text(l10n.backupRecordHint,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.blue.shade900)),
                   const SizedBox(height: 6),
                   Text(
                     l10n.backupCloudPricingNote,
@@ -516,25 +666,40 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: narrow
-              ? SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _recordRestoreTest,
-                    icon: const Icon(Icons.restore),
-                    label: Text(l10n.registerRestoreTest),
-                  ),
-                )
-              : Row(
-                  children: [
-                    const Spacer(),
-                    FilledButton.icon(
-                      onPressed: _recordRestoreTest,
-                      icon: const Icon(Icons.restore),
-                      label: Text(l10n.registerRestoreTest),
-                    ),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Material(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Text(l10n.restoreDrillHint,
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900)),
                 ),
+              ),
+              const SizedBox(height: 12),
+              narrow
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _recordRestoreDrill,
+                        icon: const Icon(Icons.restore),
+                        label: Text(l10n.registerRestoreDrill),
+                      ),
+                    )
+                  : Row(
+                      children: [
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: _recordRestoreDrill,
+                          icon: const Icon(Icons.restore),
+                          label: Text(l10n.registerRestoreDrill),
+                        ),
+                      ],
+                    ),
+            ],
+          ),
         ),
         Expanded(
           child: _restoreTests.isEmpty
@@ -543,19 +708,38 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                   itemCount: _restoreTests.length,
                   itemBuilder: (context, i) {
                     final t = _restoreTests[i];
-                    final success = t['success'] == true;
+                    final verified = BackupService.drillHasEvidence(t);
+                    final success = BackupService.drillSucceeded(t);
                     final ts = t['timestamp'] as Timestamp?;
+                    final testDate = t['testDate'] as Timestamp?;
+                    final env = t['targetEnvironment'] as String? ?? '';
+                    final collections = t['restoredCollections'];
+                    final colStr = collections is List
+                        ? collections.join(', ')
+                        : '';
                     return ListTile(
                       leading: Icon(
-                        success ? Icons.check_circle : Icons.error,
-                        color: success ? Colors.green : Colors.red,
+                        !verified
+                            ? Icons.help_outline
+                            : (success ? Icons.check_circle : Icons.error),
+                        color: !verified
+                            ? Colors.orange
+                            : (success ? Colors.green : Colors.red),
                       ),
                       title: Text(
-                          success ? l10n.restoreSucceeded : l10n.restoreFailed),
-                      subtitle: Text(
-                        '${t['performedBy']} • ${t['quarter']} ${t['year']}'
-                        '${ts != null ? ' • ${ts.toDate().toString().substring(0, 16)}' : ''}',
+                        !verified
+                            ? l10n.restoreDrillIncomplete
+                            : (success
+                                ? l10n.restoreSucceeded
+                                : l10n.restoreFailed),
                       ),
+                      subtitle: Text(
+                        '${t['testedBy'] ?? t['performedBy']} • $env'
+                        '${testDate != null ? ' • ${testDate.toDate().toString().substring(0, 10)}' : ''}'
+                        '${colStr.isNotEmpty ? '\n$colStr' : ''}'
+                        '${ts != null ? '\n${ts.toDate().toString().substring(0, 16)}' : ''}',
+                      ),
+                      isThreeLine: true,
                     );
                   },
                 ),
@@ -621,6 +805,8 @@ class _BackupManagementScreenState extends State<BackupManagementScreen>
                   ? l10n.statusSucceeded
                   : l10n.statusNotDoneOrFailed),
           _infoRow(l10n.labelRestoreTests, '${r['totalRestoreTests']}'),
+          _infoRow(l10n.labelVerifiedRestoreDrills,
+              '${r['totalVerifiedRestoreDrills'] ?? 0}'),
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import 'warehouse_structure.dart';
+
 /// Терминология и настройки компании
 class CompanyTerminology {
   final String companyId;
@@ -9,6 +11,7 @@ class CompanyTerminology {
   final String capacityCalculation; // 'units', 'weight', 'volume'
   final String
       businessType; // 'packaging', 'food', 'clothing', 'construction', 'custom'
+  final WarehouseStructure warehouseStructure;
 
   CompanyTerminology({
     required this.companyId,
@@ -19,6 +22,7 @@ class CompanyTerminology {
     this.usesPallets = true,
     this.capacityCalculation = 'units',
     this.businessType = 'custom',
+    this.warehouseStructure = const WarehouseStructure(),
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +35,7 @@ class CompanyTerminology {
       'usesPallets': usesPallets,
       'capacityCalculation': capacityCalculation,
       'businessType': businessType,
+      'warehouseStructure': warehouseStructure.toMap(),
     };
   }
 
@@ -44,6 +49,9 @@ class CompanyTerminology {
       usesPallets: map['usesPallets'] ?? true,
       capacityCalculation: map['capacityCalculation'] ?? 'units',
       businessType: map['businessType'] ?? 'custom',
+      warehouseStructure: WarehouseStructure.fromMap(
+        map['warehouseStructure'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -111,6 +119,7 @@ class CompanyTerminology {
     bool? usesPallets,
     String? capacityCalculation,
     String? businessType,
+    WarehouseStructure? warehouseStructure,
   }) {
     return CompanyTerminology(
       companyId: companyId ?? this.companyId,
@@ -121,6 +130,7 @@ class CompanyTerminology {
       usesPallets: usesPallets ?? this.usesPallets,
       capacityCalculation: capacityCalculation ?? this.capacityCalculation,
       businessType: businessType ?? this.businessType,
+      warehouseStructure: warehouseStructure ?? this.warehouseStructure,
     );
   }
 }

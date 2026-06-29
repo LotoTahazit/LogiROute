@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/company_provision_service.dart';
+import '../../../services/company_selection_service.dart';
 
 /// Диалог добавления нового пользователя
 class AddUserDialog extends StatefulWidget {
-  const AddUserDialog({super.key});
+  const AddUserDialog({super.key, this.initialRole = 'driver'});
+
+  final String initialRole;
 
   @override
   State<AddUserDialog> createState() => _AddUserDialogState();
 }
 
 class _AddUserDialogState extends State<AddUserDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -19,17 +24,24 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _vehicleNumberController = TextEditingController();
   final _palletCapacityController = TextEditingController();
   final _truckWeightController = TextEditingController();
-  String _selectedRole = 'driver';
+  late String _selectedRole;
 
   @override
   void initState() {
     super.initState();
+    _selectedRole = widget.initialRole;
     final authService = context.read<AuthService>();
     final currentUser = authService.userModel;
-    if (currentUser != null &&
-        !currentUser.isSuperAdmin &&
-        currentUser.companyId != null) {
-      _companyIdController.text = currentUser.companyId ?? '';
+    if (currentUser != null) {
+      if (currentUser.isSuperAdmin) {
+        final selected =
+            context.read<CompanySelectionService>().selectedCompanyId;
+        if (selected != null && selected.isNotEmpty) {
+          _companyIdController.text = selected;
+        }
+      } else if (currentUser.companyId != null) {
+        _companyIdController.text = currentUser.companyId ?? '';
+      }
     }
   }
 
@@ -57,43 +69,61 @@ class _AddUserDialogState extends State<AddUserDialog> {
       insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       content: SizedBox(
         width: narrow ? MediaQuery.sizeOf(context).width * 0.85 : 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: l10n.fullName,
-                  border: const OutlineInputBorder(),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: l10n.fullName,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? l10n.required : null,
                 ),
-              ),
               const SizedBox(height: 16),
-              TextField(
+              TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: l10n.email,
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.emailAddress,
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty ? l10n.required : null,
               ),
               const SizedBox(height: 16),
-              TextField(
+              TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
                   labelText: l10n.password,
                   border: const OutlineInputBorder(),
                 ),
                 obscureText: true,
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty ? l10n.required : null,
               ),
               if (isSuperAdmin) ...[
                 const SizedBox(height: 16),
-                TextField(
+                TextFormField(
                   controller: _companyIdController,
                   decoration: InputDecoration(
-                    labelText: l10n.companyId,
+                    labelText: l10n.companyIdSlug,
+                    hintText: l10n.companyIdSlugHint,
                     border: const OutlineInputBorder(),
                   ),
+                  textDirection: TextDirection.ltr,
+                  validator: (v) {
+                    final id = (v ?? '').trim().toLowerCase();
+                    if (id.isEmpty) return l10n.required;
+                    if (!CompanyProvisionService.isValidCompanyId(id)) {
+                      return l10n.invalidCompanyId;
+                    }
+                    return null;
+                  },
                 ),
               ],
               const SizedBox(height: 16),
@@ -156,6 +186,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
           ),
         ),
       ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -163,11 +194,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
         ),
         ElevatedButton(
           onPressed: () {
+            if (!_formKey.currentState!.validate()) return;
+            final companyId = _companyIdController.text.trim().toLowerCase();
             Navigator.pop(context, {
               'name': _nameController.text.trim(),
               'email': _emailController.text.trim(),
               'password': _passwordController.text,
-              'companyId': _companyIdController.text.trim(),
+              'companyId': companyId,
               'role': _selectedRole,
               'palletCapacity': _palletCapacityController.text.trim(),
               'truckWeight': _truckWeightController.text.trim(),

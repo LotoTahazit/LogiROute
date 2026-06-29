@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/company_terminology.dart';
 import '../../services/company_terminology_service.dart';
+import '../../screens/setup/warehouse_setup_questionnaire_screen.dart';
 import '../../services/company_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../l10n/app_localizations.dart';
@@ -157,6 +158,24 @@ class _TerminologySettingsScreenState extends State<TerminologySettingsScreen> {
             ),
             const SizedBox(height: 16),
             _buildCustomForm(l10n),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                final companyId =
+                    CompanyContext.of(context).effectiveCompanyId ?? '';
+                if (companyId.isEmpty) return;
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WarehouseSetupQuestionnaireScreen(
+                      companyId: companyId,
+                    ),
+                  ),
+                ).then((_) => _loadTerminology());
+              },
+              icon: const Icon(Icons.inventory_2_outlined),
+              label: Text(l10n.warehouseQuestionnaireTitle),
+            ),
           ],
         ),
       ),

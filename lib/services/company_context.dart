@@ -71,6 +71,13 @@ class CompanyContext {
     );
   }
 
+  /// Синхронизировать выбранный tenant для super_admin (Support Console, Customer Health).
+  static void activateCompany(BuildContext context, String companyId) {
+    if (companyId.isEmpty) return;
+    context.read<CompanySelectionService>().selectCompany(companyId);
+    context.read<AuthService>().setVirtualCompanyId(companyId);
+  }
+
   /// Статический метод для получения CompanyContext с watch (для автообновления)
   static CompanyContext watch(BuildContext context) {
     final authService = context.watch<AuthService>();

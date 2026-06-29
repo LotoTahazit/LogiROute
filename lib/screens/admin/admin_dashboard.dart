@@ -14,6 +14,7 @@ import 'widgets/admin_filters_widget.dart';
 import 'dialogs/add_user_dialog.dart';
 import 'dialogs/edit_user_dialog.dart';
 import '../../widgets/notification_bell.dart';
+import '../setup/company_setup_wizard_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -71,9 +72,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
 
     if (userModel.isSuperAdmin) {
+      await companyService.ensureRestored();
       await companyService.loadCompanies();
-      if (companyService.selectedCompanyId != null) {
-        authService.setVirtualCompanyId(companyService.selectedCompanyId);
+      final selected = companyService.selectedCompanyId;
+      if (selected != null) {
+        authService.setVirtualCompanyId(selected);
+        if (mounted) {
+          setState(() => _selectedCompanyFilter = selected);
+        }
       }
     } else {
       final companyId = userModel.companyId;
@@ -509,6 +515,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  if (context
+                          .read<CompanySelectionService>()
+                          .getEffectiveCompanyId(authService)
+                          ?.isNotEmpty ??
+                      false)
+                    SetupWizardBanner(
+                      companyId: context
+                          .read<CompanySelectionService>()
+                          .getEffectiveCompanyId(authService)!,
+                    ),
                   // Переключатель компаний для super_admin на мобильном
                   if (isNarrow && authService.userModel?.isSuperAdmin == true)
                     const Padding(
@@ -549,10 +565,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       }
                     },
                     onCompanyFilterChanged: (companyId) {
+                      final cs = context.read<CompanySelectionService>();
                       setState(() {
                         _selectedCompanyFilter = companyId;
                         _applyCompanyFilter();
                       });
+                      if (companyId != null && companyId != 'all') {
+                        cs.selectCompany(companyId);
+                        authService.setVirtualCompanyId(companyId);
+                      }
                     },
                     onDriverSelectionRequired: _showDriverSelectionDialog,
                   ),
