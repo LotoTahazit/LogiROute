@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 
 import '../models/daily_metrics.dart';
@@ -78,5 +79,16 @@ class MetricsService {
       return DailyMetrics.fromMap(
           Map<String, dynamic>.from(snap.data()! as Map));
     });
+  }
+
+  /// Пересчёт KPI за день через Cloud Function (admin/owner/super_admin).
+  Future<Map<String, dynamic>> recalculateDailyMetrics({String? dateKey}) async {
+    final callable =
+        FirebaseFunctions.instance.httpsCallable('recalculateDailyMetrics');
+    final result = await callable.call<Map<String, dynamic>>({
+      'companyId': companyId,
+      if (dateKey != null) 'date': dateKey,
+    });
+    return Map<String, dynamic>.from(result.data);
   }
 }

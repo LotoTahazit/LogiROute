@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
+import '../../../../models/plan_limit_policy.dart';
+import '../../../../screens/admin/billing/billing_helpers.dart';
 import '../../../../services/auth_service.dart';
 import '../../models/billing_invoice.dart';
 import '../../repositories/billing_repository.dart';
 import '../../services/entitlements_service.dart';
+import '../../services/permissions_service.dart';
 
 /// Секция «Биллинг» Owner Dashboard.
 ///
@@ -48,9 +51,13 @@ class _BillingSectionState extends State<BillingSection> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final authService = context.read<AuthService>();
-    final superAdmin = authService.userModel?.isSuperAdmin ?? false;
-    if (superAdmin != _isSuperAdmin) {
-      _isSuperAdmin = superAdmin;
+    final showSensitive = PermissionsService.forUser(
+      actualRole: authService.userModel?.role,
+      viewAsRole: authService.viewAsRole,
+      userCompanyId: widget.companyId,
+    ).canViewSensitiveBilling();
+    if (showSensitive != _isSuperAdmin) {
+      _isSuperAdmin = showSensitive;
       _initRepo();
     }
   }
@@ -384,16 +391,27 @@ class _BillingSectionState extends State<BillingSection> {
               icon: Icons.description_outlined,
               label: l10n.billingDocsPerMonth,
               limit: limits.maxDocsPerMonth,
+              limitKey: PlanLimitKey.maxDocsPerMonth,
             ),
             _UsageRow(
               icon: Icons.people_outlined,
               label: l10n.billingUsers,
               limit: limits.maxUsers,
+              limitKey: PlanLimitKey.maxUsers,
             ),
             _UsageRow(
               icon: Icons.route_outlined,
               label: l10n.billingRoutesPerDay,
               limit: limits.maxRoutesPerDay,
+              limitKey: PlanLimitKey.maxRoutesPerDay,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                l10n.limitSoftExceededNote,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+              ),
             ),
           ],
         ),
@@ -633,18 +651,23 @@ class _UsageRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final int limit;
+  final PlanLimitKey limitKey;
 
   const _UsageRow({
     required this.icon,
     required this.label,
     required this.limit,
+    required this.limitKey,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final enforcement = PlanLimitPolicy.enforcement(limitKey);
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    final limitLine =
+        '${l10n.billingLimit(limit)} · ${limitEnforcementLabel(enforcement, l10n)}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: narrow
@@ -660,7 +683,7 @@ class _UsageRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  l10n.billingLimit(limit),
+                  limitLine,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.outline),
                 ),
@@ -672,7 +695,7 @@ class _UsageRow extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Text(label)),
                 Text(
-                  l10n.billingLimit(limit),
+                  limitLine,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.outline),
                 ),

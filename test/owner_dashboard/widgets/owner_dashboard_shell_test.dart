@@ -10,8 +10,9 @@ import 'package:logiroute/models/company_settings.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// All 8 dashboard section keys (must match _allSections in OwnerDashboardShell).
+/// All 11 dashboard section keys (must match _allSections in EntitlementsService).
 const _allSectionKeys = [
+  'onboarding',
   'overview',
   'users_roles',
   'billing',
@@ -19,6 +20,8 @@ const _allSectionKeys = [
   'audit',
   'ops_health',
   'accounting',
+  'create_document',
+  'clients',
   'reports',
 ];
 
@@ -27,11 +30,14 @@ const _restrictedSections = ['billing', 'settings'];
 
 /// Sections that must be hidden when billing is suspended/cancelled.
 const _hiddenWhenRestricted = [
+  'onboarding',
   'overview',
   'users_roles',
   'audit',
   'ops_health',
   'accounting',
+  'create_document',
+  'clients',
   'reports',
 ];
 
@@ -104,7 +110,7 @@ void main() {
     );
 
     test(
-      'Property 14: for random non-restricted status, all 8 sections are visible (150 iterations)',
+      'Property 14: for random non-restricted status, all 11 sections are visible (150 iterations)',
       () {
         final rng = Random(1415);
 
@@ -112,9 +118,9 @@ void main() {
           final status = _randomFullAccessStatus(rng);
           final sections = EntitlementsService.getVisibleSections(status);
 
-          expect(sections, hasLength(8),
+          expect(sections, hasLength(11),
               reason:
-                  'Iteration $i: status="$status" should show all 8 sections');
+                  'Iteration $i: status="$status" should show all 11 sections');
 
           for (final key in _allSectionKeys) {
             expect(sections, contains(key),
@@ -147,8 +153,8 @@ void main() {
             expect(sections, containsAll(_restrictedSections),
                 reason: 'Iteration $i: status="$status"');
           } else {
-            // All 8 sections
-            expect(sections, hasLength(8),
+            // All 11 sections
+            expect(sections, hasLength(11),
                 reason: 'Iteration $i: status="$status"');
             expect(sections, containsAll(_allSectionKeys),
                 reason: 'Iteration $i: status="$status"');
@@ -364,35 +370,39 @@ void main() {
   // -------------------------------------------------------------------------
   // Property 33: Навигация accountant — только разрешённые секции
   //
-  // Для любого пользователя с ролью accountant: видимые секции ==
-  // {Бухгалтерия, Отчёты, Аудит}; секции Обзор, Пользователи, Биллинг,
-  // Настройки, Операции скрыты.
+  // Для любого пользователя с ролью accountant: canRead == accounting/reports/audit/settings;
+  // остальные секции (overview, users, billing, ops_health, …) скрыты.
   // **Validates: Requirements 18.6**
   // -------------------------------------------------------------------------
 
   group('Property 33: Навигация accountant — только разрешённые секции', () {
-    /// All 8 section moduleKeys (matching _allSections in OwnerDashboardShell).
+    /// All section moduleKeys exercised by PermissionsService.canRead.
     const allModuleKeys = [
+      'onboarding',
       'overview',
-      'users',
+      'users_roles',
       'billing',
       'settings',
       'audit',
       'ops_health',
       'accounting',
+      'create_document',
+      'clients',
       'reports',
     ];
 
-    /// Modules that accountant CAN read.
-    const accountantAllowed = {'accounting', 'reports', 'audit'};
+    /// Modules that accountant CAN read (matches PermissionsService).
+    const accountantAllowed = {'accounting', 'reports', 'audit', 'settings'};
 
     /// Modules that accountant CANNOT read.
     const accountantHidden = [
+      'onboarding',
       'overview',
-      'users',
+      'users_roles',
       'billing',
-      'settings',
       'ops_health',
+      'create_document',
+      'clients',
     ];
 
     /// Generate a random companyId.
@@ -400,7 +410,7 @@ void main() {
         'company_${rng.nextInt(1000000).toStringAsFixed(0).padLeft(6, '0')}';
 
     test(
-      'Property 33a: for accountant with random companyId, canRead returns true ONLY for accounting/reports/audit (150 iterations)',
+      'Property 33a: for accountant with random companyId, canRead returns true ONLY for accounting/reports/audit/settings (150 iterations)',
       () {
         final rng = Random(3300);
 
@@ -424,7 +434,7 @@ void main() {
     );
 
     test(
-      'Property 33b: for accountant, the set of readable modules is exactly {accounting, reports, audit} (exhaustive check, 150 iterations)',
+      'Property 33b: for accountant, the set of readable modules is exactly {accounting, reports, audit, settings} (exhaustive check, 150 iterations)',
       () {
         final rng = Random(3301);
 

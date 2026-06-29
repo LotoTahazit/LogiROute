@@ -25,14 +25,13 @@ class AuditRepository {
       FirestorePaths(firestore: _firestore).audit(companyId);
 
   /// Стрим аудит-лога в реальном времени, отсортированный по убыванию `createdAt`.
-  ///
-  /// Применяет [filter] для серверной фильтрации (Firestore equality filters)
-  /// и клиентской фильтрации (dateRange).
+  /// Фильтры — на клиенте (Firestore composite index не нужен).
   Stream<List<CrossModuleAuditEvent>> watchAuditLog({AuditFilter? filter}) {
-    var query = _applyServerFilters(_auditCollection, filter);
-    query = query.orderBy('createdAt', descending: true);
-
-    return query.snapshots().map((snapshot) {
+    return _auditCollection
+        .orderBy('createdAt', descending: true)
+        .limit(1000)
+        .snapshots()
+        .map((snapshot) {
       final events = snapshot.docs
           .map((doc) => CrossModuleAuditEvent.fromMap(doc.data(), doc.id))
           .toList();
@@ -41,21 +40,19 @@ class AuditRepository {
   }
 
   /// Одноразовая загрузка аудит-лога с лимитом.
-  ///
-  /// По умолчанию возвращает до [limit] записей (default 100),
-  /// отсортированных по убыванию `createdAt`.
   Future<List<CrossModuleAuditEvent>> getAuditLog({
     AuditFilter? filter,
     int limit = 100,
   }) async {
-    var query = _applyServerFilters(_auditCollection, filter);
-    query = query.orderBy('createdAt', descending: true).limit(limit);
-
-    final snapshot = await query.get();
+    final fetchLimit = filter == null ? limit : 1000;
+    final snapshot = await _auditCollection
+        .orderBy('createdAt', descending: true)
+        .limit(fetchLimit)
+        .get();
     final events = snapshot.docs
         .map((doc) => CrossModuleAuditEvent.fromMap(doc.data(), doc.id))
         .toList();
-    return _applyClientFilters(events, filter);
+    return _applyClientFilters(events, filter).take(limit).toList();
   }
 
   /// Экспортирует аудит-лог в CSV-строку.
@@ -66,37 +63,25 @@ class AuditRepository {
     return _buildCsv(events);
   }
 
-  /// Применяет серверные (Firestore equality) фильтры к запросу.
-  Query<Map<String, dynamic>> _applyServerFilters(
-    CollectionReference<Map<String, dynamic>> ref,
-    AuditFilter? filter,
-  ) {
-    Query<Map<String, dynamic>> query = ref;
-    if (filter == null) return query;
-
-    if (filter.moduleKey != null) {
-      query = query.where('moduleKey', isEqualTo: filter.moduleKey);
-    }
-    if (filter.type != null) {
-      query = query.where('type', isEqualTo: filter.type);
-    }
-    if (filter.createdBy != null) {
-      query = query.where('createdBy', isEqualTo: filter.createdBy);
-    }
-    return query;
-  }
-
-  /// Применяет клиентскую фильтрацию по диапазону дат.
-  ///
-  /// Firestore не поддерживает range-фильтр на поле, по которому идёт orderBy,
-  /// одновременно с equality-фильтрами на других полях без составного индекса.
-  /// Поэтому dateRange фильтруется на клиенте.
+  /// Фильтры moduleKey / type / createdBy — на клиенте (без composite index).
   List<CrossModuleAuditEvent> _applyClientFilters(
     List<CrossModuleAuditEvent> events,
     AuditFilter? filter,
   ) {
     if (filter == null) return events;
     var result = events;
+
+    if (filter.moduleKey != null) {
+      result =
+          result.where((e) => e.moduleKey == filter.moduleKey).toList();
+    }
+    if (filter.type != null) {
+      result = result.where((e) => e.type == filter.type).toList();
+    }
+    if (filter.createdBy != null) {
+      result =
+          result.where((e) => e.createdBy == filter.createdBy).toList();
+    }
 
     if (filter.from != null) {
       result = result
@@ -127,7 +112,7 @@ class AuditRepository {
           ? '${event.createdAt!.day.toString().padLeft(2, '0')}/${event.createdAt!.month.toString().padLeft(2, '0')}/${event.createdAt!.year} ${event.createdAt!.hour.toString().padLeft(2, '0')}:${event.createdAt!.minute.toString().padLeft(2, '0')}'
           : '';
       final module = _moduleLabel(event.moduleKey);
-      final type = _eventTypeLabel(event.type);
+      final type = _eventTypeLabel(event);
       final user = event.createdBy == 'system' ? 'מערכת' : event.createdBy;
       final entity =
           '${_collectionLabel(event.entity.collection)}/${event.entity.docId}';
@@ -159,7 +144,30 @@ class AuditRepository {
     }
   }
 
-  static String _eventTypeLabel(String type) {
+  static String _eventTypeLabel(CrossModuleAuditEvent event) {
+    final raw = event.extra['documentType']?.toString();
+    if (event.type == 'invoice_issued' && raw != null && raw.isNotEmpty) {
+      switch (raw) {
+        case 'delivery':
+        case 'delivery_note':
+          return 'הנפקת תעודת משלוח';
+        case 'invoice':
+        case 'tax_invoice':
+          return 'הנפקת חשבונית מס';
+        case 'taxInvoiceReceipt':
+        case 'tax_invoice_receipt':
+          return 'הנפקת חשבונית מס/קבלה';
+        case 'receipt':
+          return 'הנפקת קבלה';
+        case 'creditNote':
+        case 'credit_note':
+          return 'הנפקת זיכוי';
+      }
+    }
+    return _eventTypeLabelPlain(event.type);
+  }
+
+  static String _eventTypeLabelPlain(String type) {
     switch (type) {
       case 'invoice_issued':
         return 'הנפקת חשבונית';

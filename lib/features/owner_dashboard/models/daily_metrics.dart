@@ -27,6 +27,9 @@ class DailyMetrics {
     this.updatedAt,
   });
 
+  /// Документ записан writer-ом (CF), а не просто «пустой fallback» клиента.
+  bool get isCalculated => updatedAt != null;
+
   factory DailyMetrics.fromMap(Map<String, dynamic> map) {
     int i(String key) => ((map[key] ?? 0) as num).toInt();
     return DailyMetrics(

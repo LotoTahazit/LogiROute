@@ -5,8 +5,11 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/company_selection_service.dart';
 import '../../../widgets/company_selector_widget.dart';
+import '../../../widgets/stream_loading_gate.dart';
 import 'owner_app_bar_actions.dart';
 import '../../../models/company_settings.dart';
+import '../../../models/launch_center_logic.dart';
+import '../../../models/company_setup_wizard.dart';
 import '../models/role_hierarchy.dart';
 import '../services/entitlements_service.dart';
 import '../services/permissions_service.dart';
@@ -17,7 +20,12 @@ import 'sections/reports_section.dart';
 import 'sections/settings_section.dart';
 import 'sections/audit_section.dart';
 import 'sections/ops_health_section.dart';
+import 'sections/create_accounting_doc_screen.dart';
 import 'sections/users_roles_section.dart';
+import 'sections/clients_section.dart';
+import '../../../services/company_setup_wizard_service.dart';
+import '../../../screens/setup/company_setup_wizard_screen.dart';
+import 'sections/onboarding_section.dart';
 
 /// Описание секции навигации Owner Dashboard.
 class _DashboardSection {
@@ -35,6 +43,11 @@ class _DashboardSection {
 }
 
 const _allSections = <_DashboardSection>[
+  _DashboardSection(
+      key: 'onboarding',
+      label: 'onboarding',
+      icon: Icons.flag_outlined,
+      moduleKey: 'overview'),
   _DashboardSection(
       key: 'overview',
       label: 'overview',
@@ -66,6 +79,16 @@ const _allSections = <_DashboardSection>[
       icon: Icons.monitor_heart_outlined,
       moduleKey: 'ops_health'),
   _DashboardSection(
+      key: 'create_document',
+      label: 'create_document',
+      icon: Icons.add_circle_outline,
+      moduleKey: 'accounting'),
+  _DashboardSection(
+      key: 'clients',
+      label: 'clients',
+      icon: Icons.people_outline,
+      moduleKey: 'accounting'),
+  _DashboardSection(
       key: 'accounting',
       label: 'accounting',
       icon: Icons.receipt_long_outlined,
@@ -79,10 +102,10 @@ const _allSections = <_DashboardSection>[
 
 /// Группы боковой навигации Owner Dashboard.
 const _navGroups = <(String labelKey, List<String> sectionKeys)>[
-  ('ownerNavOverview', ['overview']),
+  ('ownerNavOverview', ['onboarding', 'overview']),
   ('ownerNavManagement', ['users_roles', 'billing', 'settings']),
-  ('ownerNavOperations', ['ops_health', 'reports']),
-  ('ownerNavCompliance', ['audit', 'accounting']),
+  ('ownerNavOperations', ['ops_health', 'reports', 'create_document', 'clients', 'accounting']),
+  ('ownerNavCompliance', ['audit']),
 ];
 
 String _groupLabel(String key, AppLocalizations l10n) {
@@ -104,6 +127,8 @@ String _sectionLabel(String key, AppLocalizations l10n) {
   switch (key) {
     case 'overview':
       return l10n.overviewSection;
+    case 'onboarding':
+      return l10n.onboardingCenterTitle;
     case 'users_roles':
       return l10n.usersAndRoles;
     case 'billing':
@@ -116,6 +141,10 @@ String _sectionLabel(String key, AppLocalizations l10n) {
       return l10n.operationsSection;
     case 'accounting':
       return l10n.accountingSection;
+    case 'create_document':
+      return l10n.createDocument;
+    case 'clients':
+      return l10n.clientManagement;
     case 'reports':
       return l10n.reports;
     default:
@@ -133,12 +162,58 @@ class OwnerDashboardShell extends StatefulWidget {
 class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
   int _selectedIndex = 0;
   bool _accountantDefaultSectionSet = false;
+  bool _onboardingDefaultSectionSet = false;
+  bool _companyInitStarted = false;
 
-  bool _isSectionUnderConstruction(String key) => key == 'accounting';
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureCompanyContext());
+  }
 
-  String _sectionLabelForUi(String key, AppLocalizations l10n) {
+  Future<void> _ensureCompanyContext() async {
+    if (!mounted) return;
+    final auth = context.read<AuthService>();
+    if (auth.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureCompanyContext());
+      return;
+    }
+    if (_companyInitStarted) return;
+    final user = auth.userModel;
+    if (user == null) return;
+    _companyInitStarted = true;
+
+    final cs = context.read<CompanySelectionService>();
+    final needsPicker =
+        user.isSuperAdmin || (user.isAdmin && auth.viewAsRole != null);
+    if (!needsPicker) return;
+
+    if (cs.selectedCompanyId == null) {
+      await cs.ensureRestored();
+      if (cs.selectedCompanyId == null && auth.virtualCompanyId != null) {
+        cs.selectCompany(auth.virtualCompanyId!);
+      }
+      if (cs.selectedCompanyId == null) {
+        await cs.loadCompanies();
+      }
+    }
+    final id = cs.selectedCompanyId;
+    if (id != null && id.isNotEmpty) {
+      auth.setVirtualCompanyId(id);
+    }
+  }
+
+  bool _isSectionUnderConstruction(String key, AppRole role) {
+    if (key != 'accounting') return false;
+    return role != AppRole.superAdmin &&
+        role != AppRole.owner &&
+        role != AppRole.admin &&
+        role != AppRole.accountant;
+  }
+
+  String _sectionLabelForUi(String key, AppLocalizations l10n, AppRole role) {
     final base = _sectionLabel(key, l10n);
-    return _isSectionUnderConstruction(key) ? '$base (בפיתוח)' : base;
+    return _isSectionUnderConstruction(key, role) ? '$base (בפיתוח)' : base;
   }
 
   Future<void> _showUnderConstructionDialog() async {
@@ -159,6 +234,12 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
     final companyId = companySelection.getEffectiveCompanyId(authService);
 
     if (companyId == null || companyId.isEmpty) {
+      final user = authService.userModel;
+      final needsPicker = user?.isSuperAdmin == true ||
+          (user?.isAdmin == true && authService.viewAsRole != null);
+      if (needsPicker) {
+        return _PickCompanyScreen();
+      }
       return _NoCompanyScreen();
     }
 
@@ -167,17 +248,16 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return StreamBuilder<DocumentSnapshot>(
+    return StreamLoadingGate<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
           .snapshots(),
+      onTimeout: (context) => _ErrorScreen(
+        message: AppLocalizations.of(context)?.companyDataNotFound ??
+            'Company data not found',
+      ),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-
         if (!snapshot.hasData ||
             snapshot.data == null ||
             !snapshot.data!.exists) {
@@ -187,59 +267,95 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
         }
 
         final companySettings = CompanySettings.fromFirestore(snapshot.data!);
-        final billingStatus = companySettings.billingStatus;
         final visibleSectionKeys =
-            EntitlementsService.getVisibleSections(billingStatus);
+            EntitlementsService.getVisibleSectionsForCompany(companySettings);
 
-        final appRole = AppRole.fromString(userModel.role);
-        final permissions =
-            PermissionsService(role: appRole, userCompanyId: companyId);
+        final effectiveRole = effectiveAppRole(
+          actualRole: userModel.role,
+          viewAsRole: authService.viewAsRole,
+        );
+        final permissions = PermissionsService(
+          role: effectiveRole,
+          userCompanyId: companyId,
+        );
+        final canSeeOnboarding = LaunchCenterLogic.canSeeLaunchCenter(
+          effectiveRole.value,
+        );
 
-        final visibleSections = _allSections
-            .where((s) => visibleSectionKeys.contains(s.key))
-            .where((s) => permissions.canRead(s.moduleKey))
-            .where((s) => !_isSectionUnderConstruction(s.key))
-            .toList();
+        final wizardService = CompanySetupWizardService(companyId: companyId);
+        return StreamBuilder<CompanySetupWizardState>(
+          stream: wizardService.watchState(),
+          builder: (context, wizardSnap) {
+            final wizardState =
+                wizardSnap.data ?? CompanySetupWizardState.initial();
 
-        if (visibleSections.isEmpty) {
-          return _ErrorScreen(
-              message: AppLocalizations.of(context)?.noSectionsAvailable ??
-                  'No sections available');
-        }
+            final visibleSections = _allSections
+                .where((s) => visibleSectionKeys.contains(s.key))
+                .where((s) => permissions.canRead(s.moduleKey))
+                .where((s) => !_isSectionUnderConstruction(s.key, effectiveRole))
+                .where((s) =>
+                    s.key != 'onboarding' ||
+                    (canSeeOnboarding && !wizardState.wizardCompleted))
+                .toList();
 
-        // Бухгалтер по умолчанию видит секцию «Бухгалтерия» (инвойсы и документы)
-        if (appRole == AppRole.accountant &&
-            !_accountantDefaultSectionSet &&
-            visibleSections.any((s) => s.key == 'accounting') &&
-            !_isSectionUnderConstruction('accounting')) {
-          _accountantDefaultSectionSet = true;
-          final idx = visibleSections.indexWhere((s) => s.key == 'accounting');
-          if (idx >= 0) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _selectedIndex = idx);
-            });
-          }
-        }
+            if (visibleSections.isEmpty) {
+              return _ErrorScreen(
+                  message: AppLocalizations.of(context)?.noSectionsAvailable ??
+                      'No sections available');
+            }
 
-        final safeIndex = _selectedIndex.clamp(0, visibleSections.length - 1);
-        final currentSection = visibleSections[safeIndex];
+            if (canSeeOnboarding &&
+                !wizardState.wizardCompleted &&
+                !_onboardingDefaultSectionSet &&
+                visibleSections.any((s) => s.key == 'onboarding')) {
+              _onboardingDefaultSectionSet = true;
+              final idx =
+                  visibleSections.indexWhere((s) => s.key == 'onboarding');
+              if (idx >= 0) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _selectedIndex = idx);
+                });
+              }
+            }
 
-        try {
-          AppRole.fromString(userModel.role);
-        } catch (_) {
-          return _ErrorScreen(
-              message: AppLocalizations.of(context)
-                      ?.unknownRoleError(userModel.role) ??
-                  'Unknown role: ${userModel.role}');
-        }
+            // Бухгалтер по умолчанию видит секцию «Бухгалтерия» (инвойсы и документы)
+            if (effectiveRole == AppRole.accountant &&
+                !_accountantDefaultSectionSet &&
+                visibleSections.any((s) => s.key == 'accounting')) {
+              _accountantDefaultSectionSet = true;
+              final idx =
+                  visibleSections.indexWhere((s) => s.key == 'accounting');
+              if (idx >= 0) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _selectedIndex = idx);
+                });
+              }
+            }
 
-        final l10n = AppLocalizations.of(context)!;
-        final isNarrow = MediaQuery.of(context).size.width < 600;
-        final isViewMode = authService.userModel?.isAdmin == true &&
-            authService.viewAsRole != null;
+            final safeIndex =
+                _selectedIndex.clamp(0, visibleSections.length - 1);
+            final currentSection = visibleSections[safeIndex];
 
-        final theme = Theme.of(context);
-        return Directionality(
+            try {
+              effectiveAppRole(
+                actualRole: userModel.role,
+                viewAsRole: authService.viewAsRole,
+              );
+            } catch (_) {
+              final unknownRole =
+                  authService.effectiveRole ?? userModel.role ?? 'unknown';
+              return _ErrorScreen(
+                  message: AppLocalizations.of(context)
+                          ?.unknownRoleError(unknownRole) ??
+                      'Unknown role: $unknownRole');
+            }
+
+            final l10n = AppLocalizations.of(context)!;
+            final isNarrow = MediaQuery.of(context).size.width < 600;
+            final isViewMode = authService.viewAsRole != null;
+
+            final theme = Theme.of(context);
+            return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
             backgroundColor: theme.colorScheme.surface,
@@ -251,18 +367,24 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
               companyId: companyId,
             ),
             drawer: isNarrow
-                ? _buildDrawer(context, l10n, visibleSections, safeIndex)
+                ? _buildDrawer(
+                    context, l10n, visibleSections, safeIndex, effectiveRole)
                 : null,
             body: Column(
               children: [
                 // View-as-role banner
                 if (isViewMode)
                   _buildViewModeBanner(context, authService, l10n),
+                SetupWizardBanner(companyId: companyId),
                 // Main content
                 Expanded(
                   child: isNarrow
                       ? _buildSectionContent(
-                          currentSection.key, companyId, companySettings)
+                          currentSection.key,
+                          companyId,
+                          companySettings,
+                          permissions,
+                        )
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -276,10 +398,11 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                                   l10n,
                                   visibleSections,
                                   safeIndex,
+                                  effectiveRole,
                                   onSelect: (index) {
                                     final section = visibleSections[index];
                                     if (_isSectionUnderConstruction(
-                                        section.key)) {
+                                        section.key, effectiveRole)) {
                                       _showUnderConstructionDialog();
                                       return;
                                     }
@@ -290,8 +413,12 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
                             ),
                             const VerticalDivider(thickness: 1, width: 1),
                             Expanded(
-                              child: _buildSectionContent(currentSection.key,
-                                  companyId, companySettings),
+                              child: _buildSectionContent(
+                                currentSection.key,
+                                companyId,
+                                companySettings,
+                                permissions,
+                              ),
                             ),
                           ],
                         ),
@@ -299,6 +426,8 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );
@@ -365,7 +494,8 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
     BuildContext context,
     AppLocalizations l10n,
     List<_DashboardSection> sections,
-    int selectedIndex, {
+    int selectedIndex,
+    AppRole role, {
     required void Function(int index) onSelect,
   }) {
     final theme = Theme.of(context);
@@ -400,7 +530,7 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
             leading: Icon(section.icon,
                 size: 22, color: selected ? theme.primaryColor : null),
             title: Text(
-              _sectionLabelForUi(section.key, l10n),
+              _sectionLabelForUi(section.key, l10n, role),
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
               style: TextStyle(
@@ -419,7 +549,7 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
   }
 
   Widget _buildDrawer(BuildContext context, AppLocalizations l10n,
-      List<_DashboardSection> sections, int selectedIndex) {
+      List<_DashboardSection> sections, int selectedIndex, AppRole role) {
     final theme = Theme.of(context);
     return Drawer(
       child: SafeArea(
@@ -447,9 +577,10 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
               l10n,
               sections,
               selectedIndex,
+              role,
               onSelect: (i) {
                 final section = sections[i];
-                if (_isSectionUnderConstruction(section.key)) {
+                if (_isSectionUnderConstruction(section.key, role)) {
                   _showUnderConstructionDialog();
                   Navigator.pop(context);
                   return;
@@ -564,11 +695,24 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
   }
 
   Widget _buildSectionContent(
-      String sectionKey, String companyId, CompanySettings companySettings) {
+    String sectionKey,
+    String companyId,
+    CompanySettings companySettings,
+    PermissionsService permissions,
+  ) {
     switch (sectionKey) {
+      case 'onboarding':
+        return OnboardingSection(
+          key: ValueKey('onboarding-$companyId'),
+          companyId: companyId,
+          companySettings: companySettings,
+        );
       case 'overview':
         return OverviewSection(
-            companyId: companyId, companySettings: companySettings);
+          key: ValueKey('overview-$companyId'),
+          companyId: companyId,
+          companySettings: companySettings,
+        );
       case 'users_roles':
         return UsersRolesSection(
             companyId: companyId, companySettings: companySettings);
@@ -580,16 +724,31 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
             companyId: companyId, companySettings: companySettings);
       case 'audit':
         return AuditSection(
-            companyId: companyId, companySettings: companySettings);
+          key: ValueKey('audit-$companyId'),
+          companyId: companyId,
+          companySettings: companySettings,
+        );
       case 'ops_health':
         return OpsHealthSection(
             companyId: companyId, companySettings: companySettings);
       case 'accounting':
         return AccountingSection(
             companyId: companyId, companySettings: companySettings);
+      case 'create_document':
+        return CreateAccountingDocSection(
+          key: ValueKey('create-doc-$companyId'),
+          companyId: companyId,
+          companySettings: companySettings,
+        );
+      case 'clients':
+        return const ClientsSection(key: ValueKey('clients'));
       case 'reports':
         return ReportsSection(
-            companyId: companyId, companySettings: companySettings);
+          companyId: companyId,
+          companySettings: companySettings,
+          showStockReport: permissions.canRead('warehouse') &&
+              companySettings.modules.warehouse,
+        );
       default:
         return Center(
             child: Text(sectionKey, style: const TextStyle(fontSize: 24)));
@@ -632,6 +791,90 @@ class _NoCompanyScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PickCompanyScreen extends StatefulWidget {
+  const _PickCompanyScreen();
+
+  @override
+  State<_PickCompanyScreen> createState() => _PickCompanyScreenState();
+}
+
+class _PickCompanyScreenState extends State<_PickCompanyScreen> {
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final cs = context.read<CompanySelectionService>();
+    await cs.ensureRestored();
+    await cs.loadCompanies();
+    if (!mounted) return;
+    setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final auth = context.watch<AuthService>();
+    final cs = context.watch<CompanySelectionService>();
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.noCompanySelected),
+          actions: [
+            if (auth.viewAsRole != null)
+              TextButton(
+                onPressed: () => auth.setViewAsRole(null),
+                child: Text(l10n.backToAdmin),
+              ),
+          ],
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(l10n.pleaseSelectCompany,
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          value: cs.selectedCompanyId,
+                          decoration: InputDecoration(
+                            labelText: l10n.companyId,
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: cs.availableCompanies
+                              .map((c) => DropdownMenuItem(
+                                    value: c.id,
+                                    child: Text(c.name),
+                                  ))
+                              .toList(),
+                          onChanged: (id) {
+                            if (id == null) return;
+                            cs.selectCompany(id);
+                            auth.setVirtualCompanyId(id);
+                          },
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

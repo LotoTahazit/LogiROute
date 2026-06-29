@@ -31,6 +31,19 @@ class CrossModuleAuditService {
   static const String typeTrialUntilChanged = 'trial_until_changed';
   static const String typeAccountingLockedUntilChanged =
       'accounting_locked_until_changed';
+  static const String typeDataImported = 'data_imported';
+  static const String typeDataExported = 'data_exported';
+  static const String typeDeliveryAddressChanged = 'delivery_address_changed';
+  static const String typeCompanyCreated = 'company_created';
+  static const String typeInitialOwnerCreated = 'initial_owner_created';
+  static const String typeOnboardingModeSelected = 'onboarding_mode_selected';
+  static const String typeRemoteConfigChanged = 'remote_config_changed';
+
+  /// Data Integrity Checker
+  static const String typeIntegrityCheckStarted = 'integrity_check_started';
+  static const String typeIntegrityCheckCompleted = 'integrity_check_completed';
+  static const String typeIntegrityIssueIgnored = 'integrity_issue_ignored';
+  static const String typeIntegrityIssueResolved = 'integrity_issue_resolved';
 
   /// All known types — used for filter dropdowns
   static const List<String> allTypes = [
@@ -41,6 +54,8 @@ class CrossModuleAuditService {
     typeBillingStatusChanged,
     typeTrialUntilChanged,
     typeAccountingLockedUntilChanged,
+    typeDataImported,
+    typeDataExported,
   ];
 
   CollectionReference<Map<String, dynamic>> get _auditRef =>

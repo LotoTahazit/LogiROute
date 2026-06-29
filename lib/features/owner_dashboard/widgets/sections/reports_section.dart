@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'dart:async' show unawaited;
 
 import '../../../../utils/file_download_stub.dart'
     if (dart.library.html) '../../../../utils/file_download_web.dart';
@@ -11,7 +12,9 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../models/invoice.dart';
 import '../../../../models/company_settings.dart';
 import '../../../../models/inventory_item.dart';
+import '../../../../models/usage_event.dart';
 import '../../../../services/firestore_paths.dart';
+import '../../../../services/usage_analytics_service.dart';
 import '../../../../widgets/logi_route_tab_bar.dart';
 
 /// Lightweight data class for report aggregation (from invoices collection)
@@ -35,18 +38,37 @@ class _ReportDoc {
   });
 }
 
+class _InvoiceQueryResult {
+  final List<_ReportDoc> docs;
+  final bool truncated;
+  const _InvoiceQueryResult({required this.docs, this.truncated = false});
+}
+
+enum _ReportPeriodPreset { thisMonth, last3Months, last12Months, custom }
+
 class ReportsSection extends StatefulWidget {
   final String companyId;
   final CompanySettings companySettings;
-  const ReportsSection(
-      {super.key, required this.companyId, required this.companySettings});
+  final bool showStockReport;
+
+  const ReportsSection({
+    super.key,
+    required this.companyId,
+    required this.companySettings,
+    this.showStockReport = false,
+  });
   @override
   State<ReportsSection> createState() => _ReportsSectionState();
 }
 
 class _ReportsSectionState extends State<ReportsSection>
     with SingleTickerProviderStateMixin {
+  static const _kInvoicePageSize = 500;
+
   late final TabController _tabController;
+  _ReportPeriodPreset _periodPreset = _ReportPeriodPreset.thisMonth;
+  DateTimeRange? _customRange;
+  int _queryLimit = _kInvoicePageSize;
 
   /// Активные вкладки отчётов в зависимости от модулей компании.
   /// 'stock' — складские остатки (если включён модуль «Склад»); финансовые
@@ -56,14 +78,24 @@ class _ReportsSectionState extends State<ReportsSection>
   @override
   void initState() {
     super.initState();
-    final m = widget.companySettings.modules;
     _tabKeys = [
-      if (m.warehouse) 'stock',
+      if (widget.showStockReport) 'stock',
       'monthly',
       'vat',
       'client',
     ];
     _tabController = TabController(length: _tabKeys.length, vsync: this);
+    unawaited(UsageAnalyticsService.trackFromAuth(
+      companyId: widget.companyId,
+      event: UsageEventName.reportOpened,
+      entityType: 'reports_section',
+    ));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   LogiRouteTabItem _tabItem(String key, AppLocalizations l10n) {
@@ -84,40 +116,171 @@ class _ReportsSectionState extends State<ReportsSection>
     }
   }
 
-  /// Stream invoices — суммы через [Invoice] (per-line НДС, скидка, credit notes).
-  Stream<List<_ReportDoc>> _watchInvoices() {
-    return FirebaseFirestore.instance
-        .collection('companies')
-        .doc(widget.companyId)
-        .collection('accounting')
-        .doc('_root')
-        .collection('invoices')
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) {
-              final invoice = Invoice.fromMap(doc.data(), doc.id);
-              if (!invoice.isLive) return null;
-              return _ReportDoc(
-                // Период מע"מ/выручки — по ДАТЕ ДОКУМЕНТА (deliveryDate), как и
-                // period-lock в issueInvoice. finalizedAt (момент выписки на
-                // сервере) мог бы увести документ в соседний месяц на стыке.
-                date: invoice.deliveryDate,
-                net: invoice.subtotalBeforeVAT,
-                vat: invoice.vatAmount,
-                gross: invoice.totalWithVAT,
-                customerName: invoice.clientName,
-                customerTaxId: invoice.clientNumber,
-                status: invoice.status.name,
-              );
-            })
-            .whereType<_ReportDoc>()
-            .toList());
+  DateTimeRange _effectiveRange() {
+    final now = DateTime.now();
+    final monthEnd = DateTime(now.year, now.month + 1, 1)
+        .subtract(const Duration(milliseconds: 1));
+    switch (_periodPreset) {
+      case _ReportPeriodPreset.thisMonth:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: monthEnd,
+        );
+      case _ReportPeriodPreset.last3Months:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month - 2, 1),
+          end: monthEnd,
+        );
+      case _ReportPeriodPreset.last12Months:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month - 11, 1),
+          end: monthEnd,
+        );
+      case _ReportPeriodPreset.custom:
+        return _customRange ??
+            DateTimeRange(
+              start: DateTime(now.year, now.month, 1),
+              end: monthEnd,
+            );
+    }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Timestamp _tsStart(DateTime d) =>
+      Timestamp.fromDate(DateTime(d.year, d.month, d.day));
+
+  Timestamp _tsEnd(DateTime d) => Timestamp.fromDate(
+      DateTime(d.year, d.month, d.day, 23, 59, 59, 999));
+
+  Future<void> _pickCustomRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 366)),
+      initialDateRange: _effectiveRange(),
+    );
+    if (range == null || !mounted) return;
+    setState(() {
+      _periodPreset = _ReportPeriodPreset.custom;
+      _customRange = range;
+      _queryLimit = _kInvoicePageSize;
+    });
+  }
+
+  void _setPreset(_ReportPeriodPreset preset) {
+    setState(() {
+      _periodPreset = preset;
+      _queryLimit = _kInvoicePageSize;
+    });
+  }
+
+  /// Invoices за выбранный период — deliveryDate + limit (без full collection).
+  Stream<_InvoiceQueryResult> _watchInvoices(DateTimeRange range, int limit) {
+    return FirestorePaths()
+        .invoices(widget.companyId)
+        .where('deliveryDate', isGreaterThanOrEqualTo: _tsStart(range.start))
+        .where('deliveryDate', isLessThanOrEqualTo: _tsEnd(range.end))
+        .orderBy('deliveryDate', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+          final docs = snapshot.docs
+              .map((doc) {
+                final invoice = Invoice.fromMap(doc.data(), doc.id);
+                if (!invoice.isLive) return null;
+                return _ReportDoc(
+                  date: invoice.deliveryDate,
+                  net: invoice.subtotalBeforeVAT,
+                  vat: invoice.vatAmount,
+                  gross: invoice.totalWithVAT,
+                  customerName: invoice.clientName,
+                  customerTaxId: invoice.clientNumber,
+                  status: invoice.status.name,
+                );
+              })
+              .whereType<_ReportDoc>()
+              .toList();
+          return _InvoiceQueryResult(
+            docs: docs,
+            truncated: snapshot.docs.length >= limit,
+          );
+        });
+  }
+
+  Widget _periodToolbar(AppLocalizations l10n, ThemeData theme, bool narrow) {
+    final range = _effectiveRange();
+    final fmt = DateFormat.yMMMd();
+    final rangeLabel = '${fmt.format(range.start)} – ${fmt.format(range.end)}';
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: narrow ? 12 : 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 18, color: theme.colorScheme.onSecondaryContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.reportsPeriodHint,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SegmentedButton<_ReportPeriodPreset>(
+                segments: [
+                  ButtonSegment(
+                    value: _ReportPeriodPreset.thisMonth,
+                    label: Text(l10n.reportsPeriodThisMonth),
+                  ),
+                  ButtonSegment(
+                    value: _ReportPeriodPreset.last3Months,
+                    label: Text(l10n.reportsPeriodLast3Months),
+                  ),
+                  ButtonSegment(
+                    value: _ReportPeriodPreset.last12Months,
+                    label: Text(l10n.reportsPeriodLast12Months),
+                  ),
+                  ButtonSegment(
+                    value: _ReportPeriodPreset.custom,
+                    label: Text(l10n.reportsPeriodCustom),
+                  ),
+                ],
+                selected: {_periodPreset},
+                onSelectionChanged: (s) {
+                  final p = s.first;
+                  if (p == _ReportPeriodPreset.custom) {
+                    _pickCustomRange();
+                  } else {
+                    _setPreset(p);
+                  }
+                },
+              ),
+              Chip(
+                avatar: const Icon(Icons.date_range, size: 16),
+                label: Text(rangeLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -146,22 +309,28 @@ class _ReportsSectionState extends State<ReportsSection>
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        _periodToolbar(l10n, theme, narrow),
+        const SizedBox(height: 12),
         LogiRouteTabBar(
           controller: _tabController,
           isScrollable: narrow,
           tabs: [for (final k in _tabKeys) _tabItem(k, l10n)],
         ),
         Expanded(
-          child: StreamBuilder<List<_ReportDoc>>(
-            stream: _watchInvoices(),
+          child: StreamBuilder<_InvoiceQueryResult>(
+            key: ValueKey(
+                '${_effectiveRange().start}_${_effectiveRange().end}_$_queryLimit'),
+            stream: _watchInvoices(_effectiveRange(), _queryLimit),
             builder: (context, snapshot) {
               // Складская вкладка не зависит от счетов: при ошибке/загрузке
               // финансовых данных она всё равно работает (свой стрим).
               final hasFinErr = snapshot.hasError;
               final finLoading =
                   snapshot.connectionState == ConnectionState.waiting;
-              final docs = snapshot.data ?? [];
+              final result = snapshot.data;
+              final docs = result?.docs ?? [];
+              final truncated = result?.truncated ?? false;
 
               Widget financial(Widget child) {
                 if (finLoading) {
@@ -172,7 +341,34 @@ class _ReportsSectionState extends State<ReportsSection>
                       child: Text(l10n.errorLoadingData,
                           style: TextStyle(color: theme.colorScheme.error)));
                 }
-                return child;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (truncated)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                            narrow ? 12 : 24, 8, narrow ? 12 : 24, 0),
+                        child: Material(
+                          color: theme.colorScheme.tertiaryContainer
+                              .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          child: ListTile(
+                            dense: true,
+                            title: Text(
+                              l10n.reportsTruncatedHint(_queryLimit),
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            trailing: TextButton(
+                              onPressed: () => setState(
+                                  () => _queryLimit += _kInvoicePageSize),
+                              child: Text(l10n.reportsLoadMore),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Expanded(child: child),
+                  ],
+                );
               }
 
               return TabBarView(
@@ -182,11 +378,14 @@ class _ReportsSectionState extends State<ReportsSection>
                     if (k == 'stock')
                       _StockReport(companyId: widget.companyId)
                     else if (k == 'monthly')
-                      financial(_MonthlyReport(docs: docs))
+                      financial(_MonthlyReport(
+                          companyId: widget.companyId, docs: docs))
                     else if (k == 'vat')
-                      financial(_VatReport(docs: docs))
+                      financial(_VatReport(
+                          companyId: widget.companyId, docs: docs))
                     else
-                      financial(_ClientReport(docs: docs)),
+                      financial(_ClientReport(
+                          companyId: widget.companyId, docs: docs)),
                 ],
               );
             },
@@ -211,8 +410,9 @@ class _MonthData {
 }
 
 class _MonthlyReport extends StatelessWidget {
+  final String companyId;
   final List<_ReportDoc> docs;
-  const _MonthlyReport({required this.docs});
+  const _MonthlyReport({required this.companyId, required this.docs});
 
   Map<String, _MonthData> _groupByMonth(List<_ReportDoc> docs) {
     final map = <String, _MonthData>{};
@@ -316,6 +516,12 @@ class _MonthlyReport extends StatelessWidget {
 
   void _csv(
       BuildContext ctx, List<String> months, Map<String, _MonthData> data) {
+    unawaited(UsageAnalyticsService.trackFromAuth(
+      companyId: companyId,
+      event: UsageEventName.exportStarted,
+      entityType: 'report',
+      entityId: 'monthly',
+    ));
     const t = '\t';
     final b = StringBuffer('חודש$tמסמכים$tנטו$tמע"מ$tברוטו\n');
     for (final m in months) {
@@ -347,8 +553,9 @@ class _VatData {
 }
 
 class _VatReport extends StatelessWidget {
+  final String companyId;
   final List<_ReportDoc> docs;
-  const _VatReport({required this.docs});
+  const _VatReport({required this.companyId, required this.docs});
 
   Map<String, _VatData> _group(List<_ReportDoc> docs) {
     final map = <String, _VatData>{};
@@ -442,6 +649,12 @@ class _VatReport extends StatelessWidget {
   }
 
   void _csv(BuildContext ctx, List<String> months, Map<String, _VatData> data) {
+    unawaited(UsageAnalyticsService.trackFromAuth(
+      companyId: companyId,
+      event: UsageEventName.exportStarted,
+      entityType: 'report',
+      entityId: 'vat',
+    ));
     const t = '\t';
     final b = StringBuffer('חודש$tבסיס מס$tמע"מ\n');
     for (final m in months) {
@@ -484,8 +697,9 @@ class _ClientData {
 }
 
 class _ClientReport extends StatelessWidget {
+  final String companyId;
   final List<_ReportDoc> docs;
-  const _ClientReport({required this.docs});
+  const _ClientReport({required this.companyId, required this.docs});
 
   Map<String, _ClientData> _groupByClient(
       List<_ReportDoc> docs, AppLocalizations l10n) {
@@ -573,6 +787,12 @@ class _ClientReport extends StatelessWidget {
 
   void _csv(
       BuildContext ctx, List<String> clients, Map<String, _ClientData> data) {
+    unawaited(UsageAnalyticsService.trackFromAuth(
+      companyId: companyId,
+      event: UsageEventName.exportStarted,
+      entityType: 'report',
+      entityId: 'client',
+    ));
     const t = '\t';
     final b =
         StringBuffer('לקוח$tח.פ./ע.מ.$tמסמכים$tנטו$tמע"מ$tברוטו\n');
@@ -700,6 +920,12 @@ class _StockReport extends StatelessWidget {
   }
 
   void _csv(BuildContext ctx, List<InventoryItem> items) {
+    unawaited(UsageAnalyticsService.trackFromAuth(
+      companyId: companyId,
+      event: UsageEventName.exportStarted,
+      entityType: 'report',
+      entityId: 'stock',
+    ));
     final l10n = AppLocalizations.of(ctx)!;
     const t = '\t';
     final b = StringBuffer(

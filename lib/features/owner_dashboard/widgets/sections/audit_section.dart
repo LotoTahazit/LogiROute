@@ -14,6 +14,8 @@ import '../../models/audit_event.dart';
 import '../../models/member_with_user.dart';
 import '../../repositories/audit_repository.dart';
 import '../../repositories/members_repository.dart';
+import '../../services/audit_event_enricher.dart';
+import '../../utils/audit_event_labels.dart';
 
 /// Секция «Аудит и соответствие» Owner Dashboard.
 ///
@@ -382,66 +384,32 @@ class _AuditSectionState extends State<AuditSection> {
           userNames[m.uid] = m.displayName;
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: events.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) => _AuditEventTile(
-            event: events[index],
-            userNames: userNames,
-            companyId: widget.companyId,
-          ),
+        return FutureBuilder<Map<String, AuditEventMeta>>(
+          future: AuditEventEnricher.enrich(widget.companyId, events),
+          builder: (context, metaSnap) {
+            final metaMap = metaSnap.data ?? {};
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: events.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final event = events[index];
+                return _AuditEventTile(
+                  event: event,
+                  meta: metaMap[event.entity.docId],
+                  userNames: userNames,
+                  companyId: widget.companyId,
+                );
+              },
+            );
+          },
         );
       },
     );
   }
 
-  static String _typeLabel(String type, AppLocalizations l10n) {
-    switch (type) {
-      case CrossModuleAuditService.typeReceiptCreated:
-        return l10n.eventReceiptCreated;
-      case CrossModuleAuditService.typeCreditNoteCreated:
-        return l10n.eventCreditNoteCreated;
-      case CrossModuleAuditService.typeDocumentVoided:
-        return l10n.eventDocumentVoided;
-      case CrossModuleAuditService.typeInvoiceVoided:
-        return l10n.eventInvoiceVoided;
-      case CrossModuleAuditService.typeBillingStatusChanged:
-        return l10n.eventBillingStatusChanged;
-      case CrossModuleAuditService.typeTrialUntilChanged:
-        return l10n.eventTrialUntilChanged;
-      case CrossModuleAuditService.typeAccountingLockedUntilChanged:
-        return l10n.eventAccountingLockedUntilChanged;
-      case 'invoice_issued':
-        return l10n.eventInvoiceIssued;
-      case 'invoice_printed':
-        return l10n.eventInvoicePrinted;
-      case 'inventory_adjusted':
-        return l10n.eventInventoryAdjusted;
-      case 'inventory_count_completed':
-        return l10n.eventInventoryCountCompleted;
-      case 'inventory_count_approved':
-        return l10n.eventInventoryCountApproved;
-      case 'route_published':
-        return l10n.eventRoutePublished;
-      case 'delivery_point_status_changed':
-        return l10n.eventDeliveryPointStatusChanged;
-      case 'manual_assignment':
-        return l10n.eventManualAssignment;
-      case 'payment_received':
-        return l10n.eventPaymentReceived;
-      case 'module_changed':
-        return l10n.eventModuleChanged;
-      case 'plan_changed':
-        return l10n.eventPlanChanged;
-      case 'backup_recorded':
-        return l10n.eventBackupRecorded;
-      case 'retention_checked':
-        return l10n.eventRetentionChecked;
-      default:
-        return type;
-    }
-  }
+  static String _typeLabel(String type, AppLocalizations l10n) =>
+      AuditEventLabels.type(type, l10n);
 }
 
 // =============================================================================
@@ -455,10 +423,12 @@ class _AuditSectionState extends State<AuditSection> {
 /// [userNames] — map UID → отображаемое имя пользователя.
 class _AuditEventTile extends StatelessWidget {
   final CrossModuleAuditEvent event;
+  final AuditEventMeta? meta;
   final Map<String, String> userNames;
   final String companyId;
   const _AuditEventTile({
     required this.event,
+    this.meta,
     required this.userNames,
     required this.companyId,
   });
@@ -475,46 +445,8 @@ class _AuditEventTile extends StatelessWidget {
     return uid.length > 10 ? '${uid.substring(0, 6)}…' : uid;
   }
 
-  /// Translate entity collection to human-readable label.
-  String _collectionLabel(String collection, AppLocalizations l10n) {
-    switch (collection) {
-      case 'invoices':
-        return l10n.invoicesTab;
-      case 'creditNotes':
-        return l10n.creditNotes;
-      case 'deliveryNotes':
-        return l10n.deliveryNotesReport;
-      case 'receipts':
-        return l10n.receiptsReport;
-      case 'inventory':
-        return l10n.warehouseInventory;
-      case 'routes':
-        return l10n.routes;
-      case 'deliveryPoints':
-        return l10n.deliveryPoints;
-      default:
-        return collection;
-    }
-  }
-
-  /// Translate module key to human-readable label.
-  String _moduleLabel(String key, AppLocalizations l10n) {
-    switch (key) {
-      case 'logistics':
-        return l10n.moduleLogistics;
-      case 'warehouse':
-        return l10n.moduleWarehouse;
-      case 'accounting':
-        return l10n.moduleAccounting;
-      case 'dispatcher':
-        return l10n.moduleDispatcher;
-      default:
-        return key;
-    }
-  }
-
   /// Translate extra field keys to readable labels.
-  String _extraKeyLabel(String key) {
+  String _extraKeyLabel(String key, AppLocalizations l10n) {
     switch (key) {
       case 'docNumber':
         return 'מס׳ מסמך';
@@ -535,6 +467,15 @@ class _AuditEventTile extends StatelessWidget {
         return 'נהג';
       case 'pointCount':
         return 'נקודות';
+      case 'oldAddress':
+        return l10n.auditOldDeliveryAddress;
+      case 'newAddress':
+        return l10n.auditNewDeliveryAddress;
+      case 'changedByRole':
+      case 'changedByName':
+        return l10n.auditChangedByRole;
+      case 'correlationId':
+        return l10n.auditCorrelationId;
       default:
         return key;
     }
@@ -544,10 +485,9 @@ class _AuditEventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
+    final headline = AuditEventLabels.headline(event, l10n, meta: meta);
     final userName = _resolveUser(event.createdBy);
-    final moduleLbl = _moduleLabel(event.moduleKey, l10n);
-    final collectionLbl = _collectionLabel(event.entity.collection, l10n);
+    final moduleLbl = AuditEventLabels.module(event.moduleKey, l10n);
     final narrow = MediaQuery.sizeOf(context).width < 560;
 
     final dateStr =
@@ -617,7 +557,7 @@ class _AuditEventTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  typeLabel,
+                  headline,
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
@@ -628,7 +568,7 @@ class _AuditEventTile extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        typeLabel,
+                        headline,
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(fontWeight: FontWeight.w700),
                         overflow: TextOverflow.ellipsis,
@@ -675,9 +615,8 @@ class _AuditEventTile extends StatelessWidget {
                   ],
                 ),
               const SizedBox(height: 6),
-              // Row 2: collection label (human-readable)
               Text(
-                collectionLbl,
+                moduleLbl,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline),
               ),
@@ -738,10 +677,9 @@ class _AuditEventTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final fullTimeStr =
         event.createdAt != null ? _timeFmt.format(event.createdAt!) : '—';
-    final typeLabel = _AuditSectionState._typeLabel(event.type, l10n);
+    final typeLabel = AuditEventLabels.headline(event, l10n, meta: meta);
     final userName = _resolveUser(event.createdBy);
-    final moduleLbl = _moduleLabel(event.moduleKey, l10n);
-    final collectionLbl = _collectionLabel(event.entity.collection, l10n);
+    final moduleLbl = AuditEventLabels.module(event.moduleKey, l10n);
 
     showDialog<void>(
       context: context,
@@ -777,8 +715,11 @@ class _AuditEventTile extends StatelessWidget {
                   const Divider(),
                   // Module
                   _labelValue(theme, l10n.moduleFilter, moduleLbl),
-                  // Collection (entity type)
-                  _labelValue(theme, l10n.eventTypeFilter, collectionLbl),
+                  _labelValue(
+                    theme,
+                    l10n.eventTypeFilter,
+                    AuditEventLabels.eventTypeLabel(event, l10n, meta: meta),
+                  ),
                   const SizedBox(height: 8),
                   // Created at (immutable)
                   _immutableLabelValue(theme, l10n.dateRange, fullTimeStr),
@@ -791,7 +732,7 @@ class _AuditEventTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     ...event.extra.entries.map(
                       (e) => _labelValue(
-                          theme, _extraKeyLabel(e.key), '${e.value}'),
+                          theme, _extraKeyLabel(e.key, l10n), '${e.value}'),
                     ),
                   ],
                 ],

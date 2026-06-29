@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
+import '../../../../screens/admin/dialogs/add_user_dialog.dart';
+import '../../../../screens/setup/company_setup_wizard_screen.dart';
 import '../../../../services/auth_service.dart';
 import '../../models/member_with_user.dart';
 import '../../models/membership.dart';
@@ -21,8 +23,8 @@ import '../../services/permissions_service.dart';
 /// - Предупреждение при достижении лимита пользователей
 ///
 /// Ограничения назначения ролей (Task 10.2):
-/// - Owner: admin, dispatcher, driver, warehouse_keeper, accountant, viewer (NOT owner, super_admin)
-/// - Admin: admin, dispatcher, driver, warehouse_keeper, accountant, viewer (NOT owner, super_admin)
+/// - Owner: admin, dispatcher, driver, warehouse_keeper, accountant (NOT owner, super_admin, viewer)
+/// - Admin: admin, dispatcher, driver, warehouse_keeper, accountant (NOT owner, super_admin, viewer)
 /// - Super_admin: все роли
 ///
 /// Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.10, 5.11
@@ -63,10 +65,10 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final currentRole = AppRole.fromString(userModel.role);
-    _permissions = PermissionsService(
-      role: currentRole,
-      userCompanyId: userModel.companyId ?? '',
+    _permissions = PermissionsService.forUser(
+      actualRole: userModel.role,
+      viewAsRole: authService.viewAsRole,
+      userCompanyId: widget.companyId,
     );
 
     final narrow = MediaQuery.sizeOf(context).width < 500;
@@ -92,7 +94,19 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(l10n.teamMembers, style: theme.textTheme.titleMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text(l10n.teamMembers, style: theme.textTheme.titleMedium),
+            ),
+            if (_permissions.canWrite('members', 'create'))
+              FilledButton.icon(
+                onPressed: () => _showAddUserDialog(context),
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: Text(l10n.addUser),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
         StreamBuilder<List<MemberWithUser>>(
           stream: _membersRepo.watchMembers(),
@@ -136,13 +150,13 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
                 .where((m) => m.status == MembershipStatus.active)
                 .length;
             final usersLimit = widget.companySettings.limits.maxUsers;
-            final canInvite =
-                EntitlementsService.canCreateInvite(activeCount, usersLimit);
+            final limitExceeded = EntitlementsService.usersLimitExceeded(
+                activeCount, usersLimit);
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!canInvite)
+                if (limitExceeded)
                   _UserLimitWarning(
                     activeCount: activeCount,
                     usersLimit: usersLimit,
@@ -183,6 +197,19 @@ class _UsersRolesSectionState extends State<UsersRolesSection> {
   // ---------------------------------------------------------------------------
   // Action handlers
   // ---------------------------------------------------------------------------
+
+  Future<void> _showAddUserDialog(BuildContext context) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const AddUserDialog(initialRole: 'driver'),
+    );
+    if (result == null || !mounted) return;
+    await submitAddUserDialogResult(
+      context,
+      result,
+      fallbackCompanyId: widget.companyId,
+    );
+  }
 
   Future<void> _handleChangeRole(String uid, AppRole newRole) async {
     try {
