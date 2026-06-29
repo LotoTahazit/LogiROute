@@ -24,14 +24,14 @@ class CountItemCard extends StatefulWidget {
 class _CountItemCardState extends State<CountItemCard> {
   late final TextEditingController _quantityController;
   late final TextEditingController _notesController;
+  bool _touched = false;
 
   @override
   void initState() {
     super.initState();
-    // Используем initialQuantity если есть, иначе actualQuantity из item
     final initialQty = widget.initialQuantity ?? widget.item.actualQuantity;
     _quantityController = TextEditingController(
-      text: initialQty?.toString() ?? '',
+      text: initialQty?.toString() ?? '0',
     );
     // Используем initialNotes если есть, иначе notes из item
     final initialNote = widget.initialNotes ?? widget.item.notes;
@@ -48,6 +48,7 @@ class _CountItemCardState extends State<CountItemCard> {
   }
 
   void _saveCount() {
+    if (!_touched) return;
     final quantity = int.tryParse(_quantityController.text);
     if (quantity == null || quantity < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +186,7 @@ class _CountItemCardState extends State<CountItemCard> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               onChanged: (value) {
-                // Сохраняем локально при изменении
+                _touched = true;
                 _saveCount();
               },
             ),

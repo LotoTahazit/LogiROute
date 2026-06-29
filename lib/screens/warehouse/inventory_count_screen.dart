@@ -105,7 +105,7 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
 
     try {
       // Получаем текущий инвентарь
-      final inventory = await _inventoryService.getInventory();
+      final inventory = await _inventoryService.fetchAllInventoryForExport();
 
       // Начинаем новый подсчет
       final countId = await _countService.startNewCount(

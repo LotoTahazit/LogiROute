@@ -5,6 +5,9 @@ import '../models/inventory_change.dart';
 import '../models/product_type.dart';
 
 class InventoryService {
+  static const int defaultListLimit = 200;
+  static const int exportBatchSize = 500;
+
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -45,6 +48,7 @@ class InventoryService {
     required String userName,
     required String action,
     String? reason,
+    String? barcode,
   }) async {
     try {
       final change = InventoryChange(
@@ -59,6 +63,7 @@ class InventoryService {
         userName: userName,
         action: action,
         reason: reason,
+        barcode: barcode,
       );
 
       await _firestore
@@ -88,6 +93,7 @@ class InventoryService {
     String? volume,
     int? piecesPerBox,
     String? additionalInfo,
+    String? barcode,
   }) async {
     return updateInventory(
       productCode: productCode,
@@ -101,6 +107,7 @@ class InventoryService {
       volume: volume,
       piecesPerBox: piecesPerBox,
       additionalInfo: additionalInfo,
+      barcode: barcode,
       addToExisting: true,
     );
   }
@@ -118,6 +125,7 @@ class InventoryService {
     String? volume,
     int? piecesPerBox,
     String? additionalInfo,
+    String? barcode,
     bool addToExisting = false,
   }) async {
     try {
@@ -158,6 +166,11 @@ class InventoryService {
       if (additionalInfo != null && additionalInfo.isNotEmpty) {
         data['additionalInfo'] = additionalInfo;
       }
+      if (barcode != null && barcode.trim().isNotEmpty) {
+        final trimmed = barcode.trim();
+        await _assertBarcodeUnique(trimmed, exceptProductCode: productCode);
+        data['barcode'] = trimmed;
+      }
 
       await _inventoryCollection().doc(id).set(
             data,
@@ -184,10 +197,13 @@ class InventoryService {
     }
   }
 
-  /// Получить все товары на складе
-  Future<List<InventoryItem>> getInventory() async {
+  /// Список склада (bounded). Для full export — [fetchAllInventoryForExport].
+  Future<List<InventoryItem>> getInventory({int limit = defaultListLimit}) async {
     try {
-      final snapshot = await _inventoryCollection().get();
+      final snapshot = await _inventoryCollection()
+          .orderBy('productCode')
+          .limit(limit)
+          .get();
       return snapshot.docs
           .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
           .toList();
@@ -197,10 +213,92 @@ class InventoryService {
     }
   }
 
-  /// Получить товары в реальном времени
-  Stream<List<InventoryItem>> getInventoryStream({int limit = 200}) {
+  /// Full read для export / инвентаризации — paginated, явное действие.
+  Future<List<InventoryItem>> fetchAllInventoryForExport({
+    void Function(int loaded)? onProgress,
+  }) async {
+    final all = <InventoryItem>[];
+    DocumentSnapshot<Map<String, dynamic>>? cursor;
+    while (true) {
+      Query<Map<String, dynamic>> query = _inventoryCollection()
+          .orderBy('productCode')
+          .limit(exportBatchSize);
+      if (cursor != null) query = query.startAfterDocument(cursor);
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+      all.addAll(snapshot.docs
+          .map((doc) => InventoryItem.fromMap(doc.data(), doc.id)));
+      onProgress?.call(all.length);
+      cursor = snapshot.docs.last;
+      if (snapshot.docs.length < exportBatchSize) break;
+      if (all.length >= 10000) break;
+    }
+    return all;
+  }
+
+  Future<InventoryItem?> getItemByProductCode(String productCode) async {
+    if (productCode.isEmpty) return null;
+    final doc =
+        await _inventoryCollection().doc(InventoryItem.generateId(productCode)).get();
+    if (!doc.exists) return null;
+    return InventoryItem.fromMap(doc.data()!, doc.id);
+  }
+
+  Future<InventoryItem?> getItemByTypeAndNumber(String type, String number) async {
+    if (type.isEmpty || number.isEmpty) return null;
+    final snap = await _inventoryCollection()
+        .where('type', isEqualTo: type)
+        .where('number', isEqualTo: number)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return InventoryItem.fromMap(doc.data(), doc.id);
+  }
+
+  Future<Map<String, InventoryItem>> getItemsForBoxTypes(
+      List<BoxType> boxTypes) async {
+    final map = <String, InventoryItem>{};
+    for (final box in boxTypes) {
+      InventoryItem? item;
+      if (box.productCode.isNotEmpty) {
+        item = await getItemByProductCode(box.productCode);
+      }
+      item ??= await getItemByTypeAndNumber(box.type, box.number);
+      if (item != null) map[item.productCode] = item;
+    }
+    return map;
+  }
+
+  Future<Map<String, InventoryItem>> getItemsByProductCodes(
+      Iterable<String> codes) async {
+    final map = <String, InventoryItem>{};
+    for (final code in codes.where((c) => c.isNotEmpty).toSet()) {
+      final item = await getItemByProductCode(code);
+      if (item != null) map[code] = item;
+    }
+    return map;
+  }
+
+  InventoryItem? _itemForBox(BoxType box, Map<String, InventoryItem> items) {
+    if (box.productCode.isNotEmpty) {
+      final byCode = items[box.productCode];
+      if (byCode != null) return byCode;
+    }
+    for (final item in items.values) {
+      if (item.type == box.type && item.number == box.number) return item;
+    }
+    return null;
+  }
+
+  /// Получить товары в реальном времени (bounded)
+  Stream<List<InventoryItem>> getInventoryStream({int limit = defaultListLimit}) {
     print('📊 [Inventory] Starting stream with limit: $limit');
-    return _inventoryCollection().limit(limit).snapshots().map((snapshot) {
+    return _inventoryCollection()
+        .orderBy('productCode')
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       print('📊 [Inventory] Stream update: ${snapshot.docs.length} items');
       final items = <InventoryItem>[];
       for (final doc in snapshot.docs) {
@@ -216,19 +314,17 @@ class InventoryService {
     });
   }
 
-  /// Проверить доступность товара для заказа
+  /// Проверить доступность — только нужные SKU, без full warehouse read.
   Future<Map<String, dynamic>> checkAvailability(List<BoxType> boxTypes) async {
     try {
-      final inventory = await getInventory();
+      final items = await getItemsForBoxTypes(boxTypes);
 
       final Map<String, int> requested = {};
       for (final box in boxTypes) {
-        final item = inventory.firstWhere(
-          (i) => i.type == box.type && i.number == box.number,
-          orElse: () => throw Exception(
-            'ITEM_NOT_FOUND:${box.type}:${box.number}',
-          ),
-        );
+        final item = _itemForBox(box, items);
+        if (item == null) {
+          throw Exception('ITEM_NOT_FOUND:${box.type}:${box.number}');
+        }
 
         final productCode = item.productCode;
         requested[productCode] = (requested[productCode] ?? 0) + box.quantity;
@@ -240,11 +336,10 @@ class InventoryService {
       for (final entry in requested.entries) {
         final productCode = entry.key;
         final requestedQty = entry.value;
-
-        final item = inventory.firstWhere(
-          (i) => i.productCode == productCode,
-          orElse: () => throw Exception('PRODUCT_CODE_NOT_FOUND:$productCode'),
-        );
+        final item = items[productCode];
+        if (item == null) {
+          throw Exception('PRODUCT_CODE_NOT_FOUND:$productCode');
+        }
 
         final availableQty = item.quantity;
 
@@ -277,21 +372,18 @@ class InventoryService {
     }
   }
 
-  /// Списать товар со склада при создании заказа
+  /// Списать товар — точечные reads по SKU.
   Future<void> deductStock(List<BoxType> boxTypes, String userName,
       {String? reason}) async {
     try {
-      final inventory = await getInventory();
+      final items = await getItemsForBoxTypes(boxTypes);
 
       final Map<String, int> toDeduct = {};
       for (final box in boxTypes) {
-        final item = inventory.firstWhere(
-          (i) => i.type == box.type && i.number == box.number,
-          orElse: () => throw Exception(
-            'ITEM_NOT_FOUND:${box.type}:${box.number}',
-          ),
-        );
-
+        final item = _itemForBox(box, items);
+        if (item == null) {
+          throw Exception('ITEM_NOT_FOUND:${box.type}:${box.number}');
+        }
         final productCode = item.productCode;
         toDeduct[productCode] = (toDeduct[productCode] ?? 0) + box.quantity;
       }
@@ -436,5 +528,119 @@ class InventoryService {
       'skipped': skipped,
       'errors': errors
     };
+  }
+
+  /// Проверка: один штрихкод — одна позиция.
+  Future<void> _assertBarcodeUnique(
+    String barcode, {
+    String? exceptProductCode,
+  }) async {
+    final byField = await _inventoryCollection()
+        .where('barcode', isEqualTo: barcode)
+        .limit(1)
+        .get();
+    if (byField.docs.isNotEmpty) {
+      final found = InventoryItem.fromMap(
+        byField.docs.first.data(),
+        byField.docs.first.id,
+      );
+      if (found.productCode != exceptProductCode) {
+        throw Exception('BARCODE_DUPLICATE');
+      }
+    }
+    final byId = await _inventoryCollection().doc(barcode).get();
+    if (byId.exists && byId.id != exceptProductCode) {
+      throw Exception('BARCODE_DUPLICATE');
+    }
+  }
+
+  /// Обновить ברקוד позиции (или очистить, если пусто).
+  Future<void> updateItemBarcode({
+    required String productCode,
+    String? barcode,
+    required String userName,
+  }) async {
+    final trimmed = barcode?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      await _assertBarcodeUnique(trimmed, exceptProductCode: productCode);
+    }
+
+    final id = InventoryItem.generateId(productCode);
+    final doc = await _inventoryCollection().doc(id).get();
+    if (!doc.exists) throw Exception('ITEM_NOT_FOUND');
+
+    final update = <String, dynamic>{
+      'lastUpdated': FieldValue.serverTimestamp(),
+      'updatedBy': userName,
+    };
+    if (trimmed == null || trimmed.isEmpty) {
+      update['barcode'] = FieldValue.delete();
+    } else {
+      update['barcode'] = trimmed;
+    }
+    await _inventoryCollection().doc(id).update(update);
+  }
+
+  /// Поиск позиции по ברקוד или מק"ט (документ id = productCode).
+  Future<InventoryItem?> findByScanCode(String raw) async {
+    final code = raw.trim();
+    if (code.isEmpty) return null;
+
+    final byId = await _inventoryCollection().doc(code).get();
+    if (byId.exists) {
+      return InventoryItem.fromMap(byId.data()!, byId.id);
+    }
+
+    final byBarcode = await _inventoryCollection()
+        .where('barcode', isEqualTo: code)
+        .limit(1)
+        .get();
+    if (byBarcode.docs.isNotEmpty) {
+      final doc = byBarcode.docs.first;
+      return InventoryItem.fromMap(doc.data(), doc.id);
+    }
+    return null;
+  }
+
+  /// Приход/расход по сканированию (только при включённом מחסן ממוחשב).
+  Future<InventoryItem> applyBarcodeScan({
+    required String scanCode,
+    required int quantityDelta,
+    required String userName,
+  }) async {
+    if (quantityDelta == 0) {
+      throw Exception('INVALID_QUANTITY');
+    }
+    final item = await findByScanCode(scanCode);
+    if (item == null) throw Exception('BARCODE_NOT_FOUND');
+
+    final before = item.quantity;
+    final after = before + quantityDelta;
+    if (after < 0) throw Exception('INSUFFICIENT_STOCK');
+
+    await _inventoryCollection().doc(item.id).update({
+      'quantity': after,
+      'lastUpdated': FieldValue.serverTimestamp(),
+      'updatedBy': userName,
+    });
+
+    await _logChange(
+      productCode: item.productCode,
+      type: item.type,
+      number: item.number,
+      quantityChange: quantityDelta,
+      quantityBefore: before,
+      quantityAfter: after,
+      userName: userName,
+      action: quantityDelta > 0 ? 'barcode_in' : 'barcode_out',
+      reason: 'barcode_scan',
+      barcode: scanCode.trim(),
+    );
+
+    return item.copyWith(
+      quantity: after,
+      lastUpdated: DateTime.now(),
+      updatedBy: userName,
+    );
   }
 }

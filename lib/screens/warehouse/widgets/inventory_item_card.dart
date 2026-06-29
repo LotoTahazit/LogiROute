@@ -13,12 +13,16 @@ class InventoryItemCard extends StatelessWidget {
   final InventoryItem item;
   final bool showAllFields;
   final String Function(DateTime) formatDate;
+  final bool showBarcodeEdit;
+  final VoidCallback? onEditBarcode;
 
   const InventoryItemCard({
     super.key,
     required this.item,
     this.showAllFields = true,
     required this.formatDate,
+    this.showBarcodeEdit = false,
+    this.onEditBarcode,
   });
 
   @override
@@ -57,13 +61,18 @@ class InventoryItemCard extends StatelessWidget {
           children: [
             // מק"ט - ПЕРВОЕ ПОЛЕ (показываем всегда) - ВСЕГДА НА ИВРИТЕ
             Text(
-              'מק"ט: ${item.productCode}',
+              '${l10n.productCode}: ${item.productCode}',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: Colors.blue,
               ),
             ),
+            if (item.barcode != null && item.barcode!.isNotEmpty)
+              Text(
+                l10n.barcodeWithValue(item.barcode!),
+                style: TextStyle(fontSize: 13, color: AppTheme.muted),
+              ),
             const SizedBox(height: 2),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -149,9 +158,16 @@ class InventoryItemCard extends StatelessWidget {
                   ],
                 );
               },
-            ),
+              ),
           ],
         ),
+        trailing: showBarcodeEdit
+            ? IconButton(
+                icon: const Icon(Icons.qr_code_2),
+                tooltip: l10n.barcodeEditTitle,
+                onPressed: onEditBarcode,
+              )
+            : null,
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -163,37 +179,32 @@ class InventoryItemCard extends StatelessWidget {
               // Объем в мл (если заполнен)
               if (item.volumeMl != null)
                 Text(
-                  'נפח: ${item.volumeMl} מל',
+                  l10n.volumeMlDisplay(item.volumeMl!),
                   style: const TextStyle(fontSize: 14),
                 ),
-              // Диаметр (если заполнен)
               if (item.diameter != null && item.diameter!.isNotEmpty)
                 Text(
-                  'קוטר: ${item.diameter}',
+                  '${l10n.diameter}: ${item.diameter}',
                   style: const TextStyle(fontSize: 14),
                 ),
-              // Объем текстовый (если заполнен)
               if (item.volume != null && item.volume!.isNotEmpty)
                 Text(
-                  'נפח: ${item.volume}',
+                  '${l10n.colVolume}: ${item.volume}',
                   style: const TextStyle(fontSize: 14),
                 ),
-              // Количество в коробке (если заполнен)
               if (item.piecesPerBox != null)
                 Text(
-                  'ארוז: ${item.piecesPerBox} יח\' בקרטון',
+                  '${item.piecesPerBox} ${l10n.piecesInBox}',
                   style: const TextStyle(fontSize: 14),
                 ),
-              // Количество на миштахе
               Text(
-                'כמות במשטח: ${item.quantityPerPallet} יח\'',
+                '${l10n.quantityPerPallet}: ${item.quantityPerPallet} ${l10n.units}',
                 style: const TextStyle(fontSize: 14),
               ),
-              // Дополнительная информация (если заполнена)
               if (item.additionalInfo != null &&
                   item.additionalInfo!.isNotEmpty)
                 Text(
-                  'מידע נוסף: ${item.additionalInfo}',
+                  '${l10n.additionalInfo}: ${item.additionalInfo}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
@@ -205,7 +216,7 @@ class InventoryItemCard extends StatelessWidget {
 
             // Количество - показываем всегда - НА ИВРИТЕ
             Text(
-              'כמות: ${item.quantity} יח\'',
+              '${l10n.quantity}: ${item.quantity} ${l10n.units}',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -248,7 +259,10 @@ class InventoryItemCard extends StatelessWidget {
             // Информация об обновлении - НА ИВРИТЕ (данные)
             if (showAllFields)
               Text(
-                'עודכן: ${formatDate(item.lastUpdated)} ע"י ${item.updatedBy}',
+                l10n.inventoryUpdatedLine(
+                  formatDate(item.lastUpdated),
+                  item.updatedBy,
+                ),
                 style: TextStyle(
                   fontSize: 13,
                   color: AppTheme.muted,

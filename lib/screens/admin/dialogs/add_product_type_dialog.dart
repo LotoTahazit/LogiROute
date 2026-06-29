@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/product_type.dart';
 import '../../../services/product_type_service.dart';
+import '../../../services/company_terminology_service.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// תרגום מפתח קטגוריה לשם בעברית
@@ -28,6 +29,24 @@ String categoryDisplayName(String key, AppLocalizations l10n) {
       return l10n.categoryBags;
     case 'boxes':
       return l10n.categoryBoxes;
+    case 'beverages':
+      return l10n.categoryBeverages;
+    case 'frozen':
+      return l10n.categoryFrozen;
+    case 'snacks':
+      return l10n.categorySnacks;
+    case 'pants':
+      return l10n.categoryPants;
+    case 'shoes':
+      return l10n.categoryShoes;
+    case 'accessories':
+      return l10n.categoryAccessories;
+    case 'blocks':
+      return l10n.categoryBlocks;
+    case 'mix':
+      return l10n.categoryMix;
+    case 'tools':
+      return l10n.categoryTools;
     default:
       return key;
   }
@@ -69,8 +88,17 @@ class _AddProductTypeDialogState extends State<AddProductTypeDialog> {
   }
 
   Future<void> _loadCategories() async {
+    final terminology =
+        await CompanyTerminologyService(companyId: widget.companyId)
+            .getTerminology();
+    final ws = terminology.warehouseStructure;
+    if (ws.configured) {
+      _unitsPerBoxController.text = ws.defaultUnitsPerBox.toString();
+      _boxesPerPalletController.text = ws.defaultBoxesPerPallet.toString();
+    }
     final service = ProductTypeService(companyId: widget.companyId);
-    final cats = await service.getCategories();
+    final cats =
+        await service.getCategories(businessType: terminology.businessType);
     setState(() {
       _categories = cats;
       // Выбираем первую существующую категорию или null

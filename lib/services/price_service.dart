@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/price.dart';
 
 class PriceService {
+  static const int defaultListLimit = 300;
+
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -21,10 +23,11 @@ class PriceService {
         .collection('prices');
   }
 
-  /// Получить все цены
-  Future<List<Price>> getAllPrices() async {
+  /// Список цен (bounded).
+  Future<List<Price>> getAllPrices({int limit = defaultListLimit}) async {
     try {
-      final snapshot = await _pricesCollection().get();
+      final snapshot =
+          await _pricesCollection().orderBy('type').limit(limit).get();
       print(
           '📊 [Price] Loaded ${snapshot.docs.length} prices from companies/$companyId/prices');
       return snapshot.docs
@@ -36,10 +39,14 @@ class PriceService {
     }
   }
 
-  /// Получить цены в реальном времени
-  Stream<List<Price>> getPricesStream() {
+  /// Stream цен (bounded).
+  Stream<List<Price>> getPricesStream({int limit = defaultListLimit}) {
     print('📡 [Price] Starting stream for companies/$companyId/prices');
-    return _pricesCollection().snapshots().map((snapshot) {
+    return _pricesCollection()
+        .orderBy('type')
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       print('📊 [Price] Stream update: ${snapshot.docs.length} prices');
       return snapshot.docs
           .map((doc) => Price.fromMap(doc.data(), doc.id))

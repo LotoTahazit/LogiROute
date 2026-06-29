@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:provider/provider.dart';
 import 'package:excel/excel.dart' as xl;
 import '../../models/inventory_count.dart';
 import '../../models/count_item.dart';
 import '../../services/inventory_count_service.dart';
 import '../../services/company_context.dart';
+import '../../services/auth_service.dart';
+import '../../services/warehouse_access.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
@@ -237,6 +240,9 @@ class _InventoryCountDetailScreenState
         _count!.status == 'completed' || _count!.status == 'approved';
     final isApproved = _count!.status == 'approved';
     final filteredItems = _getFilteredItems();
+    final auth = context.watch<AuthService>();
+    final role = auth.viewAsRole ?? auth.userRole;
+    final canWrite = WarehouseAccess.canWriteWarehouse(role);
 
     return Scaffold(
       appBar: AppBar(
@@ -415,8 +421,8 @@ class _InventoryCountDetailScreenState
                   ),
           ),
 
-          // Кнопка подтверждения
-          if (isCompleted && !isApproved)
+          // Кнопка подтверждения (только warehouse write)
+          if (canWrite && isCompleted && !isApproved)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(

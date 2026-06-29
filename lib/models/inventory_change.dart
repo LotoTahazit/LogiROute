@@ -13,6 +13,7 @@ class InventoryChange {
   final String userName; // Кто сделал изменение
   final String action; // 'add', 'deduct', 'update'
   final String? reason; // Причина (опционально)
+  final String? barcode; // ברקוד שנסרק (מחסן ממוחשב)
   final bool archived; // Архивировано ли
   final DateTime? archivedAt; // Когда архивировано
   final String? archiveFile; // Путь к файлу архива
@@ -29,6 +30,7 @@ class InventoryChange {
     required this.userName,
     required this.action,
     this.reason,
+    this.barcode,
     this.archived = false,
     this.archivedAt,
     this.archiveFile,
@@ -49,6 +51,7 @@ class InventoryChange {
       userName: map['userName'] ?? '',
       action: map['action'] ?? '',
       reason: map['reason'],
+      barcode: map['barcode']?.toString(),
       archived: map['archived'] ?? false,
       archivedAt: map['archivedAt'] != null
           ? (map['archivedAt'] as Timestamp).toDate()
@@ -69,6 +72,7 @@ class InventoryChange {
       'userName': userName,
       'action': action,
       if (reason != null) 'reason': reason,
+      if (barcode != null && barcode!.isNotEmpty) 'barcode': barcode,
       'archived': archived,
       if (archivedAt != null) 'archivedAt': Timestamp.fromDate(archivedAt!),
       if (archiveFile != null) 'archiveFile': archiveFile,
@@ -83,6 +87,10 @@ class InventoryChange {
         return 'הוצאה';
       case 'update':
         return 'עדכון';
+      case 'barcode_in':
+        return 'כניסה (ברקוד)';
+      case 'barcode_out':
+        return 'יציאה (ברקוד)';
       default:
         return action;
     }

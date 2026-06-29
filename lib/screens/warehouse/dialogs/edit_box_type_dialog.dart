@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:logiroute/services/box_type_service.dart';
 import 'package:logiroute/services/company_context.dart';
+import 'package:logiroute/services/company_terminology_service.dart';
+import 'package:logiroute/models/company_terminology.dart';
+import 'package:logiroute/utils/product_catalog_labels.dart';
 import 'package:logiroute/l10n/app_localizations.dart';
 
 class EditBoxTypeDialog extends StatefulWidget {
@@ -61,6 +64,8 @@ class EditBoxTypeDialog extends StatefulWidget {
 
 class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
   late final BoxTypeService _boxTypeService;
+  ProductCatalogLabels? _labels;
+  bool _loadingLabels = true;
   late final TextEditingController _productCodeController;
   late final TextEditingController _typeController;
   late final TextEditingController _numberController;
@@ -89,6 +94,24 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
         TextEditingController(text: widget.oldPiecesPerBox?.toString() ?? '');
     _additionalInfoController =
         TextEditingController(text: widget.oldAdditionalInfo ?? '');
+    _loadLabels(companyId);
+  }
+
+  Future<void> _loadLabels(String companyId) async {
+    if (companyId.isEmpty) {
+      if (mounted) setState(() => _loadingLabels = false);
+      return;
+    }
+    final terminology =
+        await CompanyTerminologyService(companyId: companyId).getTerminology();
+    if (!mounted) return;
+    setState(() {
+      _labels = ProductCatalogLabels.fromTerminology(
+        terminology,
+        AppLocalizations.of(context)!,
+      );
+      _loadingLabels = false;
+    });
   }
 
   @override
@@ -168,9 +191,19 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final labels = _labels ??
+        ProductCatalogLabels.fromTerminology(
+          CompanyTerminology(companyId: ''),
+          l10n,
+        );
     return AlertDialog(
       title: Text(l10n.editBoxType),
-      content: SingleChildScrollView(
+      content: _loadingLabels
+          ? const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -185,14 +218,14 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
             TextField(
                 controller: _typeController,
                 decoration: InputDecoration(
-                    labelText: l10n.typeLabel,
+                    labelText: labels.typeLabel,
                     border: const OutlineInputBorder()),
                 onChanged: (value) => setState(() {})),
             const SizedBox(height: 16),
             TextField(
                 controller: _numberController,
                 decoration: InputDecoration(
-                    labelText: l10n.numberLabel,
+                    labelText: labels.numberLabel,
                     border: const OutlineInputBorder()),
                 keyboardType: TextInputType.number,
                 onChanged: (value) => setState(() {})),
@@ -200,7 +233,7 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
             TextField(
                 controller: _volumeController,
                 decoration: InputDecoration(
-                    labelText: l10n.volumeMlLabel,
+                    labelText: labels.volumeLabel,
                     border: const OutlineInputBorder()),
                 keyboardType: TextInputType.number,
                 onChanged: (value) => setState(() {})),
@@ -208,22 +241,24 @@ class _EditBoxTypeDialogState extends State<EditBoxTypeDialog> {
             TextField(
                 controller: _quantityPerPalletController,
                 decoration: InputDecoration(
-                    labelText: l10n.quantityPerPalletLabel,
+                    labelText: labels.quantityPerPalletLabel,
                     hintText: l10n.requiredField,
                     border: const OutlineInputBorder()),
                 keyboardType: TextInputType.number,
                 onChanged: (value) => setState(() {})),
             const SizedBox(height: 16),
-            TextField(
-                controller: _diameterController,
-                decoration: InputDecoration(
-                    labelText: l10n.diameterLabel,
-                    border: const OutlineInputBorder())),
-            const SizedBox(height: 16),
+            if (labels.showDiameter) ...[
+              TextField(
+                  controller: _diameterController,
+                  decoration: InputDecoration(
+                      labelText: l10n.diameterLabel,
+                      border: const OutlineInputBorder())),
+              const SizedBox(height: 16),
+            ],
             TextField(
                 controller: _piecesPerBoxController,
                 decoration: InputDecoration(
-                    labelText: l10n.piecesPerBoxLabel,
+                    labelText: labels.piecesPerBoxLabel,
                     border: const OutlineInputBorder()),
                 keyboardType: TextInputType.number),
             const SizedBox(height: 16),

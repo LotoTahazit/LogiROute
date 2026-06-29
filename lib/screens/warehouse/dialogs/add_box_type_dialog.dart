@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../services/box_type_service.dart';
 import '../../../services/company_context.dart';
+import '../../../services/company_terminology_service.dart';
+import '../../../models/company_terminology.dart';
+import '../../../utils/product_catalog_labels.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Диалог добавления нового типа в справочник и в инвентарь
@@ -34,6 +37,8 @@ class AddBoxTypeDialog extends StatefulWidget {
 
 class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   late final BoxTypeService _boxTypeService;
+  ProductCatalogLabels? _labels;
+  bool _loadingLabels = true;
 
   final _productCodeController = TextEditingController(); // מק"ט - НОВОЕ ПОЛЕ
   final _typeController = TextEditingController();
@@ -50,6 +55,24 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
     final companyCtx = CompanyContext.of(context);
     final companyId = companyCtx.effectiveCompanyId ?? '';
     _boxTypeService = BoxTypeService(companyId: companyId);
+    _loadLabels(companyId);
+  }
+
+  Future<void> _loadLabels(String companyId) async {
+    if (companyId.isEmpty) {
+      if (mounted) setState(() => _loadingLabels = false);
+      return;
+    }
+    final terminology =
+        await CompanyTerminologyService(companyId: companyId).getTerminology();
+    if (!mounted) return;
+    setState(() {
+      _labels = ProductCatalogLabels.fromTerminology(
+        terminology,
+        AppLocalizations.of(context)!,
+      );
+      _loadingLabels = false;
+    });
   }
 
   @override
@@ -125,10 +148,20 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final labels = _labels ??
+        ProductCatalogLabels.fromTerminology(
+          CompanyTerminology(companyId: ''),
+          l10n,
+        );
 
     return AlertDialog(
       title: Text(l10n.addNewBoxType),
-      content: SingleChildScrollView(
+      content: _loadingLabels
+          ? const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -148,7 +181,7 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             TextField(
               controller: _typeController,
               decoration: InputDecoration(
-                labelText: l10n.typeLabel,
+                labelText: labels.typeLabel,
                 border: const OutlineInputBorder(),
               ),
               onChanged: (value) => setState(() {}),
@@ -159,7 +192,7 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             TextField(
               controller: _numberController,
               decoration: InputDecoration(
-                labelText: l10n.numberLabel,
+                labelText: labels.numberLabel,
                 border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -167,11 +200,11 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Объем в мл (необязательное)
+            // Объем / вес (необязательное)
             TextField(
               controller: _volumeController,
               decoration: InputDecoration(
-                labelText: l10n.volumeMlLabel,
+                labelText: labels.volumeLabel,
                 border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -179,11 +212,11 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Количество на миштахе - обязательное
+            // Количество на паллете / картоне
             TextField(
               controller: _quantityPerPalletController,
               decoration: InputDecoration(
-                labelText: l10n.quantityPerPalletLabel,
+                labelText: labels.quantityPerPalletLabel,
                 hintText: l10n.requiredField,
                 border: const OutlineInputBorder(),
               ),
@@ -192,21 +225,22 @@ class _AddBoxTypeDialogState extends State<AddBoxTypeDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Диаметр (необязательное)
-            TextField(
-              controller: _diameterController,
-              decoration: InputDecoration(
-                labelText: l10n.diameterLabel,
-                border: const OutlineInputBorder(),
+            if (labels.showDiameter) ...[
+              TextField(
+                controller: _diameterController,
+                decoration: InputDecoration(
+                  labelText: l10n.diameterLabel,
+                  border: const OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             // Количество в коробке (необязательное)
             TextField(
               controller: _piecesPerBoxController,
               decoration: InputDecoration(
-                labelText: l10n.piecesPerBoxLabel,
+                labelText: labels.piecesPerBoxLabel,
                 border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,

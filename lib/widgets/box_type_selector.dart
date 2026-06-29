@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../models/box_type.dart';
-import '../models/inventory_item.dart';
 import '../models/product_type.dart';
 import '../services/box_type_service.dart';
 import '../services/product_type_service.dart';
@@ -376,34 +375,43 @@ class _BoxTypeSelectorState extends State<BoxTypeSelector> {
     final companyCtx = CompanyContext.of(context);
     final companyId = companyCtx.effectiveCompanyId ?? '';
 
-    // Загружаем остатки со склада ДО открытия диалога
-    final inventoryService = InventoryService(companyId: companyId);
-    final inventoryItems = await inventoryService.getInventory();
-    final stockMap = <String, InventoryItem>{};
-    for (final inv in inventoryItems) {
-      stockMap[inv.productCode] = inv;
-    }
-
-    // Собираем плоский список, обогащённый данными со склада
-    final allItems = <Map<String, dynamic>>[];
+    // Загружаем остатки только для SKU из справочника
+    final flatItems = <Map<String, dynamic>>[];
     for (final type in _availableTypes) {
       for (final item in (_numbersByType[type] ?? [])) {
-        final code = item['productCode'] as String? ?? '';
-        final inv = stockMap[code];
-        allItems.add({
+        flatItems.add({
           'type': type,
           'number': item['number'] as String,
-          'productCode': code,
-          'stock': inv?.quantity,
-          'quantityPerPallet':
-              inv?.quantityPerPallet ?? item['quantityPerPallet'],
-          'piecesPerBox': inv?.piecesPerBox ?? item['piecesPerBox'],
-          'diameter': inv?.diameter ?? item['diameter'],
-          'volumeMl': inv?.volumeMl ?? item['volumeMl'],
-          'volume': inv?.volume,
-          'additionalInfo': inv?.additionalInfo ?? item['additionalInfo'],
+          'productCode': item['productCode'] as String? ?? '',
+          'quantityPerPallet': item['quantityPerPallet'],
+          'piecesPerBox': item['piecesPerBox'],
+          'diameter': item['diameter'],
+          'volumeMl': item['volumeMl'],
+          'additionalInfo': item['additionalInfo'],
         });
       }
+    }
+
+    final inventoryService = InventoryService(companyId: companyId);
+    final stockMap = await inventoryService.getItemsByProductCodes(
+      flatItems.map((i) => i['productCode'] as String),
+    );
+
+    final allItems = <Map<String, dynamic>>[];
+    for (final item in flatItems) {
+      final code = item['productCode'] as String;
+      final inv = stockMap[code];
+      allItems.add({
+        ...item,
+        'stock': inv?.quantity,
+        'quantityPerPallet':
+            inv?.quantityPerPallet ?? item['quantityPerPallet'],
+        'piecesPerBox': inv?.piecesPerBox ?? item['piecesPerBox'],
+        'diameter': inv?.diameter ?? item['diameter'],
+        'volumeMl': inv?.volumeMl ?? item['volumeMl'],
+        'volume': inv?.volume,
+        'additionalInfo': inv?.additionalInfo ?? item['additionalInfo'],
+      });
     }
 
     // Сортировка по מק"ט (числовой)

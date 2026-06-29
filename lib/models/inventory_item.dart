@@ -15,6 +15,7 @@ class InventoryItem {
   final String? volume; // Объем (נפח) - необязательное
   final int? piecesPerBox; // Количество штук в коробке (ארוז) - необязательное
   final String? additionalInfo; // Дополнительные данные - необязательное
+  final String? barcode; // EAN/ברקוד — опционально для מחסן ממוחשב
 
   InventoryItem({
     required this.productCode, // מק"ט - ОБЯЗАТЕЛЬНОЕ поле - ПЕРВЫЙ ПАРАМЕТР
@@ -30,6 +31,7 @@ class InventoryItem {
     this.volume,
     this.piecesPerBox,
     this.additionalInfo,
+    this.barcode,
   });
 
   // Вычисляемые поля
@@ -59,6 +61,7 @@ class InventoryItem {
       if (volume != null) 'volume': volume,
       if (piecesPerBox != null) 'piecesPerBox': piecesPerBox,
       if (additionalInfo != null) 'additionalInfo': additionalInfo,
+      if (barcode != null && barcode!.isNotEmpty) 'barcode': barcode,
     };
   }
 
@@ -99,6 +102,7 @@ class InventoryItem {
           ? (map['piecesPerBox'] as num).toInt()
           : int.tryParse(map['piecesPerBox']?.toString() ?? ''),
       additionalInfo: map['additionalInfo']?.toString(),
+      barcode: map['barcode']?.toString(),
     );
   }
 
@@ -125,6 +129,7 @@ class InventoryItem {
     String? volume,
     int? piecesPerBox,
     String? additionalInfo,
+    String? barcode,
   }) {
     return InventoryItem(
       productCode: productCode ?? this.productCode, // מק"ט - ПЕРВЫЙ ПАРАМЕТР
@@ -140,6 +145,7 @@ class InventoryItem {
       volume: volume ?? this.volume,
       piecesPerBox: piecesPerBox ?? this.piecesPerBox,
       additionalInfo: additionalInfo ?? this.additionalInfo,
+      barcode: barcode ?? this.barcode,
     );
   }
 

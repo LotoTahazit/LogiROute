@@ -4,6 +4,7 @@ import '../../../services/inventory_service.dart';
 import '../../../services/company_context.dart';
 import '../../../l10n/app_localizations.dart';
 import 'inventory_item_card.dart';
+import '../dialogs/edit_barcode_dialog.dart';
 
 /// Виджет списка товаров с фильтрацией и сортировкой
 ///
@@ -19,6 +20,8 @@ class InventoryListView extends StatefulWidget {
   final bool showLowStockOnly;
   final String searchQuery;
   final String emptyMessage;
+  final bool barcodeWarehouseEnabled;
+  final String userName;
 
   const InventoryListView({
     super.key,
@@ -26,6 +29,8 @@ class InventoryListView extends StatefulWidget {
     this.showLowStockOnly = false,
     this.searchQuery = '',
     this.emptyMessage = 'אין פריטים במלאי',
+    this.barcodeWarehouseEnabled = false,
+    this.userName = '',
   });
 
   @override
@@ -34,17 +39,31 @@ class InventoryListView extends StatefulWidget {
 
 class _InventoryListViewState extends State<InventoryListView> {
   late final InventoryService _inventoryService;
-  late final Stream<List<InventoryItem>> _inventoryStream;
+  late Stream<List<InventoryItem>> _inventoryStream;
+  late final String _companyId;
+  int _streamLimit = InventoryService.defaultListLimit;
+  bool _truncated = false;
+
+  void _initStream() {
+    _inventoryStream =
+        _inventoryService.getInventoryStream(limit: _streamLimit);
+  }
 
   @override
   void initState() {
     super.initState();
-    // ✅ Initialize service and stream ONCE in initState
     final companyCtx = CompanyContext.of(context);
     final companyId = companyCtx.effectiveCompanyId ?? '';
+    _companyId = companyId;
     _inventoryService = InventoryService(companyId: companyId);
-    _inventoryStream = _inventoryService.getInventoryStream(limit: 200);
-    print('✅ [InventoryListView] Stream initialized in initState()');
+    _initStream();
+  }
+
+  void _loadMore() {
+    setState(() {
+      _streamLimit += InventoryService.defaultListLimit;
+      _initStream();
+    });
   }
 
   String _formatDate(DateTime date) {
@@ -54,6 +73,7 @@ class _InventoryListViewState extends State<InventoryListView> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<InventoryItem>>(
+      key: ValueKey(_streamLimit),
       stream: _inventoryStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -68,6 +88,7 @@ class _InventoryListViewState extends State<InventoryListView> {
         }
 
         final items = snapshot.data ?? [];
+        _truncated = items.length >= _streamLimit;
 
         if (items.isEmpty) {
           return Center(
@@ -128,18 +149,42 @@ class _InventoryListViewState extends State<InventoryListView> {
         }
 
         // Показываем список товаров
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: filteredItems.length,
-          itemBuilder: (context, index) {
-            final item = filteredItems[index];
+        return Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filteredItems.length,
+                itemBuilder: (context, index) {
+                  final item = filteredItems[index];
 
-            return InventoryItemCard(
-              item: item,
-              showAllFields: widget.showAllFields,
-              formatDate: _formatDate,
-            );
-          },
+                  return InventoryItemCard(
+                    item: item,
+                    showAllFields: widget.showAllFields,
+                    formatDate: _formatDate,
+                    showBarcodeEdit: widget.barcodeWarehouseEnabled,
+                    onEditBarcode: widget.barcodeWarehouseEnabled
+                        ? () => EditBarcodeDialog.show(
+                              context,
+                              item: item,
+                              companyId: _companyId,
+                              userName: widget.userName,
+                            )
+                        : null,
+                  );
+                },
+              ),
+            ),
+            if (_truncated)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: OutlinedButton.icon(
+                  onPressed: _loadMore,
+                  icon: const Icon(Icons.expand_more),
+                  label: Text(AppLocalizations.of(context)!.reportsLoadMore),
+                ),
+              ),
+          ],
         );
       },
     );

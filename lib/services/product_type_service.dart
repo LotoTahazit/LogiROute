@@ -133,7 +133,31 @@ class ProductTypeService {
     debugPrint('🗑️ [ProductType] Deleted: $id');
   }
 
-  /// Базовые категории — всегда доступны в дропдауне
+  /// Базовые категории — зависят от отрасли компании.
+  static List<String> baseCategoriesFor(String businessType) {
+    switch (businessType) {
+      case 'food':
+        return [
+          'general',
+          'bread',
+          'dairy',
+          'beverages',
+          'frozen',
+          'snacks',
+          'boxes',
+        ];
+      case 'clothing':
+        return ['general', 'shirts', 'pants', 'shoes', 'accessories', 'boxes'];
+      case 'construction':
+        return ['general', 'blocks', 'mix', 'tools', 'boxes'];
+      case 'packaging':
+        return baseCategories;
+      default:
+        return ['general', 'boxes', 'bags', 'containers'];
+    }
+  }
+
+  /// Базовые категории — упаковка (legacy default).
   static const List<String> baseCategories = [
     'general',
     'cups',
@@ -146,14 +170,14 @@ class ProductTypeService {
   ];
 
   /// Получить все категории (базовые + из товаров компании)
-  Future<List<String>> getCategories() async {
+  Future<List<String>> getCategories({String businessType = 'packaging'}) async {
     final snapshot = await _collection.get();
     final fromDb = snapshot.docs
         .map((doc) => doc.data()['category'] as String?)
         .where((cat) => cat != null && cat.isNotEmpty)
         .cast<String>()
         .toSet();
-    final all = {...baseCategories, ...fromDb}.toList();
+    final all = {...baseCategoriesFor(businessType), ...fromDb}.toList();
     all.sort();
     return all;
   }

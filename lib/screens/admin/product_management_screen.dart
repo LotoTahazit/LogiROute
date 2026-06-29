@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../models/product_type.dart';
 import '../../services/product_type_service.dart';
 import '../../services/product_import_service.dart';
+import '../../services/import/import_mapping_wizard_launcher.dart';
+import '../../models/import_wizard_type.dart';
 import '../../services/inventory_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
@@ -61,6 +63,11 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                 setState(() => _showInactiveProducts = !_showInactiveProducts);
               } else if (value == 'import') {
                 _showImportDialog(context, companyId);
+              } else if (value == 'import_wizard') {
+                ImportMappingWizardLauncher.open(
+                  context,
+                  initialType: ImportWizardType.products,
+                );
               } else if (value == 'export') {
                 _exportProducts(context, companyId);
               } else if (value == 'template') {
@@ -101,6 +108,16 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     const Icon(Icons.upload_file),
                     const SizedBox(width: 8),
                     Text(l10n.importFromExcel),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'import_wizard',
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_fix_high),
+                    const SizedBox(width: 8),
+                    Text(l10n.importWizardMenu),
                   ],
                 ),
               ),
@@ -463,9 +480,11 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         userName,
       );
 
-      if (products == null || products.isEmpty) {
+      if (products == null) return;
+
+      if (products.isEmpty) {
         if (context.mounted) {
-          SnackbarHelper.showWarning(context, l10n.importError);
+          SnackbarHelper.showError(context, l10n.importFileParseFailed);
         }
         return;
       }
@@ -482,7 +501,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       }
     } catch (e) {
       if (context.mounted) {
-        SnackbarHelper.showError(context, '${l10n.importError}: $e');
+        final msg = e.toString().contains('read_failed')
+            ? l10n.importFileReadFailed
+            : e.toString().contains('parse_failed')
+                ? l10n.importFileParseFailed
+                : '${l10n.importError}: $e';
+        SnackbarHelper.showError(context, msg);
       }
     }
   }

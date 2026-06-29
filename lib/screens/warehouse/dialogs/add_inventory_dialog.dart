@@ -50,7 +50,8 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
   String? _additionalInfo;
 
   final _productCodeController = TextEditingController(); // Поле ввода מק"ט
-  final _quantityController = TextEditingController();
+  final _barcodeController = TextEditingController();
+  final _quantityController = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -70,6 +71,7 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
   @override
   void dispose() {
     _productCodeController.dispose();
+    _barcodeController.dispose();
     _quantityController.dispose();
     super.dispose();
   }
@@ -181,6 +183,9 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
         diameter: _diameter,
         piecesPerBox: _piecesPerBox,
         additionalInfo: _additionalInfo,
+        barcode: _barcodeController.text.trim().isEmpty
+            ? null
+            : _barcodeController.text.trim(),
       );
 
       // Небольшая задержка для синхронизации с Firestore
@@ -199,9 +204,12 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
+        final message = e.toString().contains('BARCODE_DUPLICATE')
+            ? l10n.barcodeDuplicateError
+            : '${l10n.error}: $e';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${l10n.error}: $e'),
+            content: Text(message),
             backgroundColor: Colors.red,
           ),
         );
@@ -343,12 +351,14 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('סוג: $_selectedType',
+                    Text('${l10n.colType}: $_selectedType',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('מספר: $_selectedNumber'),
-                    if (_volumeMl != null) Text('נפח: $_volumeMl מל'),
+                    Text('${l10n.colNumber}: $_selectedNumber'),
+                    if (_volumeMl != null)
+                      Text(l10n.volumeMlDisplay(_volumeMl!)),
                     if (_quantityPerPallet != null)
-                      Text('כמות במשטח: $_quantityPerPallet'),
+                      Text(
+                          '${l10n.quantityPerPallet}: $_quantityPerPallet'),
                   ],
                 ),
               ),
@@ -360,12 +370,26 @@ class _AddInventoryDialogState extends State<AddInventoryDialog> {
             // Количество (штук)
             TextField(
               controller: _quantityController,
-              decoration: const InputDecoration(
-                labelText: 'כמות (יחידות)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.quantityLabel,
+                border: const OutlineInputBorder(),
+                helperText: _selectedProductCode != null &&
+                        (int.tryParse(_quantityController.text) ?? 0) <= 0
+                    ? l10n.quantityMustBePositive
+                    : null,
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _barcodeController,
+              decoration: InputDecoration(
+                labelText: l10n.barcodeScanFieldLabel,
+                border: const OutlineInputBorder(),
+                helperText: l10n.barcodeOptionalHelper,
+                prefixIcon: const Icon(Icons.qr_code),
+              ),
             ),
           ],
         ),

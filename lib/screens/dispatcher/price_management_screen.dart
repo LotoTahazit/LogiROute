@@ -79,7 +79,7 @@ class _PriceManagementScreenState extends State<PriceManagementScreen> {
       final boxTypes = await boxTypeService.getAllBoxTypes();
 
       // Загружаем все цены
-      final prices = await priceService.getAllPrices();
+      final prices = await priceService.getAllPrices(limit: 500);
       final pricesMap = <String, Price>{};
       for (final price in prices) {
         pricesMap[price.id] = price;

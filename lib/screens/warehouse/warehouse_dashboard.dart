@@ -1,8 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/inventory_item.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../l10n/app_localizations.dart';
@@ -12,15 +12,21 @@ import 'dialogs/add_inventory_dialog.dart';
 import 'dialogs/add_box_type_dialog.dart';
 import 'dialogs/box_types_manager_dialog.dart';
 import 'inventory_count_screen.dart';
+import 'dialogs/barcode_scan_dialog.dart';
 
 // Условный импорт только для веба
 import '../../services/export_service.dart'
     if (dart.library.io) '../../services/export_service_stub.dart';
 import '../../services/inventory_import_service.dart';
 import '../../services/inventory_service.dart';
+import '../../services/company_settings_service.dart';
+import '../../services/warehouse_access.dart';
+import '../../services/import/import_mapping_wizard_launcher.dart';
+import '../../models/import_wizard_type.dart';
 import '../../widgets/import_preview_dialog.dart';
 import '../../widgets/column_mapping_dialog.dart';
 import '../../widgets/notification_bell.dart';
+
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
 
@@ -34,11 +40,47 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   String _userName = '';
   bool _showLowStockOnly = false;
   String _searchQuery = '';
+  bool _barcodeWarehouseEnabled = false;
+  StreamSubscription<bool>? _companySub;
+  String? _watchedCompanyId;
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+    if (companyId.isNotEmpty && companyId != _watchedCompanyId) {
+      _watchedCompanyId = companyId;
+      _watchCompanySettings(companyId);
+    }
+  }
+
+  void _watchCompanySettings(String companyId) {
+    _companySub?.cancel();
+    final service = CompanySettingsService(companyId: companyId);
+    service.readComputerizedWarehouseEnabled().then((enabled) {
+      if (mounted) setState(() => _barcodeWarehouseEnabled = enabled);
+    });
+    _companySub = service.watchComputerizedWarehouseEnabled().listen(
+      (enabled) {
+        if (!mounted) return;
+        if (enabled != _barcodeWarehouseEnabled) {
+          setState(() => _barcodeWarehouseEnabled = enabled);
+        }
+      },
+      onError: (e) => debugPrint('❌ [Warehouse] settings stream: $e'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _companySub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserName() async {
@@ -64,23 +106,30 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Future<void> _exportReport() async {
     final l10n = AppLocalizations.of(context)!;
 
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.exportToExcelMenu),
+        content: Text(l10n.exportLargeDatasetWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
     try {
-      // Получаем текущий инвентарь
       final companyCtx = CompanyContext.of(context);
       final companyId = companyCtx.effectiveCompanyId ?? '';
-
-      final snapshot = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('warehouse')
-          .doc('_root')
-          .collection('inventory')
-          .orderBy('productCode')
-          .get();
-
-      final items = snapshot.docs
-          .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
-          .toList();
+      final inventoryService = InventoryService(companyId: companyId);
+      final items = await inventoryService.fetchAllInventoryForExport();
 
       if (items.isEmpty) {
         if (mounted) {
@@ -91,7 +140,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         return;
       }
 
-      // Экспортируем
+      if (items.length > 2000 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.exportLargeDatasetNotice(items.length))),
+        );
+      }
+
       ExportService.exportInventoryToCSV(items);
 
       if (mounted) {
@@ -239,6 +293,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         _exportReport();
       case 'import':
         _importInventory();
+      case 'import_wizard':
+        ImportMappingWizardLauncher.open(
+          context,
+          initialType: ImportWizardType.products,
+        );
+      case 'barcode_scan':
+        final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
+        if (companyId.isNotEmpty) {
+          BarcodeScanDialog.show(
+            context,
+            companyId: companyId,
+            userName: _userName,
+          );
+        }
       case 'logout':
         _signOut();
     }
@@ -268,23 +336,29 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
-  List<PopupMenuEntry<String>> _warehouseOperationsItems(AppLocalizations l10n) =>
-      [
-        _whMenuItem('inventory_count', Icons.fact_check, l10n.inventoryCount),
-        _whMenuItem('manage_types', Icons.library_books, l10n.manageBoxTypes),
-        _whMenuItem(
-            'add_type', Icons.add_circle_outline, l10n.addNewBoxTypeToCatalog),
-      ];
+  List<PopupMenuEntry<String>> _warehouseOperationsItems(
+      AppLocalizations l10n, bool canWrite) {
+    if (!canWrite) return [];
+    return [
+      if (_barcodeWarehouseEnabled)
+        _whMenuItem('barcode_scan', Icons.qr_code_2, l10n.barcodeScanTitle),
+      _whMenuItem('inventory_count', Icons.fact_check, l10n.inventoryCount),
+      _whMenuItem('manage_types', Icons.library_books, l10n.manageBoxTypes),
+      _whMenuItem(
+          'add_type', Icons.add_circle_outline, l10n.addNewBoxTypeToCatalog),
+    ];
+  }
 
   List<PopupMenuEntry<String>> _warehouseReportItems(AppLocalizations l10n) => [
         _whMenuItem('history', Icons.history, l10n.changeHistory),
       ];
 
   List<PopupMenuEntry<String>> _warehouseImportExportItems(
-      AppLocalizations l10n) {
+      AppLocalizations l10n, bool canWrite) {
     return [
       if (kIsWeb) _whMenuItem('export', Icons.download, l10n.exportReport),
-      _whMenuItem('import', Icons.upload_file, l10n.importFromExcel),
+      if (canWrite) _whMenuItem('import', Icons.upload_file, l10n.importFromExcel),
+      if (canWrite) _whMenuItem('import_wizard', Icons.auto_fix_high, l10n.importWizardMenu),
     ];
   }
 
@@ -301,10 +375,15 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
-  List<PopupMenuEntry<String>> _warehouseMobileMenuItems(AppLocalizations l10n) {
+  List<PopupMenuEntry<String>> _warehouseMobileMenuItems(
+      AppLocalizations l10n, bool canWrite) {
+    final ops = _warehouseOperationsItems(l10n, canWrite);
+    final io = _warehouseImportExportItems(l10n, canWrite);
     return [
-      _whSectionHeader(l10n.appBarGroupOperations),
-      ..._warehouseOperationsItems(l10n),
+      if (ops.isNotEmpty) ...[
+        _whSectionHeader(l10n.appBarGroupOperations),
+        ...ops,
+      ],
       _whMenuItem(
         'filter',
         _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
@@ -313,22 +392,30 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       const PopupMenuDivider(),
       _whSectionHeader(l10n.appBarGroupReports),
       ..._warehouseReportItems(l10n),
-      const PopupMenuDivider(),
-      _whSectionHeader(l10n.appBarGroupImportExport),
-      ..._warehouseImportExportItems(l10n),
+      if (io.isNotEmpty) ...[
+        const PopupMenuDivider(),
+        _whSectionHeader(l10n.appBarGroupImportExport),
+        ...io,
+      ],
       const PopupMenuDivider(),
       _whMenuItem('logout', Icons.logout, l10n.logout),
     ];
   }
 
   List<Widget> _buildAppBarActions(
-      BuildContext context, AppLocalizations l10n) {
+      BuildContext context, AppLocalizations l10n, bool canWrite) {
     final isNarrow = MediaQuery.of(context).size.width < 600;
     final companyId = CompanyContext.of(context).effectiveCompanyId ?? '';
 
     if (isNarrow) {
       return [
         NotificationBell(companyId: companyId),
+        if (canWrite && _barcodeWarehouseEnabled)
+          IconButton(
+            icon: const _BarcodeFabIcon(color: Colors.green, size: 22),
+            tooltip: l10n.barcodeScanTitle,
+            onPressed: () => _handleWarehouseMenuAction('barcode_scan'),
+          ),
         IconButton(
           icon: Icon(
             _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
@@ -341,7 +428,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           icon: const Icon(Icons.more_vert),
           tooltip: l10n.settings,
           onSelected: _handleWarehouseMenuAction,
-          itemBuilder: (_) => _warehouseMobileMenuItems(l10n),
+          itemBuilder: (_) => _warehouseMobileMenuItems(l10n, canWrite),
         ),
         IconButton(
           icon: const Icon(Icons.logout),
@@ -351,8 +438,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       ];
     }
 
+    final ops = _warehouseOperationsItems(l10n, canWrite);
+    final io = _warehouseImportExportItems(l10n, canWrite);
+
     return [
       NotificationBell(companyId: companyId),
+      if (canWrite && _barcodeWarehouseEnabled)
+        IconButton(
+          icon: const _BarcodeFabIcon(color: Colors.green, size: 22),
+          tooltip: l10n.barcodeScanTitle,
+          onPressed: () => _handleWarehouseMenuAction('barcode_scan'),
+        ),
       IconButton(
         icon: Icon(
           _showLowStockOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
@@ -361,21 +457,23 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         tooltip: l10n.showLowStockOnly,
         onPressed: () => setState(() => _showLowStockOnly = !_showLowStockOnly),
       ),
-      _whGroupMenu(
-        icon: Icons.tune_outlined,
-        tooltip: l10n.appBarGroupOperations,
-        items: _warehouseOperationsItems(l10n),
-      ),
+      if (ops.isNotEmpty)
+        _whGroupMenu(
+          icon: Icons.tune_outlined,
+          tooltip: l10n.appBarGroupOperations,
+          items: ops,
+        ),
       _whGroupMenu(
         icon: Icons.bar_chart,
         tooltip: l10n.appBarGroupReports,
         items: _warehouseReportItems(l10n),
       ),
-      _whGroupMenu(
-        icon: Icons.import_export,
-        tooltip: l10n.appBarGroupImportExport,
-        items: _warehouseImportExportItems(l10n),
-      ),
+      if (io.isNotEmpty)
+        _whGroupMenu(
+          icon: Icons.import_export,
+          tooltip: l10n.appBarGroupImportExport,
+          items: io,
+        ),
       IconButton(
         icon: const Icon(Icons.logout),
         tooltip: l10n.logout,
@@ -389,19 +487,40 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final authService = context.watch<AuthService>();
     final l10n = AppLocalizations.of(context)!;
 
-    // Определяем роль пользователя
     final userRole = authService.viewAsRole ?? authService.userRole;
-    final isDispatcher = userRole == 'dispatcher' ||
+    final canWrite = WarehouseAccess.canWriteWarehouse(userRole);
+    final showReferenceFields = userRole == 'dispatcher' ||
         userRole == 'admin' ||
         userRole == 'super_admin';
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.warehouseInventoryManagement),
-        actions: _buildAppBarActions(context, l10n),
+        actions: _buildAppBarActions(context, l10n, canWrite),
       ),
       body: Column(
         children: [
+          if (WarehouseAccess.isReadOnlyWarehouse(userRole))
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: Colors.blue.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.visibility, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${l10n.settingsReadOnly} — ${l10n.warehouseInventory}',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Индикатор режима просмотра для админа
           if (authService.userModel?.isAdmin == true &&
               authService.viewAsRole == 'warehouse_keeper')
@@ -475,24 +594,102 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           // Основной контент
           Expanded(
             child: InventoryListView(
-              showAllFields: isDispatcher,
+              showAllFields: showReferenceFields,
               showLowStockOnly: _showLowStockOnly,
               searchQuery: _searchQuery,
               emptyMessage: l10n.noItemsInInventory,
+              barcodeWarehouseEnabled:
+                  canWrite && _barcodeWarehouseEnabled,
+              userName: _userName,
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          AddInventoryDialog.show(
-            context: context,
-            userName: _userName,
-          );
-        },
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: canWrite
+          ? (_barcodeWarehouseEnabled
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FloatingActionButton.extended(
+                      heroTag: 'warehouse_barcode_scan',
+                      onPressed: () =>
+                          _handleWarehouseMenuAction('barcode_scan'),
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      tooltip: l10n.barcodeScanTitle,
+                      icon: const _BarcodeFabIcon(),
+                      label: const Text('QR'),
+                    ),
+                    const SizedBox(height: 12),
+                    FloatingActionButton(
+                      heroTag: 'warehouse_add_inventory',
+                      onPressed: () {
+                        AddInventoryDialog.show(
+                          context: context,
+                          userName: _userName,
+                        );
+                      },
+                      backgroundColor: Colors.green,
+                      child: const Icon(Icons.add),
+                    ),
+                  ],
+                )
+              : FloatingActionButton(
+                  onPressed: () {
+                    AddInventoryDialog.show(
+                      context: context,
+                      userName: _userName,
+                    );
+                  },
+                  backgroundColor: Colors.green,
+                  child: const Icon(Icons.add),
+                ))
+          : null,
     );
   }
+}
+
+/// Иконка штрихкода без Material Icons (web tree-shake).
+class _BarcodeFabIcon extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _BarcodeFabIcon({this.color = Colors.white, this.size = 24});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _BarcodeIconPainter(color),
+    );
+  }
+}
+
+class _BarcodeIconPainter extends CustomPainter {
+  final Color color;
+
+  _BarcodeIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()..color = color;
+    final w = size.width;
+    final h = size.height;
+    final bars = [0.06, 0.18, 0.30, 0.42, 0.54, 0.66, 0.78, 0.90];
+    for (final x in bars) {
+      final barW = w * (x == 0.06 || x == 0.90 ? 0.10 : 0.07);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * x, h * 0.12, barW, h * 0.76),
+          const Radius.circular(1),
+        ),
+        fill,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarcodeIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
