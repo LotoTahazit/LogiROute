@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { correlationLog, correlationErrorDetails } = require("./lib/correlation");
 
 const db = admin.firestore();
 const Timestamp = admin.firestore.Timestamp;
@@ -29,9 +30,14 @@ const { sha256hex, buildChainHashV1 } = require("./accounting/chain_hash");
  * Идемпотентность: если invoice уже issued — возвращаем существующий номер.
  */
 exports.issueInvoice = functions.https.onCall(async (data, context) => {
+  const correlationId = correlationLog("create_invoice", data, context);
   // --- 1. Auth ---
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Auth required",
+      correlationErrorDetails(data, context, { operation: "create_invoice" })
+    );
   }
   const uid = context.auth.uid;
 
@@ -72,16 +78,18 @@ exports.issueInvoice = functions.https.onCall(async (data, context) => {
   }
   const company = companySnap.data();
 
-  // Billing guard
+  // H5 pilot: maxDocsPerMonth is SOFT — not enforced in issueInvoice.
+  // Hard check would go here when PlanLimitPolicy flips to hard.
+  // See docs/project-structure.md §4.3.1
+
+  // Billing guard (C3 — unified with BillingGuard / firestore.rules)
   if (!isSuperAdmin) {
-    const status = company.billingStatus || "active";
-    const allowed = ["active", "grace"];
-    if (status === "trial") {
-      if (!company.trialUntil || company.trialUntil.toDate() < new Date()) {
-        throw new functions.https.HttpsError("permission-denied", "Trial expired");
-      }
-    } else if (!allowed.includes(status)) {
-      throw new functions.https.HttpsError("permission-denied", `Billing status: ${status}`);
+    const { billingAllowsAccess } = require("./lib/billingState");
+    if (!billingAllowsAccess(company)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Billing access denied"
+      );
     }
 
     // Module guard

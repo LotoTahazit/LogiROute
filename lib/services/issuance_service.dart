@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import '../core/correlation/correlation_context.dart';
 
 /// Сервис для серверной выдачи номеров документов через Cloud Functions.
 /// Заменяет клиентский _getNextSequentialNumberForType + finalizeInvoice.
@@ -26,19 +27,31 @@ class IssuanceService {
     required String companyId,
     required String invoiceId,
     required String counterKey,
+    String? userId,
+    String? correlationId,
   }) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.createInvoice,
+      companyId: companyId,
+      userId: userId,
+      correlationId: correlationId,
+    );
+    trace?.log('issueDocument invoice=$invoiceId key=$counterKey');
+
     final callable = _functions.httpsCallable(
       'issueInvoice',
       options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
     );
 
-    final result = await callable.call<Map<String, dynamic>>({
-      'companyId': companyId,
-      'invoiceId': invoiceId,
-      'counterKey': counterKey,
-    });
-
-    final data = result.data;
+    try {
+      final result = await callable.call<Map<String, dynamic>>({
+        'companyId': companyId,
+        'invoiceId': invoiceId,
+        'counterKey': counterKey,
+        if (trace != null) ...trace.cfPayload(),
+      });
+      trace?.log('issued docNumber=${result.data['docNumber']}');
+      final data = result.data;
     // Cloud Functions on web returns numbers as Int64 (fixnum) which dart2js
     // cannot cast directly to int — use num conversion instead.
     final rawDocNumber = data['docNumber'];
@@ -54,6 +67,11 @@ class IssuanceService {
       chainId: data['chainId'] as String?,
       idempotent: data['idempotent'] == true,
     );
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
   }
 }
 

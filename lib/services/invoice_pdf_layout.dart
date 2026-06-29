@@ -351,6 +351,16 @@ pw.Widget buildClientInfo(
               pw.SizedBox(height: 2),
               smartText(invoice.clientName, fontHebrewBold, fontLatin,
                   fontSize: 8, bold: true),
+              if (invoice.deliveryAddress != null &&
+                  invoice.deliveryAddress!.trim().isNotEmpty &&
+                  invoice.deliveryAddress!.trim() != invoice.address.trim()) ...[
+                pw.SizedBox(height: 4),
+                smartText('כתובת משלוח', fontHebrewBold, fontLatin,
+                    fontSize: 7, bold: true),
+                pw.SizedBox(height: 2),
+                smartText(invoice.deliveryAddress!, fontHebrew, fontLatin,
+                    fontSize: 7),
+              ],
               pw.SizedBox(height: 2),
               smartText('ת.ד', fontHebrew, fontLatin, fontSize: 7),
               pw.SizedBox(height: 2),

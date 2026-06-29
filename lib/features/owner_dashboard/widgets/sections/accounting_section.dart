@@ -1,11 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/company_settings.dart';
 import '../../../../services/accounting_sync_service.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../services/invoice_service.dart';
 import '../../../../services/issuance_service.dart';
 import '../../../../services/invoice_print_service.dart';
@@ -16,9 +18,12 @@ import '../../../../widgets/accounting_sync_panel.dart';
 import '../../../../widgets/bkmv_export_dialog.dart';
 import '../../../../widgets/logi_route_tab_bar.dart';
 import '../../models/accounting_doc.dart';
+import '../../models/role_hierarchy.dart';
+import '../../services/permissions_service.dart';
 import '../credit_note_form.dart';
 import 'accounting_helpers.dart';
-import 'create_doc_form_dialog.dart';
+import '../accounting_period_lock_panel.dart';
+import 'create_accounting_doc_screen.dart';
 import 'document_chain_dialog.dart';
 import 'accounting_provider_settings_dialog.dart';
 
@@ -78,6 +83,15 @@ class _AccountingSectionState extends State<AccountingSection> {
   DateTime? get _accountingLockedUntil =>
       widget.companySettings.accountingLockedUntil;
 
+  PermissionsService get _permissions {
+    final auth = context.read<AuthService>();
+    return PermissionsService.forUser(
+      actualRole: auth.userModel?.role,
+      viewAsRole: auth.viewAsRole,
+      userCompanyId: widget.companyId,
+    );
+  }
+
   bool _isDocPeriodLocked(AccountingDoc doc) {
     final lock = _accountingLockedUntil;
     final date = doc.deliveryDate;
@@ -112,6 +126,36 @@ class _AccountingSectionState extends State<AccountingSection> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHeader(context),
+              if (_permissions.canEditSettings()) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.lock_clock_outlined,
+                                color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              AppLocalizations.of(context)!
+                                  .accountingPeriodLockSection,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        AccountingPeriodLockPanel(
+                          companyId: widget.companyId,
+                          companySettings: widget.companySettings,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               if (_accountingLockedUntil != null) ...[
                 const SizedBox(height: 12),
                 _buildPeriodLockBanner(context, snapshot.data ?? []),
@@ -296,11 +340,6 @@ class _AccountingSectionState extends State<AccountingSection> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilledButton.icon(
-                onPressed: () => _showCreateDocDialog(context),
-                icon: const Icon(Icons.add, size: 20),
-                label: Text(l10n.createDocument),
-              ),
               OutlinedButton.icon(
                 onPressed: () => showBkmvExportDialog(
                   context: context,
@@ -352,12 +391,6 @@ class _AccountingSectionState extends State<AccountingSection> {
           ),
           icon: const Icon(Icons.folder_zip_outlined),
           label: Text(l10n.downloadBkmv),
-        ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: () => _showCreateDocDialog(context),
-          icon: const Icon(Icons.add),
-          label: Text(l10n.createDocument),
         ),
       ],
     );
@@ -468,7 +501,10 @@ class _AccountingSectionState extends State<AccountingSection> {
 
   Future<void> _retrySync(BuildContext context, String docId) async {
     try {
-      await _syncService.retry(docId);
+      await _syncService.retry(
+        docId,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1119,31 +1155,31 @@ class _AccountingSectionState extends State<AccountingSection> {
   // Create document dialog — type selection then form
   // ---------------------------------------------------------------------------
 
-  void _showCreateDocDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => CreateDocTypeDialog(
-        onTypeSelected: (type) {
-          Navigator.of(ctx).pop();
-          _showDocForm(context, type);
-        },
+  Future<void> _openEditDocScreen(BuildContext context, AccountingDoc doc) async {
+    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CreateAccountingDocScreen(
+          companyId: widget.companyId,
+          accountingLockedUntil: _accountingLockedUntil,
+          permissions: _permissions,
+          editDoc: doc,
+        ),
       ),
     );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.documentCreatedSuccess),
+        ),
+      );
+    }
   }
 
   void _showDocForm(BuildContext context, AccountingDocType type,
       {AccountingDoc? editDoc}) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => CreateDocFormDialog(
-        docType: type,
-        companyId: widget.companyId,
-        invoiceService: _invoiceService,
-        accountingLockedUntil: _accountingLockedUntil,
-        editDoc: editDoc,
-      ),
-    );
+    if (editDoc != null) {
+      _openEditDocScreen(context, editDoc);
+    }
   }
 
   // ---------------------------------------------------------------------------

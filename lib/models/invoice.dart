@@ -168,6 +168,7 @@ class Invoice {
   final String clientName;
   final String clientNumber;
   final String address;
+  final String? deliveryAddress;
   final String driverName;
   final String truckNumber;
   final DateTime deliveryDate; // Дата доставки (по умолчанию завтра)
@@ -220,6 +221,7 @@ class Invoice {
     required this.clientName,
     required this.clientNumber,
     required this.address,
+    this.deliveryAddress,
     required this.driverName,
     required this.truckNumber,
     required this.deliveryDate,
@@ -355,6 +357,8 @@ class Invoice {
       'clientName': clientName,
       'clientNumber': clientNumber,
       'address': address,
+      if (deliveryAddress != null && deliveryAddress!.trim().isNotEmpty)
+        'deliveryAddress': deliveryAddress,
       'driverName': driverName,
       'truckNumber': truckNumber,
       'deliveryDate': Timestamp.fromDate(deliveryDate),
@@ -408,6 +412,7 @@ class Invoice {
       clientName: map['clientName'] ?? '',
       clientNumber: map['clientNumber'] ?? '',
       address: map['address'] ?? '',
+      deliveryAddress: map['deliveryAddress']?.toString(),
       driverName: map['driverName'] ?? '',
       truckNumber: map['truckNumber'] ?? '',
       deliveryDate: map['deliveryDate'] != null
@@ -501,6 +506,7 @@ class Invoice {
     String? clientName,
     String? clientNumber,
     String? address,
+    String? deliveryAddress,
     String? driverName,
     String? truckNumber,
     DateTime? deliveryDate,
@@ -545,6 +551,7 @@ class Invoice {
       clientName: clientName ?? this.clientName,
       clientNumber: clientNumber ?? this.clientNumber,
       address: address ?? this.address,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       driverName: driverName ?? this.driverName,
       truckNumber: truckNumber ?? this.truckNumber,
       deliveryDate: deliveryDate ?? this.deliveryDate,

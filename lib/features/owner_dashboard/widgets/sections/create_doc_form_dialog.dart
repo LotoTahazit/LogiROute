@@ -13,6 +13,7 @@ import '../../../../utils/accounting_period_lock.dart';
 import '../../../../models/invoice_payment_line.dart';
 import '../../../../widgets/payment_details_form.dart';
 import '../../models/accounting_doc.dart';
+import '../../services/permissions_service.dart';
 import 'accounting_helpers.dart';
 
 // =============================================================================
@@ -22,13 +23,47 @@ import 'accounting_helpers.dart';
 /// Dialog for choosing the type of accounting document to create.
 class CreateDocTypeDialog extends StatelessWidget {
   final ValueChanged<AccountingDocType> onTypeSelected;
+  final PermissionsService? permissions;
 
-  const CreateDocTypeDialog({super.key, required this.onTypeSelected});
+  const CreateDocTypeDialog({
+    super.key,
+    required this.onTypeSelected,
+    this.permissions,
+  });
+
+  static String _docTypeKey(AccountingDocType type) {
+    switch (type) {
+      case AccountingDocType.taxInvoice:
+        return 'tax_invoice';
+      case AccountingDocType.receipt:
+        return 'receipt';
+      case AccountingDocType.taxInvoiceReceipt:
+        return 'tax_invoice_receipt';
+      case AccountingDocType.creditNote:
+        return 'credit_note';
+      case AccountingDocType.deliveryNote:
+        return 'delivery_note';
+    }
+  }
+
+  bool _allowed(AccountingDocType type) {
+    final p = permissions;
+    if (p == null) return true;
+    return p.canCreateAccountingDoc(_docTypeKey(type));
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    final options = <(AccountingDocType, IconData, String, String, bool?)>[
+      (AccountingDocType.taxInvoice, Icons.receipt_long, l10n.taxInvoice, 'Tax Invoice', null),
+      (AccountingDocType.receipt, Icons.receipt, l10n.receipt, 'Receipt', null),
+      (AccountingDocType.taxInvoiceReceipt, Icons.description, l10n.taxInvoiceReceipt, 'Tax Invoice Receipt', AppConfig.enableTaxInvoiceReceipt),
+      (AccountingDocType.deliveryNote, Icons.local_shipping_outlined, l10n.settingsDeliveryNote, 'Delivery Note', null),
+      (AccountingDocType.creditNote, Icons.money_off_outlined, l10n.creditNote, 'Credit Note', null),
+    ].where((o) => _allowed(o.$1)).toList();
+
     return AlertDialog(
       insetPadding: EdgeInsets.symmetric(
         horizontal: narrow ? 16 : 40,
@@ -39,25 +74,14 @@ class CreateDocTypeDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _TypeOption(
-              icon: Icons.receipt_long,
-              label: l10n.taxInvoice,
-              subtitle: 'Tax Invoice',
-              onTap: () => onTypeSelected(AccountingDocType.taxInvoice),
-            ),
-            _TypeOption(
-              icon: Icons.receipt,
-              label: l10n.receipt,
-              subtitle: 'Receipt',
-              onTap: () => onTypeSelected(AccountingDocType.receipt),
-            ),
-            _TypeOption(
-              icon: Icons.description,
-              label: l10n.taxInvoiceReceipt,
-              subtitle: 'Tax Invoice Receipt',
-              enabled: AppConfig.enableTaxInvoiceReceipt,
-              onTap: () => onTypeSelected(AccountingDocType.taxInvoiceReceipt),
-            ),
+            for (final o in options)
+              _TypeOption(
+                icon: o.$2,
+                label: o.$3,
+                subtitle: o.$4,
+                enabled: o.$5 ?? true,
+                onTap: () => onTypeSelected(o.$1),
+              ),
           ],
         ),
       ),
@@ -124,6 +148,10 @@ class CreateDocFormDialog extends StatefulWidget {
   final DateTime? accountingLockedUntil;
   /// Редактирование существующего черновика (id обязателен).
   final AccountingDoc? editDoc;
+  final bool canManageClients;
+  final bool embedded;
+  final VoidCallback? onClose;
+  final VoidCallback? onSaved;
 
   const CreateDocFormDialog({
     super.key,
@@ -132,6 +160,10 @@ class CreateDocFormDialog extends StatefulWidget {
     required this.invoiceService,
     this.accountingLockedUntil,
     this.editDoc,
+    this.canManageClients = true,
+    this.embedded = false,
+    this.onClose,
+    this.onSaved,
   });
 
   @override
@@ -300,9 +332,10 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     _validatePeriodLock();
     if (_periodLockError != null) return;
     if (_taxInvoiceReceiptBlocked) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hashbonit is under construction'),
+        SnackBar(
+          content: Text(l10n.hashbonitUnderConstruction),
           backgroundColor: Colors.orange,
         ),
       );
@@ -377,12 +410,18 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
         await widget.invoiceService.createInvoice(invoice, uid);
       }
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(AppLocalizations.of(context)!.documentCreatedSuccess)),
-        );
+        if (widget.embedded && widget.onSaved != null) {
+          widget.onSaved!();
+        } else {
+          _dismiss(saved: true);
+        }
+        if (!widget.embedded || widget.onSaved == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    AppLocalizations.of(context)!.documentCreatedSuccess)),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -397,6 +436,18 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     }
   }
 
+  void _dismiss({bool saved = false}) {
+    if (saved && widget.onSaved != null) {
+      widget.onSaved!();
+      return;
+    }
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -405,6 +456,134 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
     final typeLbl = docTypeLabel(context, widget.docType);
     final narrow = MediaQuery.sizeOf(context).width < 600;
 
+    final formBody = Padding(
+      padding: EdgeInsets.all(widget.embedded ? 16 : (narrow ? 12 : 24)),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_taxInvoiceReceiptBlocked) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.construction_outlined, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l10n.hashbonitUnderConstruction),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (!widget.embedded)
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Icon(Icons.add_circle_outline,
+                            color: theme.colorScheme.primary),
+                        Text(
+                          l10n.newDocumentTitle(typeLbl),
+                          style: narrow
+                              ? theme.textTheme.titleMedium
+                              : theme.textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => _dismiss(),
+                  ),
+                ],
+              ),
+            if (!widget.embedded) const Divider(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildCustomerSection(theme),
+                    const SizedBox(height: 16),
+                    _buildDeliveryDateField(theme, l10n),
+                    if (_periodLockError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _periodLockError!,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildLinesSection(theme),
+                    const SizedBox(height: 16),
+                    _buildTotalsCard(theme, totals),
+                    if (_needsPaymentDetails) ...[
+                      const SizedBox(height: 16),
+                      PaymentDetailsForm(
+                        controller: _paymentDetails,
+                        totalAmount: totals.gross,
+                        defaultDueDate: _deliveryDate,
+                        onChanged: () => setState(() {}),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _notesCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.notesLabel,
+                        border: const OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => _dismiss(),
+                  child: Text(l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: (_saving ||
+                          _taxInvoiceReceiptBlocked ||
+                          _periodLockError != null)
+                      ? null
+                      : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.saveDraft),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (widget.embedded) return formBody;
+
     return Dialog(
       insetPadding: EdgeInsets.all(narrow ? 8 : 24),
       child: ConstrainedBox(
@@ -412,131 +591,7 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
           maxWidth: 700,
           maxHeight: narrow ? MediaQuery.sizeOf(context).height * 0.92 : 700,
         ),
-        child: Padding(
-          padding: EdgeInsets.all(narrow ? 12 : 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_taxInvoiceReceiptBlocked) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade300),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.construction_outlined, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text('Hashbonit is under construction'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Icon(Icons.add_circle_outline,
-                              color: theme.colorScheme.primary),
-                          Text(
-                            l10n.newDocumentTitle(typeLbl),
-                            style: narrow
-                                ? theme.textTheme.titleMedium
-                                : theme.textTheme.titleLarge,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildCustomerSection(theme),
-                        const SizedBox(height: 16),
-                        _buildDeliveryDateField(theme, l10n),
-                        if (_periodLockError != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _periodLockError!,
-                            style: TextStyle(color: theme.colorScheme.error),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        _buildLinesSection(theme),
-                        const SizedBox(height: 16),
-                        _buildTotalsCard(theme, totals),
-                        if (_needsPaymentDetails) ...[
-                          const SizedBox(height: 16),
-                          PaymentDetailsForm(
-                            controller: _paymentDetails,
-                            totalAmount: totals.gross,
-                            defaultDueDate: _deliveryDate,
-                            onChanged: () => setState(() {}),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _notesCtrl,
-                          decoration: InputDecoration(
-                            labelText: l10n.notesLabel,
-                            border: const OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed:
-                          _saving ? null : () => Navigator.of(context).pop(),
-                      child: Text(l10n.cancel),
-                    ),
-                    FilledButton(
-                      onPressed: (_saving ||
-                              _taxInvoiceReceiptBlocked ||
-                              _periodLockError != null)
-                          ? null
-                          : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(l10n.saveDraft),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: formBody,
       ),
     );
   }
@@ -568,18 +623,19 @@ class _CreateDocFormDialogState extends State<CreateDocFormDialog> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(l10n.customerDetails, style: theme.textTheme.titleMedium),
-            TextButton.icon(
-              onPressed: () async {
-                final created = await showDialog<ClientModel>(
-                  context: context,
-                  builder: (_) =>
-                      CreateClientDialog(companyId: widget.companyId),
-                );
-                if (created != null) _selectClient(created);
-              },
-              icon: const Icon(Icons.person_add_outlined, size: 18),
-              label: Text(l10n.createClient),
-            ),
+            if (widget.canManageClients)
+              TextButton.icon(
+                onPressed: () async {
+                  final created = await showDialog<ClientModel>(
+                    context: context,
+                    builder: (_) =>
+                        CreateClientDialog(companyId: widget.companyId),
+                  );
+                  if (created != null) _selectClient(created);
+                },
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: Text(l10n.createClient),
+              ),
           ],
         ),
         const SizedBox(height: 8),

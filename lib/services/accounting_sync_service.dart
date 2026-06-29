@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../core/correlation/correlation_context.dart';
 
 class AccountingSyncEntry {
   const AccountingSyncEntry({
@@ -90,33 +91,66 @@ class AccountingSyncService {
     );
   }
 
-  Future<void> retry(String docId) async {
-    final callable =
-        FirebaseFunctions.instance.httpsCallable('retryAccountingSync');
-    await callable.call({
-      'companyId': companyId,
-      'invoiceId': docId,
-    });
+  Future<void> retry(String docId, {String? userId, String? correlationId}) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.accountingSync,
+      companyId: companyId,
+      userId: userId,
+      correlationId: correlationId,
+    );
+    trace?.log('retryAccountingSync invoice=$docId');
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('retryAccountingSync');
+      await callable.call({
+        'companyId': companyId,
+        'invoiceId': docId,
+        if (trace != null) ...trace.cfPayload(),
+      });
+      trace?.log('retry ok');
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
   }
 
   Future<AccountingBatchSyncResult> batchSync({
     required String mode,
     int limit = 25,
+    String? userId,
+    String? correlationId,
   }) async {
-    final callable =
-        FirebaseFunctions.instance.httpsCallable('batchAccountingSync');
-    final res = await callable.call<Map<String, dynamic>>({
-      'companyId': companyId,
-      'mode': mode,
-      'limit': limit,
-    });
-    final data = Map<String, dynamic>.from(res.data as Map);
-    return AccountingBatchSyncResult(
-      processed: (data['processed'] as num?)?.toInt() ?? 0,
-      succeeded: (data['succeeded'] as num?)?.toInt() ?? 0,
-      failed: (data['failed'] as num?)?.toInt() ?? 0,
-      skipped: (data['skipped'] as num?)?.toInt() ?? 0,
+    final trace = correlationIf(
+      operation: CorrelatedOperation.accountingSync,
+      companyId: companyId,
+      userId: userId,
+      correlationId: correlationId,
     );
+    trace?.log('batchAccountingSync mode=$mode limit=$limit');
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('batchAccountingSync');
+      final res = await callable.call<Map<String, dynamic>>({
+        'companyId': companyId,
+        'mode': mode,
+        'limit': limit,
+        if (trace != null) ...trace.cfPayload(),
+      });
+      final data = Map<String, dynamic>.from(res.data as Map);
+      trace?.log(
+          'batch done processed=${data['processed']} failed=${data['failed']}');
+      return AccountingBatchSyncResult(
+        processed: (data['processed'] as num?)?.toInt() ?? 0,
+        succeeded: (data['succeeded'] as num?)?.toInt() ?? 0,
+        failed: (data['failed'] as num?)?.toInt() ?? 0,
+        skipped: (data['skipped'] as num?)?.toInt() ?? 0,
+      );
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
   }
 
   /// Проверка API-ключей без создания документа.

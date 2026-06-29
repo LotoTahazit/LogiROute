@@ -96,14 +96,9 @@ exports.verifyIntegrityChain = functions.https.onCall(async (data, context) => {
   const company = companySnap.data();
 
   if (!isSuperAdmin) {
-    const status = company.billingStatus || "active";
-    const allowed = ["active", "grace"];
-    if (status === "trial") {
-      if (!company.trialUntil || company.trialUntil.toDate() < new Date()) {
-        throw new functions.https.HttpsError("failed-precondition", "Trial expired");
-      }
-    } else if (!allowed.includes(status)) {
-      throw new functions.https.HttpsError("failed-precondition", `Billing status: ${status}`);
+    const { billingAllowsAccess } = require("./lib/billingState");
+    if (!billingAllowsAccess(company)) {
+      throw new functions.https.HttpsError("failed-precondition", "Billing access denied");
     }
   }
 

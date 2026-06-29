@@ -10,6 +10,7 @@ import '../../services/invoice_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/company_context.dart';
 import '../../services/issuance_service.dart';
+import '../../core/correlation/correlation_context.dart';
 import '../../services/box_type_service.dart';
 import '../../services/inventory_service.dart';
 import '../../services/company_settings_service.dart';
@@ -18,6 +19,7 @@ import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/logi_route_tab_bar.dart';
 import '../../widgets/payment_details_form.dart';
+import '../../utils/delivery_point_address_resolver.dart';
 import '../../theme/app_theme.dart';
 
 class CreateInvoiceDialog extends StatefulWidget {
@@ -166,18 +168,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
       final boxTypeService = BoxTypeService(companyId: companyId);
       final inventoryService = InventoryService(companyId: companyId);
       final allBoxTypes = await boxTypeService.getAllBoxTypes();
-      final inventory = await inventoryService.getInventory();
       final items = <InvoiceItem>[];
 
       for (final boxType in widget.point.boxTypes!) {
-        // Загружаем цену из базы
         final price = await priceService.getPrice(
           boxType.type,
           boxType.number,
         );
         final pricePerUnit = price?.priceBeforeVAT ?? 0.0;
 
-        // Загружаем piecesPerBox: 1) box_types  2) inventory  3) default 1
         int piecesPerBox = 1;
         final match = allBoxTypes.where(
           (bt) => bt['productCode'] == boxType.productCode,
@@ -185,12 +184,12 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         if (match.isNotEmpty && match.first['piecesPerBox'] != null) {
           piecesPerBox = ((match.first['piecesPerBox']) as num).toInt();
         } else {
-          // Fallback: ищем piecesPerBox в инвентаре по type+number
-          final invMatch = inventory.where(
-            (inv) => inv.type == boxType.type && inv.number == boxType.number,
-          );
-          if (invMatch.isNotEmpty && invMatch.first.piecesPerBox != null) {
-            piecesPerBox = invMatch.first.piecesPerBox!;
+          final invItem = boxType.productCode.isNotEmpty
+              ? await inventoryService.getItemByProductCode(boxType.productCode)
+              : await inventoryService.getItemByTypeAndNumber(
+                  boxType.type, boxType.number);
+          if (invItem?.piecesPerBox != null) {
+            piecesPerBox = invItem!.piecesPerBox!;
           }
         }
         debugPrint(
@@ -308,13 +307,15 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         0,
       );
 
+      final resolved = resolveDeliveryPointAddress(widget.point);
       final invoice = Invoice(
         id: '',
         companyId: companyId,
         sequentialNumber: 0, // Draft — номер выдаст сервер
         clientName: widget.point.clientName,
         clientNumber: widget.point.clientNumber ?? '',
-        address: widget.point.address,
+        address: resolved.clientAddress,
+        deliveryAddress: resolved.hasOverride ? resolved.deliveryAddressOverride : null,
         driverName: widget.driver.name,
         truckNumber: widget.driver.vehicleNumber ?? '',
         deliveryDate: _deliveryDate,
@@ -344,9 +345,14 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
 
       // Создаём сервис с companyId
       final invoiceService = InvoiceService(companyId: companyId);
+      final correlationId = CorrelationContext.resolveId();
 
       // 1. Создаём draft (или получаем ID существующего, если дубликат)
-      final invoiceId = await invoiceService.createInvoice(invoice, userUid);
+      final invoiceId = await invoiceService.createInvoice(
+        invoice,
+        userUid,
+        correlationId: correlationId,
+      );
 
       // 2. Проверяем статус — если уже выпущен (idempotent duplicate), пропускаем issuance
       final existingInvoice = await invoiceService.getInvoice(invoiceId);
@@ -361,6 +367,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
           companyId: companyId,
           invoiceId: invoiceId,
           counterKey: _effectiveDocumentType.canonicalCounterKey,
+          userId: userUid,
+          correlationId: correlationId,
         );
 
         if (!issuanceResult.ok) {
@@ -402,7 +410,8 @@ class _CreateInvoiceDialogState extends State<CreateInvoiceDialog> {
         setState(() => _isCreating = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.dispatcherGenericError(e.toString())),
+            content: Text(l10n.dispatcherGenericError(
+                correlatedErrorMessage(e))),
             backgroundColor: Colors.red,
           ),
         );

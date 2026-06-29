@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
@@ -25,12 +26,14 @@ class _AccountingSyncPanelState extends State<AccountingSyncPanel> {
     _service = AccountingSyncService(companyId: widget.companyId);
   }
 
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
   Future<void> _batch(String mode) async {
     if (_batchRunning) return;
     setState(() => _batchRunning = true);
     final l10n = AppLocalizations.of(context)!;
     try {
-      final r = await _service.batchSync(mode: mode);
+      final r = await _service.batchSync(mode: mode, userId: _uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -57,7 +60,7 @@ class _AccountingSyncPanelState extends State<AccountingSyncPanel> {
   Future<void> _retry(String invoiceId) async {
     setState(() => _retrying.add(invoiceId));
     try {
-      await _service.retry(invoiceId);
+      await _service.retry(invoiceId, userId: _uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

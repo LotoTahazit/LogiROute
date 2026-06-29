@@ -3,18 +3,19 @@ import '../models/invoice.dart';
 import '../models/invoice_payment_line.dart';
 import '../models/audit_event.dart';
 import '../models/document_link.dart';
+import '../models/usage_event.dart';
 import '../features/owner_dashboard/models/accounting_doc.dart';
-import 'summary_service.dart';
+import 'dart:async' show unawaited;
 import 'audit_log_service.dart';
 import 'cross_module_audit_service.dart';
 import 'document_link_service.dart';
+import '../core/correlation/correlation_context.dart';
 
 /// Invoice Service with Israeli Tax Law Compliance
 /// תואם לדרישות רשות המסים הישראלית
 class InvoiceService {
   final String companyId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late final SummaryService _summaryService;
   late final AuditLogService _auditLogService;
   late final DocumentLinkService _documentLinkService;
 
@@ -22,7 +23,6 @@ class InvoiceService {
     if (companyId.isEmpty) {
       throw Exception('companyId cannot be empty');
     }
-    _summaryService = SummaryService(companyId: companyId);
     _auditLogService = AuditLogService(companyId: companyId);
     _documentLinkService = DocumentLinkService(companyId: companyId);
   }
@@ -40,7 +40,14 @@ class InvoiceService {
   /// Create חשבונית as draft (без номера).
   /// Номер выдаётся сервером через issueInvoice callable.
   /// יצירת חשבונית כטיוטה — מספר רץ יוקצה בשרת
-  Future<String> createInvoice(Invoice invoice, String createdByUid) async {
+  Future<String> createInvoice(Invoice invoice, String createdByUid,
+      {String? correlationId}) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.createInvoice,
+      companyId: companyId,
+      userId: createdByUid,
+      correlationId: correlationId,
+    );
     try {
       // Проверяем companyId
       if (invoice.companyId.isEmpty || invoice.companyId != companyId) {
@@ -89,19 +96,22 @@ class InvoiceService {
         eventType: AuditEventType.created,
         actorUid: createdByUid,
         metadata: {'status': 'draft'},
+        requestId: trace?.correlationId,
       );
 
       await docRef.set(draftInvoice.toMap());
 
-      // ⚡ OPTIMIZATION: Update daily summary
-      try {
-        await _summaryService.updateInvoiceSummary(draftInvoice);
-      } catch (e) {
-        print('⚠️ [Invoice] Failed to update summary (non-critical): $e');
-      }
+      unawaited(trace?.trackPilot(
+        UsageEventName.invoiceCreated,
+        entityType: 'invoice',
+        entityId: docRef.id,
+        metadata: {'documentType': invoice.documentType.name},
+      ));
 
       return docRef.id;
-    } catch (e) {
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
       print('❌ [Invoice] Error creating invoice: $e');
       rethrow;
     }
@@ -143,19 +153,6 @@ class InvoiceService {
         'cancelledBy': cancelledByUid,
         'cancellationReason': reason,
       });
-
-      // ⚡ OPTIMIZATION: Update daily summary
-      try {
-        final updatedInvoice = invoice.copyWith(
-          status: InvoiceStatus.cancelled,
-          cancelledAt: DateTime.now(),
-          cancelledBy: cancelledByUid,
-          cancellationReason: reason,
-        );
-        await _summaryService.updateInvoiceSummary(updatedInvoice);
-      } catch (e) {
-        print('⚠️ [Invoice] Failed to update summary (non-critical): $e');
-      }
     } catch (e) {
       print('❌ [Invoice] Error cancelling invoice: $e');
       rethrow;

@@ -1,12 +1,14 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { enqueueExternalAccountingSync } = require("./accounting/sync_external_document");
+const { correlationLog } = require("./lib/correlation");
 
 /**
  * Retry external accounting sync for an issued invoice.
  * Callable: { companyId, invoiceId }
  */
 exports.retryAccountingSync = functions.https.onCall(async (data, context) => {
+  correlationLog("accounting_sync", data, context, { invoiceId: data?.invoiceId });
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Auth required");
   }
