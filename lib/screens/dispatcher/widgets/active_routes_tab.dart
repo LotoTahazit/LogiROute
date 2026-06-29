@@ -6,6 +6,7 @@ import '../../../widgets/proof_of_delivery_viewer.dart';
 import '../../../utils/eta_calculator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/route_optimizer.dart';
+import '../../../utils/delivery_point_address_resolver.dart';
 import '../../../utils/gps_utils.dart';
 
 /// Вкладка с активными маршрутами
@@ -30,6 +31,7 @@ class ActiveRoutesTab extends StatelessWidget {
   final Function(DeliveryPoint point)? onReopenPoint;
   final void Function(DeliveryPoint point)? onCompletePointManually;
   final VoidCallback? onBalanceRoutes;
+  final Future<void> Function(List<DeliveryPoint> routes)? onMergeRoutes;
   final Function(String driverId, String? routeId, List<DeliveryPoint> points)?
       onOptimizeRoute;
 
@@ -62,6 +64,7 @@ class ActiveRoutesTab extends StatelessWidget {
     this.onReopenPoint,
     this.onCompletePointManually,
     this.onBalanceRoutes,
+    this.onMergeRoutes,
     this.onOptimizeRoute,
     this.liveDriverLocations,
     this.plannedDepartureMinutes,
@@ -81,12 +84,8 @@ class ActiveRoutesTab extends StatelessWidget {
         s == DeliveryPoint.statusCancelled;
   }
 
-  String _getDisplayAddress(DeliveryPoint point) {
-    if (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty) {
-      return point.temporaryAddress!;
-    }
-    return point.address;
-  }
+  String _getDisplayAddress(DeliveryPoint point) =>
+      resolveDeliveryPointAddress(point).displayAddress;
 
   static double _sqrtApprox(double x) {
     if (x <= 0) return 0;
@@ -393,6 +392,7 @@ class ActiveRoutesTab extends StatelessWidget {
         final s = DeliveryPoint.normalizeStatus(p.status);
         return s == DeliveryPoint.statusCompleted;
       }).toList();
+      final allClosed = routePoints.every(_isClosed);
       final avgTimeOnPoint = _calcAvgTimeOnPoint(completedPts);
       final progressText = completedPts.isNotEmpty && avgTimeOnPoint > 0
           ? ' • ${l10n.avgMinutesPerPoint(avgTimeOnPoint)}'
@@ -400,8 +400,11 @@ class ActiveRoutesTab extends StatelessWidget {
 
       return Card(
         margin: const EdgeInsets.all(8),
+        color: allClosed ? Colors.green.shade50 : null,
         child: ExpansionTile(
-          leading: Container(
+          leading: allClosed
+              ? Icon(Icons.check_circle, color: Colors.green.shade700, size: 28)
+              : Container(
             width: 12,
             height: 12,
             decoration: BoxDecoration(
@@ -410,8 +413,11 @@ class ActiveRoutesTab extends StatelessWidget {
             ),
           ),
           title: Text(
-            driverName,
-            style: TextStyle(fontWeight: FontWeight.bold),
+            allClosed ? '$driverName · ${l10n.completed}' : driverName,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: allClosed ? Colors.green.shade800 : null,
+            ),
           ),
           subtitle: Text(
             '${routePoints.length} ${l10n.points} • $palletText$kmText$etaText$progressText',
@@ -828,17 +834,41 @@ class ActiveRoutesTab extends StatelessWidget {
     return ListView(
       children: [
         // Кнопка балансировки маршрутов
-        if (onBalanceRoutes != null && routesByRouteId.length >= 2)
+        if (routesByRouteId.length >= 2 &&
+            (onMergeRoutes != null || onBalanceRoutes != null))
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: ElevatedButton.icon(
-              onPressed: onBalanceRoutes,
-              icon: Icon(Icons.balance, size: 20),
-              label: Text(l10n.balanceRoutes),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
-                foregroundColor: Colors.white,
-              ),
+            child: Row(
+              children: [
+                if (onMergeRoutes != null)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          right: onBalanceRoutes != null ? 4 : 0),
+                      child: OutlinedButton.icon(
+                        onPressed: () => onMergeRoutes!(allRoutes),
+                        icon: const Icon(Icons.merge, size: 20),
+                        label: Text(l10n.mergeRoutes),
+                      ),
+                    ),
+                  ),
+                if (onBalanceRoutes != null)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          left: onMergeRoutes != null ? 4 : 0),
+                      child: ElevatedButton.icon(
+                        onPressed: onBalanceRoutes,
+                        icon: const Icon(Icons.balance, size: 20),
+                        label: Text(l10n.balanceRoutes),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         if (autoCompletedPoints.isNotEmpty && onReopenPoint != null)

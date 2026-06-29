@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../l10n/app_localizations.dart';
 import '../models/delivery_point.dart';
 import '../theme/app_theme.dart';
+import '../utils/delivery_point_address_resolver.dart';
 import '../utils/file_download.dart';
 
 /// Просмотр доказательства доставки (POD) для диспетчера и выше по иерархии.
@@ -101,6 +102,7 @@ class _ProofOfDeliveryViewerState extends State<_ProofOfDeliveryViewer> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final resolved = resolveDeliveryPointAddress(point);
     final when = point.podAt ?? point.completedAt;
     final hasPhoto = point.podPhotoUrl != null && point.podPhotoUrl!.isNotEmpty;
     final hasGps = point.podLat != null && point.podLng != null;
@@ -129,6 +131,37 @@ class _ProofOfDeliveryViewerState extends State<_ProofOfDeliveryViewer> {
                 ],
               ),
               Text(point.clientName, style: TextStyle(color: AppTheme.muted)),
+              const SizedBox(height: 4),
+              if (resolved.hasOverride) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    l10n.deliveryAddressOverrideBadge,
+                    style: TextStyle(
+                      color: Colors.orange.shade900,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              Text(
+                resolved.displayAddress,
+                style: TextStyle(color: AppTheme.muted, fontSize: 13),
+              ),
+              if (point.driverName != null && point.driverName!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '${l10n.driverKvLabel}: ${point.driverName}',
+                    style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                  ),
+                ),
               const SizedBox(height: 12),
               if (hasPhoto) ...[
                 ClipRRect(
@@ -197,6 +230,14 @@ class _ProofOfDeliveryViewerState extends State<_ProofOfDeliveryViewer> {
                   label: l10n.podGps,
                   value:
                       '${point.podLat!.toStringAsFixed(5)}, ${point.podLng!.toStringAsFixed(5)}',
+                )
+              else if (DeliveryPoint.isValidCoordinates(
+                  point.latitude, point.longitude))
+                _InfoRow(
+                  icon: Icons.place_outlined,
+                  label: l10n.addressKvLabel,
+                  value:
+                      '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}',
                 ),
               if (point.podDistanceM != null)
                 _InfoRow(

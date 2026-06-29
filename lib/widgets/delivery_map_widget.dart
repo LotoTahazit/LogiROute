@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/delivery_point.dart';
+import '../utils/delivery_point_address_resolver.dart';
 import '../l10n/app_localizations.dart';
 import '../services/optimized_location_service.dart';
 import '../services/firestore_paths.dart';
@@ -284,11 +285,11 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
       '${point.pallets} ${l10n?.pallets ?? ''} • ${l10n?.order ?? 'Order'}: ${point.orderInRoute + 1}',
     );
 
-    final displayAddress =
-        (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty)
-            ? point.temporaryAddress!
-            : point.address;
-
+    final resolved = resolveDeliveryPointAddress(point);
+    final displayAddress = resolved.displayAddress;
+    if (resolved.hasOverride && resolved.overrideMissingCoordinates) {
+      buffer.write('\n⚠️ ${l10n?.deliveryAddressOverrideNoCoords ?? ''}');
+    }
     buffer.write('\n📍 $displayAddress');
 
     return buffer.toString();
@@ -333,6 +334,12 @@ abstract class _DeliveryMapWidgetStateBase extends State<DeliveryMapWidget>
 
   /// Координаты для карты: точка → клиент из кеша (если lat/lng точки = 0).
   LatLng? _resolveMapPosition(DeliveryPoint point) {
+    final resolved = resolveDeliveryPointAddress(point);
+    if (resolved.navLat != null &&
+        resolved.navLng != null &&
+        _isInIsraelBounds(resolved.navLat!, resolved.navLng!)) {
+      return LatLng(resolved.navLat!, resolved.navLng!);
+    }
     if (_isInIsraelBounds(point.latitude, point.longitude)) {
       return LatLng(point.latitude, point.longitude);
     }

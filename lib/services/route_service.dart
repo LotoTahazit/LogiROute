@@ -11,13 +11,16 @@ import '../utils/time_formatter.dart';
 import 'route_optimizer.dart';
 import 'route_balance_service.dart';
 import 'osrm_navigation_service.dart';
-import 'route_builder_service.dart';
 import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'firestore_paths.dart';
 import 'inventory_service.dart';
 import 'company_settings_service.dart';
+import '../core/correlation/correlation_context.dart';
+import '../models/usage_event.dart';
+import '../utils/delivery_address_audit.dart';
+import 'cross_module_audit_service.dart';
 
 class RouteService {
   final String companyId;
@@ -59,6 +62,39 @@ class RouteService {
     data['companyId'] = companyId;
     data['updatedAt'] = FieldValue.serverTimestamp();
     await _deliveryPointsCollection().doc(pointId).update(data);
+  }
+
+  Future<void> _logDeliveryAddressAudit({
+    required String pointId,
+    required String oldAddress,
+    required String newAddress,
+    required String actorUid,
+    String? actorRole,
+    String? actorName,
+    String? clientName,
+    String? correlationId,
+  }) async {
+    final cid = CorrelationContext.resolveId(correlationId: correlationId);
+    debugPrint(
+      '📍 [RouteService] Delivery address changed point=$pointId '
+      'cid=$cid old=$oldAddress new=$newAddress '
+      'by=${actorRole ?? actorName ?? actorUid}',
+    );
+    await CrossModuleAuditService(companyId: companyId).log(
+      moduleKey: 'dispatcher',
+      type: CrossModuleAuditService.typeDeliveryAddressChanged,
+      entityCollection: 'delivery_points',
+      entityDocId: pointId,
+      uid: actorUid,
+      extra: {
+        'correlationId': cid,
+        'oldAddress': oldAddress,
+        'newAddress': newAddress,
+        if (actorRole != null && actorRole.isNotEmpty) 'changedByRole': actorRole,
+        if (actorName != null && actorName.isNotEmpty) 'changedByName': actorName,
+        if (clientName != null && clientName.isNotEmpty) 'clientName': clientName,
+      },
+    );
   }
 
   String _buildUniqueRouteId(String driverId, DateTime now) =>
@@ -364,19 +400,6 @@ class RouteService {
           .where((p) => !p.archived)
           .toList();
 
-      // Per-driver: если у водителя есть active точки — completed показываем только из его active маршрута
-      final activeRouteIdsByDriver = <String, Set<String>>{};
-      for (final p in allPoints) {
-        final did = p.driverId ?? '';
-        if (did.isEmpty) continue;
-        if (DeliveryPoint.activeRouteStatuses
-            .contains(DeliveryPoint.normalizeStatus(p.status))) {
-          if (p.routeId != null) {
-            activeRouteIdsByDriver.putIfAbsent(did, () => {}).add(p.routeId!);
-          }
-        }
-      }
-
       final points = allPoints.where((p) {
         final normalizedStatus = DeliveryPoint.normalizeStatus(p.status);
 
@@ -385,25 +408,11 @@ class RouteService {
           return true;
         }
 
-        // Completed/cancelled
+        // Completed/cancelled за сегодня — все маршруты водителя (диспетчер видит
+        // завершённый маршрут A, даже если у того же водителя активен маршрут B).
         if (normalizedStatus == DeliveryPoint.statusCompleted ||
             normalizedStatus == DeliveryPoint.statusCancelled) {
           if (!includeCompleted) return false;
-          // Экран водителя: все завершённые за сегодня (несколько маршрутов)
-          if (driverId != null) {
-            if (p.completedAt != null &&
-                p.completedAt!.isAfter(todayMidnight)) {
-              return true;
-            }
-            return false;
-          }
-          final did = p.driverId ?? '';
-          final driverActiveRoutes = activeRouteIdsByDriver[did];
-          // Водитель имеет active маршрут → completed только из него
-          if (driverActiveRoutes != null && driverActiveRoutes.isNotEmpty) {
-            return p.routeId != null && driverActiveRoutes.contains(p.routeId);
-          }
-          // Нет active маршрута → completed за сегодня
           if (p.completedAt != null && p.completedAt!.isAfter(todayMidnight)) {
             return true;
           }
@@ -706,7 +715,15 @@ class RouteService {
   /// ✅ Создать оптимизированный маршрут с проверкой мостов и веса
   Future<void> createOptimizedRoute(String driverId, String driverName,
       List<DeliveryPoint> points, int driverCapacity,
-      {bool useDispatcherLocation = false}) async {
+      {bool useDispatcherLocation = false,
+      String? actorUid,
+      String? correlationId}) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.createRoute,
+      companyId: companyId,
+      userId: actorUid,
+      correlationId: correlationId,
+    );
     if (points.isEmpty) return;
 
     // 🛡️ GUARD: фильтруем точки с невалидными координатами
@@ -736,23 +753,21 @@ class RouteService {
       return;
     }
 
-    print(
-        '🧭 [RouteService] Creating optimized route for $driverName (${points.length} points)');
+    trace?.log(
+        'createOptimizedRoute driver=$driverName points=${points.length}');
 
     // Получаем информацию о водителе для проверки тоннажа
     final truckWeight = await _getDriverTruckWeight(driverId);
     print(
         '⚖️ [RouteService] Driver truck weight: ${truckWeight.toStringAsFixed(1)}t');
 
-    // Определяем стартовую точку через RouteBuilderService
-    final routeBuilder = RouteBuilderService(companyId);
-
-    // Бизнес-правило: построение маршрута всегда от склада.
-    // useDispatcherLocation оставляем только для совместимости сигнатуры.
-    Map<String, double>? startLocation =
-        await routeBuilder.getRouteStartPoint(driverId, RouteStatus.planned);
+    // Старт маршрута — всегда склад (AppConfig).
+    final startLocation = <String, double>{
+      'latitude': AppConfig.defaultWarehouseLat,
+      'longitude': AppConfig.defaultWarehouseLng,
+    };
     print(
-        '🏭 [RouteService] Route build start (forced warehouse): ${startLocation != null ? "(${startLocation['latitude']}, ${startLocation['longitude']})" : "null"}');
+        '🏭 [RouteService] Route build start (forced warehouse): (${startLocation['latitude']}, ${startLocation['longitude']})');
 
     // Оптимизация порядка через OSRM Trip (реальное время на дорогах)
     List<DeliveryPoint> optimizedPoints;
@@ -798,14 +813,32 @@ class RouteService {
 
     print('✅ [RouteService] Route approved - no restrictions');
 
-    // Назначаем точки водителю
-    await _assignPointsToDriver(
-        driverId, driverName, driverCapacity, optimizedPoints,
-        startLocation: startLocation,
-        tripPolyline: tripPolyline,
-        tripDurationMinutes: tripDurationMinutes,
-        tripDistanceKm: tripDistanceKm,
-        separateRoute: true);
+    try {
+      final routeId = await _assignPointsToDriver(
+          driverId, driverName, driverCapacity, optimizedPoints,
+          startLocation: startLocation,
+          tripPolyline: tripPolyline,
+          tripDurationMinutes: tripDurationMinutes,
+          tripDistanceKm: tripDistanceKm,
+          separateRoute: true);
+      await trace?.audit(
+        moduleKey: 'logistics',
+        type: 'route_published',
+        entityCollection: 'routes',
+        entityDocId: routeId,
+        extra: {'driverId': driverId, 'pointCount': optimizedPoints.length},
+      );
+      unawaited(trace?.trackPilot(
+        UsageEventName.routeCreated,
+        entityType: 'route',
+        entityId: routeId,
+        metadata: {'pointCount': optimizedPoints.length},
+      ));
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
   }
 
   /// � Начать маршрут — установить статус active
@@ -929,14 +962,39 @@ class RouteService {
   Future<void> updatePoint(
     String pointId,
     String urgency,
-    int? orderInRoute,
-    String? temporaryAddress, {
+    int? orderInRoute, {
     bool updateWindow = false,
     DateTime? openingTime,
     DateTime? closingTime,
+    String? deliveryAddressOverride,
+    double? deliveryAddressOverrideLat,
+    double? deliveryAddressOverrideLng,
+    bool clearDeliveryAddressOverride = false,
+    String? updatedByUid,
+    String? updatedByRole,
+    String? updatedByName,
+    String? correlationId,
   }) async {
     print(
-        '✏️ [RouteService] Updating point $pointId: urgency=$urgency, order=$orderInRoute, tempAddress=$temporaryAddress');
+        '✏️ [RouteService] Updating point $pointId: urgency=$urgency, order=$orderInRoute, override=$deliveryAddressOverride');
+
+    final touchesOverride =
+        clearDeliveryAddressOverride || deliveryAddressOverride != null;
+    String? oldOverride;
+    String clientAddress = '';
+    String? clientName;
+    if (touchesOverride) {
+      final snap = await _deliveryPointsCollection().doc(pointId).get();
+      if (snap.exists) {
+        final data = snap.data()!;
+        final point = DeliveryPoint.fromMap(data, pointId);
+        oldOverride = normalizeDeliveryAddressOverride(
+          point.deliveryAddressOverride ?? point.temporaryAddress,
+        );
+        clientAddress = point.address;
+        clientName = point.clientName;
+      }
+    }
 
     final updateData = <String, dynamic>{
       'urgency': urgency,
@@ -946,7 +1004,6 @@ class RouteService {
       updateData['orderInRoute'] = orderInRoute;
     }
 
-    // Окно доставки: пишем при явном флаге; null → очистка поля в Firestore.
     if (updateWindow) {
       updateData['openingTime'] = openingTime != null
           ? Timestamp.fromDate(openingTime)
@@ -956,27 +1013,50 @@ class RouteService {
           : FieldValue.delete();
     }
 
-    if (temporaryAddress != null && temporaryAddress.isNotEmpty) {
-      updateData['temporaryAddress'] = temporaryAddress;
-
-      // Геокодируем временный адрес и обновляем координаты
-      try {
-        final coordinates = await _geocodeAddress(temporaryAddress);
-        if (coordinates != null) {
-          updateData['latitude'] = coordinates['latitude'];
-          updateData['longitude'] = coordinates['longitude'];
-          print(
-              '🗺️ [RouteService] Geocoded temporary address: (${coordinates['latitude']}, ${coordinates['longitude']})');
-        }
-      } catch (e) {
-        print('❌ [RouteService] Failed to geocode temporary address: $e');
-        // Не прерываем операцию, просто не обновляем координаты
+    String? newOverride;
+    if (clearDeliveryAddressOverride) {
+      updateData['deliveryAddressOverride'] = FieldValue.delete();
+      updateData['temporaryAddress'] = FieldValue.delete();
+      updateData['deliveryAddressOverrideLat'] = FieldValue.delete();
+      updateData['deliveryAddressOverrideLng'] = FieldValue.delete();
+      newOverride = null;
+    } else if (deliveryAddressOverride != null &&
+        deliveryAddressOverride.isNotEmpty) {
+      updateData['deliveryAddressOverride'] = deliveryAddressOverride;
+      updateData['temporaryAddress'] = deliveryAddressOverride;
+      newOverride = normalizeDeliveryAddressOverride(deliveryAddressOverride);
+      if (deliveryAddressOverrideLat != null &&
+          deliveryAddressOverrideLng != null) {
+        updateData['deliveryAddressOverrideLat'] = deliveryAddressOverrideLat;
+        updateData['deliveryAddressOverrideLng'] = deliveryAddressOverrideLng;
       }
+    } else if (deliveryAddressOverride != null) {
+      newOverride = null;
     }
 
     try {
       await _updatePoint(pointId, updateData);
       print('✅ [RouteService] Point $pointId updated successfully');
+
+      if (touchesOverride && updatedByUid != null && updatedByUid.isNotEmpty) {
+        final change = deliveryAddressOverrideChange(
+          clientAddress: clientAddress,
+          oldOverride: oldOverride,
+          newOverride: newOverride,
+        );
+        if (change != null) {
+          unawaited(_logDeliveryAddressAudit(
+            pointId: pointId,
+            oldAddress: change.oldAddress,
+            newAddress: change.newAddress,
+            actorUid: updatedByUid,
+            actorRole: updatedByRole,
+            actorName: updatedByName,
+            clientName: clientName,
+            correlationId: correlationId,
+          ));
+        }
+      }
     } catch (e) {
       print('❌ [RouteService] Error updating point $pointId: $e');
       rethrow;
@@ -1006,8 +1086,6 @@ class RouteService {
       int totalPallets = 0;
       try {
         final inventoryService = InventoryService(companyId: companyId);
-        final inventory = await inventoryService.getInventory();
-
         int fullPallets = 0;
         int remainderBoxes = 0;
 
@@ -1016,11 +1094,11 @@ class RouteService {
           final boxNumber = box['number'] as String? ?? '';
           final boxQuantity = (box['quantity'] as num?)?.toInt() ?? 0;
 
-          final match = inventory.where(
-            (item) => item.type == boxType && item.number == boxNumber,
+          final invItem = await inventoryService.getItemByTypeAndNumber(
+            boxType,
+            boxNumber,
           );
-          final perPallet =
-              match.isNotEmpty ? match.first.quantityPerPallet : 20;
+          final perPallet = invItem?.quantityPerPallet ?? 20;
 
           if (perPallet > 0) {
             fullPallets += boxQuantity ~/ perPallet;
@@ -1570,10 +1648,37 @@ class RouteService {
   }
 
   /// Добавить новую точку доставки
-  Future<void> addDeliveryPoint(DeliveryPoint point) async {
-    // toMap() автоматически добавляет createdAt и updatedAt
-    await _deliveryPointsCollection().add(point.toMap());
+  Future<void> addDeliveryPoint(
+    DeliveryPoint point, {
+    String? createdByUid,
+    String? createdByRole,
+    String? createdByName,
+    String? correlationId,
+  }) async {
+    final docRef = await _deliveryPointsCollection().add(point.toMap());
     print('✅ Delivery point added: ${point.clientName}');
+
+    if (createdByUid != null &&
+        createdByUid.isNotEmpty &&
+        point.hasDeliveryAddressOverride) {
+      final change = deliveryAddressOverrideChange(
+        clientAddress: point.address,
+        oldOverride: null,
+        newOverride: point.deliveryAddressOverride,
+      );
+      if (change != null) {
+        unawaited(_logDeliveryAddressAudit(
+          pointId: docRef.id,
+          oldAddress: change.oldAddress,
+          newAddress: change.newAddress,
+          actorUid: createdByUid,
+          actorRole: createdByRole,
+          actorName: createdByName,
+          clientName: point.clientName,
+          correlationId: correlationId,
+        ));
+      }
+    }
   }
 
   /// Обновить статус точки (с аудитом: updatedByUid + updatedAt)
@@ -1587,7 +1692,17 @@ class RouteService {
     double? podLat,
     double? podLng,
     int? podDistanceM,
+    String? correlationId,
   }) async {
+    final isPod = podPhotoUrl != null;
+    final trace = correlationIf(
+      operation: isPod ? CorrelatedOperation.pod : CorrelatedOperation.closePoint,
+      companyId: companyId,
+      userId: updatedByUid,
+      correlationId: correlationId,
+    );
+    trace?.log('updatePointStatus point=$pointId status=$newStatus pod=$isPod');
+    try {
     final Map<String, dynamic> patch = {
       'status': newStatus,
     };
@@ -1609,8 +1724,30 @@ class RouteService {
     print('✅ Point $pointId status updated to $newStatus');
 
     if (newStatus == DeliveryPoint.statusCompleted) {
+      await trace?.audit(
+        moduleKey: 'logistics',
+        type: 'delivery_point_status_changed',
+        entityCollection: 'delivery_points',
+        entityDocId: pointId,
+        extra: {
+          'status': newStatus,
+          'autoCompleted': autoCompleted,
+          if (isPod) 'hasPod': true,
+        },
+      );
+      unawaited(trace?.trackPilot(
+        UsageEventName.deliveryCompleted,
+        entityType: 'delivery_point',
+        entityId: pointId,
+        metadata: {'autoCompleted': autoCompleted, 'hasPod': isPod},
+      ));
       unawaited(_recordDeliveryLearning(pointId));
       // ETA пересчитывается на клиенте (в UI), без Firestore запросов
+    }
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
     }
   }
 
@@ -1795,7 +1932,16 @@ class RouteService {
 
   /// Назначить точку водителю
   Future<void> assignPointToDriver(
-      String pointId, String driverId, String driverName, int capacity) async {
+      String pointId, String driverId, String driverName, int capacity,
+      {String? actorUid, String? correlationId}) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.assignDriver,
+      companyId: companyId,
+      userId: actorUid,
+      correlationId: correlationId,
+    );
+    trace?.log('assignPointToDriver point=$pointId driver=$driverName');
+    try {
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
     final routeId = await _resolveRouteIdForDriver(driverId, now);
@@ -1831,15 +1977,34 @@ class RouteService {
           '👤 Point $pointId assigned to $driverName (order: $nextOrder, route: $routeId)');
     });
 
+    await trace?.audit(
+      moduleKey: 'logistics',
+      type: 'manual_assignment',
+      entityCollection: 'delivery_points',
+      entityDocId: pointId,
+      extra: {'driverId': driverId, 'driverName': driverName},
+    );
+    unawaited(trace?.trackPilot(
+      UsageEventName.driverAssigned,
+      entityType: 'delivery_point',
+      entityId: pointId,
+      metadata: {'hasRoute': true},
+    ));
+
     // Авто-оптимизация отключена — вызывает каскад OSRM запросов.
     // Диспетчер может оптимизировать вручную через кнопку.
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
   }
 
   /// Road safety checks moved to RouteSafetyService
   /// Route alternative generation moved to RouteOptimizer
 
   /// 🚚 Назначает точки водителю (вынесенный метод)
-  Future<void> _assignPointsToDriver(String driverId, String driverName,
+  Future<String> _assignPointsToDriver(String driverId, String driverName,
       int driverCapacity, List<DeliveryPoint> points,
       {Map<String, double>? startLocation,
       String? tripPolyline,
@@ -2109,9 +2274,8 @@ class RouteService {
         driverName: driverName,
       ));
     }
+    return routeId;
   }
-
-  /// Получает polyline от OSRM и сохраняет в routes документ.
   /// Вызывается через unawaited — не блокирует создание маршрута.
   Future<void> _saveOsrmPolylineBackground({
     required String routeId,
@@ -2159,17 +2323,78 @@ class RouteService {
     }
   }
 
-  /// Отменить ошибочное автозакрытие (водитель: «Отменить» в snackbar).
+  /// Отменить закрытие точки (водитель: «Отменить»).
+  /// Восстанавливает [restoreStatus], снимает completedAt / autoCompleted.
+  Future<bool> undoPointClose(
+    String pointId, {
+    required String restoreStatus,
+    String? updatedByUid,
+    String? correlationId,
+  }) async {
+    final trace = correlationIf(
+      operation: CorrelatedOperation.closePoint,
+      companyId: companyId,
+      userId: updatedByUid,
+      correlationId: correlationId,
+    );
+    trace?.log('undoPointClose point=$pointId restore=$restoreStatus');
+    try {
+      final ref = _deliveryPointsCollection().doc(pointId);
+      final snap = await ref.get();
+      if (!snap.exists) return false;
+      final data = snap.data()!;
+      final current = DeliveryPoint.normalizeStatus(
+        data['status'] as String? ?? '',
+      );
+      if (current != DeliveryPoint.statusCompleted) {
+        trace?.log('undo skipped: status=$current');
+        return false;
+      }
+      if (updatedByUid != null &&
+          data['driverId'] != null &&
+          data['driverId'] != updatedByUid) {
+        trace?.log('undo skipped: driver mismatch');
+        return false;
+      }
+
+      final normalizedRestore = DeliveryPoint.normalizeStatus(restoreStatus);
+      final patch = <String, dynamic>{
+        'status': normalizedRestore,
+        'autoCompleted': false,
+        'completedAt': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (updatedByUid != null) patch['updatedByUid'] = updatedByUid;
+      if (normalizedRestore == DeliveryPoint.statusAssigned) {
+        patch['arrivedAt'] = FieldValue.delete();
+      } else if (data['arrivedAt'] == null) {
+        patch['arrivedAt'] = FieldValue.serverTimestamp();
+      }
+
+      await _updatePoint(pointId, patch);
+      await trace?.audit(
+        moduleKey: 'logistics',
+        type: 'delivery_point_close_undone',
+        entityCollection: 'delivery_points',
+        entityDocId: pointId,
+        extra: {'restoreStatus': normalizedRestore},
+      );
+      print('↩️ [RouteService] Close undone for $pointId → $normalizedRestore');
+      return true;
+    } catch (e, st) {
+      trace?.logError(e, st);
+      if (trace != null) throw trace.toException(e);
+      rethrow;
+    }
+  }
+
+  /// Отменить ошибочное автозакрытие (совместимость).
   Future<void> undoAutoComplete(String pointId, {String? updatedByUid}) async {
-    final patch = <String, dynamic>{
-      'status': DeliveryPoint.statusInProgress,
-      'autoCompleted': false,
-      'completedAt': FieldValue.delete(),
-      'arrivedAt': FieldValue.serverTimestamp(),
-    };
-    if (updatedByUid != null) patch['updatedByUid'] = updatedByUid;
-    await _updatePoint(pointId, patch);
-    print('↩️ [RouteService] Auto-complete undone for $pointId');
+    await undoPointClose(
+      pointId,
+      restoreStatus: DeliveryPoint.statusInProgress,
+      updatedByUid: updatedByUid,
+    );
   }
 
   /// 🔄 Переоткрыть автозакрытую точку (вернуть в маршрут)

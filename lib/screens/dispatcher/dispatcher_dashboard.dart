@@ -10,6 +10,8 @@ import '../../services/print_service.dart';
 import '../../services/invoice_print_service.dart';
 import '../../services/invoice_service.dart';
 import '../../services/company_context.dart';
+import '../../services/company_selection_service.dart';
+import '../../core/correlation/correlation_context.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/dialog_helper.dart';
 import '../../l10n/app_localizations.dart';
@@ -26,6 +28,7 @@ import '../../widgets/logi_route_tab_bar.dart';
 import 'widgets/dispatcher_app_bar_actions.dart';
 import 'widgets/pending_points_tab.dart';
 import 'widgets/active_routes_tab.dart';
+import 'widgets/merge_routes_dialog.dart';
 import 'widgets/map_tab.dart';
 import 'widgets/driver_workload_panel.dart';
 import '../../widgets/notification_bell.dart';
@@ -58,6 +61,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
   Stream<List<DeliveryPoint>>? _mapRoutesStream;
   Stream<List<DeliveryPoint>>? _autoCompletedStream;
   String? _currentCompanyId;
+  DateTime? _companyWaitSince;
   RouteCacheService? _dispatcherCache;
 
   // Поток GPS-позиций водителей для «живого» бейджа опоздания (кэш по компании).
@@ -538,12 +542,14 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     if (driver != null) {
       try {
         final routeService = RouteService(companyId: companyId);
+        final actorUid = context.read<AuthService>().currentUser?.uid ?? '';
         await routeService.createOptimizedRoute(
           driver.uid,
           driver.name,
           points,
           driver.palletCapacity ?? 0,
           useDispatcherLocation: true,
+          actorUid: actorUid,
         );
         if (mounted) {
           SnackbarHelper.showSuccess(context, l10n.routeCreated);
@@ -552,7 +558,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           SnackbarHelper.showError(
             context,
-            l10n.dispatcherGenericError(e.toString()),
+            l10n.dispatcherGenericError(correlatedErrorMessage(e)),
           );
         }
       }
@@ -898,14 +904,26 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           return;
         }
 
+        final auth = context.read<AuthService>();
+        final user = auth.userModel;
         await routeService.updatePoint(
           point.id,
           result['urgency'] as String,
           result['orderInRoute'] as int?,
-          result['address'] as String?,
           updateWindow: result['updateWindow'] == true,
           openingTime: result['openingTime'] as DateTime?,
           closingTime: result['closingTime'] as DateTime?,
+          deliveryAddressOverride:
+              result['deliveryAddressOverride'] as String?,
+          deliveryAddressOverrideLat:
+              (result['deliveryAddressOverrideLat'] as num?)?.toDouble(),
+          deliveryAddressOverrideLng:
+              (result['deliveryAddressOverrideLng'] as num?)?.toDouble(),
+          clearDeliveryAddressOverride:
+              result['clearDeliveryAddressOverride'] == true,
+          updatedByUid: auth.currentUser?.uid,
+          updatedByRole: auth.viewAsRole ?? auth.userRole,
+          updatedByName: user?.name,
         );
         if (mounted) {
           SnackbarHelper.show(
@@ -1055,6 +1073,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
           selectedDriver.uid,
           selectedDriver.name,
           selectedDriver.palletCapacity ?? 0,
+          actorUid: context.read<AuthService>().currentUser?.uid,
         );
         if (mounted) {
           SnackbarHelper.showSuccess(
@@ -1069,7 +1088,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         if (mounted) {
           SnackbarHelper.showError(
             context,
-            l10n.dispatcherGenericError(e.toString()),
+            l10n.dispatcherGenericError(correlatedErrorMessage(e)),
           );
         }
       }
@@ -1163,6 +1182,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
         driverId,
         driverName,
         driver.palletCapacity ?? 0,
+        actorUid: context.read<AuthService>().currentUser?.uid,
       );
 
       if (mounted) {
@@ -1317,6 +1337,39 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
     }
   }
 
+  Future<void> _mergeRoutes(List<DeliveryPoint> routes) async {
+    final l10n = AppLocalizations.of(context)!;
+    final companyCtx = CompanyContext.watch(context);
+    final effectiveCompanyId = companyCtx.effectiveCompanyId ?? '';
+
+    final request = await showMergeRoutesDialog(context: context, routes: routes);
+    if (request == null || !mounted) return;
+
+    try {
+      final balanceService = RouteBalanceService(companyId: effectiveCompanyId);
+      final moved = await balanceService.mergeRoutes(
+        targetRouteId: request.targetRouteId,
+        sourceRouteIds: request.sourceRouteIds,
+      );
+      if (!mounted) return;
+      if (moved == 0) {
+        SnackbarHelper.showInfo(context, l10n.mergeRoutesNothingMoved);
+      } else {
+        SnackbarHelper.showSuccess(
+          context,
+          l10n.mergeRoutesSuccess(moved.toString()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          l10n.dispatcherGenericError(e.toString()),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1333,10 +1386,36 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
       _initStreams(effectiveCompanyId);
     }
 
-    // Если companyId ещё не загружен — показываем loader
+    // Если companyId ещё не загружен — loader с таймаутом (не бесконечный спиннер)
     if (effectiveCompanyId.isEmpty || _pendingPointsStream == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      _companyWaitSince ??= DateTime.now();
+      final timedOut = DateTime.now().difference(_companyWaitSince!) >
+          const Duration(seconds: 12);
+      if (!timedOut) {
+        return const Scaffold(
+            body: Center(child: CircularProgressIndicator()));
+      }
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.noCompanySelected),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  setState(() => _companyWaitSince = DateTime.now());
+                  context.read<CompanySelectionService>().ensureRestored();
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text(l10n.retry),
+              ),
+            ],
+          ),
+        ),
+      );
     }
+    _companyWaitSince = null;
 
     return Directionality(
       textDirection: localeService.locale.languageCode == 'he'
@@ -1563,6 +1642,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                     point,
                                   ),
                                   onBalanceRoutes: _balanceRoutes,
+                                  onMergeRoutes: _mergeRoutes,
                                   onOptimizeRoute:
                                       (driverId, routeId, points) =>
                                           _optimizeRouteByTime(

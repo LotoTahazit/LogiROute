@@ -7,6 +7,7 @@ import '../../services/company_context.dart';
 import '../../services/route_archive_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/proof_of_delivery_viewer.dart';
+import '../../utils/delivery_point_address_resolver.dart';
 
 /// Простой архив завершённых доставок: по дням, фото до 90 дней, GPS дольше.
 class RouteArchiveScreen extends StatefulWidget {
@@ -139,13 +140,38 @@ class _RouteArchiveScreenState extends State<RouteArchiveScreen> {
     );
   }
 
+  String _displayAddress(DeliveryPoint p) =>
+      resolveDeliveryPointAddress(p).displayAddress;
+
+  String? _proofGps(DeliveryPoint p) {
+    if (p.podLat != null && p.podLng != null) {
+      return '${p.podLat!.toStringAsFixed(5)}, ${p.podLng!.toStringAsFixed(5)}';
+    }
+    if (DeliveryPoint.isValidCoordinates(p.latitude, p.longitude)) {
+      return '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}';
+    }
+    return null;
+  }
+
   Widget _pointTile(DeliveryPoint p) {
     final l10n = AppLocalizations.of(context)!;
-    final when = p.completedAt ?? p.archivedAt;
+    final when = p.completedAt ?? p.archivedAt ?? p.podAt;
     final hasPhoto =
         p.podPhotoUrl != null && p.podPhotoUrl!.trim().isNotEmpty;
+    final address = _displayAddress(p);
+    final gps = _proofGps(p);
+    final dateStr =
+        when != null ? DateFormat('dd.MM.yyyy').format(when) : '—';
     final timeStr =
         when != null ? DateFormat.Hm().format(when) : '—';
+
+    final lines = <String>[
+      address,
+      '${p.driverName ?? "—"} · $dateStr $timeStr',
+      if (!hasPhoto && gps != null) '${l10n.podGps}: $gps',
+      if (!hasPhoto && gps == null) l10n.routeArchiveGpsOnly,
+      if (p.autoCompleted) l10n.podViewerAutoClosed,
+    ];
 
     return ListTile(
       leading: CircleAvatar(
@@ -158,8 +184,8 @@ class _RouteArchiveScreenState extends State<RouteArchiveScreen> {
       ),
       title: Text(p.clientName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        '${p.driverName ?? "—"} · $timeStr${hasPhoto ? "" : " · ${l10n.routeArchiveGpsOnly}"}',
-        maxLines: 2,
+        lines.join('\n'),
+        maxLines: 5,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: const Icon(Icons.chevron_right),

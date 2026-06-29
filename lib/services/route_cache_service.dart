@@ -48,7 +48,9 @@ class RouteCacheService {
         'driverId': p.driverId,
         'driverName': p.driverName,
         'driverCapacity': p.driverCapacity,
-        'temporaryAddress': p.temporaryAddress,
+        'deliveryAddressOverride': p.deliveryAddressOverride,
+        'deliveryAddressOverrideLat': p.deliveryAddressOverrideLat,
+        'deliveryAddressOverrideLng': p.deliveryAddressOverrideLng,
         'autoCompleted': p.autoCompleted,
         'routeId': p.routeId,
         'routePolyline': p.routePolyline,
@@ -83,7 +85,11 @@ class RouteCacheService {
         driverId: m['driverId'],
         driverName: m['driverName'],
         driverCapacity: m['driverCapacity'],
-        temporaryAddress: m['temporaryAddress'],
+        deliveryAddressOverride: m['deliveryAddressOverride'] ?? m['temporaryAddress'],
+        deliveryAddressOverrideLat:
+            (m['deliveryAddressOverrideLat'] as num?)?.toDouble(),
+        deliveryAddressOverrideLng:
+            (m['deliveryAddressOverrideLng'] as num?)?.toDouble(),
         autoCompleted: m['autoCompleted'] ?? false,
         routeId: m['routeId'],
         routePolyline: m['routePolyline'],

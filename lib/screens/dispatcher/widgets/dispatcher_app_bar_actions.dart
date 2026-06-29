@@ -10,7 +10,9 @@ import '../../warehouse/warehouse_dashboard.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/company_context.dart';
+import '../../../services/import/import_mapping_wizard_launcher.dart';
 import '../../../services/delivery_point_import_service.dart';
+import '../../../services/warehouse_access.dart';
 import '../../shift_settings_screen.dart';
 
 /// AppBar actions диспетчера — сгруппированные меню (вариант A).
@@ -33,6 +35,8 @@ class DispatcherAppBarActions extends StatelessWidget {
         );
       case 'import_delivery_points':
         DeliveryPointImportService.runImport(context);
+      case 'import_wizard':
+        ImportMappingWizardLauncher.open(context);
       case 'prices':
         Navigator.push(
           context,
@@ -112,16 +116,23 @@ class DispatcherAppBarActions extends StatelessWidget {
   List<PopupMenuEntry<String>> _logisticsItems(AppLocalizations l10n) => [
         _item('clients', Icons.people, l10n.clientManagement),
         _item('import_delivery_points', Icons.upload_file, l10n.importDeliveryPointsMenu),
+        _item('import_wizard', Icons.auto_fix_high, l10n.importWizardMenu),
         _item('prices', Icons.attach_money, l10n.priceManagement),
         _item('warehouse_location', Icons.location_on, l10n.setWarehouseLocation),
         _item('shift_settings', Icons.schedule, l10n.shiftScheduleTitle),
       ];
 
-  List<PopupMenuEntry<String>> _warehouseItems(AppLocalizations l10n) => [
-        _item('warehouse', Icons.inventory_2, l10n.warehouseInventory),
-        _item('inventory_report', Icons.swap_horiz, l10n.inventoryChangesReport),
-        _item('inventory_counts', Icons.fact_check, l10n.inventoryCountReportsTooltip),
-      ];
+  List<PopupMenuEntry<String>> _warehouseItems(AppLocalizations l10n) {
+    final role = authService.viewAsRole ?? authService.userRole;
+    if (!WarehouseAccess.canReadWarehouse(role)) return [];
+    return [
+      _item('warehouse', Icons.inventory_2, l10n.warehouseInventory),
+      _item('inventory_report', Icons.swap_horiz, l10n.inventoryChangesReport),
+      if (WarehouseAccess.canWriteWarehouse(role))
+        _item('inventory_counts', Icons.fact_check,
+            l10n.inventoryCountReportsTooltip),
+    ];
+  }
 
   List<PopupMenuEntry<String>> _archiveItems(AppLocalizations l10n) => [
         _item('route_archive', Icons.history, l10n.routeArchiveTitle),
@@ -144,12 +155,15 @@ class DispatcherAppBarActions extends StatelessWidget {
   }
 
   List<PopupMenuEntry<String>> _mobileMenuItems(AppLocalizations l10n) {
+    final warehouseItems = _warehouseItems(l10n);
     return [
       _sectionHeader(l10n.appBarGroupLogistics),
       ..._logisticsItems(l10n),
-      const PopupMenuDivider(),
-      _sectionHeader(l10n.appBarGroupWarehouse),
-      ..._warehouseItems(l10n),
+      if (warehouseItems.isNotEmpty) ...[
+        const PopupMenuDivider(),
+        _sectionHeader(l10n.appBarGroupWarehouse),
+        ...warehouseItems,
+      ],
       const PopupMenuDivider(),
       _sectionHeader(l10n.appBarGroupArchive),
       ..._archiveItems(l10n),
@@ -162,6 +176,7 @@ class DispatcherAppBarActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final warehouseItems = _warehouseItems(l10n);
 
     if (isMobile) {
       return Row(
@@ -191,12 +206,13 @@ class DispatcherAppBarActions extends StatelessWidget {
           tooltip: l10n.appBarGroupLogistics,
           items: _logisticsItems(l10n),
         ),
-        _groupMenu(
-          context: context,
-          icon: Icons.inventory_2_outlined,
-          tooltip: l10n.appBarGroupWarehouse,
-          items: _warehouseItems(l10n),
-        ),
+        if (warehouseItems.isNotEmpty)
+          _groupMenu(
+            context: context,
+            icon: Icons.inventory_2_outlined,
+            tooltip: l10n.appBarGroupWarehouse,
+            items: warehouseItems,
+          ),
         _groupMenu(
           context: context,
           icon: Icons.archive_outlined,

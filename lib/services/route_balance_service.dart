@@ -151,6 +151,77 @@ class RouteBalanceService {
     return movedCount;
   }
 
+  /// Объединяет маршруты одного водителя: активные точки из [sourceRouteIds]
+  /// переносятся в [targetRouteId]. Завершённые точки не трогаем.
+  Future<int> mergeRoutes({
+    required String targetRouteId,
+    required Set<String> sourceRouteIds,
+  }) async {
+    final sources = sourceRouteIds.where((id) => id != targetRouteId).toSet();
+    if (sources.isEmpty) return 0;
+
+    final targetSample = await _pointsRef
+        .where('routeId', isEqualTo: targetRouteId)
+        .limit(1)
+        .get();
+    if (targetSample.docs.isEmpty) return 0;
+    final targetData = targetSample.docs.first.data();
+    final driverId = targetData['driverId'] as String? ?? '';
+    final driverName = targetData['driverName'] as String? ?? '';
+    final driverCapacity = targetData['driverCapacity'];
+
+    final maxOrderQuery = await _pointsRef
+        .where('routeId', isEqualTo: targetRouteId)
+        .orderBy('orderInRoute', descending: true)
+        .limit(1)
+        .get();
+    var nextOrder = maxOrderQuery.docs.isNotEmpty
+        ? ((maxOrderQuery.docs.first.data()['orderInRoute'] as num?)?.toInt() ??
+                0) +
+            1
+        : 0;
+
+    int moved = 0;
+    var batch = FirebaseFirestore.instance.batch();
+    var batchOps = 0;
+
+    Future<void> flushBatch() async {
+      if (batchOps == 0) return;
+      await batch.commit();
+      batch = FirebaseFirestore.instance.batch();
+      batchOps = 0;
+    }
+
+    for (final sourceId in sources) {
+      final srcSnap = await _pointsRef
+          .where('routeId', isEqualTo: sourceId)
+          .where('status', whereIn: DeliveryPoint.activeRouteStatuses)
+          .get();
+
+      for (final doc in srcSnap.docs) {
+        final data = doc.data();
+        if ((data['driverId'] as String? ?? '') != driverId) {
+          throw StateError('merge_routes_driver_mismatch');
+        }
+        batch.update(doc.reference, {
+          'routeId': targetRouteId,
+          'driverId': driverId,
+          'driverName': driverName,
+          if (driverCapacity != null) 'driverCapacity': driverCapacity,
+          'orderInRoute': nextOrder++,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        moved++;
+        batchOps++;
+        if (batchOps >= 400) await flushBatch();
+      }
+    }
+
+    await flushBatch();
+    if (moved > 0) await _recalculateActiveRoutes();
+    return moved;
+  }
+
   /// Пересчитывает ETA и orderInRoute для списка точек.
   /// [polyline] — если передан, сохраняется в routes документ (без OSRM запроса).
   Future<void> recalculateETAsForPoints(

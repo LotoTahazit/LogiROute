@@ -3,6 +3,7 @@ import '../../../models/delivery_point.dart';
 import '../../../services/print_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/zone_utils.dart';
+import '../../../utils/delivery_point_address_resolver.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/logi_route_tab_bar.dart';
 
@@ -58,12 +59,8 @@ class _PendingPointsTabState extends State<PendingPointsTab> {
     super.dispose();
   }
 
-  String _getDisplayAddress(DeliveryPoint point) {
-    if (point.temporaryAddress != null && point.temporaryAddress!.isNotEmpty) {
-      return point.temporaryAddress!;
-    }
-    return point.address;
-  }
+  String _getDisplayAddress(DeliveryPoint point) =>
+      resolveDeliveryPointAddress(point).displayAddress;
 
   int _calculateTotalPallets() {
     return widget.points.fold(0, (sum, p) => sum + p.pallets);
