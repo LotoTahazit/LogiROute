@@ -84,6 +84,15 @@ enum AppRole {
   }
 }
 
+/// UI-only роль для Owner Dashboard: `viewAsRole ?? actualRole`.
+/// Не меняет Firestore claims; rules проверяют реальную роль на сервере.
+AppRole effectiveAppRole({
+  required String? actualRole,
+  String? viewAsRole,
+}) {
+  return AppRole.fromString(viewAsRole ?? actualRole ?? 'viewer');
+}
+
 /// Сравнивает две роли по иерархии.
 ///
 /// Возвращает:

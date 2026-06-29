@@ -17,6 +17,7 @@ const _allBillingStatuses = [
 ];
 
 const _allSections = [
+  'onboarding',
   'overview',
   'users_roles',
   'billing',
@@ -24,6 +25,8 @@ const _allSections = [
   'audit',
   'ops_health',
   'accounting',
+  'create_document',
+  'clients',
   'reports',
 ];
 
@@ -201,29 +204,28 @@ void main() {
   // **Validates: Requirements 5.9**
   // -------------------------------------------------------------------------
 
-  group('Property 12: Лимит пользователей блокирует приглашения', () {
+  group('Property 12: Лимит пользователей (H5 soft pilot)', () {
     test(
-      'Property 12a: activeUsers >= usersLimit blocks invite creation (150 iterations)',
+      'Property 12a: activeUsers >= usersLimit triggers usersLimitExceeded',
       () {
         final rng = Random(1200);
 
         for (var i = 0; i < 150; i++) {
           final usersLimit = 1 + rng.nextInt(100);
-          // activeUsers in [usersLimit, usersLimit + 50]
           final activeUsers = usersLimit + rng.nextInt(51);
 
-          final canInvite =
-              EntitlementsService.canCreateInvite(activeUsers, usersLimit);
-
-          expect(canInvite, isFalse,
-              reason:
-                  'Iteration $i: activeUsers=$activeUsers >= limit=$usersLimit should block invites');
+          expect(
+            EntitlementsService.usersLimitExceeded(activeUsers, usersLimit),
+            isTrue,
+            reason:
+                'Iteration $i: activeUsers=$activeUsers >= limit=$usersLimit',
+          );
         }
       },
     );
 
     test(
-      'Property 12b: activeUsers < usersLimit allows invite creation (150 iterations)',
+      'Property 12b: activeUsers < usersLimit — no exceeded warning',
       () {
         final rng = Random(1201);
 
@@ -231,32 +233,20 @@ void main() {
           final usersLimit = 2 + rng.nextInt(100);
           final activeUsers = rng.nextInt(usersLimit);
 
-          final canInvite =
-              EntitlementsService.canCreateInvite(activeUsers, usersLimit);
-
-          expect(canInvite, isTrue,
-              reason:
-                  'Iteration $i: activeUsers=$activeUsers < limit=$usersLimit should allow invites');
+          expect(
+            EntitlementsService.usersLimitExceeded(activeUsers, usersLimit),
+            isFalse,
+          );
         }
       },
     );
 
     test(
-      'Property 12c: exactly at limit blocks invite (boundary)',
+      'Property 12c: canCreateInvite not blocked on pilot (soft limit)',
       () {
         for (var limit = 1; limit <= 20; limit++) {
-          expect(EntitlementsService.canCreateInvite(limit, limit), isFalse,
-              reason: 'activeUsers=$limit == limit=$limit should block');
-        }
-      },
-    );
-
-    test(
-      'Property 12d: one below limit allows invite (boundary)',
-      () {
-        for (var limit = 1; limit <= 20; limit++) {
-          expect(EntitlementsService.canCreateInvite(limit - 1, limit), isTrue,
-              reason: 'activeUsers=${limit - 1} < limit=$limit should allow');
+          expect(EntitlementsService.canCreateInvite(limit, limit), isTrue);
+          expect(EntitlementsService.canCreateInvite(limit + 5, limit), isTrue);
         }
       },
     );
@@ -404,13 +394,13 @@ void main() {
     );
 
     test(
-      'Property 14c: active/trial/grace show all 8 sections',
+      'Property 14c: active/trial/grace show all 11 sections',
       () {
         for (final status in ['active', 'trial', 'grace']) {
           final sections = EntitlementsService.getVisibleSections(status);
 
-          expect(sections, hasLength(8),
-              reason: 'Status "$status" should show all 8 sections');
+          expect(sections, hasLength(11),
+              reason: 'Status "$status" should show all 11 sections');
           expect(sections, containsAll(_allSections),
               reason: 'Status "$status" should contain all sections');
         }
@@ -438,7 +428,7 @@ void main() {
             expect(sections, contains('billing'), reason: 'Iteration $i');
             expect(sections, contains('settings'), reason: 'Iteration $i');
           } else {
-            expect(sections, hasLength(8), reason: 'Iteration $i');
+            expect(sections, hasLength(11), reason: 'Iteration $i');
           }
         }
       },

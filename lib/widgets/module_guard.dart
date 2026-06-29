@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/company_settings.dart';
 import '../services/company_settings_service.dart';
 import '../services/module_manager.dart';
 import 'module_access_denied.dart';
 
-/// Обёртка для проверки доступа к модулю
-/// Загружает CompanySettings и проверяет entitlement
+/// Обёртка для проверки доступа к модулю.
+/// Entitlements читаются через [CompanySettingsService] (root modules + rules).
 class ModuleGuard extends StatelessWidget {
   final String companyId;
   final String requiredModule;
@@ -18,10 +19,23 @@ class ModuleGuard extends StatelessWidget {
     required this.child,
   });
 
+  Widget _errorScreen(BuildContext context, String message) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     if (companyId.isEmpty) {
-      return child; // fallback: пропускаем если нет companyId
+      return _errorScreen(context, l10n.noCompanySelected);
     }
 
     return FutureBuilder<CompanySettings?>(
@@ -33,8 +47,14 @@ class ModuleGuard extends StatelessWidget {
           );
         }
 
+        if (snapshot.hasError) {
+          return _errorScreen(context, l10n.companyDataNotFound);
+        }
+
         final settings = snapshot.data;
-        if (settings == null) return child; // нет настроек — пропускаем
+        if (settings == null) {
+          return _errorScreen(context, l10n.companyDataNotFound);
+        }
 
         if (!ModuleManager.isBillingActive(settings)) {
           return Scaffold(

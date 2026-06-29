@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../services/company_context.dart';
 import '../../services/auth_service.dart';
+import '../../services/company_modules_service.dart';
 import '../../services/cross_module_audit_service.dart';
 import '../../services/firestore_paths.dart';
 import '../../l10n/app_localizations.dart';
@@ -24,13 +25,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
   String? _companyId;
   String _plan = 'full';
 
-  static const _moduleKeys = [
-    'warehouse',
-    'logistics',
-    'dispatcher',
-    'accounting',
-    'reports'
-  ];
+  static const _moduleKeys = CompanyModulesService.moduleKeys;
 
   static const _moduleIcons = {
     'warehouse': Icons.warehouse,
@@ -38,38 +33,6 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
     'dispatcher': Icons.map,
     'accounting': Icons.receipt_long,
     'reports': Icons.analytics,
-  };
-
-  /// Модули определяются планом — без ручного переключения
-  static const _planModules = {
-    'logistics': {
-      'warehouse': false,
-      'logistics': true,
-      'dispatcher': true,
-      'accounting': false,
-      'reports': true,
-    },
-    'warehouse_only': {
-      'warehouse': true,
-      'logistics': false,
-      'dispatcher': false,
-      'accounting': false,
-      'reports': false
-    },
-    'ops': {
-      'warehouse': true,
-      'logistics': true,
-      'dispatcher': true,
-      'accounting': false,
-      'reports': true
-    },
-    'full': {
-      'warehouse': true,
-      'logistics': true,
-      'dispatcher': true,
-      'accounting': true,
-      'reports': true
-    },
   };
 
   static const _planPriceLabel = {
@@ -86,8 +49,10 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
     'full': Icons.all_inclusive,
   };
 
-  Map<String, bool> get _currentModules =>
-      _planModules[_plan] ?? _planModules['full']!;
+  Map<String, bool> get _currentModules => Map<String, bool>.from(
+        CompanyModulesService.planModules[_plan] ??
+            CompanyModulesService.planModules['full']!,
+      );
 
   String _moduleName(String key, AppLocalizations l10n) {
     switch (key) {
@@ -153,15 +118,12 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
     }
     _companyId = id;
 
-    final snap = await FirestorePaths(firestore: _firestore)
-        .companySettings(id)
-        .doc('settings')
-        .get();
-    final data = snap.data() ?? {};
+    final rootSnap =
+        await FirestorePaths(firestore: _firestore).companyDoc(id).get();
+    final data = rootSnap.data() ?? {};
 
     setState(() {
-      final savedPlan = data['plan'] as String? ?? 'full';
-      _plan = _planModules.containsKey(savedPlan) ? savedPlan : 'full';
+      _plan = CompanyModulesService.normalizePlan(data['plan'] as String?);
       _isLoading = false;
     });
   }
@@ -175,10 +137,7 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
       final auth = Provider.of<AuthService>(context, listen: false);
       final uid = auth.currentUser?.uid ?? 'unknown';
 
-      await FirestorePaths(firestore: _firestore)
-          .companySettings(_companyId!)
-          .doc('settings')
-          .update({'modules': _currentModules, 'plan': _plan});
+      await CompanyModulesService(companyId: _companyId!).applyPlan(_plan);
 
       await FirestorePaths(firestore: _firestore).audit(_companyId!).add({
         'moduleKey': 'admin',
@@ -187,10 +146,6 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
         'createdBy': uid,
         'createdAt': FieldValue.serverTimestamp(),
         'reason': 'Plan changed to $_plan',
-      });
-
-      await FirestorePaths(firestore: _firestore).companyDoc(_companyId!).update({
-        'plan': _plan,
       });
 
       if (mounted) {
@@ -248,7 +203,8 @@ class _ModuleToggleScreenState extends State<ModuleToggleScreen> {
                             onChanged: (v) =>
                                 setState(() => _plan = v ?? _plan),
                             child: Column(
-                              children: _planModules.keys.map((planKey) {
+                              children: CompanyModulesService.planModules.keys
+                                  .map((planKey) {
                                 final isSelected = _plan == planKey;
                                 final label = _planName(planKey, l10n);
                                 final icon =

@@ -40,8 +40,13 @@ void main() {
       expect(ModuleManager.isBillingActive(c), true);
     });
 
-    test('grace status returns true', () {
-      final c = _makeCompany(billingStatus: 'grace');
+    test('grace status returns true when paidUntil within grace window', () {
+      final c = _makeCompany(
+        billingStatus: 'grace',
+        trialEndsAt: null,
+      ).copyWith(
+        paidUntil: DateTime.now().subtract(const Duration(days: 2)),
+      );
       expect(ModuleManager.isBillingActive(c), true);
     });
 
@@ -53,17 +58,25 @@ void main() {
       expect(ModuleManager.isBillingActive(c), true);
     });
 
-    test('trial with past date returns false', () {
+    test('trial with past date but grace valid returns true', () {
       final c = _makeCompany(
         billingStatus: 'trial',
         trialEndsAt: DateTime.now().subtract(const Duration(days: 1)),
       );
+      expect(ModuleManager.isBillingActive(c), true);
+    });
+
+    test('trial and grace expired returns false', () {
+      final c = _makeCompany(
+        billingStatus: 'trial',
+        trialEndsAt: DateTime.now().subtract(const Duration(days: 10)),
+      );
       expect(ModuleManager.isBillingActive(c), false);
     });
 
-    test('trial with null date returns true', () {
+    test('trial with null date fails closed', () {
       final c = _makeCompany(billingStatus: 'trial');
-      expect(ModuleManager.isBillingActive(c), true);
+      expect(ModuleManager.isBillingActive(c), false);
     });
 
     test('suspended returns false', () {
@@ -91,7 +104,7 @@ void main() {
     });
 
     test('returns false for blocked billing', () {
-      final c = _makeCompany(billingStatus: 'blocked');
+      final c = _makeCompany(billingStatus: 'suspended');
       expect(ModuleManager.hasModule(c, 'warehouse'), false);
     });
 

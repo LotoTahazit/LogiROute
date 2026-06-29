@@ -312,10 +312,10 @@ void main() {
   // Property 11: Разрешения на назначение ролей
   //
   // Owner: canAssignRole = true для {admin, dispatcher, driver,
-  //   warehouse_keeper, accountant, viewer}; false для {owner, super_admin}
+  //   warehouse_keeper, accountant}; false для {owner, super_admin, viewer}
   // Admin: canAssignRole = true для {admin, dispatcher, driver,
-  //   warehouse_keeper, accountant, viewer}; false для {owner, super_admin}
-  // Super_admin: canAssignRole = true для всех ролей
+  //   warehouse_keeper, accountant}; false для {owner, super_admin, viewer}
+  // Super_admin: canAssignRole = true для всех ролей кроме viewer
   // **Validates: Requirements 5.5, 5.6, 5.7, 5.8, 11.6**
   // -------------------------------------------------------------------------
 
@@ -329,7 +329,6 @@ void main() {
         AppRole.driver,
         AppRole.warehouseKeeper,
         AppRole.accountant,
-        AppRole.viewer,
       };
 
       for (var i = 0; i < 150; i++) {
@@ -355,7 +354,6 @@ void main() {
         AppRole.driver,
         AppRole.warehouseKeeper,
         AppRole.accountant,
-        AppRole.viewer,
       };
 
       for (var i = 0; i < 150; i++) {
@@ -450,12 +448,13 @@ void main() {
   );
 
   test(
-    'Property 24c: super_admin canAssignRole is true for all roles (exhaustive)',
+    'Property 24c: super_admin canAssignRole is true for all roles except viewer (exhaustive)',
     () {
       final svc = _service(AppRole.superAdmin, 'company_test');
       for (final target in _allRoles) {
-        expect(svc.canAssignRole(target), isTrue,
-            reason: 'super_admin should assign ${target.value}');
+        final expected = target != AppRole.viewer;
+        expect(svc.canAssignRole(target), equals(expected),
+            reason: 'super_admin should assign ${target.value} = $expected');
       }
     },
   );
@@ -485,12 +484,11 @@ void main() {
     'Property 25a: accountant canRead returns true for accounting/reports/audit (150 iterations)',
     () {
       final rng = Random(312);
-      const allowedModules = ['accounting', 'reports', 'audit'];
+      const allowedModules = ['accounting', 'reports', 'audit', 'settings'];
       const deniedModules = [
         'overview',
         'users',
         'billing',
-        'settings',
         'ops_health',
         'members',
         'invites',
@@ -574,6 +572,7 @@ void main() {
         'receipt',
         'tax_invoice_receipt',
         'credit_note',
+        'delivery_note',
       ];
       const invalidDocTypes = ['unknown', 'invoice', 'report', ''];
       const nonDraftStatuses = [
@@ -685,17 +684,25 @@ void main() {
   );
 
   test(
-    'Property 26c: accountant canEditCompanyProfile, canEditSettings, canManageIntegrations all return false (exhaustive)',
+    'Property 26c: accountant has accounting settings permissions (exhaustive)',
     () {
       for (final companyId in ['company_a', 'company_b', 'company_xyz']) {
         final svc = _service(AppRole.accountant, companyId);
 
-        expect(svc.canEditCompanyProfile(), isFalse,
-            reason: 'accountant ($companyId) should NOT canEditCompanyProfile');
-        expect(svc.canEditSettings(), isFalse,
-            reason: 'accountant ($companyId) should NOT canEditSettings');
-        expect(svc.canManageIntegrations(), isFalse,
-            reason: 'accountant ($companyId) should NOT canManageIntegrations');
+        expect(svc.canEditCompanyProfile(), isTrue,
+            reason: 'accountant ($companyId) should canEditCompanyProfile');
+        expect(svc.canEditSettings(), isTrue,
+            reason: 'accountant ($companyId) should canEditSettings');
+        expect(svc.canEditInvoiceSettings(), isTrue,
+            reason: 'accountant ($companyId) should canEditInvoiceSettings');
+        expect(svc.canManageIntegrations(), isTrue,
+            reason: 'accountant ($companyId) should canManageIntegrations');
+        expect(svc.canManageClients(), isTrue,
+            reason: 'accountant ($companyId) should canManageClients');
+        expect(svc.canManageAccountingCredentials(), isTrue,
+            reason: 'accountant ($companyId) should canManageAccountingCredentials');
+        expect(svc.canAssignRole(AppRole.admin), isFalse,
+            reason: 'accountant ($companyId) should NOT canAssignRole');
       }
     },
   );

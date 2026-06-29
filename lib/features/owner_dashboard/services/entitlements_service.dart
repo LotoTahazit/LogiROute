@@ -1,4 +1,7 @@
 import '../../../models/company_settings.dart';
+import '../../../models/plan_limit_policy.dart';
+import '../../../services/billing_state.dart';
+import '../../../services/plan_limits_service.dart';
 
 /// Сервис определения доступных модулей и лимитов на основе тарифного плана.
 ///
@@ -36,6 +39,14 @@ class EntitlementsService {
       limits: limits,
       currentUsers: currentUsers,
       currentDocsThisMonth: currentDocsThisMonth,
+      usersWarning:
+          PlanLimitPolicy.isOverLimit(currentUsers, limits.maxUsers),
+      usersNearLimit:
+          PlanLimitPolicy.isNearLimit(currentUsers, limits.maxUsers),
+      docsWarning: PlanLimitPolicy.isOverLimit(
+          currentDocsThisMonth, limits.maxDocsPerMonth),
+      docsNearLimit: PlanLimitPolicy.isNearLimit(
+          currentDocsThisMonth, limits.maxDocsPerMonth),
     );
   }
 
@@ -77,53 +88,42 @@ class EntitlementsService {
     return (difference.inSeconds / 86400).ceil();
   }
 
-  /// Возвращает список видимых секций на основе billingStatus.
-  ///
-  /// При `suspended` или `cancelled` — только Биллинг и Настройки.
-  /// Иначе — все секции (включая accounting и reports).
+  /// При отсутствии доступа (suspended/cancelled/grace expired) — только billing + settings.
   static List<String> getVisibleSections(String billingStatus) {
     if (billingStatus == 'suspended' || billingStatus == 'cancelled') {
       return const ['billing', 'settings'];
     }
-    return const [
-      'overview',
-      'users_roles',
-      'billing',
-      'settings',
-      'audit',
-      'ops_health',
-      'accounting',
-      'reports',
-    ];
+    return _allSections;
   }
 
-  /// Проверяет, можно ли создать приглашение.
-  ///
-  /// Возвращает `false` если activeUsers >= usersLimit.
+  static List<String> getVisibleSectionsForCompany(CompanySettings settings) {
+    if (!BillingState.evaluateFromSettings(settings).allowsAccess) {
+      return const ['billing', 'settings'];
+    }
+    return _allSections;
+  }
+
+  static const _allSections = [
+    'onboarding',
+    'overview',
+    'users_roles',
+    'billing',
+    'settings',
+    'audit',
+    'ops_health',
+    'accounting',
+    'create_document',
+    'clients',
+    'reports',
+  ];
+
+  /// Превышен лимит пользователей (для UI-предупреждения).
+  static bool usersLimitExceeded(int activeUsers, int usersLimit) =>
+      PlanLimitPolicy.isOverLimit(activeUsers, usersLimit);
+
+  /// Создание invite: hard block только если enforcement=hard (pilot: soft → всегда true).
   static bool canCreateInvite(int activeUsers, int usersLimit) {
+    if (!PlanLimitPolicy.blocks(PlanLimitKey.maxUsers)) return true;
     return activeUsers < usersLimit;
   }
-}
-
-/// Отчёт об использовании лимитов (pure data class).
-class PlanUsageReport {
-  final String plan;
-  final PlanLimits limits;
-  final int currentUsers;
-  final int currentDocsThisMonth;
-
-  const PlanUsageReport({
-    required this.plan,
-    required this.limits,
-    required this.currentUsers,
-    required this.currentDocsThisMonth,
-  });
-
-  bool get usersAtLimit => currentUsers >= limits.maxUsers;
-  bool get docsAtLimit => currentDocsThisMonth >= limits.maxDocsPerMonth;
-
-  String? get usersAlertLevel =>
-      EntitlementsService.getAlertLevel(currentUsers, limits.maxUsers);
-  String? get docsAlertLevel => EntitlementsService.getAlertLevel(
-      currentDocsThisMonth, limits.maxDocsPerMonth);
 }

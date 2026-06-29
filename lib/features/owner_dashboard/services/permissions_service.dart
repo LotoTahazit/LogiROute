@@ -6,7 +6,8 @@ import '../models/role_hierarchy.dart';
 /// - `owner`: canRead(*) для своей компании; canWrite только для members, invites, company_profile
 /// - `admin`: canRead(*) + canWrite(*) для своей компании
 /// - `super_admin`: всё разрешено для любой компании
-/// - `accountant`: canRead(accounting/reports/audit); canWrite(accounting, create/update); no delete
+/// - `accountant`: canRead(accounting/reports/audit/settings); canWrite(accounting, create/update);
+///   редактирование профиля компании, настроек счёта, интеграций и клиентов; no delete
 class PermissionsService {
   final AppRole role;
   final String userCompanyId;
@@ -17,6 +18,18 @@ class PermissionsService {
     required this.userCompanyId,
     this.scopes,
   });
+
+  /// Права по effectiveRole (`viewAsRole ?? actualRole`) — только UI.
+  factory PermissionsService.forUser({
+    required String? actualRole,
+    String? viewAsRole,
+    required String userCompanyId,
+  }) {
+    return PermissionsService(
+      role: effectiveAppRole(actualRole: actualRole, viewAsRole: viewAsRole),
+      userCompanyId: userCompanyId,
+    );
+  }
 
   /// Коллекции, в которые owner может писать.
   static const _ownerWritableCollections = [
@@ -48,6 +61,7 @@ class PermissionsService {
     'accounting',
     'reports',
     'audit',
+    'settings',
   };
 
   /// Роли, которые owner может назначать.
@@ -57,7 +71,6 @@ class PermissionsService {
     AppRole.driver,
     AppRole.warehouseKeeper,
     AppRole.accountant,
-    AppRole.viewer,
   };
 
   /// Роли, которые admin может назначать.
@@ -67,7 +80,6 @@ class PermissionsService {
     AppRole.driver,
     AppRole.warehouseKeeper,
     AppRole.accountant,
-    AppRole.viewer,
   };
 
   /// Допустимые типы бухгалтерских документов для создания.
@@ -76,6 +88,7 @@ class PermissionsService {
     'receipt',
     'tax_invoice_receipt',
     'credit_note',
+    'delivery_note',
   };
 
   /// Проверяет, может ли пользователь получить доступ к данным указанной компании.
@@ -90,7 +103,7 @@ class PermissionsService {
   /// Проверяет право на чтение модуля.
   ///
   /// owner, admin, super_admin — могут читать все модули (в рамках своей компании).
-  /// accountant — только accounting, reports, audit.
+  /// accountant — accounting, reports, audit, settings.
   /// Остальные роли — не имеют доступа через Owner Dashboard.
   bool canRead(String module) {
     switch (role) {
@@ -130,9 +143,11 @@ class PermissionsService {
   /// Проверяет, может ли пользователь назначить указанную роль.
   ///
   /// - super_admin: может назначить любую роль
-  /// - owner: admin, dispatcher, driver, warehouse_keeper, accountant, viewer
-  /// - admin: admin, dispatcher, driver, warehouse_keeper, accountant, viewer
+  /// - owner: admin, dispatcher, driver, warehouse_keeper, accountant
+  /// - admin: admin, dispatcher, driver, warehouse_keeper, accountant
+  /// viewer отключён до появления read-only dashboard.
   bool canAssignRole(AppRole targetRole) {
+    if (targetRole == AppRole.viewer) return false;
     switch (role) {
       case AppRole.superAdmin:
         return true;
@@ -147,12 +162,13 @@ class PermissionsService {
 
   /// Проверяет право на редактирование профиля компании.
   ///
-  /// Доступно для owner, admin, super_admin.
+  /// Доступно для owner, admin, super_admin, accountant.
   bool canEditCompanyProfile() {
     switch (role) {
       case AppRole.superAdmin:
       case AppRole.owner:
       case AppRole.admin:
+      case AppRole.accountant:
         return true;
       default:
         return false;
@@ -161,13 +177,13 @@ class PermissionsService {
 
   /// Проверяет право на редактирование настроек счёта (подвал, тнаи тшлум, реквизиты банка).
   ///
-  /// Доступно для owner, admin и super_admin — это данные компании, которыми
-  /// владелец управляет самостоятельно.
+  /// Доступно для owner, admin, super_admin и accountant.
   bool canEditInvoiceSettings() {
     switch (role) {
       case AppRole.superAdmin:
       case AppRole.owner:
       case AppRole.admin:
+      case AppRole.accountant:
         return true;
       default:
         return false;
@@ -176,8 +192,48 @@ class PermissionsService {
 
   /// Проверяет право на редактирование настроек (налоги, нумерация, шаблоны).
   ///
-  /// Доступно для admin и super_admin. Owner — только чтение.
+  /// Доступно для admin, super_admin, accountant и owner (self-service pilot).
   bool canEditSettings() {
+    switch (role) {
+      case AppRole.superAdmin:
+      case AppRole.admin:
+      case AppRole.accountant:
+      case AppRole.owner:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// Интеграции — admin+ и owner на этапе первичной настройки.
+  bool canManageIntegrations() {
+    switch (role) {
+      case AppRole.superAdmin:
+      case AppRole.admin:
+      case AppRole.accountant:
+      case AppRole.owner:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// Создание и редактирование клиентов (для счетов и накладных).
+  bool canManageClients() {
+    switch (role) {
+      case AppRole.superAdmin:
+      case AppRole.admin:
+      case AppRole.owner:
+      case AppRole.dispatcher:
+      case AppRole.accountant:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// Политики доставки и дефолты водителя — только admin/super_admin.
+  bool canEditOpsSettings() {
     switch (role) {
       case AppRole.superAdmin:
       case AppRole.admin:
@@ -187,13 +243,12 @@ class PermissionsService {
     }
   }
 
-  /// Проверяет право на управление интеграциями (печать, email, WhatsApp, API-ключи).
-  ///
-  /// Доступно для admin и super_admin. Owner — только чтение.
-  bool canManageIntegrations() {
+  /// Настройка API-ключей внешней бухгалтерии (Greeninvoice / iCount).
+  bool canManageAccountingCredentials() {
     switch (role) {
       case AppRole.superAdmin:
       case AppRole.admin:
+      case AppRole.accountant:
         return true;
       default:
         return false;
@@ -224,12 +279,13 @@ class PermissionsService {
 
   /// Проверяет, может ли пользователь создать бухгалтерский документ указанного типа.
   ///
-  /// Допустимые типы: tax_invoice, receipt, tax_invoice_receipt, credit_note.
-  /// Для admin/super_admin/accountant — true для допустимых типов.
+  /// Допустимые типы: tax_invoice, receipt, tax_invoice_receipt, credit_note, delivery_note.
+  /// Для admin/super_admin/owner/accountant — true для допустимых типов.
   bool canCreateAccountingDoc(String docType) {
     if (!_allowedAccountingDocTypes.contains(docType)) return false;
     switch (role) {
       case AppRole.superAdmin:
+      case AppRole.owner:
       case AppRole.admin:
       case AppRole.accountant:
         return true;
@@ -238,13 +294,11 @@ class PermissionsService {
     }
   }
 
-  /// Проверяет, может ли пользователь редактировать бухгалтерский документ
-  /// с указанным статусом.
-  ///
-  /// Accountant/admin/super_admin могут редактировать только draft-документы.
+  /// Accountant/admin/owner/super_admin могут редактировать только draft-документы.
   bool canEditAccountingDoc(String docStatus) {
     switch (role) {
       case AppRole.superAdmin:
+      case AppRole.owner:
       case AppRole.admin:
       case AppRole.accountant:
         return docStatus == 'draft';

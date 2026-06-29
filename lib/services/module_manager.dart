@@ -1,4 +1,5 @@
 import '../models/company_settings.dart';
+import 'billing_state.dart';
 
 /// Менеджер модулей — проверка доступа к модулям SaaS
 ///
@@ -11,19 +12,13 @@ import '../models/company_settings.dart';
 class ModuleManager {
   /// Проверить доступ к модулю по ID
   static bool hasModule(CompanySettings company, String moduleId) {
-    if (company.billingStatus == 'blocked') return false;
+    if (!BillingState.evaluateFromSettings(company).allowsAccess) return false;
     return company.modules[moduleId];
   }
 
-  /// Проверить что billing активен (active, trial с валидным сроком, или grace)
+  /// Проверить что billing активен (C3 — [BillingState]).
   static bool isBillingActive(CompanySettings company) {
-    final status = company.billingStatus;
-    if (status == 'active' || status == 'grace') return true;
-    if (status == 'trial') {
-      if (company.trialEndsAt == null) return true;
-      return company.trialEndsAt!.isAfter(DateTime.now());
-    }
-    return false;
+    return BillingState.evaluateFromSettings(company).allowsAccess;
   }
 
   // === Convenience методы ===
