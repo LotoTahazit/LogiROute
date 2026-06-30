@@ -2009,6 +2009,12 @@ abstract class AppLocalizations {
   /// **'Permission required'**
   String get gpsStatusPermissionRequired;
 
+  /// No description provided for @gpsStatusUploadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload error'**
+  String get gpsStatusUploadError;
+
   /// No description provided for @gpsUnavailableHint.
   ///
   /// In en, this message translates to:
@@ -14565,6 +14571,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'After this many minutes without GPS update the driver is considered offline'**
   String get rcGpsStaleDesc;
+
+  /// No description provided for @rcDriverGpsUiStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver GPS UI stale (sec)'**
+  String get rcDriverGpsUiStale;
+
+  /// No description provided for @rcDriverGpsUiStaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds without a fresh local fix before the driver\'s banner shows GPS stale (60–900)'**
+  String get rcDriverGpsUiStaleDesc;
 
   /// No description provided for @rcSessionHeartbeat.
   ///

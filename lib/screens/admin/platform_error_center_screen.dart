@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/platform_system_error.dart';
 import '../../services/auth_service.dart';
 import '../../services/platform_error_service.dart';
+import '../../theme/app_theme.dart';
 import 'platform_error_detail_screen.dart';
 
 /// Platform Error Center — только super_admin.
@@ -27,13 +28,13 @@ class _PlatformErrorCenterScreenState extends State<PlatformErrorCenterScreen> {
   Color _severityColor(PlatformErrorSeverity s) {
     switch (s) {
       case PlatformErrorSeverity.critical:
-        return Colors.red.shade700;
+        return AppTheme.danger;
       case PlatformErrorSeverity.high:
-        return Colors.orange.shade800;
+        return AppTheme.warning;
       case PlatformErrorSeverity.medium:
-        return Colors.amber.shade800;
+        return AppTheme.warning;
       case PlatformErrorSeverity.low:
-        return Colors.blueGrey;
+        return AppTheme.muted;
     }
   }
 
@@ -93,60 +94,77 @@ class _PlatformErrorCenterScreenState extends State<PlatformErrorCenterScreen> {
                 if (rows.isEmpty) {
                   return Center(child: Text(l10n.platformErrorEmpty));
                 }
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    child: DataTable(
-                      columns: [
-                        DataColumn(label: Text(l10n.platformErrorColSeverity)),
-                        DataColumn(label: Text(l10n.platformErrorColCount)),
-                        DataColumn(label: Text(l10n.companyDetails)),
-                        DataColumn(label: Text(l10n.platformErrorColOperation)),
-                        DataColumn(label: Text(l10n.error)),
-                        DataColumn(label: Text(l10n.platformErrorColFirstSeen)),
-                        DataColumn(label: Text(l10n.platformErrorColLastSeen)),
-                        DataColumn(label: Text(l10n.status)),
-                      ],
-                      rows: rows.map((e) {
-                        return DataRow(
-                          onSelectChanged: (_) => _openDetail(e),
-                          cells: [
-                            DataCell(
-                              Chip(
-                                label: Text(
-                                  severityToString(e.severity),
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                backgroundColor: _severityColor(e.severity),
-                              ),
-                            ),
-                            DataCell(Text('${e.occurrences}')),
-                            DataCell(Text(e.companyName ?? e.companyId ?? '—')),
-                            DataCell(Text(e.operation ?? '—')),
-                            DataCell(
-                              SizedBox(
-                                width: 220,
-                                child: Text(
-                                  e.errorMessage,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            DataCell(Text(
-                              e.firstSeen != null ? _fmt.format(e.firstSeen!) : '—',
-                            )),
-                            DataCell(Text(
-                              e.lastSeen != null ? _fmt.format(e.lastSeen!) : '—',
-                            )),
-                            DataCell(Text(
-                              e.resolved ? l10n.platformErrorResolved : l10n.platformErrorOpen,
-                            )),
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final errorColMax =
+                        (constraints.maxWidth * 0.36).clamp(140.0, 320.0);
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          columns: [
+                            DataColumn(label: Text(l10n.platformErrorColSeverity)),
+                            DataColumn(label: Text(l10n.platformErrorColCount)),
+                            DataColumn(label: Text(l10n.companyDetails)),
+                            DataColumn(label: Text(l10n.platformErrorColOperation)),
+                            DataColumn(label: Text(l10n.error)),
+                            DataColumn(label: Text(l10n.platformErrorColFirstSeen)),
+                            DataColumn(label: Text(l10n.platformErrorColLastSeen)),
+                            DataColumn(label: Text(l10n.status)),
                           ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                          rows: rows.map((e) {
+                            return DataRow(
+                              onSelectChanged: (_) => _openDetail(e),
+                              cells: [
+                                DataCell(
+                                  Chip(
+                                    label: Text(
+                                      severityToString(e.severity),
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                    backgroundColor: _severityColor(e.severity),
+                                  ),
+                                ),
+                                DataCell(Text('${e.occurrences}')),
+                                DataCell(Text(e.companyName ?? e.companyId ?? '—')),
+                                DataCell(Text(e.operation ?? '—')),
+                                DataCell(
+                                  ConstrainedBox(
+                                    constraints:
+                                        BoxConstraints(maxWidth: errorColMax),
+                                    child: Text(
+                                      e.errorMessage,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: AppTheme.text,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(Text(
+                                  e.firstSeen != null
+                                      ? _fmt.format(e.firstSeen!)
+                                      : '—',
+                                )),
+                                DataCell(Text(
+                                  e.lastSeen != null
+                                      ? _fmt.format(e.lastSeen!)
+                                      : '—',
+                                )),
+                                DataCell(Text(
+                                  e.resolved
+                                      ? l10n.platformErrorResolved
+                                      : l10n.platformErrorOpen,
+                                )),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),

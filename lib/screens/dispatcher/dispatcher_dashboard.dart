@@ -1446,7 +1446,10 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                       decoration: BoxDecoration(
                         color: AppTheme.surfaceHi,
                         border: Border(
-                          bottom: BorderSide(color: AppTheme.accent, width: 2),
+                          bottom: BorderSide(
+                            color: AppTheme.accent.withValues(alpha: 0.45),
+                            width: 2,
+                          ),
                         ),
                       ),
                       child: Wrap(
@@ -1460,7 +1463,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                             children: [
                               Icon(
                                 Icons.visibility,
-                                color: AppTheme.accentSoft,
+                                color: AppTheme.accent,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -1468,7 +1471,7 @@ class _DispatcherDashboardState extends State<DispatcherDashboard> {
                                 child: Text(
                                   '${l10n.viewingAs} ${l10n.dispatcher}',
                                   style: TextStyle(
-                                    color: AppTheme.accentSoft,
+                                    color: AppTheme.text,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
                                   ),

@@ -1018,6 +1018,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get gpsStatusPermissionRequired => 'נדרשת הרשאה';
 
   @override
+  String get gpsStatusUploadError => 'שגיאת שליחה';
+
+  @override
   String get gpsUnavailableHint => 'GPS לא זמין. הפעל מיקום ואפשר גישה.';
 
   @override
@@ -7918,6 +7921,13 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get rcGpsStaleDesc =>
       'לאחר מספר דקות זה ללא עדכון GPS הנהג נחשב לא מקוון';
+
+  @override
+  String get rcDriverGpsUiStale => 'GPS לא עדכני בממשק הנהג (שניות)';
+
+  @override
+  String get rcDriverGpsUiStaleDesc =>
+      'שניות ללא פיקס מקומי טרי לפני שהבאנר של הנהג מציג GPS לא עדכני (60–900)';
 
   @override
   String get rcSessionHeartbeat => 'פעימת לב של סשן (שניות)';

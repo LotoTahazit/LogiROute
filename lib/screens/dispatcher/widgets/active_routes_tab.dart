@@ -108,27 +108,49 @@ class ActiveRoutesTab extends StatelessWidget {
     return count > 0 ? (totalMin / count).round() : 0;
   }
 
-  /// Строит текст с фактическим временем: прибытие → на точке → завершение
-  String _buildTimingText(DeliveryPoint r) {
-    final parts = <String>[];
-    if (r.arrivedAt != null) {
-      final t = r.arrivedAt!;
-      parts.add(
-          '⏱ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
-    }
-    if (r.completedAt != null) {
-      final t = r.completedAt!;
-      parts.add(
-          '✅ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
-    }
-    if (r.arrivedAt != null && r.completedAt != null) {
-      final duration = r.completedAt!.difference(r.arrivedAt!);
-      final min = duration.inMinutes;
-      if (min > 0) {
-        parts.add('(${min}m)');
+  /// Строка с фактическим временем: прибытие → завершение (иконки вместо emoji).
+  Widget _buildTimingRow(DeliveryPoint r) {
+    final children = <Widget>[];
+    void addSep() {
+      if (children.isNotEmpty) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text('→',
+              style: TextStyle(
+                  color: AppTheme.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+        ));
       }
     }
-    return parts.join(' → ');
+
+    if (r.arrivedAt != null) {
+      final t = r.arrivedAt!;
+      children.addAll([
+        Icon(Icons.schedule, size: 14, color: AppTheme.muted),
+        const SizedBox(width: 4),
+        Text(
+            '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
+      ]);
+    }
+    if (r.completedAt != null) {
+      addSep();
+      final t = r.completedAt!;
+      children.addAll([
+        Icon(Icons.check_circle_outline, size: 14, color: AppTheme.green),
+        const SizedBox(width: 4),
+        Text(
+            '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
+      ]);
+    }
+    if (r.arrivedAt != null && r.completedAt != null) {
+      final min = r.completedAt!.difference(r.arrivedAt!).inMinutes;
+      if (min > 0) {
+        children.add(Text(' ($min m)',
+            style: TextStyle(color: AppTheme.muted, fontSize: 11)));
+      }
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
   /// Генерирует рекомендации по объединению миштахов
@@ -141,7 +163,7 @@ class ActiveRoutesTab extends StatelessWidget {
     // Если вмещается или вместимость неизвестна — не даём советов
     if (driverCapacity == 0 || totalPallets <= driverCapacity) {
       return {
-        'advice': <String>[],
+        'advice': <({String text, bool adjacent})>[],
         'saved': 0,
         'total': totalPallets,
         'optimized': totalPallets,
@@ -168,7 +190,7 @@ class ActiveRoutesTab extends StatelessWidget {
       }
     }
 
-    final List<String> advice = [];
+    final List<({String text, bool adjacent})> advice = [];
     int savedPallets = 0;
 
     if (pointsWithRemainder.length < 2) {
@@ -232,9 +254,9 @@ class ActiveRoutesTab extends StatelessWidget {
             .join(' + ');
 
         if (allAdjacent) {
-          advice.add('✅ ${l10n.canCombineAdjacent(names)}');
+          advice.add((text: l10n.canCombineAdjacent(names), adjacent: true));
         } else {
-          advice.add('⚠️ ${l10n.canCombineDistant(names)}');
+          advice.add((text: l10n.canCombineDistant(names), adjacent: false));
         }
       }
     }
@@ -329,7 +351,8 @@ class ActiveRoutesTab extends StatelessWidget {
       final adviceData = _buildPalletAdvice(routePoints, l10n);
       final saved = adviceData['saved'] as int;
       final optimized = adviceData['optimized'] as int;
-      final adviceList = adviceData['advice'] as List<String>;
+      final adviceList =
+          adviceData['advice'] as List<({String text, bool adjacent})>;
       final overCapacity = driverCap > 0 && totalPallets > driverCap;
 
       // Subtitle: показываем экономию только если есть советы
@@ -400,10 +423,10 @@ class ActiveRoutesTab extends StatelessWidget {
 
       return Card(
         margin: const EdgeInsets.all(8),
-        color: allClosed ? Colors.green.shade50 : null,
+        color: allClosed ? AppTheme.green.withValues(alpha: 0.10) : null,
         child: ExpansionTile(
           leading: allClosed
-              ? Icon(Icons.check_circle, color: Colors.green.shade700, size: 28)
+              ? Icon(Icons.check_circle, color: AppTheme.green, size: 28)
               : Container(
             width: 12,
             height: 12,
@@ -416,7 +439,7 @@ class ActiveRoutesTab extends StatelessWidget {
             allClosed ? '$driverName · ${l10n.completed}' : driverName,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: allClosed ? Colors.green.shade800 : null,
+              color: allClosed ? AppTheme.greenSoft : null,
             ),
           ),
           subtitle: Text(
@@ -430,13 +453,13 @@ class ActiveRoutesTab extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: optimized > driverCap
-                      ? Colors.red.shade50
-                      : Colors.amber.shade50,
+                      ? AppTheme.danger.withValues(alpha: 0.10)
+                      : AppTheme.warning.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: optimized > driverCap
-                        ? Colors.red.shade200
-                        : Colors.amber.shade200,
+                        ? AppTheme.danger
+                        : AppTheme.warning,
                   ),
                 ),
                 child: Column(
@@ -447,16 +470,16 @@ class ActiveRoutesTab extends StatelessWidget {
                         Icon(Icons.lightbulb_outline,
                             size: 18,
                             color: optimized > driverCap
-                                ? Colors.red
-                                : Colors.amber.shade800),
+                                ? AppTheme.danger
+                                : AppTheme.warning),
                         const SizedBox(width: 6),
                         Text(
                           l10n.loadingAdvice,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: optimized > driverCap
-                                ? Colors.red.shade800
-                                : Colors.amber.shade900,
+                                ? AppTheme.danger
+                                : AppTheme.warning,
                           ),
                         ),
                         const Spacer(),
@@ -485,7 +508,25 @@ class ActiveRoutesTab extends StatelessWidget {
                       ),
                     ...adviceList.map((a) => Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(a, style: TextStyle(fontSize: 13)),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                a.adjacent
+                                    ? Icons.check_circle_outline
+                                    : Icons.warning_amber_rounded,
+                                size: 14,
+                                color: a.adjacent
+                                    ? AppTheme.green
+                                    : AppTheme.warning,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(a.text,
+                                    style: const TextStyle(fontSize: 13)),
+                              ),
+                            ],
+                          ),
                         )),
                   ],
                 ),
@@ -743,14 +784,13 @@ class ActiveRoutesTab extends StatelessWidget {
                       if (r.arrivedAt != null || r.completedAt != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            _buildTimingText(r),
+                          child: DefaultTextStyle(
                             style: TextStyle(
-                              color: Colors.green.shade800,
+                              color: AppTheme.green,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
-                            textDirection: TextDirection.ltr,
+                            child: _buildTimingRow(r),
                           ),
                         ),
                     ],
@@ -872,48 +912,66 @@ class ActiveRoutesTab extends StatelessWidget {
             ),
           ),
         if (autoCompletedPoints.isNotEmpty && onReopenPoint != null)
-          Card(
-            margin: const EdgeInsets.all(8),
-            color: Colors.orange.shade50,
-            child: ExpansionTile(
-              leading: Icon(Icons.history, color: Colors.orange.shade700),
-              title: Text(
-                l10n.autoCompletedPointsTitle(autoCompletedPoints.length),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange.shade900,
-                ),
+          _dispatcherWarningBanner(
+            leading: Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
+            title: Text(
+              l10n.autoCompletedPointsTitle(autoCompletedPoints.length),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.text,
               ),
-              children: autoCompletedPoints
-                  .map(
-                    (p) => ListTile(
-                      leading:
-                          Icon(Icons.check_circle, color: AppTheme.muted),
-                      title: Text(p.clientName),
-                      subtitle: Text(
-                        '${p.driverName ?? ""} • ${_getDisplayAddress(p)}',
-                      ),
-                      onTap: () => showProofOfDeliveryViewer(
-                        context: context,
-                        point: p,
-                      ),
-                      trailing: TextButton.icon(
-                        icon: Icon(Icons.undo, size: 18),
-                        label: Text(l10n.reopenPoint),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.orange.shade800,
-                        ),
-                        onPressed: () => onReopenPoint!(p),
-                      ),
-                    ),
-                  )
-                  .toList(),
             ),
+            children: autoCompletedPoints
+                .map(
+                  (p) => ListTile(
+                    leading: Icon(Icons.check_circle, color: AppTheme.muted),
+                    title: Text(p.clientName),
+                    subtitle: Text(
+                      '${p.driverName ?? ""} • ${_getDisplayAddress(p)}',
+                      style: TextStyle(color: AppTheme.muted),
+                    ),
+                    onTap: () => showProofOfDeliveryViewer(
+                      context: context,
+                      point: p,
+                    ),
+                    trailing: TextButton.icon(
+                      icon: const Icon(Icons.undo, size: 18),
+                      label: Text(l10n.reopenPoint),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.warning,
+                      ),
+                      onPressed: () => onReopenPoint!(p),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ...routeCards,
       ],
     );
   }
+}
+
+/// Единый warning-баннер диспетчера (auto-completed / cache hints).
+Widget _dispatcherWarningBanner({
+  required Widget leading,
+  required Widget title,
+  required List<Widget> children,
+}) {
+  return Container(
+    margin: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: AppTheme.warning.withValues(alpha: 0.12),
+      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.35)),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: ExpansionTile(
+      leading: leading,
+      title: title,
+      children: children,
+    ),
+  );
 }
 
 /// Кнопка «Оптимизировать время»: подсвечивается только при неоптимальном порядке.

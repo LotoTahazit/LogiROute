@@ -1029,6 +1029,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get gpsStatusPermissionRequired => 'Permission required';
 
   @override
+  String get gpsStatusUploadError => 'Ошибка отправки';
+
+  @override
   String get gpsUnavailableHint =>
       'GPS недоступен. Включите геолокацию и разрешите доступ.';
 
@@ -8023,6 +8026,13 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get rcGpsStaleDesc =>
       'Через столько минут без GPS-обновления водитель считается офлайн';
+
+  @override
+  String get rcDriverGpsUiStale => 'GPS-устаревание в UI водителя (сек)';
+
+  @override
+  String get rcDriverGpsUiStaleDesc =>
+      'Секунд без свежего локального fix, прежде чем баннер водителя покажет «GPS устарел» (60–900)';
 
   @override
   String get rcSessionHeartbeat => 'Интервал heartbeat сессии (сек)';

@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/integrity_issue.dart';
 import '../../services/auth_service.dart';
 import '../../services/data_integrity_service.dart';
+import '../../theme/app_theme.dart';
 
 /// Data Integrity Checker — экран запуска проверки и работы с проблемами.
 /// Доступ: super_admin / owner / admin.
@@ -78,15 +79,15 @@ class _DataIntegrityScreenState extends State<DataIntegrityScreen> {
   Color _severityColor(IntegritySeverity s) {
     switch (s) {
       case IntegritySeverity.critical:
-        return Colors.red;
+        return AppTheme.danger;
       case IntegritySeverity.high:
-        return Colors.orange;
+        return AppTheme.warning;
       case IntegritySeverity.medium:
-        return Colors.amber.shade700;
+        return AppTheme.warning;
       case IntegritySeverity.low:
-        return Colors.blueGrey;
+        return AppTheme.muted;
       case IntegritySeverity.unknown:
-        return Colors.grey;
+        return AppTheme.muted;
     }
   }
 

@@ -23,6 +23,8 @@ class CompanyRemoteConfigValidator {
   static const undoMax = 60;
   static const gpsStaleMin = 10;
   static const gpsStaleMax = 2880;
+  static const driverGpsUiStaleMin = 60;
+  static const driverGpsUiStaleMax = 900;
   static const heartbeatMin = 15;
   static const heartbeatMax = 120;
   static const sessionStaleMin = 2;
@@ -50,6 +52,10 @@ class CompanyRemoteConfigValidator {
     }
     if (c.gpsStaleMinutes < gpsStaleMin || c.gpsStaleMinutes > gpsStaleMax) {
       return 'invalid_gps_stale';
+    }
+    if (c.driverGpsUiStaleSeconds < driverGpsUiStaleMin ||
+        c.driverGpsUiStaleSeconds > driverGpsUiStaleMax) {
+      return 'invalid_driver_gps_ui_stale';
     }
     if (c.driverSessionHeartbeatSeconds < heartbeatMin ||
         c.driverSessionHeartbeatSeconds > heartbeatMax) {
@@ -129,6 +135,16 @@ class CompanyRemoteConfigValidator {
       }
     }
 
+    int driverGpsUiStale = d.driverGpsUiStaleSeconds;
+    if (raw.containsKey('driverGpsUiStaleSeconds')) {
+      final v = (raw['driverGpsUiStaleSeconds'] as num?)?.toInt();
+      if (v != null && v >= driverGpsUiStaleMin && v <= driverGpsUiStaleMax) {
+        driverGpsUiStale = v;
+      } else {
+        invalid.add('driverGpsUiStaleSeconds');
+      }
+    }
+
     int heartbeat = d.driverSessionHeartbeatSeconds;
     if (raw.containsKey('driverSessionHeartbeatSeconds')) {
       final v = (raw['driverSessionHeartbeatSeconds'] as num?)?.toInt();
@@ -196,6 +212,7 @@ class CompanyRemoteConfigValidator {
         autoCloseWaitSeconds: wait,
         closeUndoSeconds: undo,
         gpsStaleMinutes: gpsStale,
+        driverGpsUiStaleSeconds: driverGpsUiStale,
         driverSessionHeartbeatSeconds: heartbeat,
         driverSessionStaleMinutes: sessionStale,
         backgroundAutoCloseEnabled: bgAuto,

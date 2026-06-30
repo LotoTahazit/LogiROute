@@ -112,6 +112,7 @@ class OptimizedLocationService {
   Timer? _batchTimer;
   void Function(DriverGpsStatus status)? _onStatusChanged;
   void Function(Object error)? _onFirestoreWriteError;
+  void Function()? _onFirestoreWriteOk;
 
   // Configuration
   static const Duration batchInterval = Duration(seconds: 30);
@@ -132,12 +133,14 @@ class OptimizedLocationService {
     String? userRole,
     void Function(DriverGpsStatus status)? onStatusChanged,
     void Function(Object error)? onFirestoreWriteError,
+    void Function()? onFirestoreWriteOk,
   }) async {
     debugPrint(
         '🚀 [GPS] OptimizedLocationService STARTED for driver=$driverId');
     _currentDriverId = driverId;
     _onStatusChanged = onStatusChanged;
     _onFirestoreWriteError = onFirestoreWriteError;
+    _onFirestoreWriteOk = onFirestoreWriteOk;
 
     void emit(DriverGpsStatus status) => _onStatusChanged?.call(status);
 
@@ -210,9 +213,10 @@ class OptimizedLocationService {
         emit(DriverGpsStatus.active);
       },
       onError: (Object e, StackTrace st) {
+        // НЕ форсим красный из стрима: «stale» решает health-check по возрасту
+        // локального fix (на стоянке стрим может молчать при исправном GPS).
         debugPrint('❌ [GPS] Position stream error: $e');
         debugPrint('$st');
-        emit(DriverGpsStatus.error);
       },
     );
 
@@ -310,6 +314,7 @@ class OptimizedLocationService {
         'heading': position.heading,
         'geoBucket': geoBucket,
       }, SetOptions(merge: true));
+      _onFirestoreWriteOk?.call();
 
       if (kDebugMode) {
         debugPrint('GPS SENT: driver=$_currentDriverId');
@@ -368,6 +373,32 @@ class OptimizedLocationService {
     }
   }
 
+  /// Ручной health-refresh («בדוק שוב»): немедленно пишет текущую позицию.
+  /// true = запись прошла; false → отрабатывает [_onFirestoreWriteError].
+  Future<bool> writeManualFix(Position position) async {
+    if (_currentDriverId == null) return false;
+    try {
+      await _driverLocationsRef.doc(_currentDriverId).set({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'timestamp': FieldValue.serverTimestamp(),
+        'accuracy': position.accuracy,
+        'speed': position.speed,
+        'heading': position.heading,
+        'geoBucket': _buildGeoBucket(position.latitude, position.longitude),
+      }, SetOptions(merge: true));
+      _lastPosition = position;
+      _lastSavedPosition = position;
+      _lastSaveTime = DateTime.now();
+      _onFirestoreWriteOk?.call();
+      return true;
+    } catch (e) {
+      debugPrint('[Location] Manual fix write error: $e');
+      _onFirestoreWriteError?.call(e);
+      return false;
+    }
+  }
+
   void stopTracking() {
     _positionStream?.cancel();
     _batchTimer?.cancel();
@@ -377,6 +408,7 @@ class OptimizedLocationService {
     _lastSaveTime = null;
     _onStatusChanged = null;
     _onFirestoreWriteError = null;
+    _onFirestoreWriteOk = null;
   }
 
   String _buildGeoBucket(double lat, double lng) {

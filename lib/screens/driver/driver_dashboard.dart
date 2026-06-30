@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/delivery_point.dart';
 import '../../utils/delivery_point_address_resolver.dart';
 import '../../models/driver_gps_status.dart';
+import '../../services/gps_health.dart';
 import '../../models/shift_schedule_config.dart';
 import 'widgets/driver_app_bar_actions.dart';
 import 'android_setup_sheet.dart';
@@ -68,10 +69,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   DateTime? _trackingStartedAt;
   bool _needsBackgroundPermission = false;
   bool _firestoreWriteFailed = false;
+  DateTime? _lastFirestoreOkAt;
+  DateTime? _lastGpsFlipAt;
   Timer? _gpsHealthTimer;
   DateTime _lastFirestoreWarning = DateTime(2000);
-  static const _gpsStaleThreshold = Duration(minutes: 3);
-  static const _gpsWaitingTimeout = Duration(minutes: 2);
   String _scheduleStatus = '';
   Timer? _scheduleStatusTimer;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shiftsSub;
@@ -1023,8 +1024,53 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   void _onGpsStatusChanged(DriverGpsStatus status) {
+    _applyGpsStatus(status, source: 'stream');
+  }
+
+  /// Единая точка смены статуса с антидребезгом (цвет-флип ≤ 1 раз / 30 с) и
+  /// debug-логом `[GPS Health]`. Источники: stream / local / manual / background.
+  void _applyGpsStatus(
+    DriverGpsStatus next, {
+    required String source,
+    bool debounce = true,
+    bool? permission,
+    bool? serviceEnabled,
+  }) {
     if (!mounted) return;
-    setState(() => _gpsStatus = status);
+    final prev = _gpsStatus;
+    final now = DateTime.now();
+    final apply = !debounce ||
+        GpsHealth.shouldApplyDriverStatus(
+          current: prev,
+          next: next,
+          lastFlipAt: _lastGpsFlipAt,
+          now: now,
+        );
+    debugPrint('[GPS Health] ${jsonEncode({
+          'source': source,
+          'statusBefore': prev.name,
+          'statusAfter': (apply ? next : prev).name,
+          'localFixAgeSec': _lastGpsFixAt == null
+              ? null
+              : now.difference(_lastGpsFixAt!).inSeconds,
+          'firestoreAgeSec': _lastFirestoreOkAt == null
+              ? null
+              : now.difference(_lastFirestoreOkAt!).inSeconds,
+          'uploadOk': !_firestoreWriteFailed,
+          'permission': permission,
+          'serviceEnabled': serviceEnabled,
+          'applied': apply && next != prev,
+        })}');
+    if (!apply || next == prev) return;
+    if (GpsHealth.isDriverColorFlip(prev, next)) _lastGpsFlipAt = now;
+    setState(() => _gpsStatus = next);
+  }
+
+  void _onGpsFirestoreOk() {
+    _lastFirestoreOkAt = DateTime.now();
+    if (_firestoreWriteFailed && mounted) {
+      setState(() => _firestoreWriteFailed = false);
+    }
   }
 
   void _onGpsFirestoreError(Object error) {
@@ -1056,30 +1102,61 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   void _runGpsHealthCheck() {
     if (!mounted || !_isTrackingActive) return;
-    if (_gpsStatus == DriverGpsStatus.disabled ||
-        _gpsStatus == DriverGpsStatus.permissionRequired) {
-      return;
-    }
-    final now = DateTime.now();
-    if (_lastGpsFixAt != null) {
-      if (now.difference(_lastGpsFixAt!) > _gpsStaleThreshold &&
-          _gpsStatus == DriverGpsStatus.active) {
-        setState(() => _gpsStatus = DriverGpsStatus.error);
-      }
-      return;
-    }
-    if (_trackingStartedAt != null &&
-        now.difference(_trackingStartedAt!) > _gpsWaitingTimeout &&
-        _gpsStatus == DriverGpsStatus.waiting) {
-      setState(() => _gpsStatus = DriverGpsStatus.error);
-    }
+    unawaited(_evaluateGpsHealth(source: 'background'));
   }
 
-  Future<void> _recheckGps() async {
-    final l10n = AppLocalizations.of(context)!;
+  /// Централизованная оценка GPS-здоровья. КЛЮЧ ФИКСА: возраст локального fix
+  /// освежаем из OS last-known (стрим молчит на стоянке из-за distanceFilter),
+  /// затем решение принимает чистая [GpsHealth.evaluateDriverGpsStatus].
+  Future<void> _evaluateGpsHealth({required String source}) async {
+    if (kIsWeb || !mounted || !_isTrackingActive) return;
 
+    var serviceEnabled = true;
+    var permissionGranted = true;
+    try {
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final perm = await Geolocator.checkPermission();
+      permissionGranted = perm == LocationPermission.always ||
+          perm == LocationPermission.whileInUse;
+      if (serviceEnabled && permissionGranted) {
+        final last = await Geolocator.getLastKnownPosition();
+        final ts = last?.timestamp;
+        if (ts != null &&
+            (_lastGpsFixAt == null || ts.isAfter(_lastGpsFixAt!))) {
+          _lastGpsFixAt = ts;
+        }
+      }
+    } catch (e) {
+      debugPrint('[GPS Health] probe error: $e');
+    }
+    if (!mounted || !_isTrackingActive) return;
+
+    final now = DateTime.now();
+    final next = GpsHealth.evaluateDriverGpsStatus(
+      serviceEnabled: serviceEnabled,
+      permissionGranted: permissionGranted,
+      localFixAge:
+          _lastGpsFixAt == null ? null : now.difference(_lastGpsFixAt!),
+      sinceTrackingStart: _trackingStartedAt == null
+          ? Duration.zero
+          : now.difference(_trackingStartedAt!),
+      uploadOk: !_firestoreWriteFailed,
+      uiStaleThreshold: _rc.driverGpsUiStale,
+    );
+    _applyGpsStatus(
+      next,
+      source: source,
+      permission: permissionGranted,
+      serviceEnabled: serviceEnabled,
+    );
+  }
+
+  /// Кнопка «בדוק שוב»: реальный health-refresh — проверка службы/разрешения,
+  /// свежий getCurrentPosition, запись в Firestore, и только потом смена статуса.
+  Future<void> _recheckGps() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      if (mounted) setState(() => _gpsStatus = DriverGpsStatus.disabled);
+      _applyGpsStatus(DriverGpsStatus.disabled,
+          source: 'manual', debounce: false);
       await Geolocator.openLocationSettings();
       return;
     }
@@ -1090,9 +1167,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
     if (perm == LocationPermission.denied ||
         perm == LocationPermission.deniedForever) {
-      if (mounted) {
-        setState(() => _gpsStatus = DriverGpsStatus.permissionRequired);
-      }
+      _applyGpsStatus(DriverGpsStatus.permissionRequired,
+          source: 'manual', debounce: false);
       await Geolocator.openAppSettings();
       return;
     }
@@ -1100,10 +1176,45 @@ class _DriverDashboardState extends State<DriverDashboard> {
     await _refreshBackgroundPermissionFlag();
     if (!mounted || !_isTrackingActive) return;
 
+    Position? pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+    } catch (_) {
+      pos = await Geolocator.getLastKnownPosition();
+    }
+    if (!mounted || !_isTrackingActive) return;
+
+    if (pos != null) {
+      _lastKnownLat = pos.latitude;
+      _lastKnownLng = pos.longitude;
+      _lastGpsFixAt = DateTime.now();
+      final ok = await _locationService?.writeManualFix(pos) ?? false;
+      if (ok) _onGpsFirestoreOk();
+      _lastGpsFlipAt = null; // ручная проверка обходит антидребезг
+      _applyGpsStatus(
+        ok ? DriverGpsStatus.active : DriverGpsStatus.uploadError,
+        source: 'manual',
+        debounce: false,
+      );
+      return;
+    }
+
+    // Нет позиции вовсе — перезапуск стрима как fallback.
+    await _restartTracking();
+  }
+
+  Future<void> _restartTracking() async {
+    if (!mounted || !_isTrackingActive) return;
+    final l10n = AppLocalizations.of(context);
     final auth = context.read<AuthService>();
     final driverId = auth.currentUser?.uid ?? '';
     if (driverId.isEmpty) return;
-    final driverName = auth.userModel?.name ?? l10n.driverFallbackName;
+    final driverName = auth.userModel?.name ?? l10n?.driverFallbackName ?? 'Driver';
     final userRole = auth.userModel?.role ?? 'driver';
 
     _locationService?.stopTracking();
@@ -1114,8 +1225,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
           userRole: userRole,
           onStatusChanged: _onGpsStatusChanged,
           onFirestoreWriteError: _onGpsFirestoreError,
+          onFirestoreWriteOk: _onGpsFirestoreOk,
         ) ??
-        DriverGpsStatus.error;
+        DriverGpsStatus.stale;
 
     if (mounted) {
       setState(() {
@@ -1123,6 +1235,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         _trackingStartedAt = DateTime.now();
         _lastGpsFixAt = null;
         _firestoreWriteFailed = false;
+        _lastGpsFlipAt = null;
       });
     }
   }
@@ -1133,7 +1246,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
         return l10n.gpsStatusActive;
       case DriverGpsStatus.waiting:
         return l10n.gpsStatusWaiting;
-      case DriverGpsStatus.error:
+      case DriverGpsStatus.uploadError:
+        return l10n.gpsStatusUploadError;
+      case DriverGpsStatus.stale:
         return l10n.gpsStatusError;
       case DriverGpsStatus.disabled:
         return l10n.gpsStatusDisabled;
@@ -1167,6 +1282,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       _trackingStartedAt = DateTime.now();
       _lastGpsFixAt = null;
       _firestoreWriteFailed = false;
+      _lastGpsFlipAt = null;
     });
 
     final gpsStatus = await _locationService?.startTracking(
@@ -1176,8 +1292,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
           userRole: userRole,
           onStatusChanged: _onGpsStatusChanged,
           onFirestoreWriteError: _onGpsFirestoreError,
+          onFirestoreWriteOk: _onGpsFirestoreOk,
         ) ??
-        DriverGpsStatus.error;
+        DriverGpsStatus.stale;
 
     if (mounted) {
       setState(() => _gpsStatus = gpsStatus);
@@ -1293,6 +1410,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       _trackingStartedAt = null;
       _needsBackgroundPermission = false;
       _firestoreWriteFailed = false;
+      _lastGpsFlipAt = null;
     });
     _hideGpsNotification();
     debugPrint('🛑 [Driver] Tracking stopped');
@@ -1343,9 +1461,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _lastKnownLat = lat;
     _lastKnownLng = lon;
     _lastGpsFixAt = DateTime.now();
-    if (_gpsStatus != DriverGpsStatus.active) {
-      setState(() => _gpsStatus = DriverGpsStatus.active);
-    }
+    // Реальный fix — наземная истина: статус ставим сразу, без антидребезга.
+    _applyGpsStatus(
+      _firestoreWriteFailed
+          ? DriverGpsStatus.uploadError
+          : DriverGpsStatus.active,
+      source: 'local',
+      debounce: false,
+    );
 
     // Скорость по смещению между фиксами (для гейта по остановке).
     final nowFix = DateTime.now();
@@ -1844,32 +1967,41 @@ class _DriverDashboardState extends State<DriverDashboard> {
     final subtitles = <String>[];
 
     if (!_isTrackingActive) {
-      bg = Colors.grey.shade200;
-      border = Colors.grey.shade400;
-      fg = Colors.grey.shade700;
-      icon = Icons.gps_off;
-      title = '⏸️ ${l10n.gpsTrackingStopped}';
+      bg = AppTheme.muted.withValues(alpha: 0.14);
+      border = AppTheme.muted;
+      fg = AppTheme.muted;
+      icon = Icons.info_outline;
+      title = l10n.gpsTrackingStopped;
     } else {
       switch (_gpsStatus) {
         case DriverGpsStatus.active:
-          bg = Colors.green.shade100;
-          border = Colors.green.shade300;
-          fg = Colors.green.shade900;
+          bg = AppTheme.green.withValues(alpha: 0.12);
+          border = AppTheme.green;
+          fg = AppTheme.green;
           icon = Icons.gps_fixed;
-          title = '📍 ${l10n.gpsTrackingActive}';
+          title = l10n.gpsTrackingActive;
           break;
         case DriverGpsStatus.waiting:
-          bg = Colors.amber.shade100;
-          border = Colors.amber.shade300;
-          fg = Colors.amber.shade900;
+          bg = AppTheme.warning.withValues(alpha: 0.12);
+          border = AppTheme.warning;
+          fg = AppTheme.warning;
           icon = Icons.gps_not_fixed;
-          title = '⏳ ${l10n.gpsStatusWaiting}';
+          title = l10n.gpsStatusWaiting;
           break;
-        case DriverGpsStatus.error:
-          bg = Colors.red.shade100;
-          border = Colors.red.shade300;
-          fg = Colors.red.shade900;
-          icon = Icons.gps_off;
+        case DriverGpsStatus.uploadError:
+          // GPS исправен, но запись в Firestore не прошла → жёлтый warning,
+          // НЕ красный «GPS не работает».
+          bg = AppTheme.warning.withValues(alpha: 0.12);
+          border = AppTheme.warning;
+          fg = AppTheme.warning;
+          icon = Icons.warning_amber_rounded;
+          title = l10n.gpsFirestoreWriteFailed;
+          break;
+        case DriverGpsStatus.stale:
+          bg = AppTheme.danger.withValues(alpha: 0.12);
+          border = AppTheme.danger;
+          fg = AppTheme.danger;
+          icon = Icons.gps_not_fixed;
           title = l10n.gpsStatusError;
           subtitles.add(
             _lastGpsFixAt == null ? l10n.gpsUnavailableHint : l10n.gpsStaleHint,
@@ -1877,10 +2009,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
           break;
         case DriverGpsStatus.disabled:
         case DriverGpsStatus.permissionRequired:
-          bg = Colors.orange.shade100;
-          border = Colors.orange.shade300;
-          fg = Colors.orange.shade900;
-          icon = Icons.location_off;
+          bg = AppTheme.warning.withValues(alpha: 0.12);
+          border = AppTheme.warning;
+          fg = AppTheme.warning;
+          icon = Icons.location_disabled;
           title = l10n.gpsUnavailableHint;
           break;
       }
@@ -1896,7 +2028,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           subtitles.add(l10n.bgModeInactive);
         }
       }
-      if (_firestoreWriteFailed) {
+      if (_firestoreWriteFailed && _gpsStatus != DriverGpsStatus.uploadError) {
         subtitles.add(l10n.gpsFirestoreWriteFailed);
       }
     }
@@ -2032,9 +2164,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
+                  color: AppTheme.surfaceHi,
                   border: Border(
-                    bottom: BorderSide(color: Colors.orange.shade300, width: 2),
+                    bottom: BorderSide(
+                      color: AppTheme.accent.withValues(alpha: 0.45),
+                      width: 2,
+                    ),
                   ),
                 ),
                 child: Wrap(
@@ -2047,13 +2182,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.visibility,
-                            color: Colors.orange.shade900, size: 20),
+                            color: AppTheme.accentSoft, size: 20),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
                             '${l10n.viewingAs} ${l10n.driver}',
                             style: TextStyle(
-                              color: Colors.orange.shade900,
+                              color: AppTheme.text,
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
@@ -2714,7 +2849,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border.all(color: AppTheme.surfaceHi),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2738,7 +2873,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     l10n.nPoints(remainingCount),

@@ -461,19 +461,7 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.supportConsoleTitle),
-              if (_selectedCompanyId != null)
-                Text(
-                  _diag != null
-                      ? '${_diag!.settings.nameHebrew.isNotEmpty ? _diag!.settings.nameHebrew : _diag!.settings.nameEnglish} • $_selectedCompanyId'
-                      : _selectedCompanyId!,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-                ),
-            ],
-          ),
+          title: Text(l10n.supportConsoleTitle),
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             if (_selectedCompanyId != null) ...[
@@ -517,19 +505,64 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
         ),
         body: _selectedCompanyId == null
             ? _buildCompanySelector()
-            : _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildOverviewTab(),
-                      _buildAuditTab(),
-                      _buildPaymentsTab(),
-                      _buildNotificationsTab(),
-                      _buildPushLogsTab(),
-                      _buildEmailLogsTab(),
-                    ],
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildCompanyContextHeader(l10n),
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildOverviewTab(),
+                              _buildAuditTab(),
+                              _buildPaymentsTab(),
+                              _buildNotificationsTab(),
+                              _buildPushLogsTab(),
+                              _buildEmailLogsTab(),
+                            ],
+                          ),
                   ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyContextHeader(AppLocalizations l10n) {
+    final id = _selectedCompanyId!;
+    final name = _diag != null
+        ? (_diag!.settings.nameHebrew.isNotEmpty
+            ? _diag!.settings.nameHebrew
+            : _diag!.settings.nameEnglish)
+        : null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceHi,
+        border: Border(
+          bottom: BorderSide(color: AppTheme.muted.withValues(alpha: 0.22)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (name != null && name.isNotEmpty)
+            Text(
+              name,
+              style: TextStyle(
+                color: AppTheme.text,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          Text(
+            id,
+            style: TextStyle(color: AppTheme.muted, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -650,14 +683,14 @@ class _SupportConsoleScreenState extends State<SupportConsoleScreen>
                     runSpacing: 8,
                     children: [
                       _chip(l10n.chipStatus, status, _statusColor(status)),
-                      _chip(l10n.chipPlan, plan, Colors.blue),
+                      _chip(l10n.chipPlan, plan, AppTheme.accent),
                       _chip(l10n.healthStripSetup, '${tenant.setupPercent}%',
-                          Colors.teal),
+                          AppTheme.green),
                       _chip(l10n.healthStripDrivers, '${tenant.driverCount}',
-                          Colors.indigo),
+                          AppTheme.accentSoft),
                       _chip(l10n.healthStripRoutes, '${tenant.activeRoutes}',
-                          Colors.deepPurple),
-                      _chip(l10n.chipUnread, '$_unreadCount', Colors.orange),
+                          AppTheme.muted),
+                      _chip(l10n.chipUnread, '$_unreadCount', AppTheme.warning),
                     ],
                   ),
                 ],

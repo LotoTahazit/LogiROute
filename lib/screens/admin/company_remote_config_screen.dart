@@ -35,6 +35,7 @@ class _CompanyRemoteConfigScreenState
   late TextEditingController _waitCtrl;
   late TextEditingController _undoCtrl;
   late TextEditingController _gpsStaleCtrl;
+  late TextEditingController _driverGpsUiStaleCtrl;
   late TextEditingController _heartbeatCtrl;
   late TextEditingController _sessionStaleCtrl;
   late TextEditingController _previewRowsCtrl;
@@ -56,6 +57,7 @@ class _CompanyRemoteConfigScreenState
     _waitCtrl = TextEditingController();
     _undoCtrl = TextEditingController();
     _gpsStaleCtrl = TextEditingController();
+    _driverGpsUiStaleCtrl = TextEditingController();
     _heartbeatCtrl = TextEditingController();
     _sessionStaleCtrl = TextEditingController();
     _previewRowsCtrl = TextEditingController();
@@ -89,6 +91,7 @@ class _CompanyRemoteConfigScreenState
     _waitCtrl.text = cfg.autoCloseWaitSeconds.toString();
     _undoCtrl.text = cfg.closeUndoSeconds.toString();
     _gpsStaleCtrl.text = cfg.gpsStaleMinutes.toString();
+    _driverGpsUiStaleCtrl.text = cfg.driverGpsUiStaleSeconds.toString();
     _heartbeatCtrl.text = cfg.driverSessionHeartbeatSeconds.toString();
     _sessionStaleCtrl.text = cfg.driverSessionStaleMinutes.toString();
     _previewRowsCtrl.text = cfg.importPreviewRows.toString();
@@ -110,6 +113,8 @@ class _CompanyRemoteConfigScreenState
           int.tryParse(_undoCtrl.text) ?? d.closeUndoSeconds,
       gpsStaleMinutes:
           int.tryParse(_gpsStaleCtrl.text) ?? d.gpsStaleMinutes,
+      driverGpsUiStaleSeconds:
+          int.tryParse(_driverGpsUiStaleCtrl.text) ?? d.driverGpsUiStaleSeconds,
       driverSessionHeartbeatSeconds:
           int.tryParse(_heartbeatCtrl.text) ?? d.driverSessionHeartbeatSeconds,
       driverSessionStaleMinutes:
@@ -209,6 +214,8 @@ class _CompanyRemoteConfigScreenState
         'Undo must be ${CompanyRemoteConfigValidator.undoMin}–${CompanyRemoteConfigValidator.undoMax} s',
       'invalid_gps_stale' =>
         'GPS stale must be ${CompanyRemoteConfigValidator.gpsStaleMin}–${CompanyRemoteConfigValidator.gpsStaleMax} min',
+      'invalid_driver_gps_ui_stale' =>
+        'Driver GPS UI stale must be ${CompanyRemoteConfigValidator.driverGpsUiStaleMin}–${CompanyRemoteConfigValidator.driverGpsUiStaleMax} s',
       'invalid_heartbeat' =>
         'Heartbeat must be ${CompanyRemoteConfigValidator.heartbeatMin}–${CompanyRemoteConfigValidator.heartbeatMax} s',
       'invalid_session_stale' =>
@@ -226,6 +233,7 @@ class _CompanyRemoteConfigScreenState
     _waitCtrl.dispose();
     _undoCtrl.dispose();
     _gpsStaleCtrl.dispose();
+    _driverGpsUiStaleCtrl.dispose();
     _heartbeatCtrl.dispose();
     _sessionStaleCtrl.dispose();
     _previewRowsCtrl.dispose();
@@ -324,6 +332,15 @@ class _CompanyRemoteConfigScreenState
             ctrl: _gpsStaleCtrl,
             defaultVal: d.gpsStaleMinutes.toString(),
             fieldKey: 'gpsStaleMinutes',
+            l10n: l10n,
+            p: p,
+          ),
+          _numericField(
+            label: l10n.rcDriverGpsUiStale,
+            desc: l10n.rcDriverGpsUiStaleDesc,
+            ctrl: _driverGpsUiStaleCtrl,
+            defaultVal: d.driverGpsUiStaleSeconds.toString(),
+            fieldKey: 'driverGpsUiStaleSeconds',
             l10n: l10n,
             p: p,
           ),
@@ -581,6 +598,7 @@ class RemoteConfigReadonlyBlock extends StatelessWidget {
             _row('Reset radius', '${cfg.autoCloseResetRadiusMeters.toStringAsFixed(0)} m', p),
             _row('Auto-close wait', '${cfg.autoCloseWaitSeconds} s', p),
             _row('GPS stale', '${cfg.gpsStaleMinutes} min', p),
+            _row('Driver GPS UI stale', '${cfg.driverGpsUiStaleSeconds} s', p),
             _row('Background auto-close', cfg.backgroundAutoCloseEnabled ? 'ON' : 'OFF', p),
             _row('Session lock', cfg.driverDeviceSessionLockEnabled ? 'ON' : 'OFF', p),
             _row('Import preview rows', '${cfg.importPreviewRows}', p),

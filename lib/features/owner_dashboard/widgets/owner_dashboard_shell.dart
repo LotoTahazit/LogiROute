@@ -26,6 +26,7 @@ import 'sections/clients_section.dart';
 import '../../../services/company_setup_wizard_service.dart';
 import '../../../screens/setup/company_setup_wizard_screen.dart';
 import 'sections/onboarding_section.dart';
+import '../../../theme/app_theme.dart';
 
 /// Описание секции навигации Owner Dashboard.
 class _DashboardSection {
@@ -449,9 +450,8 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.blue.shade100,
-        border:
-            Border(bottom: BorderSide(color: Colors.blue.shade300, width: 2)),
+        color: AppTheme.surfaceHi,
+        border: Border(bottom: BorderSide(color: AppTheme.accent, width: 2)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -462,13 +462,13 @@ class _OwnerDashboardShellState extends State<OwnerDashboardShell> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.visibility, color: Colors.blue.shade900, size: 20),
+              Icon(Icons.visibility, color: AppTheme.accentSoft, size: 20),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   '${l10n.viewingAs} $roleLabel',
                   style: TextStyle(
-                      color: Colors.blue.shade900,
+                      color: AppTheme.accentSoft,
                       fontWeight: FontWeight.w700,
                       fontSize: 14),
                 ),
@@ -770,14 +770,15 @@ class _NoCompanyScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.business_outlined,
-                    size: 72, color: Colors.grey[400]),
+                    size: 72, color: AppTheme.muted),
                 const SizedBox(height: 24),
                 Text(
                   l10n?.noCompanySelected ?? 'No company selected',
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                      ?.copyWith(
+                          fontWeight: FontWeight.bold, color: AppTheme.text),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -787,7 +788,7 @@ class _NoCompanyScreen extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
-                      ?.copyWith(color: Colors.grey[600]),
+                      ?.copyWith(color: AppTheme.muted),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -898,12 +899,12 @@ class _ErrorScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, size: 72, color: Colors.red[300]),
+                Icon(Icons.error_outline, size: 72, color: AppTheme.danger),
                 const SizedBox(height: 24),
                 Text(
                   AppLocalizations.of(context)?.error ?? 'Error',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.red[700],
+                        color: AppTheme.danger,
                         fontWeight: FontWeight.bold,
                       ),
                   textAlign: TextAlign.center,
@@ -914,7 +915,7 @@ class _ErrorScreen extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
-                      ?.copyWith(color: Colors.grey[600]),
+                      ?.copyWith(color: AppTheme.muted),
                   textAlign: TextAlign.center,
                 ),
               ],

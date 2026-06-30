@@ -126,7 +126,8 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
                       2: const FlexColumnWidth(2),
                       if (widget.showConfidence) 3: const FlexColumnWidth(1),
                     },
-                    border: TableBorder.all(color: Colors.grey.shade300),
+                    border: TableBorder.all(
+                        color: AppTheme.muted.withValues(alpha: 0.22)),
                     children: [
                       TableRow(
                         decoration: BoxDecoration(color: AppTheme.surfaceHi),
@@ -191,7 +192,9 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
   Widget _headerCell(String text) {
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+      child: Text(text,
+          style: TextStyle(
+              fontWeight: FontWeight.bold, color: AppTheme.text)),
     );
   }
 
@@ -208,20 +211,21 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
       columnIndex: idx,
       confidence: conf,
     );
-    final confColor = switch (level) {
-      ImportConfidenceLevel.high => Colors.green.shade700,
-      ImportConfidenceLevel.review => Colors.orange.shade800,
-      ImportConfidenceLevel.missing => Colors.red,
-    };
+    final confColor = _importConfLevelColor(level);
 
     return TableRow(
+      decoration: widget.showConfidence
+          ? _importConfRowDecoration(level, idx)
+          : null,
       children: [
         Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
             '${field.label}${field.required ? " *" : ""}',
             style: TextStyle(
-              color: level == ImportConfidenceLevel.missing ? Colors.red : null,
+              color: level == ImportConfidenceLevel.missing
+                  ? AppTheme.danger
+                  : AppTheme.text,
             ),
           ),
         ),
@@ -278,4 +282,26 @@ class _ColumnMappingDialogState extends State<ColumnMappingDialog> {
           setState(() => _duplicateMode = DuplicateMode.values[i]),
     );
   }
+}
+
+Color _importConfLevelColor(ImportConfidenceLevel level) => switch (level) {
+      ImportConfidenceLevel.high => AppTheme.green,
+      ImportConfidenceLevel.review => AppTheme.warning,
+      ImportConfidenceLevel.missing => AppTheme.danger,
+    };
+
+BoxDecoration? _importConfRowDecoration(ImportConfidenceLevel level, int idx) {
+  if (level == ImportConfidenceLevel.missing) {
+    return BoxDecoration(color: AppTheme.danger.withValues(alpha: 0.10));
+  }
+  if (idx >= 0 && level == ImportConfidenceLevel.high) {
+    return BoxDecoration(color: AppTheme.green.withValues(alpha: 0.10));
+  }
+  if (level == ImportConfidenceLevel.review) {
+    return BoxDecoration(color: AppTheme.warning.withValues(alpha: 0.10));
+  }
+  if (idx < 0) {
+    return BoxDecoration(color: AppTheme.muted.withValues(alpha: 0.08));
+  }
+  return null;
 }

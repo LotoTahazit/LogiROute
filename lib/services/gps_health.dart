@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/delivery_point.dart';
+import '../models/driver_gps_status.dart';
 
 /// Сводка GPS по документам `companies/{id}/driver_locations`.
 class GpsDriverCounts {
@@ -91,5 +92,54 @@ class GpsHealth {
       if (hasFreshValidFix(data, staleAfter: staleAfter)) return true;
     }
     return false;
+  }
+
+  // ───────────────────────── Driver UI health (P0) ─────────────────────────
+  // Чистая логика статуса баннера водителя. Источник истины — ВОЗРАСТ ЛОКАЛЬНОГО
+  // FIX, а не Firestore timestamp: на стоянке стрим молчит (distanceFilter), но
+  // GPS исправен → старый Firestore-таймштамп НЕ должен давать красный «stale».
+
+  /// Решение по статусу баннера. [uiStaleThreshold] — НЕ [staleAfter] (48 ч).
+  static DriverGpsStatus evaluateDriverGpsStatus({
+    required bool serviceEnabled,
+    required bool permissionGranted,
+    required Duration? localFixAge,
+    required Duration sinceTrackingStart,
+    required bool uploadOk,
+    required Duration uiStaleThreshold,
+  }) {
+    if (!serviceEnabled) return DriverGpsStatus.disabled;
+    if (!permissionGranted) return DriverGpsStatus.permissionRequired;
+    if (localFixAge == null) {
+      // Первого fix ещё не было: грейс-период = тот же UI-порог.
+      return sinceTrackingStart <= uiStaleThreshold
+          ? DriverGpsStatus.waiting
+          : DriverGpsStatus.stale;
+    }
+    if (localFixAge <= uiStaleThreshold) {
+      return uploadOk ? DriverGpsStatus.active : DriverGpsStatus.uploadError;
+    }
+    return DriverGpsStatus.stale;
+  }
+
+  static bool _isGreen(DriverGpsStatus s) => s == DriverGpsStatus.active;
+  static bool _isRed(DriverGpsStatus s) => s == DriverGpsStatus.stale;
+
+  /// Цвет-флип = переход зелёный↔красный (active↔stale) — его и дребезжим.
+  static bool isDriverColorFlip(DriverGpsStatus a, DriverGpsStatus b) =>
+      (_isGreen(a) && _isRed(b)) || (_isRed(a) && _isGreen(b));
+
+  /// Антидребезг: цвет-флип не чаще раза в [debounce]. Прочие смены — сразу.
+  static bool shouldApplyDriverStatus({
+    required DriverGpsStatus current,
+    required DriverGpsStatus next,
+    required DateTime? lastFlipAt,
+    required DateTime now,
+    Duration debounce = const Duration(seconds: 30),
+  }) {
+    if (next == current) return false;
+    if (!isDriverColorFlip(current, next)) return true;
+    if (lastFlipAt == null) return true;
+    return now.difference(lastFlipAt) >= debounce;
   }
 }

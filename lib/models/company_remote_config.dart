@@ -10,6 +10,10 @@ class CompanyRemoteConfig {
   final int autoCloseWaitSeconds;
   final int closeUndoSeconds;
   final int gpsStaleMinutes;
+
+  /// UI-порог «GPS устарел» для баннера водителя (секунды). Отдельно от
+  /// [gpsStaleMinutes] (48 ч — для Customer Health диспетчера/owner).
+  final int driverGpsUiStaleSeconds;
   final int driverSessionHeartbeatSeconds;
   final int driverSessionStaleMinutes;
   final bool backgroundAutoCloseEnabled;
@@ -23,6 +27,7 @@ class CompanyRemoteConfig {
     required this.autoCloseWaitSeconds,
     required this.closeUndoSeconds,
     required this.gpsStaleMinutes,
+    this.driverGpsUiStaleSeconds = 180,
     required this.driverSessionHeartbeatSeconds,
     required this.driverSessionStaleMinutes,
     required this.backgroundAutoCloseEnabled,
@@ -37,6 +42,7 @@ class CompanyRemoteConfig {
         autoCloseWaitSeconds: AppConfig.autoCompleteDuration.inSeconds,
         closeUndoSeconds: AppConfig.closeUndoUiDuration.inSeconds,
         gpsStaleMinutes: 48 * 60,
+        driverGpsUiStaleSeconds: 180,
         driverSessionHeartbeatSeconds:
             AppConfig.driverSessionHeartbeatInterval.inSeconds,
         driverSessionStaleMinutes:
@@ -50,6 +56,7 @@ class CompanyRemoteConfig {
   Duration get autoCloseWait => Duration(seconds: autoCloseWaitSeconds);
   Duration get closeUndo => Duration(seconds: closeUndoSeconds);
   Duration get gpsStaleAfter => Duration(minutes: gpsStaleMinutes);
+  Duration get driverGpsUiStale => Duration(seconds: driverGpsUiStaleSeconds);
   Duration get sessionHeartbeat =>
       Duration(seconds: driverSessionHeartbeatSeconds);
   Duration get sessionStale => Duration(minutes: driverSessionStaleMinutes);
@@ -78,6 +85,7 @@ class CompanyRemoteConfig {
         'autoCloseWaitSeconds': autoCloseWaitSeconds,
         'closeUndoSeconds': closeUndoSeconds,
         'gpsStaleMinutes': gpsStaleMinutes,
+        'driverGpsUiStaleSeconds': driverGpsUiStaleSeconds,
         'driverSessionHeartbeatSeconds': driverSessionHeartbeatSeconds,
         'driverSessionStaleMinutes': driverSessionStaleMinutes,
         'backgroundAutoCloseEnabled': backgroundAutoCloseEnabled,

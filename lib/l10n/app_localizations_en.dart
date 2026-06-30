@@ -1033,6 +1033,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gpsStatusPermissionRequired => 'Permission required';
 
   @override
+  String get gpsStatusUploadError => 'Upload error';
+
+  @override
   String get gpsUnavailableHint =>
       'GPS unavailable. Turn on location and allow access.';
 
@@ -8011,6 +8014,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get rcGpsStaleDesc =>
       'After this many minutes without GPS update the driver is considered offline';
+
+  @override
+  String get rcDriverGpsUiStale => 'Driver GPS UI stale (sec)';
+
+  @override
+  String get rcDriverGpsUiStaleDesc =>
+      'Seconds without a fresh local fix before the driver\'s banner shows GPS stale (60–900)';
 
   @override
   String get rcSessionHeartbeat => 'Session heartbeat (sec)';

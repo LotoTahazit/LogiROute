@@ -524,7 +524,8 @@ class _ImportMappingWizardScreenState extends State<ImportMappingWizardScreen> {
                 2: FlexColumnWidth(2),
                 3: FlexColumnWidth(1),
               },
-              border: TableBorder.all(color: Colors.grey.shade300),
+              border: TableBorder.all(
+                  color: AppTheme.muted.withValues(alpha: 0.22)),
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: AppTheme.surfaceHi),
@@ -584,21 +585,13 @@ class _ImportMappingWizardScreenState extends State<ImportMappingWizardScreen> {
       columnIndex: idx,
       confidence: conf,
     );
-    final levelColor = switch (level) {
-      ImportConfidenceLevel.high => Colors.green.shade700,
-      ImportConfidenceLevel.review => Colors.orange.shade800,
-      ImportConfidenceLevel.missing => Colors.red,
-    };
+    final levelColor = _importConfLevelColor(level);
     return TableRow(
-      decoration: idx >= 0 && level == ImportConfidenceLevel.high
-          ? BoxDecoration(color: Colors.green.withValues(alpha: 0.04))
-          : level == ImportConfidenceLevel.missing
-              ? BoxDecoration(color: Colors.red.withValues(alpha: 0.04))
-              : null,
+      decoration: _importConfRowDecoration(level, idx),
       children: [
         _cell(
           '${field.label}${field.required ? " *" : ""}',
-          color: level == ImportConfidenceLevel.missing ? Colors.red : null,
+          color: level == ImportConfidenceLevel.missing ? AppTheme.danger : null,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -633,7 +626,7 @@ class _ImportMappingWizardScreenState extends State<ImportMappingWizardScreen> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontWeight: bold ? FontWeight.bold : null,
-          color: color,
+          color: color ?? (bold ? AppTheme.text : null),
           fontSize: 12,
         ),
       ),
@@ -708,4 +701,26 @@ class _ImportMappingWizardScreenState extends State<ImportMappingWizardScreen> {
       ],
     );
   }
+}
+
+Color _importConfLevelColor(ImportConfidenceLevel level) => switch (level) {
+      ImportConfidenceLevel.high => AppTheme.green,
+      ImportConfidenceLevel.review => AppTheme.warning,
+      ImportConfidenceLevel.missing => AppTheme.danger,
+    };
+
+BoxDecoration? _importConfRowDecoration(ImportConfidenceLevel level, int idx) {
+  if (level == ImportConfidenceLevel.missing) {
+    return BoxDecoration(color: AppTheme.danger.withValues(alpha: 0.10));
+  }
+  if (idx >= 0 && level == ImportConfidenceLevel.high) {
+    return BoxDecoration(color: AppTheme.green.withValues(alpha: 0.10));
+  }
+  if (level == ImportConfidenceLevel.review) {
+    return BoxDecoration(color: AppTheme.warning.withValues(alpha: 0.10));
+  }
+  if (idx < 0) {
+    return BoxDecoration(color: AppTheme.muted.withValues(alpha: 0.08));
+  }
+  return null;
 }
